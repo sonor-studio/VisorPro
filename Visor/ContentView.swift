@@ -142,8 +142,7 @@ struct ContentView: View {
                     let index = overlaysInPos.firstIndex(of: overlay) ?? 0
                     let total = overlaysInPos.count
                     
-                    IsolatedOverlayWrapper(overlay: overlay, content: overlayView(for: overlay))
-                        .equatable()
+                    overlayView(for: overlay)
                         .id(overlay.id)
                         .transition(.opacity.combined(with: .scale(scale: 0.95)))
                         .position(x: xPos(for: overlay.position, index: index, total: total, in: geo),
@@ -294,11 +293,11 @@ struct BatteryOverlayView: View {
                     if actualPercentage == 100 {
                         Text("Connected")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                         AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)
                     } else {
                         AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: actualIsPluggedIn)
-                        MarqueeText(text: mockedTimeRemaining(for: actualPercentage), font: .system(size: 11, weight: .bold, design: .rounded), foregroundColor: .gray)
+                        MarqueeText(text: mockedTimeRemaining(for: actualPercentage), font: .system(size: 11, weight: .bold, design: .rounded), foregroundColor: .secondary)
                     }
                 }
                 Spacer(minLength: 8)
@@ -328,7 +327,9 @@ struct BatteryOverlayView: View {
         .frame(width: width, height: height)
         .contentShape(Capsule())
         .onHover { isHovering in
-            mediaKeyManager.keepAlive(for: "battery", isHovering: isHovering)
+            if !isPreview {
+                mediaKeyManager.keepAlive(for: "battery", isHovering: isHovering)
+            }
         }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
@@ -398,10 +399,29 @@ struct AnimatablePercentageText: View, Animatable {
     }
     
     var body: some View {
-        Text(displayText)
-            .font(.system(size: isTopTitle ? 16 : 13, weight: isTopTitle ? .bold : .medium, design: isTopTitle ? .rounded : .default))
-            .monospacedDigit()
-            .foregroundColor(color)
+        Group {
+            if customText == "%d%" {
+                ZStack(alignment: .trailing) {
+                    Text("100%")
+                        .font(.system(size: isTopTitle ? 16 : 13, weight: isTopTitle ? .bold : .medium, design: isTopTitle ? .rounded : .default))
+                        .monospacedDigit()
+                        .hidden()
+                    
+                    Text(displayText)
+                        .font(.system(size: isTopTitle ? 16 : 13, weight: isTopTitle ? .bold : .medium, design: isTopTitle ? .rounded : .default))
+                        .monospacedDigit()
+                        .foregroundColor(color)
+                        .animation(nil, value: displayText)
+                }
+            } else {
+                Text(displayText)
+                    .font(.system(size: isTopTitle ? 16 : 13, weight: isTopTitle ? .bold : .medium, design: isTopTitle ? .rounded : .default))
+                    .monospacedDigit()
+                    .foregroundColor(color)
+                    .animation(nil, value: displayText)
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 
@@ -585,17 +605,17 @@ struct VolumeOverlayView: View {
             Group {
                 if volumeFillCenter {
                     Capsule()
-                        .fill(actualIsMuted ? Color.gray.opacity(0.7) : Color.blue.opacity(0.85))
+                        .fill(actualIsMuted ? Color.secondary.opacity(0.7) : Color.blue.opacity(0.85))
                 } else {
                     Capsule()
-                        .strokeBorder(actualIsMuted ? Color.gray.opacity(0.7) : Color.blue.opacity(0.85), lineWidth: innerPadding)
+                        .strokeBorder(actualIsMuted ? Color.secondary.opacity(0.7) : Color.blue.opacity(0.85), lineWidth: innerPadding)
                 }
             }
             .frame(width: trackWidth, height: trackHeight)
             .mask(
                 HStack(spacing: 0) {
                     Rectangle()
-                        .frame(width: trackWidth * animatedVolumeProgress)
+                        .frame(width: max(0, trackWidth * animatedVolumeProgress))
                     Spacer(minLength: 0)
                 }
             )
@@ -605,7 +625,7 @@ struct VolumeOverlayView: View {
             HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsMuted ? .gray : .primary)
+                        .foregroundColor(actualIsMuted ? .secondary : .primary)
                         .frame(width: 26, height: 24)
                     
                     MarqueeText(text: actualIsMuted ? "Muted" : mediaKeyManager.currentAudioDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
@@ -616,20 +636,32 @@ struct VolumeOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-                .glassEffect(.thinMaterial, in: Capsule())
+                .modifier(ConditionalGlassEffect(isActive: !volumeFillCenter))
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)
         .contentShape(Capsule())
         .onHover { isHovering in
-            mediaKeyManager.keepAlive(for: "visor", isHovering: isHovering)
+            if !isPreview {
+                mediaKeyManager.keepAlive(for: "volume", isHovering: isHovering)
+            }
         }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
         .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
-            let targetProgress = CGFloat(actualVolume) / 100.0
-            animatedVolumeProgress = targetProgress
+            if isPreview {
+                animatedVolumeProgress = 0.2
+                withAnimation(.easeInOut(duration: 1.0)) {
+                    animatedVolumeProgress = 0.65
+                }
+            } else {
+                let targetProgress = CGFloat(actualVolume) / 100.0
+                animatedVolumeProgress = targetProgress
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    animatedVolumeProgress = targetProgress
+                }
+            }
         }
         .onChange(of: actualVolume) { newValue in
             let targetProgress = CGFloat(newValue) / 100.0
@@ -705,7 +737,7 @@ struct BrightnessOverlayView: View {
             .mask(
                 HStack(spacing: 0) {
                     Rectangle()
-                        .frame(width: trackWidth * animatedBrightnessProgress)
+                        .frame(width: max(0, trackWidth * animatedBrightnessProgress))
                     Spacer(minLength: 0)
                 }
             )
@@ -718,8 +750,10 @@ struct BrightnessOverlayView: View {
                         .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
                     
-                    MarqueeText(text: "Display", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                        .truncationMode(.tail)
+                    Text("Display")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
                     
                     Spacer(minLength: 8)
                     
@@ -727,20 +761,32 @@ struct BrightnessOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-                .glassEffect(.thinMaterial, in: Capsule())
+                .modifier(ConditionalGlassEffect(isActive: !brightnessFillCenter))
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)
         .contentShape(Capsule())
         .onHover { isHovering in
-            mediaKeyManager.keepAlive(for: "visor", isHovering: isHovering)
+            if !isPreview {
+                mediaKeyManager.keepAlive(for: "brightness", isHovering: isHovering)
+            }
         }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
         .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
-            let targetProgress = CGFloat(actualBrightness) / 100.0
-            animatedBrightnessProgress = targetProgress
+            if isPreview {
+                animatedBrightnessProgress = 0.1
+                withAnimation(.easeInOut(duration: 1.2)) {
+                    animatedBrightnessProgress = 0.8
+                }
+            } else {
+                let targetProgress = CGFloat(actualBrightness) / 100.0
+                animatedBrightnessProgress = targetProgress
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    animatedBrightnessProgress = targetProgress
+                }
+            }
         }
         .onChange(of: actualBrightness) { newValue in
             let targetProgress = CGFloat(newValue) / 100.0
@@ -826,7 +872,8 @@ struct CopyOverlayView: View {
                 .frame(width: trackWidth, height: trackHeight)
                 .mask(
                     HStack(spacing: 0) {
-                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: 3.5, hoverOutDuration: 2.5)
+                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                            .id(mediaKeyManager.clipboardEventId)
                         Spacer(minLength: 0)
                     }
                 )
@@ -842,7 +889,7 @@ struct CopyOverlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(actionTitle)
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                         
                         Text((isPreview || mediaKeyManager.copiedText.isEmpty) ? actionFallbackText : mediaKeyManager.copiedText)
                             .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -860,7 +907,10 @@ struct CopyOverlayView: View {
         .frame(width: width, height: height)
         .contentShape(Capsule())
         .onHover { isHovering in
-            mediaKeyManager.keepAlive(for: "visor", isHovering: isHovering)
+            if !isPreview {
+                self.isHovering = isHovering
+                mediaKeyManager.keepAlive(for: "copy", isHovering: isHovering)
+            }
         }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
@@ -879,7 +929,7 @@ struct CapsLockOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsOn ? .green : .gray
+        actualIsOn ? .green : .secondary
     }
     
     private var actionTitle: String {
@@ -913,7 +963,8 @@ struct CapsLockOverlayView: View {
                 .frame(width: trackWidth, height: trackHeight)
                 .mask(
                     HStack(spacing: 0) {
-                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: 3.5, hoverOutDuration: 2.5)
+                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                            .id(mediaKeyManager.capsLockEventId)
                         Spacer(minLength: 0)
                     }
                 )
@@ -928,7 +979,7 @@ struct CapsLockOverlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Keyboard")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                             
                         MarqueeText(text: actionTitle, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
@@ -942,7 +993,10 @@ struct CapsLockOverlayView: View {
         .frame(width: width, height: height)
         .contentShape(Capsule())
         .onHover { isHovering in
-            mediaKeyManager.keepAlive(for: "visor", isHovering: isHovering)
+            if !isPreview {
+                self.isHovering = isHovering
+                mediaKeyManager.keepAlive(for: "capsLock", isHovering: isHovering)
+            }
         }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
@@ -954,6 +1008,7 @@ struct CapsLockOverlayView: View {
 struct ThemeOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @Environment(\.colorScheme) var colorScheme
+    @State private var isHovering: Bool = false
     
     var isPreview: Bool = false
     var previewIsDark: Bool = false
@@ -990,6 +1045,13 @@ struct ThemeOverlayView: View {
             Capsule()
                 .strokeBorder(iconColor.opacity(0.85), lineWidth: innerPadding)
                 .frame(width: trackWidth, height: trackHeight)
+                .mask(
+                    HStack(spacing: 0) {
+                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                            .id(mediaKeyManager.themeEventId)
+                        Spacer(minLength: 0)
+                    }
+                )
                 .padding(.leading, trackPadding)
             
             // WARSTWA 3: Górna warstwa
@@ -1002,7 +1064,7 @@ struct ThemeOverlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Motyw")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                         
                         MarqueeText(text: titleText, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
@@ -1016,7 +1078,10 @@ struct ThemeOverlayView: View {
         .frame(width: width, height: height)
         .contentShape(Capsule())
         .onHover { isHovering in
-            mediaKeyManager.keepAlive(for: "theme", isHovering: isHovering)
+            if !isPreview {
+                self.isHovering = isHovering
+                mediaKeyManager.keepAlive(for: "theme", isHovering: isHovering)
+            }
         }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
@@ -1026,6 +1091,7 @@ struct ThemeOverlayView: View {
 
 struct PeripheralOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @State private var isHovering: Bool = false
     
     var isPreview: Bool = false
     var previewIsConnected: Bool = false
@@ -1084,6 +1150,13 @@ struct PeripheralOverlayView: View {
             Capsule()
                 .strokeBorder(actionColor.opacity(0.85), lineWidth: innerPadding)
                 .frame(width: trackWidth, height: trackHeight)
+                .mask(
+                    HStack(spacing: 0) {
+                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                            .id(notification?.timestamp ?? Date())
+                        Spacer(minLength: 0)
+                    }
+                )
                 .padding(.leading, trackPadding)
             
             // WARSTWA 3: Górna warstwa
@@ -1096,7 +1169,7 @@ struct PeripheralOverlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(isConnected ? "Połączono" : "Rozłączono")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                         
                         MarqueeText(text: deviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
@@ -1110,11 +1183,26 @@ struct PeripheralOverlayView: View {
         .frame(width: width, height: height)
         .contentShape(Capsule())
         .onHover { isHovering in
-            mediaKeyManager.keepAlive(for: "peripheral", isHovering: isHovering)
+            if !isPreview {
+                self.isHovering = isHovering
+                let keepAliveType = notification != nil ? "peripheral_\(notification!.id)" : "peripheral"
+                mediaKeyManager.keepAlive(for: keepAliveType, isHovering: isHovering)
+            }
         }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
         .applyTheme(mediaKeyManager.overlayTheme)
+    }
+}
+
+struct ConditionalGlassEffect: ViewModifier {
+    var isActive: Bool
+    func body(content: Content) -> some View {
+        if isActive {
+            content.glassEffect(.thinMaterial, in: Capsule(), blendingMode: .behindWindow)
+        } else {
+            content.glassEffect(.thinMaterial, in: Capsule(), blendingMode: .withinWindow)
+        }
     }
 }
 

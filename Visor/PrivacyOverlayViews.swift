@@ -11,7 +11,7 @@ struct MicOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsActive ? .green : .gray
+        actualIsActive ? .green : .secondary
     }
     
     private var actionTitle: String {
@@ -45,7 +45,8 @@ struct MicOverlayView: View {
                 .frame(width: trackWidth, height: trackHeight)
                 .mask(
                     HStack(spacing: 0) {
-                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: 3.5, hoverOutDuration: 2.5)
+                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                            .id(mediaKeyManager.micEventId)
                         Spacer(minLength: 0)
                     }
                 )
@@ -54,13 +55,13 @@ struct MicOverlayView: View {
             HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsActive ? "mic.fill" : "mic.slash.fill")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsActive ? .primary : .gray)
+                        .foregroundColor(actualIsActive ? .primary : .secondary)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(actionTitle)
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                         
                         MarqueeText(text: isPreview ? "System Microphone" : (mediaKeyManager.activeMicName.isEmpty ? "Microphone" : mediaKeyManager.activeMicName), font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
@@ -105,7 +106,7 @@ struct CameraOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsActive ? .blue : .gray
+        actualIsActive ? .blue : .secondary
     }
     
     private var actionTitle: String {
@@ -139,7 +140,8 @@ struct CameraOverlayView: View {
                 .frame(width: trackWidth, height: trackHeight)
                 .mask(
                     HStack(spacing: 0) {
-                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: 3.5, hoverOutDuration: 2.5)
+                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                            .id(mediaKeyManager.cameraEventId)
                         Spacer(minLength: 0)
                     }
                 )
@@ -148,13 +150,13 @@ struct CameraOverlayView: View {
             HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsActive ? "video.fill" : "video.slash.fill")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsActive ? .primary : .gray)
+                        .foregroundColor(actualIsActive ? .primary : .secondary)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(actionTitle)
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                         
                         MarqueeText(text: isPreview ? "FaceTime HD Camera" : (mediaKeyManager.activeCameraName.isEmpty ? "Camera" : mediaKeyManager.activeCameraName), font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }

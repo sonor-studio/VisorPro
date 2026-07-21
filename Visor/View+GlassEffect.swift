@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct ActiveVisualEffectView: NSViewRepresentable {
+    var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
+    
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.blendingMode = .behindWindow
+        view.blendingMode = blendingMode
         view.state = .active
         view.material = .popover
         return view
@@ -15,8 +17,8 @@ struct ActiveVisualEffectView: NSViewRepresentable {
 }
 
 extension View {
-    func glassEffect<S: InsettableShape>(_ material: Material, in shape: S) -> some View {
-        self.background(ActiveVisualEffectView().clipShape(shape))
+    func glassEffect<S: InsettableShape>(_ material: Material, in shape: S, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
+        self.background(ActiveVisualEffectView(blendingMode: blendingMode).clipShape(shape))
             .overlay(
                 shape.stroke(Color.primary.opacity(0.15), lineWidth: 0.5)
             )
@@ -24,8 +26,8 @@ extension View {
             .clipShape(shape)
     }
     
-    func glassEffect(_ material: Material) -> some View {
-        self.background(ActiveVisualEffectView())
+    func glassEffect(_ material: Material, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
+        self.background(ActiveVisualEffectView(blendingMode: blendingMode))
     }
 }
 

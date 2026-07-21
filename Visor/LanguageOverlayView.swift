@@ -40,7 +40,8 @@ struct LanguageOverlayView: View {
                 .frame(width: trackWidth, height: trackHeight)
                 .mask(
                     HStack(spacing: 0) {
-                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: 3.5, hoverOutDuration: 2.5)
+                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                            .id(mediaKeyManager.languageEventId)
                         Spacer(minLength: 0)
                     }
                 )
@@ -56,7 +57,7 @@ struct LanguageOverlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Keyboard Layout")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                         
                         MarqueeText(text: languageName.isEmpty ? "Unknown" : languageName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }

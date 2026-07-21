@@ -22,6 +22,8 @@ struct DeviceNotification: Identifiable, Equatable {
 
 class MediaKeyManager: ObservableObject {
     static let shared = MediaKeyManager()
+    static let notificationDuration: TimeInterval = 3.0
+    
     @Published var lastAction: String = "Oczekuję na akcje..."
     @Published var isTrusted: Bool = false
     @Published var activeBluetoothNotifications: [DeviceNotification] = []
@@ -509,20 +511,11 @@ class MediaKeyManager: ObservableObject {
             self.isDarkMode = isDark
             self.themeEventId = UUID()
             
-            if self.showThemeIndicator {
-                self.showThemeIndicator = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        self.showThemeIndicator = true
-                    }
-                }
-            } else {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showThemeIndicator = true
-                }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                self.showThemeIndicator = true
             }
             
-            self.themeTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+            self.themeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.showThemeIndicator = false
                 }
@@ -543,20 +536,11 @@ class MediaKeyManager: ObservableObject {
         self.currentKeyboardLanguage = language
         self.languageEventId = UUID()
         
-        if showLanguageIndicator {
-            showLanguageIndicator = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showLanguageIndicator = true
-                }
-            }
-        } else {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                showLanguageIndicator = true
-            }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            self.showLanguageIndicator = true
         }
         
-        languageTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+        languageTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 self?.showLanguageIndicator = false
             }
@@ -590,20 +574,11 @@ class MediaKeyManager: ObservableObject {
             
             self.micEventId = UUID()
             
-            if self.showMicIndicator {
-                self.showMicIndicator = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        self.showMicIndicator = true
-                    }
-                }
-            } else {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showMicIndicator = true
-                }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                self.showMicIndicator = true
             }
             
-            self.micTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+            self.micTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.showMicIndicator = false
                 }
@@ -636,20 +611,11 @@ class MediaKeyManager: ObservableObject {
             
             self.cameraEventId = UUID()
             
-            if self.showCameraIndicator {
-                self.showCameraIndicator = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        self.showCameraIndicator = true
-                    }
-                }
-            } else {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showCameraIndicator = true
-                }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                self.showCameraIndicator = true
             }
             
-            self.cameraTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+            self.cameraTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.showCameraIndicator = false
                 }
@@ -693,7 +659,7 @@ class MediaKeyManager: ObservableObject {
             }
         }
         
-        chargingTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+        chargingTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 self?.showChargingStatus = false
             }
@@ -732,7 +698,7 @@ class MediaKeyManager: ObservableObject {
             
             let timerKey = "peripheral_\(deviceName)"
             self.notificationTimers[timerKey]?.invalidate()
-            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: 3.5, repeats: false) { [weak self] _ in
+            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.activePeripheralNotifications.removeAll(where: { $0.id == deviceName })
                 }
@@ -766,17 +732,8 @@ class MediaKeyManager: ObservableObject {
             
             self.accessoryBatteryEventId = UUID()
             
-            if self.showAccessoryBatteryIndicator {
-                self.showAccessoryBatteryIndicator = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        self.showAccessoryBatteryIndicator = true
-                    }
-                }
-            } else {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showAccessoryBatteryIndicator = true
-                }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                self.showAccessoryBatteryIndicator = true
             }
             
             let displayTime: TimeInterval = isWarning ? 4.5 : 3.5
@@ -818,7 +775,7 @@ class MediaKeyManager: ObservableObject {
             showVolumeIndicator = true
         }
         
-        volumeTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+        volumeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 self?.showVolumeIndicator = false
             }
@@ -838,7 +795,7 @@ class MediaKeyManager: ObservableObject {
             showBrightnessIndicator = true
         }
         
-        brightnessTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+        brightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 self?.showBrightnessIndicator = false
             }
@@ -863,20 +820,11 @@ class MediaKeyManager: ObservableObject {
         self.clipboardAction = action
         self.clipboardEventId = UUID()
         
-        if showCopyIndicator {
-            showCopyIndicator = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showCopyIndicator = true
-                }
-            }
-        } else {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                showCopyIndicator = true
-            }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            showCopyIndicator = true
         }
         
-        copyTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+        copyTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 self?.showCopyIndicator = false
             }
@@ -896,20 +844,11 @@ class MediaKeyManager: ObservableObject {
         self.isCapsLockOn = isOn
         self.capsLockEventId = UUID()
         
-        if showCapsLockIndicator {
-            showCapsLockIndicator = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showCapsLockIndicator = true
-                }
-            }
-        } else {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                showCapsLockIndicator = true
-            }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            showCapsLockIndicator = true
         }
         
-        capsLockTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+        capsLockTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 self?.showCapsLockIndicator = false
             }
@@ -959,7 +898,7 @@ class MediaKeyManager: ObservableObject {
             
             let timerKey = "bluetooth_\(deviceName)"
             self.notificationTimers[timerKey]?.invalidate()
-            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: 3.5, repeats: false) { [weak self] _ in
+            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.activeBluetoothNotifications.removeAll(where: { $0.id == deviceName })
                 }
@@ -997,20 +936,11 @@ class MediaKeyManager: ObservableObject {
             self.wiFiIsHotspot = isHotspot
             self.wiFiEventId = UUID()
             
-            if self.showWiFiIndicator {
-                self.showWiFiIndicator = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        self.showWiFiIndicator = true
-                    }
-                }
-            } else {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showWiFiIndicator = true
-                }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                self.showWiFiIndicator = true
             }
             
-            self.wiFiTimer = Timer.scheduledTimer(withTimeInterval: 3.5, repeats: false) { [weak self] _ in
+            self.wiFiTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.showWiFiIndicator = false
                 }
@@ -1049,7 +979,7 @@ class MediaKeyManager: ObservableObject {
             withAnimation {
                 self.showMediaIndicator = true
                 self.mediaHideTimer?.invalidate()
-                self.mediaHideTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
+                self.mediaHideTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
                     withAnimation {
                         self.showMediaIndicator = false
                     }
@@ -1059,7 +989,33 @@ class MediaKeyManager: ObservableObject {
     }
     
     func keepAlive(for type: String, isHovering: Bool) {
-        let defaultDelay: TimeInterval = type == "battery" ? 5.0 : (type == "volume" || type == "brightness" ? 3.0 : 2.5)
+        let defaultDelay: TimeInterval = MediaKeyManager.notificationDuration
+        
+        if type.hasPrefix("peripheral_") {
+            let deviceName = String(type.dropFirst("peripheral_".count))
+            notificationTimers[type]?.invalidate()
+            if !isHovering {
+                notificationTimers[type] = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self?.activePeripheralNotifications.removeAll(where: { $0.id == deviceName })
+                    }
+                }
+            }
+            return
+        }
+        
+        if type.hasPrefix("bluetooth_") {
+            let deviceId = String(type.dropFirst("bluetooth_".count))
+            notificationTimers[type]?.invalidate()
+            if !isHovering {
+                notificationTimers[type] = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self?.activeBluetoothNotifications.removeAll(where: { $0.id == deviceId })
+                    }
+                }
+            }
+            return
+        }
         
         switch type {
         case "volume":
@@ -1193,20 +1149,11 @@ class MediaKeyManager: ObservableObject {
             
             self.mediaEventId = UUID()
             
-            if self.showMediaIndicator {
-                self.showMediaIndicator = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        self.showMediaIndicator = true
-                    }
-                }
-            } else {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showMediaIndicator = true
-                }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                self.showMediaIndicator = true
             }
             
-            self.mediaTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+            self.mediaTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.showMediaIndicator = false
                 }

@@ -43,7 +43,7 @@ struct MediaOverlayView: View {
         case "start": return .blue
         case "resume": return .green
         case "pause": return .red
-        case "end": return .gray
+        case "end": return .secondary
         default: return .red
         }
     }
@@ -113,7 +113,7 @@ struct MediaOverlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(actionTitle)
                             .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                             .textCase(.uppercase)
                         
                         MarqueeText(text: actualTitle, font: .system(size: 13, weight: .bold, design: .rounded), foregroundColor: .primary)
@@ -132,7 +132,9 @@ struct MediaOverlayView: View {
         .frame(width: width, height: height)
         .contentShape(Capsule())
         .onHover { isHovering in
-            mediaKeyManager.keepAlive(for: "media", isHovering: isHovering)
+            if !isPreview {
+                mediaKeyManager.keepAlive(for: "media", isHovering: isHovering)
+            }
         }
         
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)

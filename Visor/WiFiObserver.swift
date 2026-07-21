@@ -10,6 +10,7 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
     private var timer: Timer?
     private var lastSSID: String?
     private var lastIsConnected: Bool = false
+    private var lastWasHotspot: Bool = false
     private var inactiveCounter: Int = 0
     
     private var pathMonitor: NWPathMonitor?
@@ -58,12 +59,20 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             self.pathMonitor = NWPathMonitor(requiredInterfaceType: .wifi)
             self.pathMonitor?.pathUpdateHandler = { [weak self] path in
                 let expensive = path.isExpensive
+                let isSatisfied = path.status == .satisfied
                 DispatchQueue.main.async {
                     guard let self = self else { return }
                     if self.isCurrentlyHotspot != expensive {
                         self.isCurrentlyHotspot = expensive
                         // Jeśli odświeżyło się z opóźnieniem, przekaż to w locie do aktywnej nakładki!
-                        if self.lastIsConnected {
+                        // Zapisujemy lastWasHotspot TYLKO gdy mamy aktywne połączenie (satisfied)
+                        if self.lastIsConnected && isSatisfied {
+                            self.manager?.wiFiIsHotspot = expensive
+                            self.lastWasHotspot = expensive
+                        } else if self.lastIsConnected && !isSatisfied {
+                            // Jeśli straciliśmy połączenie (status != .satisfied), NWPathMonitor
+                            // zgłosi expensive = false. Nie chcemy nadpisać lastWasHotspot!
+                            // Tylko aktualizujemy aktualny stan menedżera, bez ruszania lastWasHotspot.
                             self.manager?.wiFiIsHotspot = expensive
                         }
                     }
@@ -161,10 +170,13 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
                     manager.lastAction = "Connected to: \(networkName)"
                 }
                 manager.triggerWiFiIndicator(ssid: networkName, isConnected: true, isHotspot: self.isCurrentlyHotspot)
+                self.lastWasHotspot = self.isCurrentlyHotspot
             } else {
                 let networkName = self.lastSSID ?? "Wi-Fi"
-                manager.lastAction = "Disconnected from Wi-Fi"
-                manager.triggerWiFiIndicator(ssid: networkName, isConnected: false, isHotspot: false)
+                let wasHotspot = self.lastWasHotspot
+                manager.lastAction = "Disconnected from \(wasHotspot ? "Hotspot" : "Wi-Fi")"
+                manager.triggerWiFiIndicator(ssid: networkName, isConnected: false, isHotspot: wasHotspot)
+                self.lastWasHotspot = false
             }
             
             self.lastIsConnected = isConnected

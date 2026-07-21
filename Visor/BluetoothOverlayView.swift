@@ -22,7 +22,7 @@ struct BluetoothOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsConnected ? .blue : .gray
+        actualIsConnected ? .blue : .secondary
     }
     
     private var actionTitle: String {
@@ -56,7 +56,8 @@ struct BluetoothOverlayView: View {
                 .frame(width: trackWidth, height: trackHeight)
                 .mask(
                     HStack(spacing: 0) {
-                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: 3.5, hoverOutDuration: 2.5)
+                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                            .id(notification?.timestamp ?? Date())
                         Spacer(minLength: 0)
                     }
                 )
@@ -76,13 +77,13 @@ struct BluetoothOverlayView: View {
                     
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsConnected ? .primary : .gray)
+                        .foregroundColor(actualIsConnected ? .primary : .secondary)
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(actionTitle)
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                         
                         MarqueeText(text: actualDeviceName.isEmpty ? "Unknown Device" : actualDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
