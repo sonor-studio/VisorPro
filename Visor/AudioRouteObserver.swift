@@ -5,6 +5,7 @@ import Dispatch
 class AudioRouteObserver {
     private weak var manager: MediaKeyManager?
     private var currentDeviceID: AudioDeviceID = 0
+    private var lastRouteChangeTime: Date = Date.distantPast
     
     private lazy var volumeListenerBlock: AudioObjectPropertyListenerBlock = { [weak self] (inNumberAddresses, inAddresses) in
         self?.handleVolumeChanged()
@@ -33,11 +34,11 @@ class AudioRouteObserver {
         }
         
         if status != noErr {
-            print("Błąd podczas rejestrowania nasłuchiwacza trasy CoreAudio: \(status)")
         }
     }
     
     private func handleRouteChanged() {
+        lastRouteChangeTime = Date()
         updateCurrentDeviceAndListen()
         
         guard let manager = manager, !manager.useSystemOSD else { return }
@@ -95,15 +96,22 @@ class AudioRouteObserver {
     private func handleVolumeChanged() {
         guard let manager = manager, !manager.useSystemOSD else { return }
         
+        let timeSinceRoute = Date().timeIntervalSince(lastRouteChangeTime)
+        
         VolumeManager.shared.fetchCurrentVolume { [weak manager] vol, muted in
             guard let mgr = manager else { return }
             
-            // Unikamy zapętlenia z klawiatury (skrypt wywołuje OSD ręcznie)
-            // ale jeśli zmiana pochodzi z zewnątrz (AirPods), to triggerVolumeIndicator odpali HUD
+            if mgr.currentVolume == vol && mgr.isMuted == muted {
+                return
+            }
+            
             mgr.currentVolume = vol
             mgr.isMuted = muted
             mgr.currentAudioDeviceName = VolumeManager.shared.getCurrentAudioDeviceName()
-            mgr.triggerVolumeIndicator()
+            
+            if timeSinceRoute > 2.5 {
+                mgr.triggerVolumeIndicator()
+            }
         }
     }
 }

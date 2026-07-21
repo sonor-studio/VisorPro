@@ -7,16 +7,59 @@
 
 import SwiftUI
 
+class AppDelegate: NSObject, NSApplicationDelegate {
+    var overlayPanel: NSPanel?
+    
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // 1. Inicjalizacja panelu z odpowiednimi stylami dla nakładki
+        let panel = NSPanel(
+            contentRect: NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 800, height: 600),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        
+        // 2. Panel nie może być widoczny i musi przepuszczać zdarzenia
+        panel.isOpaque = false
+        panel.hasShadow = false
+        panel.backgroundColor = .clear
+        panel.ignoresMouseEvents = true // Nakładka statyczna, tylko do odczytu
+        
+        // 3. Kluczowe: pozwala na wyświetlenie na innych pełnoekranowych aplikacjach i Spaces
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        
+        // 4. Poziom okna nad innymi aplikacjami
+        panel.level = .screenSaver
+        
+        // Ustawienie SwiftUI view jako content
+        let contentView = ContentView()
+            .environmentObject(MediaKeyManager.shared)
+        
+        panel.contentView = NSHostingView(rootView: contentView)
+        
+        // Wyświetlamy bez aktywacji
+        panel.makeKeyAndOrderFront(nil)
+        self.overlayPanel = panel
+        
+        // Uruchamiamy przechwytywanie klawiszy
+        MediaKeyManager.shared.start()
+        
+        // Wyłączamy systemowy dźwięk ładowarki (aby Visor mógł go obsłużyć)
+        PowerChimeManager.disableChargingSound()
+    }
+    
+    func applicationWillTerminate(_ notification: Notification) {
+        MediaKeyManager.shared.stopEventTaps()
+    }
+}
+
 @main
 struct VisorApp: App {
-    @StateObject private var mediaKeyManager = MediaKeyManager()
+    @StateObject private var mediaKeyManager = MediaKeyManager.shared
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
         NSSetUncaughtExceptionHandler { exception in
-            print("CRASH EXCEPTION: \(exception.name.rawValue)")
-            print("REASON: \(exception.reason ?? "No reason")")
-            print("USER INFO: \(exception.userInfo ?? [:])")
-            print("CALL STACK: \(exception.callStackSymbols.joined(separator: "\n"))")
             fflush(stdout)
         }
     }
@@ -25,49 +68,20 @@ struct VisorApp: App {
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     
     var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environmentObject(mediaKeyManager)
-                .onAppear {
-                    mediaKeyManager.start()
-                    
-                    // NSWindow configurations to make it a floating, transparent overlay
-                    DispatchQueue.main.async {
-                        if let window = NSApplication.shared.windows.first {
-                            window.isOpaque = false
-                            window.backgroundColor = .clear
-                            window.titlebarAppearsTransparent = true
-                            window.titleVisibility = .hidden
-                            window.styleMask.remove(.titled)
-                            window.hasShadow = false // Cień dodamy bezpośrednio w SwiftUI
-                            window.level = .screenSaver // Gwarantuje widoczność nad aplikacjami pełnoekranowymi i paskiem menu
-                            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-                            window.isMovableByWindowBackground = false // Nakładka na stałe przypięta do wybranej pozycji
-                            window.ignoresMouseEvents = true
-                        }
-                    }
-                }
-        }
-        .windowStyle(.hiddenTitleBar)
-        
-        Window("Symulator", id: "simulator") {
-            SimulatorView(mediaKeyManager: mediaKeyManager)
-        }
-        .restorationBehavior(.disabled)
-        
+
         Settings {
             SettingsView()
                 .environmentObject(mediaKeyManager)
         }
         
-        MenuBarExtra("Visor", systemImage: "sparkles", isInserted: $showMenuBarIcon) {
+        MenuBarExtra("Visor", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
             if #available(macOS 14.0, *) {
                 SettingsLink {
-                    Text("Settings...")
+                    Text("Dashboard...")
                 }
                 .keyboardShortcut(",", modifiers: .command)
             } else {
-                Button("Settings...") {
+                Button("Dashboard...") {
                     NSApp.activate(ignoringOtherApps: true)
                     NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
                 }
@@ -83,3 +97,4 @@ struct VisorApp: App {
         }
     }
 }
+

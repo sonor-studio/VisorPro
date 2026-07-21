@@ -10,14 +10,102 @@ struct ContentView: View {
     @AppStorage("capsLockOverlayPosition") private var capsLockOverlayPosition: String = "bottom"
     @State private var overlayWindow: NSWindow?
     
+    enum OverlayType: String, CaseIterable {
+        case volume, brightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, wifi, peripheral
+    }
+    
+    struct ActiveOverlay: Identifiable, Equatable {
+        let id: String
+        let type: OverlayType
+        let position: String
+        let notification: DeviceNotification?
+        
+        static func == (lhs: ActiveOverlay, rhs: ActiveOverlay) -> Bool {
+            lhs.id == rhs.id && lhs.type == rhs.type && lhs.notification == rhs.notification
+        }
+    }
+    
+    private var allActiveOverlays: [ActiveOverlay] {
+        var active: [ActiveOverlay] = []
+        
+        let showBattery = mediaKeyManager.showChargingStatus || mediaKeyManager.showLowBatteryWarning
+        
+        if mediaKeyManager.showVolumeIndicator { active.append(ActiveOverlay(id: "volume", type: .volume, position: volumeOverlayPosition, notification: nil)) }
+        if mediaKeyManager.showBrightnessIndicator { active.append(ActiveOverlay(id: "brightness", type: .brightness, position: brightnessOverlayPosition, notification: nil)) }
+        if showBattery { active.append(ActiveOverlay(id: "battery", type: .battery, position: batteryOverlayPosition, notification: nil)) }
+        if mediaKeyManager.showCopyIndicator { active.append(ActiveOverlay(id: "copy", type: .copy, position: copyOverlayPosition, notification: nil)) }
+        if mediaKeyManager.showCapsLockIndicator { active.append(ActiveOverlay(id: "capsLock", type: .capsLock, position: capsLockOverlayPosition, notification: nil)) }
+        
+        let btPos = UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom"
+        for notif in mediaKeyManager.activeBluetoothNotifications {
+            active.append(ActiveOverlay(id: "bluetooth_\(notif.id)", type: .bluetooth, position: btPos, notification: notif))
+        }
+        
+        let langPos = UserDefaults.standard.string(forKey: "languageOverlayPosition") ?? "bottom"
+        if mediaKeyManager.showLanguageIndicator { active.append(ActiveOverlay(id: "language", type: .language, position: langPos, notification: nil)) }
+        
+        let mediaPos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
+        if mediaKeyManager.showMediaIndicator { active.append(ActiveOverlay(id: "media", type: .media, position: mediaPos, notification: nil)) }
+        
+        let themePos = UserDefaults.standard.string(forKey: "themeOverlayPosition") ?? "bottom"
+        if mediaKeyManager.showThemeIndicator { active.append(ActiveOverlay(id: "theme", type: .theme, position: themePos, notification: nil)) }
+        
+        let micPos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
+        if mediaKeyManager.showMicIndicator { active.append(ActiveOverlay(id: "mic", type: .mic, position: micPos, notification: nil)) }
+        
+        let camPos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
+        if mediaKeyManager.showCameraIndicator { active.append(ActiveOverlay(id: "camera", type: .camera, position: camPos, notification: nil)) }
+        
+        let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
+        if mediaKeyManager.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi", type: .wifi, position: wifiPos, notification: nil)) }
+        
+        let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
+        for notif in mediaKeyManager.activePeripheralNotifications {
+            active.append(ActiveOverlay(id: "peripheral_\(notif.id)", type: .peripheral, position: periPos, notification: notif))
+        }
+        
+        let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)
+        
+        var finalActive: [ActiveOverlay] = []
+        for pos in ["top", "center", "bottom"] {
+            let items = active.filter { $0.position == pos }
+            finalActive.append(contentsOf: items.prefix(limit))
+        }
+        return finalActive
+    }
+    
     private func yPos(for position: String, in geo: GeometryProxy) -> CGFloat {
         let padding: CGFloat = 40
         let pillHeight: CGFloat = 56
-        
-        if position == "top" {
-            return padding + (pillHeight / 2)
-        } else {
-            return geo.size.height - padding - (pillHeight / 2)
+        if position == "top" { return padding + (pillHeight / 2) }
+        if position == "center" { return geo.size.height / 2 }
+        return geo.size.height - padding - (pillHeight / 2)
+    }
+
+    private func xPos(for position: String, index: Int, total: Int, in geo: GeometryProxy) -> CGFloat {
+        let averageWidth: CGFloat = 260
+        let spacing: CGFloat = 24
+        let totalWidth = CGFloat(total) * averageWidth + CGFloat(max(0, total - 1)) * spacing
+        let startX = (geo.size.width - totalWidth) / 2 + (averageWidth / 2)
+        return startX + CGFloat(index) * (averageWidth + spacing)
+    }
+    
+    @ViewBuilder
+    private func overlayView(for overlay: ActiveOverlay) -> some View {
+        switch overlay.type {
+        case .volume: VolumeOverlayView()
+        case .brightness: BrightnessOverlayView()
+        case .battery: BatteryOverlayView(isWarningMode: mediaKeyManager.showLowBatteryWarning && !mediaKeyManager.isPluggedIn)
+        case .copy: CopyOverlayView()
+        case .capsLock: CapsLockOverlayView()
+        case .bluetooth: BluetoothOverlayView(notification: overlay.notification)
+        case .language: LanguageOverlayView()
+        case .media: MediaOverlayView()
+        case .theme: ThemeOverlayView()
+        case .mic: MicOverlayView()
+        case .camera: CameraOverlayView()
+        case .wifi: WiFiOverlayView()
+        case .peripheral: PeripheralOverlayView(notification: overlay.notification)
         }
     }
     
@@ -27,64 +115,50 @@ struct ContentView: View {
         let showBrightness = mediaKeyManager.showBrightnessIndicator
         let showCopy = mediaKeyManager.showCopyIndicator
         let showCapsLock = mediaKeyManager.showCapsLockIndicator
-        let showBluetooth = mediaKeyManager.showBluetoothIndicator
-        let isVisible = showBattery || showVolume || showBrightness || showCopy || showCapsLock || showBluetooth
+        let showBluetooth = !mediaKeyManager.activeBluetoothNotifications.isEmpty
+        let showLanguage = mediaKeyManager.showLanguageIndicator
+        let showMedia = mediaKeyManager.showMediaIndicator
+        let showTheme = mediaKeyManager.showThemeIndicator
+        let showMic = mediaKeyManager.showMicIndicator
+        let showCamera = mediaKeyManager.showCameraIndicator
+        let showWiFi = mediaKeyManager.showWiFiIndicator
+        let showPeripheral = !mediaKeyManager.activePeripheralNotifications.isEmpty
+        
+        let isVisible = showBattery || showVolume || showBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showWiFi || showPeripheral
+        
+        let btPos = UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom"
+        let langPos = UserDefaults.standard.string(forKey: "languageOverlayPosition") ?? "bottom"
+        let mediaPos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
+        let themePos = UserDefaults.standard.string(forKey: "themeOverlayPosition") ?? "bottom"
+        let micPos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
+        let camPos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
+        let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
+        let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
         
         GeometryReader { geo in
             ZStack {
-                if showVolume {
-                    VolumeOverlayView()
+                ForEach(allActiveOverlays) { overlay in
+                    let overlaysInPos = allActiveOverlays.filter { $0.position == overlay.position }
+                    let index = overlaysInPos.firstIndex(of: overlay) ?? 0
+                    let total = overlaysInPos.count
+                    
+                    IsolatedOverlayWrapper(overlay: overlay, content: overlayView(for: overlay))
+                        .equatable()
+                        .id(overlay.id)
                         .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        .position(x: geo.size.width / 2, y: yPos(for: volumeOverlayPosition, in: geo))
-                }
-                
-                if showBrightness {
-                    BrightnessOverlayView()
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        .position(x: geo.size.width / 2, y: yPos(for: brightnessOverlayPosition, in: geo))
-                }
-                
-                if showBattery {
-                    BatteryOverlayView(isWarningMode: mediaKeyManager.showLowBatteryWarning && !mediaKeyManager.isPluggedIn)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        .position(x: geo.size.width / 2, y: yPos(for: batteryOverlayPosition, in: geo))
-                }
-                
-                if showCopy {
-                    CopyOverlayView()
-                        .id(mediaKeyManager.clipboardEventId)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        .position(x: geo.size.width / 2, y: yPos(for: copyOverlayPosition, in: geo))
-                }
-                
-                if showCapsLock {
-                    CapsLockOverlayView()
-                        .id(mediaKeyManager.capsLockEventId)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        .position(x: geo.size.width / 2, y: yPos(for: capsLockOverlayPosition, in: geo))
-                }
-                
-                if showBluetooth {
-                    BluetoothOverlayView()
-                        .id(mediaKeyManager.bluetoothEventId)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        .position(x: geo.size.width / 2, y: yPos(for: UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom", in: geo))
+                        .position(x: xPos(for: overlay.position, index: index, total: total, in: geo),
+                                  y: yPos(for: overlay.position, in: geo))
                 }
             }
         }
         .edgesIgnoringSafeArea(.all)
-        .animation(.easeInOut(duration: 0.25), value: showVolume)
-        .animation(.easeInOut(duration: 0.25), value: showBrightness)
-        .animation(.easeInOut(duration: 0.25), value: showBattery)
-        .animation(.easeInOut(duration: 0.25), value: showCopy)
-        .animation(.easeInOut(duration: 0.25), value: showCapsLock)
-        .onChange(of: isVisible) { visible in
+        .onChange(of: isVisible) { _, visible in
             if visible {
                 repositionWindow()
             }
         }
         .background(WindowAccessor(window: $overlayWindow))
-        .onChange(of: overlayWindow) { window in
+        .onChange(of: overlayWindow) { _, window in
             if let window = window {
                 window.isOpaque = false
                 window.backgroundColor = .clear
@@ -178,75 +252,87 @@ struct BatteryOverlayView: View {
     }
     
     var body: some View {
+        let width: CGFloat = 260
+        let height: CGFloat = 56
+        let trackPadding: CGFloat = 4
+        let innerPadding: CGFloat = 3
         
-        HStack(spacing: 14) {
-            Image(systemName: iconName)
-                .font(.system(size: 24))
-                .foregroundColor(batteryColor)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                if actualPercentage == 100 {
-                    Text("Connected")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(batteryColor)
-                    
-                    AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .white, isPluggedIn: actualIsPluggedIn)
-                } else {
-                    AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: batteryColor, isPluggedIn: actualIsPluggedIn)
-                    
-                    Text(mockedTimeRemaining(for: actualPercentage))
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.gray) // Szary/Półprzezroczysty na dole wygląda premium
-                }
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 14)
-        .frame(width: 260)
-        .background(.regularMaterial)
-        .environment(\.colorScheme, .dark)
-        .clipShape(Capsule())
-        .overlay(
-            GeometryReader { geo in
-                let w = geo.size.width - 8
-                let h = geo.size.height - 8
+        let trackWidth = width - (trackPadding * 2)
+        let trackHeight = height - (trackPadding * 2)
+        let innerWidth = trackWidth - (innerPadding * 2)
+        let innerHeight = trackHeight - (innerPadding * 2)
+        
+        ZStack(alignment: .leading) {
+            // WARSTWA 1: Baza
+            ZStack {
+                ActiveVisualEffectView()
+                    .clipShape(Capsule())
                 
-                ZStack(alignment: .topLeading) {
-                    // Jasnoszary pasek w tle (tło ramki)
-                    CustomCapsule()
-                        .stroke(Color.gray.opacity(0.3), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        .frame(width: w, height: h)
-                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                        
-                    CustomCapsule()
-                        .trim(from: 0, to: animatedBatteryProgress)
-                        .stroke(batteryColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        .frame(width: w, height: h)
-                        .position(x: geo.size.width / 2, y: geo.size.height / 2)
-                        .opacity(isWarningMode && isPulsing ? 0.3 : 1.0)
-                        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isPulsing)
-                    
-                    if !isWarningMode {
-                        Image(systemName: "powerplug.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 20, height: 20)
-                            .foregroundColor(batteryColor)
-                            .shadow(color: batteryColor.opacity(0.8), radius: 4)
-                            .modifier(PlugIconMover(
-                                progress: animatedBatteryProgress,
-                                targetProgress: CGFloat(actualPercentage) / 100.0,
-                                width: w,
-                                height: h
-                            ))
+                Capsule()
+                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
+                    .frame(width: trackWidth, height: trackHeight)
+            }
+            .frame(width: width, height: height)
+            
+            // WARSTWA 2: Pasek postępu baterii (dookoła)
+            CustomCapsule()
+                .trim(from: 0, to: animatedBatteryProgress)
+                .stroke(batteryColor, style: StrokeStyle(lineWidth: innerPadding, lineCap: .round))
+                .frame(width: trackWidth - innerPadding, height: trackHeight - innerPadding)
+                .padding(.leading, trackPadding + (innerPadding / 2.0))
+                .opacity(isWarningMode && isPulsing ? 0.3 : 1.0)
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isPulsing)
+            
+            // WARSTWA 3: Górna warstwa
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: iconName)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(.primary)
+                    .frame(width: 26, height: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    if actualPercentage == 100 {
+                        Text("Connected")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(.gray)
+                        AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)
+                    } else {
+                        AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: actualIsPluggedIn)
+                        MarqueeText(text: mockedTimeRemaining(for: actualPercentage), font: .system(size: 11, weight: .bold, design: .rounded), foregroundColor: .gray)
                     }
                 }
-                .frame(width: geo.size.width, height: geo.size.height)
+                Spacer(minLength: 8)
             }
-        )
-        .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 6)
+            .padding(.horizontal, 16)
+            .frame(width: innerWidth, height: innerHeight)
+            .glassEffect(.thinMaterial, in: Capsule())
+            .padding(.leading, trackPadding + innerPadding)
+            
+            // WTYCZKA (Na samej górze, nad szkłem, czysty kolor batteryColor)
+            if !isWarningMode && actualIsPluggedIn {
+                Image(systemName: "powerplug.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
+                    .padding(.bottom, 1.0) // Delikatniejsze przesunięcie!
+                    .foregroundColor(batteryColor)
+                    .brightness(-0.1) // Sztuczne obniżenie jasności "na ślepo", by wyrównać odczucie kolorów
+                    .modifier(PlugIconMover(
+                        progress: animatedBatteryProgress,
+                        targetProgress: CGFloat(actualPercentage) / 100.0,
+                        width: trackWidth - innerPadding,
+                        height: trackHeight - innerPadding
+                    ))
+            }
+        }
+        .frame(width: width, height: height)
+        .contentShape(Capsule())
+        .onHover { isHovering in
+            mediaKeyManager.keepAlive(for: "battery", isHovering: isHovering)
+        }
+        .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
+        .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             let targetProgress = CGFloat(actualPercentage) / 100.0
             
@@ -419,12 +505,10 @@ struct PlugIconMover: AnimatableModifier {
             }
         }
         
-        // Dodajemy stały offset +4 na osiach X i Y. 
-        // Skoro ramka CustomCapsule jest zmniejszona o 8 pikseli (geo - 8)
-        // i wyśrodkowana w ZStacku, jej lewy górny róg znajduje się w punkcie (4, 4)!
+        // Dodajemy stały offset +5.5 na osiach X i Y (trackPadding + innerPadding/2). 
         return content
             .rotationEffect(.degrees(angle))
-            .position(x: pCenter.x + 4, y: pCenter.y + 4)
+            .position(x: pCenter.x + 5.5, y: pCenter.y + 5.5)
             .opacity(iconOpacity)
     }
 }
@@ -476,7 +560,7 @@ struct VolumeOverlayView: View {
         let width: CGFloat = 260
         let height: CGFloat = 56
         let trackPadding: CGFloat = 4
-        let innerPadding: CGFloat = 4
+        let innerPadding: CGFloat = 3
         
         let trackWidth = width - (trackPadding * 2)
         let trackHeight = height - (trackPadding * 2)
@@ -488,11 +572,11 @@ struct VolumeOverlayView: View {
         ZStack(alignment: .leading) {
             // WARSTWA 1: Baza (Szkło + grubsza szara ramka)
             ZStack {
-                Capsule()
-                    .fill(.regularMaterial)
+                ActiveVisualEffectView()
+                    .clipShape(Capsule())
                 
                 Capsule()
-                    .strokeBorder(Color.white.opacity(0.15), lineWidth: innerPadding)
+                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
                     .frame(width: trackWidth, height: trackHeight)
             }
             .frame(width: width, height: height)
@@ -518,22 +602,13 @@ struct VolumeOverlayView: View {
             .padding(.leading, trackPadding)
             
             // WARSTWA 3: Górna warstwa (Glass Blur z informacjami)
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(.thinMaterial)
-                    .frame(width: innerWidth, height: innerHeight)
-                
-                HStack(alignment: .center, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(actualIsMuted ? .gray : .primary)
                         .frame(width: 26, height: 24)
                     
-                    Text(actualIsMuted ? "Muted" : mediaKeyManager.currentAudioDeviceName)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    MarqueeText(text: actualIsMuted ? "Muted" : mediaKeyManager.currentAudioDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     
                     Spacer(minLength: 8)
                     
@@ -541,13 +616,17 @@ struct VolumeOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-            }
+                .glassEffect(.thinMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)
+        .contentShape(Capsule())
+        .onHover { isHovering in
+            mediaKeyManager.keepAlive(for: "visor", isHovering: isHovering)
+        }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .environment(\.colorScheme, .dark)
+        .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             let targetProgress = CGFloat(actualVolume) / 100.0
             animatedVolumeProgress = targetProgress
@@ -593,7 +672,7 @@ struct BrightnessOverlayView: View {
         let width: CGFloat = 260
         let height: CGFloat = 56
         let trackPadding: CGFloat = 4
-        let innerPadding: CGFloat = 4
+        let innerPadding: CGFloat = 3
         
         let trackWidth = width - (trackPadding * 2)
         let trackHeight = height - (trackPadding * 2)
@@ -603,11 +682,11 @@ struct BrightnessOverlayView: View {
         ZStack(alignment: .leading) {
             // WARSTWA 1: Baza (Szkło + grubsza szara ramka)
             ZStack {
-                Capsule()
-                    .fill(.regularMaterial)
+                ActiveVisualEffectView()
+                    .clipShape(Capsule())
                 
                 Capsule()
-                    .strokeBorder(Color.white.opacity(0.15), lineWidth: innerPadding)
+                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
                     .frame(width: trackWidth, height: trackHeight)
             }
             .frame(width: width, height: height)
@@ -633,21 +712,13 @@ struct BrightnessOverlayView: View {
             .padding(.leading, trackPadding)
             
             // WARSTWA 3: Górna warstwa (Glass Blur z informacjami)
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(.thinMaterial)
-                    .frame(width: innerWidth, height: innerHeight)
-                
-                HStack(alignment: .center, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
                     
-                    Text("Display")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
+                    MarqueeText(text: "Display", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                         .truncationMode(.tail)
                     
                     Spacer(minLength: 8)
@@ -656,13 +727,17 @@ struct BrightnessOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-            }
+                .glassEffect(.thinMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)
+        .contentShape(Capsule())
+        .onHover { isHovering in
+            mediaKeyManager.keepAlive(for: "visor", isHovering: isHovering)
+        }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .environment(\.colorScheme, .dark)
+        .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             let targetProgress = CGFloat(actualBrightness) / 100.0
             animatedBrightnessProgress = targetProgress
@@ -677,8 +752,8 @@ struct BrightnessOverlayView: View {
 }
 
 struct CopyOverlayView: View {
+    @State private var isHovering: Bool = false
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @State private var animatedProgress: CGFloat = 1.0
     var isPreview: Bool = false
     var previewAction: String? = nil
     
@@ -726,7 +801,7 @@ struct CopyOverlayView: View {
         let width: CGFloat = 260
         let height: CGFloat = 56
         let trackPadding: CGFloat = 4
-        let innerPadding: CGFloat = 4
+        let innerPadding: CGFloat = 3
         
         let trackWidth = width - (trackPadding * 2)
         let trackHeight = height - (trackPadding * 2)
@@ -736,11 +811,11 @@ struct CopyOverlayView: View {
         ZStack(alignment: .leading) {
             // WARSTWA 1: Baza (Szkło + grubsza szara ramka)
             ZStack {
-                Capsule()
-                    .fill(.regularMaterial)
+                ActiveVisualEffectView()
+                    .clipShape(Capsule())
                 
                 Capsule()
-                    .strokeBorder(Color.white.opacity(0.15), lineWidth: innerPadding)
+                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
                     .frame(width: trackWidth, height: trackHeight)
             }
             .frame(width: width, height: height)
@@ -751,23 +826,17 @@ struct CopyOverlayView: View {
                 .frame(width: trackWidth, height: trackHeight)
                 .mask(
                     HStack(spacing: 0) {
-                        Rectangle()
-                            .frame(width: trackWidth * animatedProgress)
+                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: 3.5, hoverOutDuration: 2.5)
                         Spacer(minLength: 0)
                     }
                 )
                 .padding(.leading, trackPadding)
             
             // WARSTWA 3: Górna warstwa (Glass Blur z informacjami)
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(.thinMaterial)
-                    .frame(width: innerWidth, height: innerHeight)
-                
-                HStack(alignment: .center, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actionIcon)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actionColor)
+                        .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -785,27 +854,23 @@ struct CopyOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-            }
+                .glassEffect(.thinMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)
+        .contentShape(Capsule())
+        .onHover { isHovering in
+            mediaKeyManager.keepAlive(for: "visor", isHovering: isHovering)
+        }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .environment(\.colorScheme, .dark)
-        .onAppear {
-            animatedProgress = 1.0
-            if !isPreview {
-                withAnimation(.linear(duration: 2.5)) {
-                    animatedProgress = 0.0
-                }
-            }
-        }
+        .applyTheme(mediaKeyManager.overlayTheme)
     }
 }
 
 struct CapsLockOverlayView: View {
+    @State private var isHovering: Bool = false
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @State private var animatedProgress: CGFloat = 1.0
     var isPreview: Bool = false
     var previewIsOn: Bool = true
     
@@ -825,7 +890,7 @@ struct CapsLockOverlayView: View {
         let width: CGFloat = 200
         let height: CGFloat = 56
         let trackPadding: CGFloat = 4
-        let innerPadding: CGFloat = 4
+        let innerPadding: CGFloat = 3
         
         let trackWidth = width - (trackPadding * 2)
         let trackHeight = height - (trackPadding * 2)
@@ -834,11 +899,11 @@ struct CapsLockOverlayView: View {
         
         ZStack(alignment: .leading) {
             ZStack {
-                Capsule()
-                    .fill(.regularMaterial)
+                ActiveVisualEffectView()
+                    .clipShape(Capsule())
                 
                 Capsule()
-                    .strokeBorder(Color.white.opacity(0.15), lineWidth: innerPadding)
+                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
                     .frame(width: trackWidth, height: trackHeight)
             }
             .frame(width: width, height: height)
@@ -848,22 +913,16 @@ struct CapsLockOverlayView: View {
                 .frame(width: trackWidth, height: trackHeight)
                 .mask(
                     HStack(spacing: 0) {
-                        Rectangle()
-                            .frame(width: trackWidth * animatedProgress)
+                        TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: 3.5, hoverOutDuration: 2.5)
                         Spacer(minLength: 0)
                     }
                 )
                 .padding(.leading, trackPadding)
             
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(.thinMaterial)
-                    .frame(width: innerWidth, height: innerHeight)
-                
-                HStack(alignment: .center, spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsOn ? "capslock.fill" : "capslock")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actionColor)
+                        .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -871,28 +930,191 @@ struct CapsLockOverlayView: View {
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.gray)
                             
-                        Text(actionTitle)
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .foregroundColor(.primary)
+                        MarqueeText(text: actionTitle, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
                     Spacer(minLength: 8)
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-            }
+                .glassEffect(.thinMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)
+        .contentShape(Capsule())
+        .onHover { isHovering in
+            mediaKeyManager.keepAlive(for: "visor", isHovering: isHovering)
+        }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .environment(\.colorScheme, .dark)
-        .onAppear {
-            animatedProgress = 1.0
-            if !isPreview {
-                withAnimation(.linear(duration: 2.5)) {
-                    animatedProgress = 0.0
-                }
-            }
-        }
+        .applyTheme(mediaKeyManager.overlayTheme)
     }
 }
+
+
+struct ThemeOverlayView: View {
+    @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @Environment(\.colorScheme) var colorScheme
+    
+    var isPreview: Bool = false
+    var previewIsDark: Bool = false
+    
+    var body: some View {
+        let isDark = isPreview ? previewIsDark : (colorScheme == .dark)
+        let iconName = isDark ? "moon.fill" : "sun.max.fill"
+        let titleText = isDark ? "Ciemny" : "Jasny"
+        let iconColor: Color = isDark ? .indigo : .yellow
+        
+        let width: CGFloat = 200
+        let height: CGFloat = 56
+        let trackPadding: CGFloat = 4
+        let innerPadding: CGFloat = 3
+        
+        let trackWidth = width - (trackPadding * 2)
+        let trackHeight = height - (trackPadding * 2)
+        let innerWidth = trackWidth - (innerPadding * 2)
+        let innerHeight = trackHeight - (innerPadding * 2)
+        
+        ZStack(alignment: .leading) {
+            // WARSTWA 1: Baza
+            ZStack {
+                ActiveVisualEffectView()
+                    .clipShape(Capsule())
+                
+                Capsule()
+                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
+                    .frame(width: trackWidth, height: trackHeight)
+            }
+            .frame(width: width, height: height)
+            
+            // WARSTWA 2: Kolorowa ramka
+            Capsule()
+                .strokeBorder(iconColor.opacity(0.85), lineWidth: innerPadding)
+                .frame(width: trackWidth, height: trackHeight)
+                .padding(.leading, trackPadding)
+            
+            // WARSTWA 3: Górna warstwa
+            HStack(alignment: .center, spacing: 14) {
+                    Image(systemName: iconName)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.primary)
+                        .frame(width: 26, height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Motyw")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(.gray)
+                        
+                        MarqueeText(text: titleText, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                    }
+                    Spacer(minLength: 8)
+                }
+                .padding(.horizontal, 16)
+                .frame(width: innerWidth, height: innerHeight)
+                .glassEffect(.thinMaterial, in: Capsule())
+            .padding(.leading, trackPadding + innerPadding)
+        }
+        .frame(width: width, height: height)
+        .contentShape(Capsule())
+        .onHover { isHovering in
+            mediaKeyManager.keepAlive(for: "theme", isHovering: isHovering)
+        }
+        .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
+        .padding(20)
+        .applyTheme(mediaKeyManager.overlayTheme)
+    }
+}
+
+struct PeripheralOverlayView: View {
+    @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    
+    var isPreview: Bool = false
+    var previewIsConnected: Bool = false
+    var notification: DeviceNotification?
+    
+    var isConnected: Bool {
+        if isPreview { return previewIsConnected }
+        if let notif = notification {
+            return notif.isConnected
+        }
+        return mediaKeyManager.peripheralIsConnected
+    }
+    
+    var deviceName: String {
+        if isPreview { return "Magic Mouse" }
+        if let notif = notification {
+            return notif.deviceName
+        }
+        return mediaKeyManager.peripheralDeviceName
+    }
+    
+    var iconName: String {
+        if isPreview { return "magicmouse.fill" }
+        if let notif = notification {
+            return notif.icon
+        }
+        return mediaKeyManager.peripheralDeviceIcon
+    }
+    
+    var body: some View {
+        let actionColor: Color = isConnected ? .green : .red
+        
+        let width: CGFloat = 260
+        let height: CGFloat = 56
+        let trackPadding: CGFloat = 4
+        let innerPadding: CGFloat = 3
+        
+        let trackWidth = width - (trackPadding * 2)
+        let trackHeight = height - (trackPadding * 2)
+        let innerWidth = trackWidth - (innerPadding * 2)
+        let innerHeight = trackHeight - (innerPadding * 2)
+        
+        ZStack(alignment: .leading) {
+            // WARSTWA 1: Baza
+            ZStack {
+                ActiveVisualEffectView()
+                    .clipShape(Capsule())
+                
+                Capsule()
+                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
+                    .frame(width: trackWidth, height: trackHeight)
+            }
+            .frame(width: width, height: height)
+            
+            // WARSTWA 2: Kolorowa ramka
+            Capsule()
+                .strokeBorder(actionColor.opacity(0.85), lineWidth: innerPadding)
+                .frame(width: trackWidth, height: trackHeight)
+                .padding(.leading, trackPadding)
+            
+            // WARSTWA 3: Górna warstwa
+            HStack(alignment: .center, spacing: 14) {
+                    Image(systemName: iconName)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.primary)
+                        .frame(width: 26, height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(isConnected ? "Połączono" : "Rozłączono")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(.gray)
+                        
+                        MarqueeText(text: deviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                    }
+                    Spacer(minLength: 8)
+                }
+                .padding(.horizontal, 16)
+                .frame(width: innerWidth, height: innerHeight)
+                .glassEffect(.thinMaterial, in: Capsule())
+            .padding(.leading, trackPadding + innerPadding)
+        }
+        .frame(width: width, height: height)
+        .contentShape(Capsule())
+        .onHover { isHovering in
+            mediaKeyManager.keepAlive(for: "peripheral", isHovering: isHovering)
+        }
+        .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
+        .padding(20)
+        .applyTheme(mediaKeyManager.overlayTheme)
+    }
+}
+

@@ -1,36 +1,18 @@
 import SwiftUI
-import IOBluetooth
+import Carbon
 
-struct BluetoothOverlayView: View {
+struct LanguageOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @State private var isHovering: Bool = false
     var isPreview: Bool = false
-    var previewIsConnected: Bool = true
-    var previewDeviceName: String = "Magic Mouse"
-    var notification: DeviceNotification?
+    var previewLanguage: String? = nil
     
-    private var actualIsConnected: Bool {
-        if isPreview { return previewIsConnected }
-        if let notif = notification { return notif.isConnected }
-        return mediaKeyManager.bluetoothIsConnected // Fallback if needed
-    }
-    
-    private var actualDeviceName: String {
-        if isPreview { return previewDeviceName }
-        if let notif = notification { return notif.deviceName }
-        return mediaKeyManager.bluetoothDeviceName
-    }
-    
-    private var actionColor: Color {
-        actualIsConnected ? .blue : .gray
-    }
-    
-    private var actionTitle: String {
-        actualIsConnected ? "Bluetooth Connected" : "Bluetooth Disconnected"
+    private var languageName: String {
+        previewLanguage ?? mediaKeyManager.currentKeyboardLanguage
     }
     
     var body: some View {
-        let width: CGFloat = 220
+        let width: CGFloat = 260
         let height: CGFloat = 56
         let trackPadding: CGFloat = 4
         let innerPadding: CGFloat = 3
@@ -38,9 +20,10 @@ struct BluetoothOverlayView: View {
         let trackWidth = width - (trackPadding * 2)
         let trackHeight = height - (trackPadding * 2)
         let innerWidth = trackWidth - (innerPadding * 2)
-        let innerHeight = trackHeight - (trackPadding * 2)
+        let innerHeight = trackHeight - (innerPadding * 2)
         
         ZStack(alignment: .leading) {
+            // WARSTWA 1: Baza (Szkło + grubsza szara ramka)
             ZStack {
                 ActiveVisualEffectView()
                     .clipShape(Capsule())
@@ -51,8 +34,9 @@ struct BluetoothOverlayView: View {
             }
             .frame(width: width, height: height)
             
+            // WARSTWA 2: Kolorowa ramka (Fioletowa/Pomarańczowa)
             Capsule()
-                .strokeBorder(actionColor.opacity(0.85), lineWidth: innerPadding)
+                .strokeBorder(Color.orange.opacity(0.85), lineWidth: innerPadding)
                 .frame(width: trackWidth, height: trackHeight)
                 .mask(
                     HStack(spacing: 0) {
@@ -62,33 +46,23 @@ struct BluetoothOverlayView: View {
                 )
                 .padding(.leading, trackPadding)
             
+            // WARSTWA 3: Górna warstwa (Glass Blur z informacjami)
             HStack(alignment: .center, spacing: 14) {
-                    let nameLower = actualDeviceName.lowercased()
-                    let iconName: String = {
-                        if nameLower.contains("airpods") { return "airpods" }
-                        if nameLower.contains("mouse") { return "magicmouse" }
-                        if nameLower.contains("keyboard") { return "keyboard" }
-                        if nameLower.contains("trackpad") { return "magicmouse" }
-                        if nameLower.contains("headphone") { return "headphones" }
-                        if nameLower.contains("speaker") { return "speaker.wave.2" }
-                        return "point.3.connected.trianglepath.dotted"
-                    }()
-                    
-                    Image(systemName: iconName)
+                    Image(systemName: "keyboard")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsConnected ? .primary : .gray)
+                        .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(actionTitle)
+                        Text("Keyboard Layout")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.gray)
                         
-                        MarqueeText(text: actualDeviceName.isEmpty ? "Unknown Device" : actualDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                        MarqueeText(text: languageName.isEmpty ? "Unknown" : languageName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
                     Spacer(minLength: 8)
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
                 .glassEffect(.thinMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
@@ -98,13 +72,24 @@ struct BluetoothOverlayView: View {
         .onHover { hovering in
             if !isPreview {
                 isHovering = hovering
-                let keepAliveType = notification != nil ? "bluetooth_\(notification!.id)" : "bluetooth"
-                mediaKeyManager.keepAlive(for: keepAliveType, isHovering: hovering)
+                mediaKeyManager.keepAlive(for: "language", isHovering: hovering)
             }
         }
         
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
         .applyTheme(mediaKeyManager.overlayTheme)
+        .onChange(of: isHovering) { hovering in
+            if !isPreview {
+                if hovering {
+                } else {
+                }
+            }
+        }
     }
+}
+
+#Preview {
+    LanguageOverlayView(isPreview: true, previewLanguage: "Polski")
+        .environmentObject(MediaKeyManager())
 }

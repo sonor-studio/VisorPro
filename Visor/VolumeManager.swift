@@ -5,16 +5,14 @@ import CoreAudio
 class VolumeManager {
     static let shared = VolumeManager()
     
-    private let soundFile = "/System/Library/LoginPlugins/BezelServices.loginPlugin/Contents/Resources/volume.aiff"
-    private var volumeSound: NSSound?
     private let queue = DispatchQueue(label: "com.visor.volumeQueue")
     
+    private var cachedVolume: Int = 50
+    private var cachedMuted: Bool = false
+    private var isInitialized: Bool = false
+    private var pendingTask: DispatchWorkItem?
+    
     init() {
-        if FileManager.default.fileExists(atPath: soundFile) {
-            volumeSound = NSSound(contentsOfFile: soundFile, byReference: true)
-        } else {
-            volumeSound = NSSound(named: "Pop")
-        }
     }
     
     func getCurrentAudioDeviceName() -> String {
@@ -36,7 +34,7 @@ class VolumeManager {
             &defaultOutputDeviceID
         )
         
-        guard status == noErr else { return "Wewnętrzne głośniki" }
+        guard status == noErr else { return "Internal speakers" }
         
         var deviceName = "" as CFString
         var deviceNameSize = UInt32(MemoryLayout<CFString>.size)
@@ -56,44 +54,44 @@ class VolumeManager {
             &deviceName
         )
         
-        guard nameStatus == noErr else { return "Wewnętrzne głośniki" }
+        guard nameStatus == noErr else { return "Internal speakers" }
         
         return deviceName as String
     }
     
     func changeVolume(increase: Bool, completion: @escaping (Int, Bool) -> Void) {
-        queue.async {
-            let script = """
-            set vol to output volume of (get volume settings)
-            if \(increase ? "true" : "false") then
-                set vol to vol + 6.25
-            else
-                set vol to vol - 6.25
-            end if
-            if vol < 0 then set vol to 0
-            if vol > 100 then set vol to 100
-            set volume output volume vol
-            set isMuted to output muted of (get volume settings)
-            return {vol, isMuted}
-            """
+        DispatchQueue.main.async {
+            if !self.isInitialized {
+                self.cachedVolume = 50
+                self.isInitialized = true
+            }
             
-            var error: NSDictionary?
-            if let appleScript = NSAppleScript(source: script) {
-                let result = appleScript.executeAndReturnError(&error)
-                if error == nil {
-                    let newVol = Int(result.atIndex(1)?.int32Value ?? 50)
-                    let isMuted = result.atIndex(2)?.booleanValue ?? false
-                    DispatchQueue.main.async {
-                        self.playSound()
-                        completion(newVol, isMuted)
-                    }
-                } else {
-                    print("AppleScript Error: \(String(describing: error))")
-                    DispatchQueue.main.async {
-                        completion(50, false)
-                    }
+            let step = 6.25
+            var newVol = Double(self.cachedVolume) + (increase ? step : -step)
+            if newVol < 0 { newVol = 0 }
+            if newVol > 100 { newVol = 100 }
+            
+            self.cachedVolume = Int(newVol)
+            self.cachedMuted = false
+            
+            let targetVol = self.cachedVolume
+            let targetMuted = self.cachedMuted
+            
+            // Optymistyczna aktualizacja UI – natychmiastowa reakcja
+            completion(targetVol, targetMuted)
+            
+            self.pendingTask?.cancel()
+            
+            let task = DispatchWorkItem {
+                let script = "set volume output volume \(targetVol)\nset volume output muted false"
+                if let appleScript = NSAppleScript(source: script) {
+                    var error: NSDictionary?
+                    appleScript.executeAndReturnError(&error)
                 }
             }
+            
+            self.pendingTask = task
+            self.queue.asyncAfter(deadline: .now() + 0.05, execute: task)
         }
     }
     
@@ -111,6 +109,9 @@ class VolumeManager {
                     let newVol = Int(result.atIndex(1)?.int32Value ?? 50)
                     let isMuted = result.atIndex(2)?.booleanValue ?? false
                     DispatchQueue.main.async {
+                        self.cachedVolume = newVol
+                        self.cachedMuted = isMuted
+                        self.isInitialized = true
                         completion(newVol, isMuted)
                     }
                 } else {
@@ -119,18 +120,6 @@ class VolumeManager {
                     }
                 }
             }
-        }
-    }
-    
-    private func playSound() {
-        if let sound = volumeSound {
-            // Zatrzymujemy poprzedni dźwięk przed odtworzeniem kolejnego
-            if sound.isPlaying {
-                sound.stop()
-            }
-            sound.play()
-        } else {
-            NSSound.beep()
         }
     }
     
@@ -143,35 +132,34 @@ class VolumeManager {
     }
     
     func toggleMute(completion: @escaping (Int, Bool) -> Void) {
-        queue.async {
-            let script = """
-            set isMuted to output muted of (get volume settings)
-            set volume output muted (not isMuted)
-            set newMuted to output muted of (get volume settings)
-            set vol to output volume of (get volume settings)
-            return {vol, newMuted}
-            """
+        DispatchQueue.main.async {
+            if !self.isInitialized {
+                self.cachedVolume = 50
+                self.isInitialized = true
+            }
             
-            var error: NSDictionary?
-            if let appleScript = NSAppleScript(source: script) {
-                let result = appleScript.executeAndReturnError(&error)
-                if error == nil {
-                    let newVol = Int(result.atIndex(1)?.int32Value ?? 50)
-                    let isNowMuted = result.atIndex(2)?.booleanValue ?? false
-                    
-                    DispatchQueue.main.async {
-                        if !isNowMuted {
-                            self.playSound()
-                        }
-                        completion(newVol, isNowMuted)
-                    }
-                } else {
-                    print("AppleScript Mute Error: \(String(describing: error))")
-                    DispatchQueue.main.async {
-                        completion(50, false)
-                    }
+            self.cachedMuted.toggle()
+            
+            let targetVol = self.cachedVolume
+            let targetMuted = self.cachedMuted
+            
+            if !targetMuted {
+                // Dźwięk jest teraz odtwarzany globalnie przez MediaKeyManager
+            }
+            completion(targetVol, targetMuted)
+            
+            self.pendingTask?.cancel()
+            
+            let task = DispatchWorkItem {
+                let script = "set volume output muted \(targetMuted ? "true" : "false")"
+                if let appleScript = NSAppleScript(source: script) {
+                    var error: NSDictionary?
+                    appleScript.executeAndReturnError(&error)
                 }
             }
+            
+            self.pendingTask = task
+            self.queue.asyncAfter(deadline: .now() + 0.05, execute: task)
         }
     }
 }
@@ -196,7 +184,6 @@ class BrightnessManager {
                 DisplayServicesSetBrightness = unsafeBitCast(setSym, to: SetFunc.self)
             }
         } else {
-            print("Could not load DisplayServices.framework")
         }
     }
     

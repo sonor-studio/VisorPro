@@ -1,32 +1,30 @@
 import SwiftUI
-import IOBluetooth
 
-struct BluetoothOverlayView: View {
+struct WiFiOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @State private var isHovering: Bool = false
     var isPreview: Bool = false
     var previewIsConnected: Bool = true
-    var previewDeviceName: String = "Magic Mouse"
-    var notification: DeviceNotification?
+    var previewSSID: String = "My Wi-Fi"
     
     private var actualIsConnected: Bool {
-        if isPreview { return previewIsConnected }
-        if let notif = notification { return notif.isConnected }
-        return mediaKeyManager.bluetoothIsConnected // Fallback if needed
+        isPreview ? previewIsConnected : mediaKeyManager.wiFiIsConnected
     }
     
-    private var actualDeviceName: String {
-        if isPreview { return previewDeviceName }
-        if let notif = notification { return notif.deviceName }
-        return mediaKeyManager.bluetoothDeviceName
+    private var actualSSID: String {
+        isPreview ? previewSSID : mediaKeyManager.wiFiSSID
+    }
+    
+    private var actualIsHotspot: Bool {
+        isPreview ? false : mediaKeyManager.wiFiIsHotspot
     }
     
     private var actionColor: Color {
-        actualIsConnected ? .blue : .gray
+        actualIsConnected ? .cyan : .gray
     }
     
     private var actionTitle: String {
-        actualIsConnected ? "Bluetooth Connected" : "Bluetooth Disconnected"
+        actualIsConnected ? (actualIsHotspot ? "Hotspot Connected" : "Wi-Fi Connected") : "Wi-Fi Disconnected"
     }
     
     var body: some View {
@@ -38,7 +36,7 @@ struct BluetoothOverlayView: View {
         let trackWidth = width - (trackPadding * 2)
         let trackHeight = height - (trackPadding * 2)
         let innerWidth = trackWidth - (innerPadding * 2)
-        let innerHeight = trackHeight - (trackPadding * 2)
+        let innerHeight = trackHeight - (innerPadding * 2)
         
         ZStack(alignment: .leading) {
             ZStack {
@@ -63,17 +61,7 @@ struct BluetoothOverlayView: View {
                 .padding(.leading, trackPadding)
             
             HStack(alignment: .center, spacing: 14) {
-                    let nameLower = actualDeviceName.lowercased()
-                    let iconName: String = {
-                        if nameLower.contains("airpods") { return "airpods" }
-                        if nameLower.contains("mouse") { return "magicmouse" }
-                        if nameLower.contains("keyboard") { return "keyboard" }
-                        if nameLower.contains("trackpad") { return "magicmouse" }
-                        if nameLower.contains("headphone") { return "headphones" }
-                        if nameLower.contains("speaker") { return "speaker.wave.2" }
-                        return "point.3.connected.trianglepath.dotted"
-                    }()
-                    
+                    let iconName = actualIsConnected ? (actualIsHotspot ? "personalhotspot" : "wifi") : "wifi.slash"
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(actualIsConnected ? .primary : .gray)
@@ -84,7 +72,7 @@ struct BluetoothOverlayView: View {
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.gray)
                         
-                        MarqueeText(text: actualDeviceName.isEmpty ? "Unknown Device" : actualDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                        MarqueeText(text: actualSSID.isEmpty ? "No Network" : actualSSID, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
                     Spacer(minLength: 8)
                 }
@@ -98,13 +86,19 @@ struct BluetoothOverlayView: View {
         .onHover { hovering in
             if !isPreview {
                 isHovering = hovering
-                let keepAliveType = notification != nil ? "bluetooth_\(notification!.id)" : "bluetooth"
-                mediaKeyManager.keepAlive(for: keepAliveType, isHovering: hovering)
+                mediaKeyManager.keepAlive(for: "wifi", isHovering: hovering)
             }
         }
         
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
         .applyTheme(mediaKeyManager.overlayTheme)
+        .onChange(of: isHovering) { hovering in
+            if !isPreview {
+                if hovering {
+                } else {
+                }
+            }
+        }
     }
 }

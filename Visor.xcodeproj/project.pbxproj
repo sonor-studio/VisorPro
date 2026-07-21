@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 110;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXContainerItemProxy section */
@@ -50,18 +50,24 @@
 /* Begin PBXFrameworksBuildPhase section */
 		FA01FF80300BB56700235EBF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FA01FF8D300BB56900235EBF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FA01FF97300BB56900235EBF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -98,6 +104,8 @@
 				FA01FF81300BB56700235EBF /* Resources */,
 			);
 			buildRules = (
+			);
+			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
 				FA01FF85300BB56700235EBF /* Visor */,
@@ -196,36 +204,48 @@
 /* Begin PBXResourcesBuildPhase section */
 		FA01FF81300BB56700235EBF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FA01FF8E300BB56900235EBF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FA01FF98300BB56900235EBF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		FA01FF7F300BB56700235EBF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FA01FF8C300BB56900235EBF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		FA01FF96300BB56900235EBF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -243,7 +263,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		FA01FFA0300BB56900235EBF /* Debug configuration for PBXProject "Visor" */ = {
+		FA01FFA0300BB56900235EBF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -307,7 +327,7 @@
 			};
 			name = Debug;
 		};
-		FA01FFA1300BB56900235EBF /* Release configuration for PBXProject "Visor" */ = {
+		FA01FFA1300BB56900235EBF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -363,11 +383,12 @@
 			};
 			name = Release;
 		};
-		FA01FFA3300BB56900235EBF /* Debug configuration for PBXNativeTarget "Visor" */ = {
+		FA01FFA3300BB56900235EBF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Icon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -384,7 +405,10 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Aplikacja wymaga Bluetooth do dzialania OSD";
+				INFOPLIST_KEY_NSFocusStatusUsageDescription = "Pozwól na dostęp, aby wyświetlać zmiany trybu skupienia.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocationUsageDescription = "Aplikacja wymaga dostepu do lokalizacji w celu odczytania nazwy sieci Wi-Fi.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Aplikacja wymaga dostepu do lokalizacji w celu odczytania nazwy sieci Wi-Fi.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -408,11 +432,12 @@
 			};
 			name = Debug;
 		};
-		FA01FFA4300BB56900235EBF /* Release configuration for PBXNativeTarget "Visor" */ = {
+		FA01FFA4300BB56900235EBF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Icon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -429,7 +454,10 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Aplikacja wymaga Bluetooth do dzialania OSD";
+				INFOPLIST_KEY_NSFocusStatusUsageDescription = "Pozwól na dostęp, aby wyświetlać zmiany trybu skupienia.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocationUsageDescription = "Aplikacja wymaga dostepu do lokalizacji w celu odczytania nazwy sieci Wi-Fi.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Aplikacja wymaga dostepu do lokalizacji w celu odczytania nazwy sieci Wi-Fi.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -453,7 +481,7 @@
 			};
 			name = Release;
 		};
-		FA01FFA6300BB56900235EBF /* Debug configuration for PBXNativeTarget "VisorTests" */ = {
+		FA01FFA6300BB56900235EBF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -474,7 +502,7 @@
 			};
 			name = Debug;
 		};
-		FA01FFA7300BB56900235EBF /* Release configuration for PBXNativeTarget "VisorTests" */ = {
+		FA01FFA7300BB56900235EBF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -495,7 +523,7 @@
 			};
 			name = Release;
 		};
-		FA01FFA9300BB56900235EBF /* Debug configuration for PBXNativeTarget "VisorUITests" */ = {
+		FA01FFA9300BB56900235EBF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -514,7 +542,7 @@
 			};
 			name = Debug;
 		};
-		FA01FFAA300BB56900235EBF /* Release configuration for PBXNativeTarget "VisorUITests" */ = {
+		FA01FFAA300BB56900235EBF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
@@ -539,37 +567,40 @@
 		FA01FF7E300BB56700235EBF /* Build configuration list for PBXProject "Visor" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				FA01FFA0300BB56900235EBF /* Debug configuration for PBXProject "Visor" */,
-				FA01FFA1300BB56900235EBF /* Release configuration for PBXProject "Visor" */,
+				FA01FFA0300BB56900235EBF /* Debug */,
+				FA01FFA1300BB56900235EBF /* Release */,
 			);
+			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		FA01FFA2300BB56900235EBF /* Build configuration list for PBXNativeTarget "Visor" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				FA01FFA3300BB56900235EBF /* Debug configuration for PBXNativeTarget "Visor" */,
-				FA01FFA4300BB56900235EBF /* Release configuration for PBXNativeTarget "Visor" */,
+				FA01FFA3300BB56900235EBF /* Debug */,
+				FA01FFA4300BB56900235EBF /* Release */,
 			);
+			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		FA01FFA5300BB56900235EBF /* Build configuration list for PBXNativeTarget "VisorTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				FA01FFA6300BB56900235EBF /* Debug configuration for PBXNativeTarget "VisorTests" */,
-				FA01FFA7300BB56900235EBF /* Release configuration for PBXNativeTarget "VisorTests" */,
+				FA01FFA6300BB56900235EBF /* Debug */,
+				FA01FFA7300BB56900235EBF /* Release */,
 			);
+			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		FA01FFA8300BB56900235EBF /* Build configuration list for PBXNativeTarget "VisorUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				FA01FFA9300BB56900235EBF /* Debug configuration for PBXNativeTarget "VisorUITests" */,
-				FA01FFAA300BB56900235EBF /* Release configuration for PBXNativeTarget "VisorUITests" */,
+				FA01FFA9300BB56900235EBF /* Debug */,
+				FA01FFAA300BB56900235EBF /* Release */,
 			);
+			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
 	rootObject = FA01FF7B300BB56700235EBF /* Project object */;
-	validationLevel = 1;
 }

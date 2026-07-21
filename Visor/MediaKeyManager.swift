@@ -3,16 +3,81 @@ import ApplicationServices
 import SwiftUI
 import Combine
 import IOBluetooth
+import Carbon
+import IOKit
 
 struct Shortcut {
     let character: String
     let modifiers: NSEvent.ModifierFlags
 }
 
+struct DeviceNotification: Identifiable, Equatable {
+    let id: String
+    let deviceName: String
+    let type: String
+    let icon: String
+    let isConnected: Bool
+    let timestamp: Date
+}
+
 class MediaKeyManager: ObservableObject {
+    static let shared = MediaKeyManager()
     @Published var lastAction: String = "Oczekuję na akcje..."
     @Published var isTrusted: Bool = false
-    @Published var useSystemOSD: Bool = false // Przełącznik do wyłączania przechwytywania
+    @Published var activeBluetoothNotifications: [DeviceNotification] = []
+    @Published var activePeripheralNotifications: [DeviceNotification] = []
+    private var notificationTimers: [String: Timer] = [:]
+    
+    @AppStorage("maxSimultaneousNotifications") var maxSimultaneousNotifications: Int = 5
+    @AppStorage("overlayTheme") var overlayTheme: String = "dark"
+    
+    @Published var useSystemOSD: Bool = false {
+        didSet { setupMediaKeyTap() }
+    }
+    @AppStorage("soundOnVolume") var soundOnVolume: String = "None"
+    @Published var enableVolume: Bool = UserDefaults.standard.object(forKey: "enableVolume") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(enableVolume, forKey: "enableVolume")
+            setupMediaKeyTap()
+            if !enableVolume { withAnimation { self.showVolumeIndicator = false } }
+        }
+    }
+    
+    @AppStorage("soundOnBrightness") var soundOnBrightness: String = "None"
+    @Published var enableBrightness: Bool = UserDefaults.standard.object(forKey: "enableBrightness") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(enableBrightness, forKey: "enableBrightness")
+            setupMediaKeyTap()
+            if !enableBrightness { withAnimation { self.showBrightnessIndicator = false } }
+        }
+    }
+    @Published var enableBattery: Bool = UserDefaults.standard.object(forKey: "enableBattery") as? Bool ?? true {
+        didSet { 
+            UserDefaults.standard.set(enableBattery, forKey: "enableBattery")
+            if !enableBattery { withAnimation { self.showLowBatteryWarning = false; self.showChargingStatus = false } }
+        }
+    }
+    @Published var enableKeyboard: Bool = UserDefaults.standard.object(forKey: "enableKeyboard") as? Bool ?? true {
+        didSet { 
+            UserDefaults.standard.set(enableKeyboard, forKey: "enableKeyboard")
+            if !enableKeyboard { withAnimation { self.showCopyIndicator = false; self.showCapsLockIndicator = false; self.showLanguageIndicator = false } }
+            if !enableBluetooth { withAnimation { self.activeBluetoothNotifications.removeAll() } }
+            if !enableWiFi { withAnimation { self.showWiFiIndicator = false } }
+        }
+    }
+    @Published var enableBluetooth: Bool = UserDefaults.standard.object(forKey: "enableBluetooth") as? Bool ?? true {
+        didSet { 
+            UserDefaults.standard.set(enableBluetooth, forKey: "enableBluetooth")
+            if !enableBluetooth { withAnimation { self.activeBluetoothNotifications.removeAll() } }
+        }
+    }
+    @Published var enableWiFi: Bool = UserDefaults.standard.object(forKey: "enableWiFi") as? Bool ?? true {
+        didSet { 
+            UserDefaults.standard.set(enableWiFi, forKey: "enableWiFi")
+            if !enableWiFi { withAnimation { self.showWiFiIndicator = false } }
+        }
+    }
+    
     @Published var targetBatteryPercentage: String = UserDefaults.standard.string(forKey: "targetBatteryPercentage") ?? "80" {
         didSet {
             UserDefaults.standard.set(targetBatteryPercentage, forKey: "targetBatteryPercentage")
@@ -21,32 +86,65 @@ class MediaKeyManager: ObservableObject {
     @Published var notifyOnPlug: Bool = UserDefaults.standard.object(forKey: "notifyOnPlug") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnPlug, forKey: "notifyOnPlug") }
     }
+
+    @Published var soundOnPlug: String = UserDefaults.standard.string(forKey: "soundOnPlug") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnPlug, forKey: "soundOnPlug") }
+    }
     @Published var notifyOn10Percent: Bool = UserDefaults.standard.object(forKey: "notifyOn10Percent") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOn10Percent, forKey: "notifyOn10Percent") }
+    }
+
+    @Published var soundOn10Percent: String = UserDefaults.standard.string(forKey: "soundOn10Percent") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOn10Percent, forKey: "soundOn10Percent") }
     }
     @Published var notifyOn20Percent: Bool = UserDefaults.standard.object(forKey: "notifyOn20Percent") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOn20Percent, forKey: "notifyOn20Percent") }
     }
+
+    @Published var soundOn20Percent: String = UserDefaults.standard.string(forKey: "soundOn20Percent") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOn20Percent, forKey: "soundOn20Percent") }
+    }
     @Published var notifyOn100Percent: Bool = UserDefaults.standard.object(forKey: "notifyOn100Percent") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOn100Percent, forKey: "notifyOn100Percent") }
+    }
+
+    @Published var soundOn100Percent: String = UserDefaults.standard.string(forKey: "soundOn100Percent") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOn100Percent, forKey: "soundOn100Percent") }
     }
     
     @Published var notifyOnCopy: Bool = UserDefaults.standard.object(forKey: "notifyOnCopy") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnCopy, forKey: "notifyOnCopy") }
     }
+
+    @Published var soundOnCopy: String = UserDefaults.standard.string(forKey: "soundOnCopy") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnCopy, forKey: "soundOnCopy") }
+    }
     @Published var notifyOnCut: Bool = UserDefaults.standard.object(forKey: "notifyOnCut") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnCut, forKey: "notifyOnCut") }
     }
+
+    @Published var soundOnCut: String = UserDefaults.standard.string(forKey: "soundOnCut") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnCut, forKey: "soundOnCut") }
+    }
     @Published var notifyOnPaste: Bool = UserDefaults.standard.object(forKey: "notifyOnPaste") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnPaste, forKey: "notifyOnPaste") }
+    }
+
+    @Published var soundOnPaste: String = UserDefaults.standard.string(forKey: "soundOnPaste") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnPaste, forKey: "soundOnPaste") }
     }
     
     @Published var notifyOnCapsLock: Bool = UserDefaults.standard.object(forKey: "notifyOnCapsLock") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnCapsLock, forKey: "notifyOnCapsLock") }
     }
 
+    @Published var soundOnCapsLock: String = UserDefaults.standard.string(forKey: "soundOnCapsLock") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnCapsLock, forKey: "soundOnCapsLock") }
+    }
+
     @Published var currentBatteryPercentage: Int = 15 {
         didSet {
+            if !isBatteryInitialized { return }
             if !isPluggedIn && oldValue != currentBatteryPercentage {
                 if currentBatteryPercentage == 20 && notifyOn20Percent {
                     triggerLowBatteryWarning()
@@ -65,6 +163,7 @@ class MediaKeyManager: ObservableObject {
     
     @Published var isPluggedIn: Bool = true {
         didSet {
+            if !isBatteryInitialized { return }
             if isPluggedIn {
                 withAnimation(.easeInOut(duration: 0.25)) { showLowBatteryWarning = false }
                 if oldValue != isPluggedIn && notifyOnPlug {
@@ -80,9 +179,12 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    @Published var isSimulated: Bool = true
+    @Published var isBatteryInitialized: Bool = false
+    
+    @Published var isSimulated: Bool = false
     @Published var showLowBatteryWarning: Bool = false
     @Published var showChargingStatus: Bool = false
+    @Published var batteryTimeRemaining: String = "Calculating..."
     
     @Published var currentVolume: Int = 50
     @Published var isMuted: Bool = false
@@ -101,6 +203,7 @@ class MediaKeyManager: ObservableObject {
     @Published var clipboardAction: String = "copy" // "copy", "cut", "paste"
     @Published var clipboardEventId: UUID = UUID()
     var pendingClipboardAction: String?
+    var pendingClipboardActionTimestamp: Date?
     private var copyTimer: Timer?
     private var pasteboardObserver: PasteboardObserver?
     
@@ -109,58 +212,469 @@ class MediaKeyManager: ObservableObject {
     @Published var capsLockEventId: UUID = UUID()
     private var capsLockTimer: Timer?
     
-    // Bluetooth
-    @Published var notifyOnBluetooth: Bool = UserDefaults.standard.object(forKey: "notifyOnBluetooth") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(notifyOnBluetooth, forKey: "notifyOnBluetooth") }
+    @Published var notifyOnLanguageChange: Bool = UserDefaults.standard.object(forKey: "notifyOnLanguageChange") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnLanguageChange, forKey: "notifyOnLanguageChange") }
     }
+
+    @Published var soundOnLanguageChange: String = UserDefaults.standard.string(forKey: "soundOnLanguageChange") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnLanguageChange, forKey: "soundOnLanguageChange") }
+    }
+    @Published var showLanguageIndicator: Bool = false
+    @Published var currentKeyboardLanguage: String = ""
+    @Published var languageEventId: UUID = UUID()
+    private var languageTimer: Timer?
+    private var languageChangeWorkItem: DispatchWorkItem?
+    
+    // Bluetooth
+    @Published var notifyOnBluetoothConnect: Bool = UserDefaults.standard.object(forKey: "notifyOnBluetoothConnect") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnBluetoothConnect, forKey: "notifyOnBluetoothConnect") }
+    }
+
+    @Published var soundOnBluetoothConnect: String = UserDefaults.standard.string(forKey: "soundOnBluetoothConnect") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnBluetoothConnect, forKey: "soundOnBluetoothConnect") }
+    }
+    @Published var notifyOnBluetoothDisconnect: Bool = UserDefaults.standard.object(forKey: "notifyOnBluetoothDisconnect") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnBluetoothDisconnect, forKey: "notifyOnBluetoothDisconnect") }
+    }
+
+    @Published var soundOnBluetoothDisconnect: String = UserDefaults.standard.string(forKey: "soundOnBluetoothDisconnect") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnBluetoothDisconnect, forKey: "soundOnBluetoothDisconnect") }
+    }
+    @Published var bluetoothHistory: [String] = (UserDefaults.standard.array(forKey: "bluetoothHistory") as? [String]) ?? [] {
+        didSet { UserDefaults.standard.set(bluetoothHistory, forKey: "bluetoothHistory") }
+    }
+    @Published var bluetoothBlocklist: [String] = (UserDefaults.standard.array(forKey: "bluetoothBlocklist") as? [String]) ?? [] {
+        didSet { UserDefaults.standard.set(bluetoothBlocklist, forKey: "bluetoothBlocklist") }
+    }
+    // Przestarzałe pojedyncze powiadomienia zastąpione przez activeBluetoothNotifications
     @Published var showBluetoothIndicator: Bool = false
     @Published var bluetoothIsConnected: Bool = false
     @Published var bluetoothDeviceName: String = ""
+    
+    @Published var notifyOnWiFiConnect: Bool = UserDefaults.standard.object(forKey: "notifyOnWiFiConnect") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnWiFiConnect, forKey: "notifyOnWiFiConnect") }
+    }
+
+    @Published var soundOnWiFiConnect: String = UserDefaults.standard.string(forKey: "soundOnWiFiConnect") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnWiFiConnect, forKey: "soundOnWiFiConnect") }
+    }
+    @Published var notifyOnWiFiDisconnect: Bool = UserDefaults.standard.object(forKey: "notifyOnWiFiDisconnect") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnWiFiDisconnect, forKey: "notifyOnWiFiDisconnect") }
+    }
+
+    @Published var soundOnWiFiDisconnect: String = UserDefaults.standard.string(forKey: "soundOnWiFiDisconnect") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnWiFiDisconnect, forKey: "soundOnWiFiDisconnect") }
+    }
+    @Published var wifiHistory: [String] = (UserDefaults.standard.array(forKey: "wifiHistory") as? [String]) ?? [] {
+        didSet { UserDefaults.standard.set(wifiHistory, forKey: "wifiHistory") }
+    }
+    @Published var wifiBlocklist: [String] = (UserDefaults.standard.array(forKey: "wifiBlocklist") as? [String]) ?? [] {
+        didSet { UserDefaults.standard.set(wifiBlocklist, forKey: "wifiBlocklist") }
+    }
+    @Published var showWiFiIndicator: Bool = false
+    @Published var wiFiSSID: String = ""
+    @Published var wiFiIsConnected: Bool = false
+    @Published var wiFiIsHotspot: Bool = false
+    
     @Published var bluetoothEventId: UUID = UUID()
     private var bluetoothTimer: Timer?
-    private var bluetoothObserver: VisorBluetoothObserver?
+    private var bluetoothObserver: BluetoothObserver?
     private var lastBluetoothEventTime: Date = Date.distantPast
     
-    private func dismissCollidingIndicators(newPosition: String, source: String) {
-        let volPos = UserDefaults.standard.string(forKey: "volumeOverlayPosition") ?? "top"
-        let brightPos = UserDefaults.standard.string(forKey: "brightnessOverlayPosition") ?? "top"
-        let battPos = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
-        let copyPos = UserDefaults.standard.string(forKey: "copyOverlayPosition") ?? "bottom"
-        let capsPos = UserDefaults.standard.string(forKey: "capsLockOverlayPosition") ?? "bottom"
-        let btPos = UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom"
-        
-        if source != "volume" && volPos == newPosition && showVolumeIndicator {
-            withAnimation(nil) { showVolumeIndicator = false }
+    // Multimedia
+    @Published var enableMediaNotification: Bool = UserDefaults.standard.object(forKey: "enableMediaNotification") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(enableMediaNotification, forKey: "enableMediaNotification") }
+    }
+    @Published var showMediaIndicator: Bool = false
+    @Published var mediaTitle: String = ""
+    @Published var mediaArtist: String = ""
+    @Published var mediaDuration: Double = 0.0
+    @Published var mediaElapsedTime: Double = 0.0
+    @Published var mediaIsPlaying: Bool = false
+    @Published var mediaAction: String = "pause"
+    
+    @AppStorage("notifyMediaStart") var notifyMediaStart: Bool = true
+
+    @AppStorage("soundMediaStart") var soundMediaStart: String = "None"
+    @AppStorage("notifyMediaPause") var notifyMediaPause: Bool = true
+
+    @AppStorage("soundMediaPause") var soundMediaPause: String = "None"
+    @AppStorage("notifyMediaResume") var notifyMediaResume: Bool = true
+
+    @AppStorage("soundMediaResume") var soundMediaResume: String = "None"
+    @AppStorage("notifyMediaEnd") var notifyMediaEnd: Bool = true
+
+    @AppStorage("soundMediaEnd") var soundMediaEnd: String = "None"
+    
+    @Published var mediaEventId: UUID = UUID()
+    private var mediaTimer: Timer?
+    private var mediaHideTimer: Timer?
+    private var mediaObserver: MediaObserver?
+    
+    // Theme
+    @Published var enableTheme: Bool = UserDefaults.standard.object(forKey: "enableTheme") as? Bool ?? true {
+        didSet { 
+            UserDefaults.standard.set(enableTheme, forKey: "enableTheme")
+            if !enableTheme { withAnimation { self.showThemeIndicator = false } }
         }
-        if source != "brightness" && brightPos == newPosition && showBrightnessIndicator {
-            withAnimation(nil) { showBrightnessIndicator = false }
+    }
+    @Published var notifyOnThemeDark: Bool = UserDefaults.standard.object(forKey: "notifyOnThemeDark") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnThemeDark, forKey: "notifyOnThemeDark") }
+    }
+
+    @Published var soundOnThemeDark: String = UserDefaults.standard.string(forKey: "soundOnThemeDark") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnThemeDark, forKey: "soundOnThemeDark") }
+    }
+    @Published var notifyOnThemeLight: Bool = UserDefaults.standard.object(forKey: "notifyOnThemeLight") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnThemeLight, forKey: "notifyOnThemeLight") }
+    }
+
+    @Published var soundOnThemeLight: String = UserDefaults.standard.string(forKey: "soundOnThemeLight") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnThemeLight, forKey: "soundOnThemeLight") }
+    }
+    @Published var showThemeIndicator: Bool = false
+    @Published var isDarkMode: Bool = false
+    @Published var themeEventId: UUID = UUID()
+    private var themeTimer: Timer?
+    private var themeObserver: ThemeObserver?
+    
+    // Privacy
+    @Published var enablePrivacy: Bool = UserDefaults.standard.object(forKey: "enablePrivacy") as? Bool ?? true {
+        didSet { 
+            UserDefaults.standard.set(enablePrivacy, forKey: "enablePrivacy")
+            if !enablePrivacy { withAnimation { self.showMicIndicator = false; self.showCameraIndicator = false } }
         }
-        if source != "battery" && battPos == newPosition && (showChargingStatus || showLowBatteryWarning) {
-            withAnimation(nil) { 
-                showChargingStatus = false
-                showLowBatteryWarning = false
+    }
+    @Published var notifyOnMicOn: Bool = UserDefaults.standard.object(forKey: "notifyOnMicOn") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnMicOn, forKey: "notifyOnMicOn") }
+    }
+
+    @Published var soundOnMicOn: String = UserDefaults.standard.string(forKey: "soundOnMicOn") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnMicOn, forKey: "soundOnMicOn") }
+    }
+    @Published var notifyOnMicOff: Bool = UserDefaults.standard.object(forKey: "notifyOnMicOff") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnMicOff, forKey: "notifyOnMicOff") }
+    }
+
+    @Published var soundOnMicOff: String = UserDefaults.standard.string(forKey: "soundOnMicOff") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnMicOff, forKey: "soundOnMicOff") }
+    }
+    
+    @Published var notifyOnCameraOn: Bool = UserDefaults.standard.object(forKey: "notifyOnCameraOn") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnCameraOn, forKey: "notifyOnCameraOn") }
+    }
+
+    @Published var soundOnCameraOn: String = UserDefaults.standard.string(forKey: "soundOnCameraOn") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnCameraOn, forKey: "soundOnCameraOn") }
+    }
+    @Published var notifyOnCameraOff: Bool = UserDefaults.standard.object(forKey: "notifyOnCameraOff") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnCameraOff, forKey: "notifyOnCameraOff") }
+    }
+
+    @Published var soundOnCameraOff: String = UserDefaults.standard.string(forKey: "soundOnCameraOff") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnCameraOff, forKey: "soundOnCameraOff") }
+    }
+    
+    @Published var showMicIndicator: Bool = false
+    @Published var isMicActive: Bool = false
+    @Published var activeMicName: String = ""
+    @Published var micEventId: UUID = UUID()
+    private var micTimer: Timer?
+    private var lastMicEventTime: Date = Date.distantPast
+    
+    @Published var showCameraIndicator: Bool = false
+    @Published var isCameraActive: Bool = false
+    @Published var activeCameraName: String = ""
+    @Published var cameraEventId: UUID = UUID()
+    private var cameraTimer: Timer?
+    
+    private var avObserver: AVObserver?
+    
+    // Peripherals
+    @Published var enablePeripheral: Bool = UserDefaults.standard.object(forKey: "enablePeripheral") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(enablePeripheral, forKey: "enablePeripheral") }
+    }
+    @Published var notifyOnPeripheralConnect: Bool = UserDefaults.standard.object(forKey: "notifyOnPeripheralConnect") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnPeripheralConnect, forKey: "notifyOnPeripheralConnect") }
+    }
+
+    @Published var soundOnPeripheralConnect: String = UserDefaults.standard.string(forKey: "soundOnPeripheralConnect") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnPeripheralConnect, forKey: "soundOnPeripheralConnect") }
+    }
+    @Published var notifyOnPeripheralDisconnect: Bool = UserDefaults.standard.object(forKey: "notifyOnPeripheralDisconnect") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnPeripheralDisconnect, forKey: "notifyOnPeripheralDisconnect") }
+    }
+
+    @Published var soundOnPeripheralDisconnect: String = UserDefaults.standard.string(forKey: "soundOnPeripheralDisconnect") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnPeripheralDisconnect, forKey: "soundOnPeripheralDisconnect") }
+    }
+    @Published var peripheralHistory: [String] = (UserDefaults.standard.array(forKey: "peripheralHistory") as? [String]) ?? [] {
+        didSet { UserDefaults.standard.set(peripheralHistory, forKey: "peripheralHistory") }
+    }
+    @Published var peripheralBlocklist: [String] = (UserDefaults.standard.array(forKey: "peripheralBlocklist") as? [String]) ?? [] {
+        didSet { UserDefaults.standard.set(peripheralBlocklist, forKey: "peripheralBlocklist") }
+    }
+    @Published var peripheralIcons: [String: String] = (UserDefaults.standard.dictionary(forKey: "peripheralIcons") as? [String: String]) ?? [:] {
+        didSet { UserDefaults.standard.set(peripheralIcons, forKey: "peripheralIcons") }
+    }
+    
+    // Accessory Battery
+    @Published var enableAccessoryBattery: Bool = UserDefaults.standard.object(forKey: "enableAccessoryBattery") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(enableAccessoryBattery, forKey: "enableAccessoryBattery") }
+    }
+    @Published var accessoryBatteryHistory: [String] = (UserDefaults.standard.array(forKey: "accessoryBatteryHistory") as? [String]) ?? [] {
+        didSet { UserDefaults.standard.set(accessoryBatteryHistory, forKey: "accessoryBatteryHistory") }
+    }
+    @Published var accessoryBatteryBlocklist: [String] = (UserDefaults.standard.array(forKey: "accessoryBatteryBlocklist") as? [String]) ?? [] {
+        didSet { UserDefaults.standard.set(accessoryBatteryBlocklist, forKey: "accessoryBatteryBlocklist") }
+    }
+    @Published var showAccessoryBatteryIndicator: Bool = false
+    @Published var accessoryBatteryDeviceName: String = ""
+    @Published var accessoryBatteryPercentage: Int = 100
+    @Published var accessoryBatteryIsPluggedIn: Bool = false
+    @Published var accessoryBatteryIsWarning: Bool = false
+    @Published var accessoryBatteryEventId: UUID = UUID()
+    @Published var accessoryBatteryLevels: [String: Int] = [:]
+    @Published var accessoryBatteryCharging: [String: Bool] = [:]
+    private var accessoryBatteryTimer: Timer?
+    private var btPoller: BluetoothBatteryPoller?
+    
+    // Przestarzałe pojedyncze powiadomienia zastąpione przez activePeripheralNotifications
+    @Published var showPeripheralIndicator: Bool = false
+    @Published var peripheralDeviceName: String = ""
+    @Published var peripheralDeviceType: String = ""
+    @Published var peripheralDeviceIcon: String = "cable.connector"
+    @Published var peripheralIsConnected: Bool = false
+    @Published var peripheralEventId: UUID = UUID()
+    
+    private var lastBluetoothEventTimeByDevice: [String: Date] = [:]
+    
+    private var peripheralTimer: Timer?
+    private var peripheralObserver: PeripheralObserver?
+    private var currentPlayingSound: NSSound?
+    
+    func playNotificationSound(named soundName: String) {
+        if soundName == "None" || soundName.isEmpty { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            var sound: NSSound?
+            if soundName == "Default" {
+                let soundFile = "/System/Library/LoginPlugins/BezelServices.loginPlugin/Contents/Resources/volume.aiff"
+                if FileManager.default.fileExists(atPath: soundFile) {
+                    sound = NSSound(contentsOfFile: soundFile, byReference: true)
+                } else {
+                    sound = NSSound(named: "Pop")
+                }
+            } else if soundName == "Power Chime" {
+                let soundFile = "/System/Library/CoreServices/PowerChime.app/Contents/Resources/connect_power.aif"
+                if FileManager.default.fileExists(atPath: soundFile) {
+                    sound = NSSound(contentsOfFile: soundFile, byReference: true)
+                } else {
+                    sound = NSSound(named: "Pop")
+                }
+            } else {
+                sound = NSSound(named: soundName)
+            }
+            
+            if let sound = sound {
+                if sound.isPlaying {
+                    sound.stop()
+                    sound.currentTime = 0
+                }
+                self.currentPlayingSound = sound // Zatrzymanie referencji, by dźwięk zdążył się odtworzyć
+                sound.play()
             }
         }
-        if source != "copy" && copyPos == newPosition && showCopyIndicator {
-            withAnimation(nil) { showCopyIndicator = false }
+    }
+
+    func dismissCollidingIndicators(newPosition: String, source: String) {
+        // Celowo pozostawione puste, aby kafelki mogły pojawiać się jednocześnie
+        // i rozsuwać na boki (zarządzane przez HStack w ContentView).
+    }
+    
+    func triggerThemeIndicator(isDark: Bool) {
+        if !enableTheme { return }
+        playNotificationSound(named: isDark ? soundOnThemeDark : soundOnThemeLight)
+        if isDark && !notifyOnThemeDark { return }
+        if !isDark && !notifyOnThemeLight { return }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.themeTimer?.invalidate()
+            
+            let pos = UserDefaults.standard.string(forKey: "themeOverlayPosition") ?? "top"
+            self.dismissCollidingIndicators(newPosition: pos, source: "theme")
+            
+            self.isDarkMode = isDark
+            self.themeEventId = UUID()
+            
+            if self.showThemeIndicator {
+                self.showThemeIndicator = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        self.showThemeIndicator = true
+                    }
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    self.showThemeIndicator = true
+                }
+            }
+            
+            self.themeTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self?.showThemeIndicator = false
+                }
+            }
         }
-        if source != "capsLock" && capsPos == newPosition && showCapsLockIndicator {
-            withAnimation(nil) { showCapsLockIndicator = false }
+    }
+    
+    func triggerLanguageIndicator(language: String) {
+        if !enableKeyboard { return }
+        if !notifyOnLanguageChange { return }
+        
+        playNotificationSound(named: soundOnLanguageChange)
+        
+        languageTimer?.invalidate()
+        let pos = UserDefaults.standard.string(forKey: "languageOverlayPosition") ?? "bottom"
+        dismissCollidingIndicators(newPosition: pos, source: "language")
+        
+        self.currentKeyboardLanguage = language
+        self.languageEventId = UUID()
+        
+        if showLanguageIndicator {
+            showLanguageIndicator = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    self.showLanguageIndicator = true
+                }
+            }
+        } else {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                showLanguageIndicator = true
+            }
         }
-        if source != "bluetooth" && btPos == newPosition && showBluetoothIndicator {
-            withAnimation(nil) { showBluetoothIndicator = false }
+        
+        languageTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                self?.showLanguageIndicator = false
+            }
+        }
+    }
+    
+    func triggerMicIndicator(isActive: Bool, deviceName: String = "") {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // ALWAYS update the underlying hardware state so AVObserver can detect future changes correctly
+            self.isMicActive = isActive
+            self.lastMicEventTime = Date()
+            
+            if isActive {
+                self.activeMicName = deviceName.isEmpty ? "System Microphone" : deviceName
+            }
+            
+            if !self.enablePrivacy { return }
+            if isActive {
+                if !self.notifyOnMicOn { return }
+            } else {
+                if !self.notifyOnMicOff { return }
+            }
+            
+            self.playNotificationSound(named: isActive ? self.soundOnMicOn : self.soundOnMicOff)
+            
+            self.micTimer?.invalidate()
+            let pos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
+            self.dismissCollidingIndicators(newPosition: pos, source: "mic")
+            
+            self.micEventId = UUID()
+            
+            if self.showMicIndicator {
+                self.showMicIndicator = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        self.showMicIndicator = true
+                    }
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    self.showMicIndicator = true
+                }
+            }
+            
+            self.micTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self?.showMicIndicator = false
+                }
+            }
+        }
+    }
+    
+    func triggerCameraIndicator(isActive: Bool, deviceName: String = "") {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // ALWAYS update the underlying hardware state so AVObserver can detect future changes correctly
+            self.isCameraActive = isActive
+            if isActive {
+                self.activeCameraName = deviceName.isEmpty ? "Built-in Camera" : deviceName
+            }
+            
+            if !self.enablePrivacy { return }
+            if isActive {
+                if !self.notifyOnCameraOn { return }
+            } else {
+                if !self.notifyOnCameraOff { return }
+            }
+            
+            self.playNotificationSound(named: isActive ? self.soundOnCameraOn : self.soundOnCameraOff)
+            
+            self.cameraTimer?.invalidate()
+            let pos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
+            self.dismissCollidingIndicators(newPosition: pos, source: "camera")
+            
+            self.cameraEventId = UUID()
+            
+            if self.showCameraIndicator {
+                self.showCameraIndicator = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        self.showCameraIndicator = true
+                    }
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    self.showCameraIndicator = true
+                }
+            }
+            
+            self.cameraTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self?.showCameraIndicator = false
+                }
+            }
         }
     }
     
     private var batteryTimer: Timer?
     
     func triggerLowBatteryWarning() {
+        if !enableBattery { return }
+        let currentLevel = currentBatteryPercentage
+        playNotificationSound(named: currentLevel <= 10 ? soundOn10Percent : soundOn20Percent)
         let battPos = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
         dismissCollidingIndicators(newPosition: battPos, source: "battery")
         withAnimation(.easeInOut(duration: 0.25)) { showLowBatteryWarning = true }
     }
     
     func triggerChargingStatus() {
+        if !enableBattery { return }
+        if isPluggedIn {
+            playNotificationSound(named: soundOnPlug)
+        } else if currentBatteryPercentage >= 100 {
+            playNotificationSound(named: soundOn100Percent)
+        }
         chargingTimer?.invalidate()
         let battPos = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
         dismissCollidingIndicators(newPosition: battPos, source: "battery")
@@ -186,9 +700,115 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func triggerVolumeIndicator() {
+    func triggerPeripheralIndicator(deviceName: String, type: String, typeIcon: String, isConnected: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if !self.enablePeripheral { return }
+            if isConnected && !self.notifyOnPeripheralConnect { return }
+            if !isConnected && !self.notifyOnPeripheralDisconnect { return }
+            
+            if !self.peripheralHistory.contains(deviceName) {
+                self.peripheralHistory.append(deviceName)
+            }
+            if self.peripheralIcons[deviceName] != typeIcon {
+                self.peripheralIcons[deviceName] = typeIcon
+            }
+            if self.peripheralBlocklist.contains(deviceName) { return }
+            self.playNotificationSound(named: isConnected ? self.soundOnPeripheralConnect : self.soundOnPeripheralDisconnect)
+            
+            let pos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "top"
+            self.dismissCollidingIndicators(newPosition: pos, source: "peripheral")
+            
+            let newNotif = DeviceNotification(id: deviceName, deviceName: deviceName, type: type, icon: typeIcon, isConnected: isConnected, timestamp: Date())
+            
+            withAnimation(.easeInOut(duration: 0.15)) {
+                if let idx = self.activePeripheralNotifications.firstIndex(where: { $0.id == deviceName }) {
+                    self.activePeripheralNotifications[idx] = newNotif
+                } else {
+                    self.activePeripheralNotifications.append(newNotif)
+                }
+                self.enforceNotificationLimit()
+            }
+            
+            let timerKey = "peripheral_\(deviceName)"
+            self.notificationTimers[timerKey]?.invalidate()
+            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: 3.5, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self?.activePeripheralNotifications.removeAll(where: { $0.id == deviceName })
+                }
+            }
+        }
+    }
+    
+    func triggerAccessoryBatteryIndicator(deviceName: String, percentage: Int, isPluggedIn: Bool, isWarning: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Zawsze aktualizuj bieżący stan, by był widoczny w ustawieniach
+            self.accessoryBatteryLevels[deviceName] = percentage
+            self.accessoryBatteryCharging[deviceName] = isPluggedIn
+            
+            if !self.enableAccessoryBattery { return }
+            
+            if !self.accessoryBatteryHistory.contains(deviceName) {
+                self.accessoryBatteryHistory.append(deviceName)
+            }
+            if self.accessoryBatteryBlocklist.contains(deviceName) { return }
+            
+            self.accessoryBatteryDeviceName = deviceName
+            self.accessoryBatteryPercentage = percentage
+            self.accessoryBatteryIsPluggedIn = isPluggedIn
+            self.accessoryBatteryIsWarning = isWarning
+            
+            self.accessoryBatteryTimer?.invalidate()
+            let pos = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
+            self.dismissCollidingIndicators(newPosition: pos, source: "accessoryBattery")
+            
+            self.accessoryBatteryEventId = UUID()
+            
+            if self.showAccessoryBatteryIndicator {
+                self.showAccessoryBatteryIndicator = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        self.showAccessoryBatteryIndicator = true
+                    }
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    self.showAccessoryBatteryIndicator = true
+                }
+            }
+            
+            let displayTime: TimeInterval = isWarning ? 4.5 : 3.5
+            self.accessoryBatteryTimer = Timer.scheduledTimer(withTimeInterval: displayTime, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self?.showAccessoryBatteryIndicator = false
+                }
+            }
+        }
+    }
+    
+    func updateAccessoryState(deviceName: String, percentage: Int, isPluggedIn: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.accessoryBatteryLevels[deviceName] = percentage
+            self.accessoryBatteryCharging[deviceName] = isPluggedIn
+            
+            if !self.accessoryBatteryHistory.contains(deviceName) {
+                self.accessoryBatteryHistory.append(deviceName)
+            }
+        }
+    }
+    
+    func triggerVolumeIndicator(playSound: Bool = false) {
+        if !enableVolume { return }
+        if playSound {
+            playNotificationSound(named: soundOnVolume)
+        }
         // Pomijaj powiadomienie o głośności jeśli przed chwilą było zdarzenie Bluetooth (np. podłączono słuchawki)
         if Date().timeIntervalSince(lastBluetoothEventTime) < 2.0 { return }
+        // Pomijaj powiadomienie o głośności jeśli przed chwilą zmieniono stan mikrofonu (zapobiega fałszywym powiadomieniom przy przełączaniu profili AirPods)
+        if Date().timeIntervalSince(lastMicEventTime) < 2.5 { return }
         
         volumeTimer?.invalidate()
         let volPos = UserDefaults.standard.string(forKey: "volumeOverlayPosition") ?? "top"
@@ -205,7 +825,11 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func triggerBrightnessIndicator() {
+    func triggerBrightnessIndicator(playSound: Bool = false) {
+        if !enableBrightness { return }
+        if playSound {
+            playNotificationSound(named: soundOnBrightness)
+        }
         brightnessTimer?.invalidate()
         let brightPos = UserDefaults.standard.string(forKey: "brightnessOverlayPosition") ?? "top"
         dismissCollidingIndicators(newPosition: brightPos, source: "brightness")
@@ -222,9 +846,14 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerClipboardIndicator(text: String, action: String = "copy") {
+        if !enableKeyboard { return }
         if action == "copy" && !notifyOnCopy { return }
         if action == "cut" && !notifyOnCut { return }
         if action == "paste" && !notifyOnPaste { return }
+        
+        if action == "copy" { playNotificationSound(named: soundOnCopy) }
+        else if action == "cut" { playNotificationSound(named: soundOnCut) }
+        else if action == "paste" { playNotificationSound(named: soundOnPaste) }
         
         copyTimer?.invalidate()
         let copyPos = UserDefaults.standard.string(forKey: "copyOverlayPosition") ?? "bottom"
@@ -255,7 +884,10 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerCapsLockIndicator(isOn: Bool) {
+        if !enableKeyboard { return }
         if !notifyOnCapsLock { return }
+        
+        playNotificationSound(named: soundOnCapsLock)
         
         capsLockTimer?.invalidate()
         let pos = UserDefaults.standard.string(forKey: "capsLockOverlayPosition") ?? "bottom"
@@ -285,48 +917,319 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerBluetoothIndicator(deviceName: String, isConnected: Bool) {
-        if !notifyOnBluetooth { return }
+        if !enableBluetooth { return }
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.bluetoothTimer?.invalidate()
+            
+            if !self.bluetoothHistory.contains(deviceName) {
+                self.bluetoothHistory.append(deviceName)
+            }
+        }
+        
+        if isConnected && !notifyOnBluetoothConnect { return }
+        if !isConnected && !notifyOnBluetoothDisconnect { return }
+        if bluetoothBlocklist.contains(deviceName) { return }
+        
+        let now = Date()
+        let eventKey = "\(deviceName)_\(isConnected ? "connect" : "disconnect")"
+        if let lastTime = lastBluetoothEventTimeByDevice[eventKey], now.timeIntervalSince(lastTime) < 2.0 {
+            return // Debounce: ignoruj to samo zdarzenie dla tego samego urządzenia w ciągu 2 sekund
+        }
+        lastBluetoothEventTimeByDevice[eventKey] = now
+        
+        let soundToPlay = isConnected ? soundOnBluetoothConnect : soundOnBluetoothDisconnect
+        playNotificationSound(named: soundToPlay)
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
             let pos = UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom"
             self.dismissCollidingIndicators(newPosition: pos, source: "bluetooth")
             
-            self.bluetoothDeviceName = deviceName
-            self.bluetoothIsConnected = isConnected
-            self.bluetoothEventId = UUID()
-            self.lastBluetoothEventTime = Date()
+            let newNotif = DeviceNotification(id: deviceName, deviceName: deviceName, type: "bluetooth", icon: "bluetooth", isConnected: isConnected, timestamp: Date())
             
-            if self.showBluetoothIndicator {
-                self.showBluetoothIndicator = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        self.showBluetoothIndicator = true
-                    }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                if let idx = self.activeBluetoothNotifications.firstIndex(where: { $0.id == deviceName }) {
+                    self.activeBluetoothNotifications[idx] = newNotif
+                } else {
+                    self.activeBluetoothNotifications.append(newNotif)
                 }
-            } else {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showBluetoothIndicator = true
-                }
+                self.enforceNotificationLimit()
             }
             
-            self.bluetoothTimer = Timer.scheduledTimer(withTimeInterval: 3.5, repeats: false) { [weak self] _ in
+            let timerKey = "bluetooth_\(deviceName)"
+            self.notificationTimers[timerKey]?.invalidate()
+            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: 3.5, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showBluetoothIndicator = false
+                    self?.activeBluetoothNotifications.removeAll(where: { $0.id == deviceName })
                 }
             }
         }
     }
     
-    func updateBatteryState(percentage: Int, pluggedIn: Bool) {
-        guard !isSimulated else { return }
-        self.currentBatteryPercentage = percentage
-        self.isPluggedIn = pluggedIn
+    private var wiFiTimer: Timer?
+    @Published var wiFiEventId: UUID = UUID()
+    
+    func triggerWiFiIndicator(ssid: String, isConnected: Bool, isHotspot: Bool = false) {
+        if !enableWiFi { return }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            if !self.wifiHistory.contains(ssid) {
+                self.wifiHistory.append(ssid)
+            }
+        }
+        
+        if isConnected && !notifyOnWiFiConnect { return }
+        if !isConnected && !notifyOnWiFiDisconnect { return }
+        if wifiBlocklist.contains(ssid) { return }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.wiFiTimer?.invalidate()
+            
+            let pos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
+            self.dismissCollidingIndicators(newPosition: pos, source: "wifi")
+            
+            self.wiFiSSID = ssid
+            self.wiFiIsConnected = isConnected
+            self.wiFiIsHotspot = isHotspot
+            self.wiFiEventId = UUID()
+            
+            if self.showWiFiIndicator {
+                self.showWiFiIndicator = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        self.showWiFiIndicator = true
+                    }
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    self.showWiFiIndicator = true
+                }
+            }
+            
+            self.wiFiTimer = Timer.scheduledTimer(withTimeInterval: 3.5, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self?.showWiFiIndicator = false
+                }
+            }
+        }
     }
     
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
+    func updateMediaInfo(title: String, artist: String, duration: Double, elapsedTime: Double, isPlaying: Bool, mediaAction: String, triggerNotification: Bool) {
+        // Prevent recursive updates from the observer by just updating properties
+        self.mediaDuration = duration
+        self.mediaElapsedTime = elapsedTime
+        self.mediaIsPlaying = isPlaying
+        
+        var finalTrigger = triggerNotification
+        if finalTrigger {
+            if mediaAction == "start" && !notifyMediaStart { finalTrigger = false }
+            if mediaAction == "pause" && !notifyMediaPause { finalTrigger = false }
+            if mediaAction == "resume" && !notifyMediaResume { finalTrigger = false }
+            if mediaAction == "end" && !notifyMediaEnd { finalTrigger = false }
+        }
+        if finalTrigger {
+            if mediaAction == "start" { playNotificationSound(named: soundMediaStart) }
+            else if mediaAction == "pause" { playNotificationSound(named: soundMediaPause) }
+            else if mediaAction == "resume" { playNotificationSound(named: soundMediaResume) }
+            else if mediaAction == "end" { playNotificationSound(named: soundMediaEnd) }
+        }
+        
+        if finalTrigger || !self.showMediaIndicator {
+            self.mediaTitle = title
+            self.mediaArtist = artist
+            self.mediaAction = mediaAction
+        }
+        
+        if finalTrigger && enableMediaNotification {
+            // Show overlay
+            withAnimation {
+                self.showMediaIndicator = true
+                self.mediaHideTimer?.invalidate()
+                self.mediaHideTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
+                    withAnimation {
+                        self.showMediaIndicator = false
+                    }
+                }
+            }
+        }
+    }
+    
+    func keepAlive(for type: String, isHovering: Bool) {
+        let defaultDelay: TimeInterval = type == "battery" ? 5.0 : (type == "volume" || type == "brightness" ? 3.0 : 2.5)
+        
+        switch type {
+        case "volume":
+            volumeTimer?.invalidate()
+            if !isHovering {
+                volumeTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showVolumeIndicator = false }
+                }
+            }
+        case "brightness":
+            brightnessTimer?.invalidate()
+            if !isHovering {
+                brightnessTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showBrightnessIndicator = false }
+                }
+            }
+        case "battery":
+            chargingTimer?.invalidate()
+            if !isHovering {
+                chargingTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { 
+                        self?.showChargingStatus = false
+                        self?.showLowBatteryWarning = false
+                    }
+                }
+            }
+        case "copy":
+            copyTimer?.invalidate()
+            if !isHovering {
+                copyTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showCopyIndicator = false }
+                }
+            }
+        case "capsLock":
+            capsLockTimer?.invalidate()
+            if !isHovering {
+                capsLockTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showCapsLockIndicator = false }
+                }
+            }
+        case "language":
+            languageTimer?.invalidate()
+            if !isHovering {
+                languageTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showLanguageIndicator = false }
+                }
+            }
+        case "mic":
+            micTimer?.invalidate()
+            if !isHovering {
+                micTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showMicIndicator = false }
+                }
+            }
+        case "camera":
+            cameraTimer?.invalidate()
+            if !isHovering {
+                cameraTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showCameraIndicator = false }
+                }
+            }
+        case "bluetooth":
+            bluetoothTimer?.invalidate()
+            if !isHovering {
+                bluetoothTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showBluetoothIndicator = false }
+                }
+            }
+        case "wifi":
+            wiFiTimer?.invalidate()
+            if !isHovering {
+                wiFiTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showWiFiIndicator = false }
+                }
+            }
+        case "media":
+            mediaHideTimer?.invalidate()
+            if !isHovering {
+                mediaHideTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showMediaIndicator = false }
+                }
+            }
+        case "theme":
+            themeTimer?.invalidate()
+            if !isHovering {
+                themeTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) { self?.showThemeIndicator = false }
+                }
+            }
+        default: break
+        }
+    }
+    
+    private func isAnyAppInFullScreen() -> Bool {
+        guard let windowInfoList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return false }
+        
+        let screens = NSScreen.screens
+        for info in windowInfoList {
+            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
+            guard let boundsDict = info[kCGWindowBounds as String] as? [String: CGFloat],
+                  let x = boundsDict["X"], let y = boundsDict["Y"],
+                  let w = boundsDict["Width"], let h = boundsDict["Height"] else { continue }
+            
+            let windowRect = NSRect(x: x, y: y, width: w, height: h)
+            
+            for screen in screens {
+                let screenFrame = screen.frame
+                if windowRect.size.width >= screenFrame.width && windowRect.size.height >= screenFrame.height {
+                    if let ownerName = info[kCGWindowOwnerName as String] as? String {
+                        if ownerName == "Dock" || ownerName == "Finder" || ownerName == "Window Server" {
+                            continue
+                        }
+                        return true
+                    }
+                }
+            }
+        }
+        return false
+    }
+    
+    func triggerMediaIndicator() {
+        if !enableMediaNotification { return }
+        if isAnyAppInFullScreen() { return }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.mediaTimer?.invalidate()
+            
+            let pos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
+            self.dismissCollidingIndicators(newPosition: pos, source: "media")
+            
+            self.mediaEventId = UUID()
+            
+            if self.showMediaIndicator {
+                self.showMediaIndicator = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        self.showMediaIndicator = true
+                    }
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    self.showMediaIndicator = true
+                }
+            }
+            
+            self.mediaTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self?.showMediaIndicator = false
+                }
+            }
+        }
+    }
+    
+    func updateBatteryState(percentage: Int, pluggedIn: Bool, timeRemaining: String) {
+        if !enableBattery { return }
+        let wasInitialized = self.isBatteryInitialized
+        self.isPluggedIn = pluggedIn
+        self.currentBatteryPercentage = percentage
+        self.batteryTimeRemaining = timeRemaining
+        if !wasInitialized {
+            self.isBatteryInitialized = true
+        }
+    }
+    
+    private var mediaKeyTap: CFMachPort?
+    private var mediaKeyRunLoopSource: CFRunLoopSource?
+    private var globalKeyMonitor: Any?
+    private var localKeyMonitor: Any?
+    private var hasStarted = false
     private var audioRouteObserver: AudioRouteObserver?
     private var batteryObserver: BatteryObserver?
     private var wifiObserver: WiFiObserver?
@@ -338,12 +1241,16 @@ class MediaKeyManager: ObservableObject {
     init() {
         checkAccessibility()
         loadShortcuts()
-        self.bluetoothObserver = VisorBluetoothObserver(manager: self)
+        self.bluetoothObserver = BluetoothObserver(manager: self)
         self.audioRouteObserver = AudioRouteObserver(manager: self)
         self.batteryObserver = BatteryObserver(manager: self)
         self.wifiObserver = WiFiObserver(manager: self)
         self.pasteboardObserver = PasteboardObserver(manager: self)
+        self.themeObserver = ThemeObserver(manager: self)
+        self.peripheralObserver = PeripheralObserver(manager: self)
+        self.btPoller = BluetoothBatteryPoller(manager: self)
         
+        self.lastAction = "Gotowe!"
         VolumeManager.shared.fetchCurrentVolume { [weak self] vol, muted in
             self?.currentVolume = vol
             self?.isMuted = muted
@@ -354,7 +1261,38 @@ class MediaKeyManager: ObservableObject {
             self?.currentBrightness = brightness
         }
         
+        self.mediaObserver = MediaObserver(manager: self)
+        self.mediaObserver?.startObserving()
+        
         self.bluetoothObserver?.startObserving()
+        
+        self.avObserver = AVObserver(manager: self)
+        self.avObserver?.startObserving()
+        
+        if let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() {
+            if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) {
+                self.currentKeyboardLanguage = Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() as String
+            }
+        }
+        
+        DistributedNotificationCenter.default().addObserver(forName: NSNotification.Name(kTISNotifySelectedKeyboardInputSourceChanged as String), object: nil, queue: .main) { [weak self] _ in
+            self?.languageChangeWorkItem?.cancel()
+            
+            let workItem = DispatchWorkItem {
+                if let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() {
+                    if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) {
+                        let name = Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() as String
+                        
+                        // Wywołaj nakładkę tylko wtedy, gdy język faktycznie się zmienił
+                        if self?.currentKeyboardLanguage != name {
+                            self?.triggerLanguageIndicator(language: name)
+                        }
+                    }
+                }
+            }
+            self?.languageChangeWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: workItem)
+        }
     }
     
     private func loadShortcuts() {
@@ -391,67 +1329,153 @@ class MediaKeyManager: ObservableObject {
         if !self.isTrusted {
             checkAccessibility()
             if !self.isTrusted {
-                print("Brak uprawnień Dostępności!")
                 return
             }
         }
         
-        let eventMask = (1 << CGEventType(rawValue: UInt32(NX_SYSDEFINED))!.rawValue) |
-                        (1 << CGEventType.flagsChanged.rawValue) |
-                        (1 << CGEventType.keyDown.rawValue)
+
+        
+        // === TAP 1: Listen-only – klawiatura (Caps Lock + skróty schowka) ===
+        // Zamiast CGEventTap używamy NSEvent monitorów (globalnego i lokalnego), 
+        // które są w 100% niezawodne, nie blokują klawiszy i omijają problemy z cachem Dostępności w macOS.
+        let handleKeyEvent: (NSEvent) -> Void = { [weak self] event in
+            guard let self = self else { return }
+            
+            if event.type == .flagsChanged {
+                if event.keyCode == 57 { // 57 to kVK_CapsLock
+                    if !self.enableKeyboard { return }
+                    let isCapsOn = event.modifierFlags.contains(.capsLock)
+                    DispatchQueue.main.async {
+                        if !self.useSystemOSD {
+                            self.lastAction = "Caps Lock: \(isCapsOn ? "Wł." : "Wył.")"
+                        }
+                        self.triggerCapsLockIndicator(isOn: isCapsOn)
+                    }
+                }
+            } else if event.type == .keyDown {
+                let eventModifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+                let char = event.charactersIgnoringModifiers?.lowercased() ?? ""
+                
+                if self.enableKeyboard {
+                    let isCustomCopy = (eventModifiers == self.copyShortcut.modifiers && char == self.copyShortcut.character.lowercased())
+                    let isNativeCopy = (eventModifiers == .command && char == "c")
+                    
+                    let isCustomPaste = (eventModifiers == self.pasteShortcut.modifiers && char == self.pasteShortcut.character.lowercased())
+                    let isNativePaste = (eventModifiers == .command && char == "v")
+                    
+                    let isCustomCut = (eventModifiers == self.cutShortcut.modifiers && char == self.cutShortcut.character.lowercased())
+                    let isNativeCut = (eventModifiers == .command && char == "x")
+                    
+                    if isCustomCopy || isNativeCopy {
+                        self.pendingClipboardAction = "copy"
+                        self.pendingClipboardActionTimestamp = Date()
+                        // UWAGA: Nie wyświetlamy OSD tutaj! OSD pokaże PasteboardObserver TYLKO jeśli schowek faktycznie się zmieni!
+                    } else if isCustomPaste || isNativePaste {
+                        let types = NSPasteboard.general.types ?? []
+                        let isFile = types.contains(.fileURL) || 
+                                     types.contains(NSPasteboard.PasteboardType("public.file-url")) || 
+                                     types.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType"))
+                        
+                        if isFile {
+                            // Jeśli w schowku jest plik, wklejanie działa TYLKO natywnym skrótem (Cmd+V).
+                            // Customowy skrót nic nie zrobi w Finderze, więc go ignorujemy (żeby nie pokazywać fałszywego OSD).
+                            if isCustomPaste && !isNativePaste { return }
+                        } else {
+                            // Jeśli w schowku jest tekst, wklejanie działa TYLKO customowym skrótem (zgodnie z intencją usera).
+                            // Ignorujemy natywne Cmd+V, żeby nie pokazywać fałszywego OSD.
+                            if isNativePaste && !isCustomPaste { return }
+                        }
+                        
+                        // Sprawdzamy czy wklejanie jest w ogóle możliwe w aktywnej aplikacji (np. pole tekstowe)
+                        if !self.canPasteInFrontmostApp() {
+                            return
+                        }
+                        
+                        // Przy wklejaniu schowek się nie zmienia, więc musimy pokazać OSD od razu
+                        DispatchQueue.main.async {
+                            self.lastAction = "Wklejono tekst"
+                            let text = NSPasteboard.general.string(forType: .string) ?? "Wklejony plik"
+                            self.triggerClipboardIndicator(text: text, action: "paste")
+                        }
+                    } else if isCustomCut || isNativeCut {
+                        self.pendingClipboardAction = "cut"
+                        self.pendingClipboardActionTimestamp = Date()
+                        // Podobnie jak przy kopiowaniu – OSD pokaże się dopiero gdy system faktycznie wytnie dane
+                    }
+                }
+            }
+        }
+        
+        // Nasłuch globalny (gdy inna aplikacja jest aktywna)
+        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            handleKeyEvent(event)
+        }
+        
+        // Nasłuch lokalny (gdy Visor jest aktywny/na wierzchu)
+        localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
+            handleKeyEvent(event)
+            return event // Zwracamy event, by nie blokować jego przetwarzania
+        }
+        
+
+        
+        // === TAP 2: Active tap – media keys (głośność + jasność) ===
+        // Tworzony dynamicznie – istnieje TYLKO gdy Volume lub Brightness jest włączone.
+        // Gdy oba wyłączone, tap jest usuwany i macOS obsługuje klawisze w 100% natywnie.
+        hasStarted = true
+        setupMediaKeyTap()
+    }
+    
+    private func enforceNotificationLimit() {
+        let allNotifs = activeBluetoothNotifications + activePeripheralNotifications
+        let limit = max(1, maxSimultaneousNotifications)
+        if allNotifs.count <= limit { return }
+        
+        let allowed = Array(allNotifs.sorted { $0.timestamp > $1.timestamp }.prefix(limit))
+        
+        for notif in activeBluetoothNotifications where !allowed.contains(notif) {
+            notificationTimers["bluetooth_\(notif.id)"]?.invalidate()
+            notificationTimers.removeValue(forKey: "bluetooth_\(notif.id)")
+        }
+        for notif in activePeripheralNotifications where !allowed.contains(notif) {
+            notificationTimers["peripheral_\(notif.id)"]?.invalidate()
+            notificationTimers.removeValue(forKey: "peripheral_\(notif.id)")
+        }
+        
+        activeBluetoothNotifications = activeBluetoothNotifications.filter { allowed.contains($0) }
+        activePeripheralNotifications = activePeripheralNotifications.filter { allowed.contains($0) }
+    }
+    
+    /// Tworzy lub usuwa aktywny Event Tap dla klawiszy głośności/jasności.
+    /// Wywoływane automatycznie przy zmianie enableVolume, enableBrightness lub useSystemOSD.
+    func setupMediaKeyTap() {
+        guard hasStarted else { return }
+        
+        // Usuń istniejący tap
+        if let tap = mediaKeyTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+        }
+        if let source = mediaKeyRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+        mediaKeyTap = nil
+        mediaKeyRunLoopSource = nil
+        
+        // Twórz aktywny tap TYLKO gdy co najmniej jeden moduł media jest włączony
+        // i nie korzystamy z systemowego OSD
+        guard (enableVolume || enableBrightness || enableMediaNotification) && !useSystemOSD else {
+            return
+        }
         
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        let mediaEventMask = 1 << CGEventType(rawValue: UInt32(NX_SYSDEFINED))!.rawValue
         
-        let callback: CGEventTapCallBack = { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
+        let mediaCallback: CGEventTapCallBack = { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
             let manager = Unmanaged<MediaKeyManager>.fromOpaque(refcon!).takeUnretainedValue()
             
-            if type == .flagsChanged {
-                let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-                if keyCode == 57 { // 57 to kVK_CapsLock
-                    let isCapsOn = event.flags.contains(.maskAlphaShift)
-                    DispatchQueue.main.async {
-                        if !manager.useSystemOSD {
-                            manager.lastAction = "Caps Lock: \(isCapsOn ? "Wł." : "Wył.")"
-                        }
-                        manager.triggerCapsLockIndicator(isOn: isCapsOn)
-                    }
-                }
-                return Unmanaged.passRetained(event)
-            }
-            
-            if type == .keyDown {
-                if !manager.useSystemOSD {
-                    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-                    let flags = event.flags
-                    
-                    let hasCommand = flags.contains(.maskCommand)
-                    
-                    if hasCommand {
-                        if keyCode == 8 { // 'c'
-                            manager.pendingClipboardAction = "copy"
-                            DispatchQueue.main.async { manager.lastAction = "Skopiowano tekst" }
-                        } else if keyCode == 9 { // 'v'
-                            DispatchQueue.main.async {
-                                manager.lastAction = "Wklejono tekst"
-                                let text = NSPasteboard.general.string(forType: .string) ?? "Wklejony plik"
-                                manager.triggerClipboardIndicator(text: text, action: "paste")
-                            }
-                        } else if keyCode == 7 { // 'x'
-                            manager.pendingClipboardAction = "cut"
-                            DispatchQueue.main.async { manager.lastAction = "Wycięto tekst" }
-                        }
-                    }
-                }
-                return Unmanaged.passRetained(event)
-            }
-            
-            guard type == CGEventType(rawValue: UInt32(NX_SYSDEFINED))! else { return Unmanaged.passRetained(event) }
-            
-            if manager.useSystemOSD {
-                return Unmanaged.passRetained(event)
-            }
             guard type == CGEventType(rawValue: UInt32(NX_SYSDEFINED))! else { return Unmanaged.passRetained(event) }
             guard let nsEvent = NSEvent(cgEvent: event), nsEvent.type == .systemDefined else { return Unmanaged.passRetained(event) }
+            
             if nsEvent.subtype.rawValue == 8 { // NX_SUBTYPE_AUX_CONTROL_BUTTONS
                 let data1 = nsEvent.data1
                 let keyCode = (data1 & 0xFFFF0000) >> 16
@@ -464,6 +1488,29 @@ class MediaKeyManager: ObservableObject {
                 let NX_KEYTYPE_BRIGHTNESS_UP = 2
                 let NX_KEYTYPE_BRIGHTNESS_DOWN = 3
                 let NX_KEYTYPE_MUTE = 7
+                let NX_KEYTYPE_PLAY = 16
+                let NX_KEYTYPE_NEXT = 17
+                let NX_KEYTYPE_PREVIOUS = 18
+                
+                // Jeśli moduł jest wyłączony – przepuść zdarzenie do systemu
+                if keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE {
+                    if !manager.enableVolume {
+                        return Unmanaged.passRetained(event)
+                    }
+                }
+                
+                if keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN {
+                    if !manager.enableBrightness {
+                        return Unmanaged.passRetained(event)
+                    }
+                }
+                
+                if keyCode == NX_KEYTYPE_PLAY || keyCode == NX_KEYTYPE_NEXT || keyCode == NX_KEYTYPE_PREVIOUS {
+                    // We let the system handle the key.
+                    // The MediaObserver's helper script will detect the state change
+                    // and automatically trigger the UI via the notification.
+                    return Unmanaged.passRetained(event)
+                }
                 
                 if keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE || keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN {
                     if isKeyDown {
@@ -473,66 +1520,123 @@ class MediaKeyManager: ObservableObject {
                                 VolumeManager.shared.increaseVolume { vol, muted in
                                     manager.currentVolume = vol
                                     manager.isMuted = muted
-                                    manager.currentAudioDeviceName = VolumeManager.shared.getCurrentAudioDeviceName()
-                                    manager.triggerVolumeIndicator()
+                                    manager.triggerVolumeIndicator(playSound: true)
                                 }
                             } else if keyCode == NX_KEYTYPE_SOUND_DOWN {
                                 manager.lastAction = "Zmniejszanie głośności"
                                 VolumeManager.shared.decreaseVolume { vol, muted in
                                     manager.currentVolume = vol
                                     manager.isMuted = muted
-                                    manager.currentAudioDeviceName = VolumeManager.shared.getCurrentAudioDeviceName()
-                                    manager.triggerVolumeIndicator()
+                                    manager.triggerVolumeIndicator(playSound: true)
                                 }
                             } else if keyCode == NX_KEYTYPE_MUTE {
                                 VolumeManager.shared.toggleMute { vol, muted in
                                     manager.currentVolume = vol
                                     manager.isMuted = muted
-                                    manager.currentAudioDeviceName = VolumeManager.shared.getCurrentAudioDeviceName()
                                     manager.lastAction = muted ? "Wyciszono dźwięk" : "Włączono dźwięk"
-                                    manager.triggerVolumeIndicator()
+                                    manager.triggerVolumeIndicator(playSound: true)
                                 }
                             } else if keyCode == NX_KEYTYPE_BRIGHTNESS_UP {
                                 manager.lastAction = "Zwiększanie jasności"
                                 BrightnessManager.shared.increaseBrightness { newBright in
                                     manager.currentBrightness = newBright
-                                    manager.triggerBrightnessIndicator()
+                                    manager.triggerBrightnessIndicator(playSound: true)
                                 }
                             } else if keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN {
                                 manager.lastAction = "Zmniejszanie jasności"
                                 BrightnessManager.shared.decreaseBrightness { newBright in
                                     manager.currentBrightness = newBright
-                                    manager.triggerBrightnessIndicator()
+                                    manager.triggerBrightnessIndicator(playSound: true)
                                 }
                             }
                         }
                     }
-                    // Zwrócenie nil blokuje zdarzenie – systemowy OSD nie pokaże się, a system sam nie zmieni głośności.
+                    // Blokuj zdarzenie – Visor obsługuje głośność/jasność samodzielnie
                     return nil
                 }
             }
             return Unmanaged.passRetained(event)
         }
         
-        eventTap = CGEvent.tapCreate(
+        mediaKeyTap = CGEvent.tapCreate(
             tap: .cghidEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
-            eventsOfInterest: CGEventMask(eventMask),
-            callback: callback,
+            eventsOfInterest: CGEventMask(mediaEventMask),
+            callback: mediaCallback,
             userInfo: selfPtr
         )
         
-        if let tap = eventTap {
-            runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-            if let source = runLoopSource {
-                CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+        if let tap = mediaKeyTap {
+            mediaKeyRunLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+            if let source = mediaKeyRunLoopSource {
+                CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
                 CGEvent.tapEnable(tap: tap, enable: true)
-                print("Event tap aktywny – nasłuchuję głośności.")
             }
         } else {
-            print("Nie udało się utworzyć Event Tap. Upewnij się, że 'App Sandbox' w Xcode jest wyłączony oraz masz uprawnienia Dostępności.")
         }
+    }
+    
+    private func canPasteInFrontmostApp() -> Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return true }
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        
+        var menuBar: CFTypeRef?
+        if AXUIElementCopyAttributeValue(appElement, kAXMenuBarAttribute as CFString, &menuBar) != .success { return true }
+        guard let menuBarElement = menuBar as! AXUIElement? else { return true }
+        
+        var menus: CFTypeRef?
+        if AXUIElementCopyAttributeValue(menuBarElement, kAXChildrenAttribute as CFString, &menus) != .success { return true }
+        guard let menuItems = menus as? [AXUIElement] else { return true }
+        
+        for item in menuItems {
+            var title: CFTypeRef?
+            if AXUIElementCopyAttributeValue(item, kAXTitleAttribute as CFString, &title) != .success { continue }
+            if let titleStr = title as? String, (titleStr == "Edit" || titleStr == "Edycja") {
+                var children: CFTypeRef?
+                if AXUIElementCopyAttributeValue(item, kAXChildrenAttribute as CFString, &children) != .success { continue }
+                guard let editMenuArr = children as? [AXUIElement], let editMenu = editMenuArr.first else { continue }
+                
+                var editItems: CFTypeRef?
+                if AXUIElementCopyAttributeValue(editMenu, kAXChildrenAttribute as CFString, &editItems) != .success { continue }
+                guard let items = editItems as? [AXUIElement] else { continue }
+                
+                for subItem in items {
+                    var subTitle: CFTypeRef?
+                    if AXUIElementCopyAttributeValue(subItem, kAXTitleAttribute as CFString, &subTitle) != .success { continue }
+                    if let subStr = subTitle as? String, (subStr.contains("Paste") || subStr.contains("Wklej")) {
+                        var enabled: CFTypeRef?
+                        if AXUIElementCopyAttributeValue(subItem, kAXEnabledAttribute as CFString, &enabled) == .success {
+                            if let isEnabled = enabled as? Bool {
+                                return isEnabled
+                            }
+                        }
+                        return true // Fallback
+                    }
+                }
+            }
+        }
+        return true // Fallback
+    }
+
+    func stopEventTaps() {
+        if let tap = mediaKeyTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+        }
+        if let source = mediaKeyRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+        if let monitor = globalKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalKeyMonitor = nil
+        }
+        if let monitor = localKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            localKeyMonitor = nil
+        }
+        mediaKeyTap = nil
+        mediaKeyRunLoopSource = nil
+        
     }
 }
 
@@ -555,22 +1659,31 @@ class PasteboardObserver {
     }
     
     private func checkPasteboard() {
+        guard let manager = manager, manager.enableKeyboard else { return }
         let currentChangeCount = NSPasteboard.general.changeCount
         if currentChangeCount != lastChangeCount {
             lastChangeCount = currentChangeCount
             
-            let action = manager?.pendingClipboardAction ?? "copy"
-            manager?.pendingClipboardAction = nil
+            // Sprawdzamy czy ostatnia akcja klawiatury (kopiuj/wytnij) nastąpiła w ciągu ostatnich 1.5 sekundy
+            var action = "copy" // domyślnie zakładamy kopiowanie (np. przy użyciu myszki do kopiowania/wycinania)
+            if let pending = manager.pendingClipboardAction,
+               let timestamp = manager.pendingClipboardActionTimestamp,
+               Date().timeIntervalSince(timestamp) < 1.5 {
+                action = pending
+            }
+            
+            manager.pendingClipboardAction = nil
+            manager.pendingClipboardActionTimestamp = nil
             
             // Sprawdzamy czy w schowku jest tekst
             if let copiedText = NSPasteboard.general.string(forType: .string) {
                 DispatchQueue.main.async {
-                    self.manager?.triggerClipboardIndicator(text: copiedText, action: action)
+                    manager.triggerClipboardIndicator(text: copiedText, action: action)
                 }
             } else {
                 // Skopiowano coś innego, np. plik lub obrazek
                 DispatchQueue.main.async {
-                    self.manager?.triggerClipboardIndicator(text: "Plik / Obraz", action: action)
+                    manager.triggerClipboardIndicator(text: "Plik / Obraz", action: action)
                 }
             }
         }
@@ -581,37 +1694,162 @@ class PasteboardObserver {
     }
 }
 
-class VisorBluetoothObserver: NSObject {
-    weak var manager: MediaKeyManager?
+class ThemeObserver {
+    private weak var manager: MediaKeyManager?
     
     init(manager: MediaKeyManager) {
         self.manager = manager
-        super.init()
+        startObserving()
     }
     
-    func startObserving() {
-        IOBluetoothDevice.register(forConnectNotifications: self, selector: #selector(deviceConnected(_:device:)))
+    private func startObserving() {
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(themeChanged),
+            name: Notification.Name("AppleInterfaceThemeChangedNotification"),
+            object: nil
+        )
+    }
+    
+    @objc private func themeChanged() {
+        // Evaluate the new theme
+        let appearance = NSApp.effectiveAppearance
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         
-        // Zarejestruj rozłączenia dla już połączonych urządzeń przy starcie aplikacji
-        if let pairedDevices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] {
-            for device in pairedDevices {
-                if device.isConnected() {
-                    device.register(forDisconnectNotification: self, selector: #selector(deviceDisconnected(_:device:)))
-                }
+        manager?.triggerThemeIndicator(isDark: isDark)
+    }
+    
+    deinit {
+        DistributedNotificationCenter.default().removeObserver(self)
+    }
+}
+
+class PeripheralObserver {
+    private weak var manager: MediaKeyManager?
+    private var notifyPort: IONotificationPortRef?
+    private var runLoopSource: CFRunLoopSource?
+    private var addedIterator: io_iterator_t = 0
+    private var removedIterator: io_iterator_t = 0
+    
+    init(manager: MediaKeyManager) {
+        self.manager = manager
+        startObserving()
+    }
+    
+    private func startObserving() {
+        notifyPort = IONotificationPortCreate(kIOMainPortDefault)
+        guard let notifyPort = notifyPort else { return }
+        runLoopSource = IONotificationPortGetRunLoopSource(notifyPort).takeUnretainedValue()
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .defaultMode)
+        
+        let matchDict = IOServiceMatching("IOUSBHostDevice") as NSMutableDictionary
+        let matchDictRemove = IOServiceMatching("IOUSBHostDevice") as NSMutableDictionary
+        
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        
+        // Match Add
+        IOServiceAddMatchingNotification(
+            notifyPort,
+            kIOFirstMatchNotification,
+            matchDict,
+            { context, iterator in
+                let mySelf = Unmanaged<PeripheralObserver>.fromOpaque(context!).takeUnretainedValue()
+                mySelf.deviceAdded(iterator: iterator)
+            },
+            selfPtr,
+            &addedIterator
+        )
+        deviceAdded(iterator: addedIterator, initial: true)
+        
+        // Match Remove
+        IOServiceAddMatchingNotification(
+            notifyPort,
+            kIOTerminatedNotification,
+            matchDictRemove,
+            { context, iterator in
+                let mySelf = Unmanaged<PeripheralObserver>.fromOpaque(context!).takeUnretainedValue()
+                mySelf.deviceRemoved(iterator: iterator)
+            },
+            selfPtr,
+            &removedIterator
+        )
+        deviceRemoved(iterator: removedIterator, initial: true)
+    }
+    
+    private func deviceAdded(iterator: io_iterator_t, initial: Bool = false) {
+        while case let device = IOIteratorNext(iterator), device != 0 {
+            if !initial {
+                handleDevice(device: device, isConnected: true)
             }
+            IOObjectRelease(device)
         }
     }
     
-    @objc func deviceConnected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
-        let deviceName = device.name ?? "Unknown Device"
-        manager?.triggerBluetoothIndicator(deviceName: deviceName, isConnected: true)
-        
-        // Obserwowanie rozłączenia tylko dla połączonych urządzeń
-        device.register(forDisconnectNotification: self, selector: #selector(deviceDisconnected(_:device:)))
+    private func deviceRemoved(iterator: io_iterator_t, initial: Bool = false) {
+        while case let device = IOIteratorNext(iterator), device != 0 {
+            if !initial {
+                handleDevice(device: device, isConnected: false)
+            }
+            IOObjectRelease(device)
+        }
     }
     
-    @objc func deviceDisconnected(_ notification: IOBluetoothUserNotification, device: IOBluetoothDevice) {
-        let deviceName = device.name ?? "Unknown Device"
-        manager?.triggerBluetoothIndicator(deviceName: deviceName, isConnected: false)
+    private func handleDevice(device: io_object_t, isConnected: Bool) {
+        var nameCString = [CChar](repeating: 0, count: 256)
+        let result = IORegistryEntryGetName(device, &nameCString)
+        if result == KERN_SUCCESS {
+            let name = String(cString: nameCString)
+            
+            // Ignore generic host controllers or roots
+            if name.lowercased().contains("root hub") { return }
+            
+            var type = "USB Device"
+            var typeIcon = "cable.connector"
+            
+            if let cfClass = IORegistryEntryCreateCFProperty(device, "bDeviceClass" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? NSNumber {
+                let devClass = cfClass.intValue
+                if devClass == 9 {
+                    type = "USB Hub"
+                    typeIcon = "point.3.connected.trianglepath.dotted"
+                } else if devClass == 8 {
+                    type = "USB Drive"
+                    typeIcon = "externaldrive"
+                } else if devClass == 3 {
+                    type = "HID Device"
+                    typeIcon = "keyboard"
+                }
+            }
+            
+            let lowerName = name.lowercased()
+            if lowerName.contains("keyboard") || lowerName.contains("keychron") {
+                type = "Keyboard"
+                typeIcon = "keyboard"
+            } else if lowerName.contains("mouse") || lowerName.contains("receiver") || lowerName.contains("logi") {
+                type = "Mouse"
+                typeIcon = "magicmouse"
+            } else if lowerName.contains("hub") {
+                type = "USB Hub"
+                typeIcon = "point.3.connected.trianglepath.dotted"
+            } else if lowerName.contains("drive") || lowerName.contains("sandisk") || lowerName.contains("ssd") {
+                type = "USB Drive"
+                typeIcon = "externaldrive"
+            } else if lowerName.contains("audio") || lowerName.contains("mic") {
+                type = "Audio Device"
+                typeIcon = "headphones"
+            }
+            
+            // If the name is something generic like "USB2.0 Hub", we rely on the type.
+            let displayName = name.count > 0 ? name : type
+            
+            manager?.triggerPeripheralIndicator(deviceName: displayName, type: type, typeIcon: typeIcon, isConnected: isConnected)
+        }
+    }
+    
+    deinit {
+        if let notifyPort = notifyPort {
+            IONotificationPortDestroy(notifyPort)
+        }
+        if addedIterator != 0 { IOObjectRelease(addedIterator) }
+        if removedIterator != 0 { IOObjectRelease(removedIterator) }
     }
 }

@@ -1,36 +1,110 @@
 import Foundation
+import Network
+import CoreLocation
 import CoreWLAN
 
-class WiFiObserver: NSObject, CWEventDelegate {
+class WiFiObserver: NSObject, CLLocationManagerDelegate {
     private weak var manager: MediaKeyManager?
-    private var client: CWWiFiClient?
+    private var locationManager: CLLocationManager?
+    
+    private var timer: Timer?
     private var lastSSID: String?
+    private var lastIsConnected: Bool = false
+    private var inactiveCounter: Int = 0
+    
+    private var pathMonitor: NWPathMonitor?
+    private let pathQueue = DispatchQueue(label: "PathMonitorQueue")
+    private var isCurrentlyHotspot: Bool = false
+    
+    private var lastNetworkSetupPoll: Date = .distantPast
+    private var cachedNetworkSetupSSID: String?
+    private var isInitialLoad: Bool = true
     
     init(manager: MediaKeyManager) {
         self.manager = manager
         super.init()
         
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            self.isInitialLoad = false
+        }
+        
+        DispatchQueue.main.async {
+            self.locationManager = CLLocationManager()
+            self.locationManager?.delegate = self
+            if self.locationManager?.authorizationStatus == .notDetermined {
+                self.locationManager?.requestAlwaysAuthorization()
+            }
+        }
+        
         startObserving()
     }
     
-    func startObserving() {
-        self.client = CWWiFiClient.shared()
-        self.client?.delegate = self
-        
-        do {
-            try self.client?.startMonitoringEvent(with: .ssidDidChange)
-            try self.client?.startMonitoringEvent(with: .linkDidChange)
-            try self.client?.startMonitoringEvent(with: .powerDidChange)
-            
-            // Pobierz początkowy SSID żeby mieć punkt odniesienia
-            self.lastSSID = getSSID()
-        } catch {
-            print("Błąd podczas uruchamiania monitorowania Wi-Fi: \(error)")
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        if status == .authorizedAlways || status == .authorized {
+            self.pollWiFi()
         }
     }
     
-    // Używamy networksetup jako obejścia restrykcyjnych wymogów Location Services od macOS 14.4+
-    private func getSSID() -> String? {
+    func startObserving() {
+        self.lastSSID = getSSIDThrottled()
+        self.lastIsConnected = self.lastSSID != nil
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+                self.pollWiFi()
+            }
+            
+            self.pathMonitor = NWPathMonitor(requiredInterfaceType: .wifi)
+            self.pathMonitor?.pathUpdateHandler = { [weak self] path in
+                let expensive = path.isExpensive
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    if self.isCurrentlyHotspot != expensive {
+                        self.isCurrentlyHotspot = expensive
+                        // Jeśli odświeżyło się z opóźnieniem, przekaż to w locie do aktywnej nakładki!
+                        if self.lastIsConnected {
+                            self.manager?.wiFiIsHotspot = expensive
+                        }
+                    }
+                }
+            }
+            self.pathMonitor?.start(queue: self.pathQueue)
+        }
+    }
+    
+    @objc private func pollWiFi() {
+        guard let interface = CWWiFiClient.shared().interface() else { return }
+        
+        let powerOn = interface.powerOn()
+        if !powerOn {
+            inactiveCounter = 0
+            handleFinalState(isConnected: false, ssid: nil)
+            return
+        }
+        
+        var currentSSID = interface.ssid()
+        if currentSSID == nil || currentSSID!.isEmpty {
+            currentSSID = getSSIDThrottled()
+        }
+        
+        if let validSSID = currentSSID, !validSSID.isEmpty {
+            inactiveCounter = 0
+            handleFinalState(isConnected: true, ssid: validSSID)
+        } else {
+            inactiveCounter += 1
+            if inactiveCounter >= 8 { // 4 sekundy "pustego" stanu (np. podczas przełączania/DHCP) = dopiero teraz Rozłączono
+                handleFinalState(isConnected: false, ssid: nil)
+            }
+        }
+    }
+    
+    private func getSSIDThrottled() -> String? {
+        if Date().timeIntervalSince(lastNetworkSetupPoll) < 3.0 {
+            return cachedNetworkSetupSSID
+        }
+        lastNetworkSetupPoll = Date()
+        
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
         process.arguments = ["-getairportnetwork", "en0"]
@@ -44,44 +118,60 @@ class WiFiObserver: NSObject, CWEventDelegate {
                 if output.contains("Current Wi-Fi Network:") {
                     let parts = output.components(separatedBy: "Current Wi-Fi Network: ")
                     if parts.count > 1 {
-                        return parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+                        let ssid = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+                        if ssid != "null" && !ssid.isEmpty {
+                            cachedNetworkSetupSSID = ssid
+                            return ssid
+                        }
                     }
                 }
             }
         } catch {}
+        
+        cachedNetworkSetupSSID = nil
         return nil
     }
     
-    func ssidDidChangeForWiFiInterface(withName interfaceName: String) {
-        checkWiFiState()
-    }
-    
-    func linkDidChangeForWiFiInterface(withName interfaceName: String) {
-        checkWiFiState()
-    }
-    
-    func powerStateDidChangeForWiFiInterface(withName interfaceName: String) {
-        checkWiFiState()
-    }
-    
-    private func checkWiFiState() {
+    private func handleFinalState(isConnected: Bool, ssid: String?) {
         guard let manager = manager, !manager.useSystemOSD else { return }
         
-        let currentSSID = getSSID()
+        if isInitialLoad {
+            self.lastIsConnected = isConnected
+            self.lastSSID = ssid
+            return
+        }
         
-        DispatchQueue.main.async {
-            if let current = currentSSID {
-                if let last = self.lastSSID, last != current {
-                    manager.lastAction = "Zmieniono Wi-Fi na: \(current)"
-                } else if self.lastSSID == nil {
-                    manager.lastAction = "Połączono z Wi-Fi: \(current)"
+        let connectionStateChanged = isConnected != self.lastIsConnected
+        let ssidChanged = ssid != self.lastSSID
+        
+        if !connectionStateChanged && !ssidChanged {
+            return
+        }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            if isConnected {
+                let networkName = ssid ?? "Unknown Wi-Fi"
+                let ssidChanged = networkName != self.lastSSID
+                
+                if self.lastIsConnected && ssidChanged && self.lastSSID != nil {
+                    manager.lastAction = "Switched to: \(networkName)"
+                } else {
+                    manager.lastAction = "Connected to: \(networkName)"
                 }
-                self.lastSSID = current
+                manager.triggerWiFiIndicator(ssid: networkName, isConnected: true, isHotspot: self.isCurrentlyHotspot)
             } else {
-                if self.lastSSID != nil {
-                    manager.lastAction = "Odłączono od Wi-Fi 🌐"
-                    self.lastSSID = nil
-                }
+                let networkName = self.lastSSID ?? "Wi-Fi"
+                manager.lastAction = "Disconnected from Wi-Fi"
+                manager.triggerWiFiIndicator(ssid: networkName, isConnected: false, isHotspot: false)
+            }
+            
+            self.lastIsConnected = isConnected
+            if isConnected {
+                self.lastSSID = ssid
+            } else {
+                self.lastSSID = nil
             }
         }
     }
