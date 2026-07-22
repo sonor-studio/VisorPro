@@ -299,8 +299,12 @@ struct BatteryOverlayView: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in }
                     .onEnded { value in
-                        if value.translation.width == 0 && value.translation.height == 0 {
-                            // Click handling if needed
+                        if isPreview { return }
+                        let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
+                        if !moved {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                isExpanded.toggle()
+                            }
                         }
                     }
             )
@@ -385,19 +389,15 @@ struct BatteryOverlayView: View {
             if expanded {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                    mediaKeyManager.keepAlive(for: "battery", isHovering: true)
+                    DispatchQueue.main.async {
+                        if !isPreview { mediaKeyManager.keepAlive(for: "battery", isHovering: true) }
+                    }
                 }
             } else {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = nil
-            }
-        }
-        .onChange(of: isHovering) { hover in
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0)) {
-                if hover && !isWarningMode { // Tylko przy ładowaniu/zwykłym info
-                    isExpanded = true
-                } else if !hover {
-                    isExpanded = false
+                if !isPreview {
+                    mediaKeyManager.keepAlive(for: "battery", isHovering: isHovering)
                 }
             }
         }
