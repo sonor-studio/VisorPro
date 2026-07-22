@@ -120,7 +120,7 @@ class VisorWindowManager: ObservableObject {
             let y = yPos(for: overlay.position, in: screenSize) + screenOrigin.y
             
             let windowWidth: CGFloat = 400
-            let windowHeight: CGFloat = (overlay.type == .volume || overlay.type == .media) ? 400 : 120
+            let windowHeight: CGFloat = (overlay.type == .volume || overlay.type == .media || overlay.type == .battery) ? 400 : 120
             
             let panel: NSPanel
             if let existing = windows[overlay.id] {
@@ -132,7 +132,7 @@ class VisorWindowManager: ObservableObject {
             
             let originX = x - (windowWidth / 2)
             let originY: CGFloat
-            if overlay.type == .volume || overlay.type == .media {
+            if overlay.type == .volume || overlay.type == .media || overlay.type == .battery {
                 if overlay.position == "top" {
                     originY = y - windowHeight + 63
                 } else if overlay.position == "bottom" {
@@ -169,7 +169,7 @@ class VisorWindowManager: ObservableObject {
     }
     
     private func createPanel(for overlay: ActiveOverlay) -> NSPanel {
-        let h: CGFloat = (overlay.type == .volume || overlay.type == .media) ? 400 : 120
+        let h: CGFloat = (overlay.type == .volume || overlay.type == .media || overlay.type == .battery) ? 400 : 120
         let panel = VisorOverlayPanel(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: h),
             styleMask: [.nonactivatingPanel, .borderless],
@@ -227,9 +227,9 @@ struct SingleOverlayContainer: View {
     }
     
     var body: some View {
-        let h: CGFloat = (overlay.type == .volume || overlay.type == .media) ? 400 : 120
+        let h: CGFloat = (overlay.type == .volume || overlay.type == .media || overlay.type == .battery) ? 400 : 120
         let align: Alignment = {
-            if overlay.type == .volume || overlay.type == .media {
+            if overlay.type == .volume || overlay.type == .media || overlay.type == .battery {
                 if overlay.position == "top" { return .top }
                 if overlay.position == "bottom" { return .bottom }
                 return .center
@@ -243,8 +243,8 @@ struct SingleOverlayContainer: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
             }
         }
-        .padding(.top, (overlay.type == .volume || overlay.type == .media) && overlay.position == "top" ? 15 : 0)
-        .padding(.bottom, (overlay.type == .volume || overlay.type == .media) && overlay.position == "bottom" ? 15 : 0)
+        .padding(.top, (overlay.type == .volume || overlay.type == .media || overlay.type == .battery) && overlay.position == "top" ? 15 : 0)
+        .padding(.bottom, (overlay.type == .volume || overlay.type == .media || overlay.type == .battery) && overlay.position == "bottom" ? 15 : 0)
         .animation(.spring(response: 0.35, dampingFraction: 0.7), value: hasAppeared && isOverlayActive)
         .frame(width: 400, height: h, alignment: align)
         .edgesIgnoringSafeArea(.all)

@@ -378,7 +378,7 @@ struct BatteryOverlayView: View {
                 }
             }
         )
-        .frame(width: width, height: isExpanded ? expandedHeight : baseHeight)
+        .frame(width: width, height: isExpanded ? expandedHeight : baseHeight, alignment: .top)
         .onHover { hovering in
             isHovering = hovering
             if !isPreview {
