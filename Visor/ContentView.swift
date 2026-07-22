@@ -309,63 +309,62 @@ struct BatteryOverlayView: View {
                     }
             )
             
-            if isExpanded {
-                VStack(spacing: 12) {
-                    HStack(spacing: 16) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Kondycja")
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundColor(.secondary)
-                            Text(mediaKeyManager.batteryCondition)
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundColor(.primary)
-                        }
-                        
-                        Divider()
-                            .frame(height: 24)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Pojemność")
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundColor(.secondary)
-                            Text("\(mediaKeyManager.batteryHealthPercentage)%")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundColor(.primary)
-                        }
-                        
-                        Divider()
-                            .frame(height: 24)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Cykle")
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundColor(.secondary)
-                            Text("\(mediaKeyManager.batteryCycleCount)")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundColor(.primary)
-                        }
+            VStack(spacing: 12) {
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Kondycja")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(.secondary)
+                        Text(mediaKeyManager.batteryCondition)
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
                     
-                    Button(action: {
-                        mediaKeyManager.openBatterySettings()
-                    }) {
-                        Text("Otwórz Ustawienia Baterii")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color.blue.opacity(0.85))
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    Divider()
+                        .frame(height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Pojemność")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(.secondary)
+                        Text("\(mediaKeyManager.batteryHealthPercentage)%")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 16)
+                    
+                    Divider()
+                        .frame(height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Cykle")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(.secondary)
+                        Text("\(mediaKeyManager.batteryCycleCount)")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
+                    }
                 }
-                .frame(width: width, height: expandedHeight - baseHeight)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                
+                Button(action: {
+                    mediaKeyManager.openBatterySettings()
+                }) {
+                    Text("Otwórz Ustawienia Baterii")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.blue.opacity(0.85))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
             }
+            .frame(width: width, height: isExpanded ? expandedHeight - baseHeight : 0, alignment: .top)
+            .clipped()
+            .opacity(isExpanded ? 1 : 0)
         }
         .background(
             ZStack {

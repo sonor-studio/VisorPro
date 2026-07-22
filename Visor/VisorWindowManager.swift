@@ -237,10 +237,16 @@ struct SingleOverlayContainer: View {
             return .center
         }()
         
+        let transitionEdge: Edge = (overlay.position == "top") ? .top : .bottom
+        let transitionAnchor: UnitPoint = (overlay.position == "top") ? .top : .bottom
+        
         ZStack {
             if hasAppeared && isOverlayActive {
                 overlayView(for: overlay)
-                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.9, anchor: transitionAnchor)).combined(with: .move(edge: transitionEdge)),
+                        removal: .opacity.combined(with: .scale(scale: 0.8, anchor: transitionAnchor)).combined(with: .move(edge: transitionEdge))
+                    ))
             }
         }
         .padding(.top, (overlay.type == .volume || overlay.type == .media || overlay.type == .battery) && overlay.position == "top" ? 15 : 0)
