@@ -1,0 +1,23 @@
+{
+  "/Users/macbook/Desktop/Dev/Visor/Visor/SettingsView.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/SettingsView.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/SettingsView.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/SettingsView.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/SettingsView.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/SettingsView.swiftdeps"
+  },
+  "/Users/macbook/Desktop/Dev/Visor/Visor/SimulatorView.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/SimulatorView.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/SimulatorView.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/SimulatorView.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/SimulatorView.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/SimulatorView.swiftdeps"
+  },
+  "/Users/macbook/Desktop/Dev/Visor/Visor/TimeoutProgressBar.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/TimeoutProgressBar.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/TimeoutProgressBar.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/TimeoutProgressBar.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/TimeoutProgressBar.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/TimeoutProgressBar.swiftdeps"
+  }
+}

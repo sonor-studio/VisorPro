@@ -1,0 +1,23 @@
+{
+  "/Users/macbook/Desktop/Dev/Visor/Visor/View+GlassEffect.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/View+GlassEffect.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/View+GlassEffect.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/View+GlassEffect.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/View+GlassEffect.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/View+GlassEffect.swiftdeps"
+  },
+  "/Users/macbook/Desktop/Dev/Visor/Visor/View+Theme.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/View+Theme.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/View+Theme.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/View+Theme.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/View+Theme.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/View+Theme.swiftdeps"
+  },
+  "/Users/macbook/Desktop/Dev/Visor/Visor/VisorApp.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisorApp.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisorApp.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisorApp.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisorApp.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisorApp.swiftdeps"
+  }
+}

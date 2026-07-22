@@ -1,0 +1,23 @@
+{
+  "/Users/macbook/Desktop/Dev/Visor/Visor/WiFiObserver.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/WiFiObserver.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/WiFiObserver.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/WiFiObserver.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/WiFiObserver.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/WiFiObserver.swiftdeps"
+  },
+  "/Users/macbook/Desktop/Dev/Visor/Visor/WiFiOverlayView.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/WiFiOverlayView.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/WiFiOverlayView.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/WiFiOverlayView.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/WiFiOverlayView.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/WiFiOverlayView.swiftdeps"
+  },
+  "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps"
+  }
+}

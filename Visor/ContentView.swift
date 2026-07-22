@@ -387,11 +387,9 @@ struct BatteryOverlayView: View {
                 expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                     mediaKeyManager.keepAlive(for: "battery", isHovering: true)
                 }
-                VisorWindowManager.shared.setWindowIgnoresMouseEvents(false)
             } else {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = nil
-                VisorWindowManager.shared.setWindowIgnoresMouseEvents(true)
             }
         }
         .onChange(of: isHovering) { hover in

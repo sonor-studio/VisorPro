@@ -1,0 +1,23 @@
+{
+  "/Users/macbook/Desktop/Dev/Visor/Visor/VisorWindowManager.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisorWindowManager.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisorWindowManager.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisorWindowManager.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisorWindowManager.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisorWindowManager.swiftdeps"
+  },
+  "/Users/macbook/Desktop/Dev/Visor/Visor/VisualEffectView.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisualEffectView.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisualEffectView.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisualEffectView.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisualEffectView.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VisualEffectView.swiftdeps"
+  },
+  "/Users/macbook/Desktop/Dev/Visor/Visor/VolumeManager.swift" : {
+    "const-values" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VolumeManager.swiftconstvalues",
+    "dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VolumeManager.d",
+    "diagnostics" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VolumeManager.dia",
+    "object" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VolumeManager.o",
+    "swift-dependencies" : "/Users/macbook/Desktop/Dev/Visor/build/Build/Intermediates.noindex/Visor.build/Debug/Visor.build/Objects-normal/arm64/VolumeManager.swiftdeps"
+  }
+}
