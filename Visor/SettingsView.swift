@@ -289,11 +289,17 @@ struct PlaceholderSettingsView: View {
     }
 }
 
+class TransparentNSView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        return nil
+    }
+}
+
 struct WindowAccessor: NSViewRepresentable {
     @Binding var window: NSWindow?
     
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
+        let view = TransparentNSView()
         DispatchQueue.main.async {
             self.window = view.window
         }

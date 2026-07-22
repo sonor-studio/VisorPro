@@ -9,6 +9,7 @@ class MediaObserver {
     // State
     private var lastTitle = ""
     private var lastArtist = ""
+    private var lastAlbum = ""
     private var lastDuration = 0.0
     private var lastElapsedTime = 0.0
     private var lastIsPlaying = false
@@ -141,32 +142,18 @@ class MediaObserver {
         var finalArtist = ""
         let browserNames = ["Safari", "Google Chrome", "Chrome", "Brave Browser", "Arc", "Edge", "Firefox"]
         
-        if browserNames.contains(appName) {
-            if !artistRaw.isEmpty && album.isEmpty {
-                // Heurystyka: YouTube zazwyczaj ustawia kanał w polu artist, ale pole album zostawia puste.
-                finalArtist = "YouTube • \(appName)"
-            } else if !artistRaw.isEmpty {
-                // Heurystyka: Spotify Web zazwyczaj ustawia i artist i album.
+        if !artistRaw.isEmpty && !appName.isEmpty {
+            if artistRaw.lowercased() == appName.lowercased() {
+                finalArtist = appName
+            } else {
                 finalArtist = "\(artistRaw) • \(appName)"
-            } else {
-                // Heurystyka: Netflix i inne VOD często nie ustawiają w ogóle wykonawcy.
-                finalArtist = appName
             }
+        } else if !artistRaw.isEmpty {
+            finalArtist = artistRaw
+        } else if !appName.isEmpty {
+            finalArtist = appName
         } else {
-            // Aplikacje natywne (np. Spotify, Music)
-            if !artistRaw.isEmpty && !appName.isEmpty {
-                if artistRaw.lowercased() == appName.lowercased() {
-                    finalArtist = appName
-                } else {
-                    finalArtist = "\(artistRaw) • \(appName)"
-                }
-            } else if !artistRaw.isEmpty {
-                finalArtist = artistRaw
-            } else if !appName.isEmpty {
-                finalArtist = appName
-            } else {
-                finalArtist = "Unknown source"
-            }
+            finalArtist = "Unknown source"
         }
         
         let duration = json["duration"] as? Double ?? 0.0
@@ -240,6 +227,7 @@ class MediaObserver {
         self.lastIsPlaying = isPlaying
         self.lastTitle = title
         self.lastArtist = finalArtist
+        self.lastAlbum = album
         self.lastDuration = duration
         self.lastElapsedTime = elapsedTime
         
@@ -247,10 +235,12 @@ class MediaObserver {
             self.manager?.updateMediaInfo(
                 title: title,
                 artist: finalArtist,
+                album: album,
                 duration: duration,
                 elapsedTime: elapsedTime,
                 isPlaying: isPlaying,
                 mediaAction: mediaAction,
+                bundleId: bundleId,
                 triggerNotification: shouldTrigger
             )
         }
@@ -289,10 +279,12 @@ class MediaObserver {
             self.manager?.updateMediaInfo(
                 title: self.lastTitle,
                 artist: self.lastArtist,
+                album: self.lastAlbum,
                 duration: self.lastDuration,
                 elapsedTime: self.lastElapsedTime,
                 isPlaying: self.lastIsPlaying,
                 mediaAction: self.lastIsPlaying ? "resume" : "pause",
+                bundleId: "",
                 triggerNotification: triggerNotification
             )
         }

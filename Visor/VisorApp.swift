@@ -6,52 +6,12 @@
 //
 
 import SwiftUI
+import Combine
+import ApplicationServices
+import Carbon
 
-class AppDelegate: NSObject, NSApplicationDelegate {
-    var overlayPanel: NSPanel?
-    
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        // 1. Inicjalizacja panelu z odpowiednimi stylami dla nakładki
-        let panel = NSPanel(
-            contentRect: NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 800, height: 600),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        
-        // 2. Panel nie może być widoczny i musi przepuszczać zdarzenia
-        panel.isOpaque = false
-        panel.hasShadow = false
-        panel.backgroundColor = .clear
-        panel.ignoresMouseEvents = true // Nakładka statyczna, tylko do odczytu
-        
-        // 3. Kluczowe: pozwala na wyświetlenie na innych pełnoekranowych aplikacjach i Spaces
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
-        
-        // 4. Poziom okna nad innymi aplikacjami
-        panel.level = .screenSaver
-        
-        // Ustawienie SwiftUI view jako content
-        let contentView = ContentView()
-            .environmentObject(MediaKeyManager.shared)
-        
-        panel.contentView = NSHostingView(rootView: contentView)
-        
-        // Wyświetlamy bez aktywacji
-        panel.makeKeyAndOrderFront(nil)
-        self.overlayPanel = panel
-        
-        // Uruchamiamy przechwytywanie klawiszy
-        MediaKeyManager.shared.start()
-        
-        // Wyłączamy systemowy dźwięk ładowarki (aby Visor mógł go obsłużyć)
-        PowerChimeManager.disableChargingSound()
-    }
-    
-    func applicationWillTerminate(_ notification: Notification) {
-        MediaKeyManager.shared.stopEventTaps()
-    }
-}
+import SwiftUI
+import Combine
 
 @main
 struct VisorApp: App {
@@ -98,3 +58,42 @@ struct VisorApp: App {
     }
 }
 
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+        
+        // Inicjalizacja menedżerów
+        let _ = MediaKeyManager.shared
+        let _ = VisorWindowManager.shared
+        
+        MediaKeyManager.shared.start()
+        PowerChimeManager.disableChargingSound()
+    }
+    
+    func applicationWillTerminate(_ notification: Notification) {
+        MediaKeyManager.shared.stopEventTaps()
+    }
+}
+
+// Custom String and Data extensions
+extension String {
+    func appendLineToURL(fileURL: URL) throws {
+        try (self + "\n").appendToURL(fileURL: fileURL)
+    }
+    func appendToURL(fileURL: URL) throws {
+        let data = self.data(using: String.Encoding.utf8)!
+        try data.append(fileURL: fileURL)
+    }
+}
+
+extension Data {
+    func append(fileURL: URL) throws {
+        if let fileHandle = FileHandle(forWritingAtPath: fileURL.path) {
+            defer { fileHandle.closeFile() }
+            fileHandle.seekToEndOfFile()
+            fileHandle.write(self)
+        } else {
+            try write(to: fileURL, options: .atomic)
+        }
+    }
+}

@@ -8,7 +8,8 @@ struct ContentView: View {
     @AppStorage("brightnessOverlayPosition") private var brightnessOverlayPosition: String = "top"
     @AppStorage("copyOverlayPosition") private var copyOverlayPosition: String = "bottom"
     @AppStorage("capsLockOverlayPosition") private var capsLockOverlayPosition: String = "bottom"
-    @State private var overlayWindow: NSWindow?
+    @State private var overlayWindow: NSWindow? = nil
+    @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
         case volume, brightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, wifi, peripheral
@@ -74,20 +75,20 @@ struct ContentView: View {
         return finalActive
     }
     
-    private func yPos(for position: String, in geo: GeometryProxy) -> CGFloat {
-        let padding: CGFloat = 40
-        let pillHeight: CGFloat = 56
-        if position == "top" { return padding + (pillHeight / 2) }
-        if position == "center" { return geo.size.height / 2 }
-        return geo.size.height - padding - (pillHeight / 2)
-    }
-
-    private func xPos(for position: String, index: Int, total: Int, in geo: GeometryProxy) -> CGFloat {
+    private func xPos(for position: String, index: Int, total: Int, in size: CGSize) -> CGFloat {
         let averageWidth: CGFloat = 260
         let spacing: CGFloat = 24
         let totalWidth = CGFloat(total) * averageWidth + CGFloat(max(0, total - 1)) * spacing
-        let startX = (geo.size.width - totalWidth) / 2 + (averageWidth / 2)
+        let startX = (size.width - totalWidth) / 2 + (averageWidth / 2)
         return startX + CGFloat(index) * (averageWidth + spacing)
+    }
+    
+    private func yPos(for position: String, in size: CGSize) -> CGFloat {
+        let padding: CGFloat = 40
+        let pillHeight: CGFloat = 56
+        if position == "top" { return padding + (pillHeight / 2) } 
+        if position == "center" { return size.height / 2 }
+        return size.height - padding - (pillHeight / 2)
     }
     
     @ViewBuilder
@@ -135,40 +136,30 @@ struct ContentView: View {
         let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
         let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
         
-        GeometryReader { geo in
-            ZStack {
-                ForEach(allActiveOverlays) { overlay in
-                    let overlaysInPos = allActiveOverlays.filter { $0.position == overlay.position }
-                    let index = overlaysInPos.firstIndex(of: overlay) ?? 0
-                    let total = overlaysInPos.count
-                    
-                    overlayView(for: overlay)
-                        .id(overlay.id)
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                        .position(x: xPos(for: overlay.position, index: index, total: total, in: geo),
-                                  y: yPos(for: overlay.position, in: geo))
-                }
+        ZStack {
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { self.geoSize = geo.size }
+                    .onChange(of: geo.size) { _, new in self.geoSize = new }
+            }
+            .allowsHitTesting(false)
+            
+            ForEach(allActiveOverlays) { overlay in
+                let overlaysInPos = allActiveOverlays.filter { $0.position == overlay.position }
+                let index = overlaysInPos.firstIndex(of: overlay) ?? 0
+                let total = overlaysInPos.count
+                
+                overlayView(for: overlay)
+                    .id(overlay.id)
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    .position(x: xPos(for: overlay.position, index: index, total: total, in: geoSize),
+                              y: yPos(for: overlay.position, in: geoSize))
             }
         }
         .edgesIgnoringSafeArea(.all)
         .onChange(of: isVisible) { _, visible in
             if visible {
                 repositionWindow()
-            }
-        }
-        .background(WindowAccessor(window: $overlayWindow))
-        .onChange(of: overlayWindow) { _, window in
-            if let window = window {
-                window.isOpaque = false
-                window.backgroundColor = .clear
-                window.titlebarAppearsTransparent = true
-                window.titleVisibility = .hidden
-                window.styleMask.remove(.titled)
-                window.hasShadow = false
-                window.level = .screenSaver
-                window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-                window.isMovableByWindowBackground = false
-                window.ignoresMouseEvents = true
             }
         }
     }
@@ -575,54 +566,28 @@ struct VolumeOverlayView: View {
             return "speaker.wave.3.fill"
         }
     }
+    @State private var isExpanded: Bool = false
+    @State private var isHovering: Bool = false
+    @State private var availableDevices: [(id: UInt32, name: String)] = []
+    @State private var isDragging: Bool = false
+    @State private var expandedKeepAliveTimer: Timer? = nil
+    @State private var holdTimer: Timer? = nil
     
     var body: some View {
         let width: CGFloat = 260
-        let height: CGFloat = 56
+        let baseHeight: CGFloat = 56
+        let outerRadius: CGFloat = 28
         let trackPadding: CGFloat = 4
         let innerPadding: CGFloat = 3
+        let innerRadius: CGFloat = outerRadius - trackPadding
         
         let trackWidth = width - (trackPadding * 2)
-        let trackHeight = height - (trackPadding * 2)
-        let innerWidth = trackWidth - (innerPadding * 2)
-        let innerHeight = trackHeight - (innerPadding * 2)
+        let maxListHeight: CGFloat = 160
+        let listHeight = availableDevices.isEmpty ? 0 : min(CGFloat(availableDevices.count * 40 + 10), maxListHeight)
         
-        // Nie używamy już fillWidth z `max()`, żeby wartości były proporcjonalne od 0 do 100%
-        
-        ZStack(alignment: .leading) {
-            // WARSTWA 1: Baza (Szkło + grubsza szara ramka)
-            ZStack {
-                ActiveVisualEffectView()
-                    .clipShape(Capsule())
-                
-                Capsule()
-                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
-                    .frame(width: trackWidth, height: trackHeight)
-            }
-            .frame(width: width, height: height)
-            
-            // WARSTWA 2: Niebieski pasek postępu (Kapsuła przycięta maską dla proporcji)
-            Group {
-                if volumeFillCenter {
-                    Capsule()
-                        .fill(actualIsMuted ? Color.secondary.opacity(0.7) : Color.blue.opacity(0.85))
-                } else {
-                    Capsule()
-                        .strokeBorder(actualIsMuted ? Color.secondary.opacity(0.7) : Color.blue.opacity(0.85), lineWidth: innerPadding)
-                }
-            }
-            .frame(width: trackWidth, height: trackHeight)
-            .mask(
-                HStack(spacing: 0) {
-                    Rectangle()
-                        .frame(width: max(0, trackWidth * animatedVolumeProgress))
-                    Spacer(minLength: 0)
-                }
-            )
-            .padding(.leading, trackPadding)
-            
-            // WARSTWA 3: Górna warstwa (Glass Blur z informacjami)
-            HStack(alignment: .center, spacing: 14) {
+        VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(actualIsMuted ? .secondary : .primary)
@@ -634,20 +599,157 @@ struct VolumeOverlayView: View {
                     
                     AnimatablePercentageText(progress: animatedVolumeProgress, isTopTitle: true, color: .primary, isPluggedIn: false, customText: "%d%")
                 }
-                .padding(.horizontal, 16)
-                .frame(width: innerWidth, height: innerHeight)
-                .modifier(ConditionalGlassEffect(isActive: !volumeFillCenter))
-            .padding(.leading, trackPadding + innerPadding)
-        }
-        .frame(width: width, height: height)
-        .contentShape(Capsule())
-        .onHover { isHovering in
-            if !isPreview {
-                mediaKeyManager.keepAlive(for: "volume", isHovering: isHovering)
+                .padding(.horizontal, 16 + trackPadding + innerPadding)
+                .frame(width: width, height: baseHeight)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            if isPreview { return }
+                            if isDragging {
+                                let v = max(0, min(1, value.location.x / width))
+                                mediaKeyManager.setVolume(to: Int(v * 100))
+                            } else {
+                                let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
+                                if moved {
+                                    holdTimer?.invalidate()
+                                    holdTimer = nil
+                                    isDragging = true
+                                    let v = max(0, min(1, value.location.x / width))
+                                    mediaKeyManager.setVolume(to: Int(v * 100))
+                                } else if holdTimer == nil {
+                                    let timer = Timer(timeInterval: 0.2, repeats: false) { _ in
+                                        DispatchQueue.main.async {
+                                            isDragging = true
+                                            let v = max(0, min(1, value.location.x / width))
+                                            mediaKeyManager.setVolume(to: Int(v * 100))
+                                        }
+                                    }
+                                    RunLoop.main.add(timer, forMode: .common)
+                                    holdTimer = timer
+                                }
+                            }
+                        }
+                        .onEnded { value in
+                            if isPreview { return }
+                            holdTimer?.invalidate()
+                            holdTimer = nil
+                            if !isDragging {
+                                let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
+                                if !moved {
+                                    if value.startLocation.x <= 50 {
+                                        mediaKeyManager.toggleVolumeMute()
+                                    } else {
+                                        if !isExpanded {
+                                            availableDevices = VolumeManager.shared.getAvailableOutputDevices()
+                                        }
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                            isExpanded.toggle()
+                                        }
+                                    }
+                                }
+                            }
+                            isDragging = false
+                        }
+                )
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(availableDevices, id: \.id) { device in
+                            DeviceRowView(
+                                device: device,
+                                isCurrent: device.name == mediaKeyManager.currentAudioDeviceName,
+                                onSelect: {
+                                    VolumeManager.shared.setOutputDevice(id: device.id)
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                        isExpanded = false
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    .padding(.top, 2)
+                    .padding(.bottom, 8)
+                    .padding(.horizontal, trackPadding + innerPadding + 4)
+                }
+                .frame(width: width, height: isExpanded ? listHeight : 0, alignment: .top)
+                .clipped()
+                .opacity(isExpanded ? 1 : 0)
+            }
+            .frame(width: width, height: isExpanded ? baseHeight + listHeight : baseHeight, alignment: .top)
+            .background(
+                ZStack {
+                    ZStack {
+                        ActiveVisualEffectView()
+                            .clipShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
+                        
+                        // Ramka szara: korneRadius zmniejszony o trackPadding – koncentryczne łuki
+                        RoundedRectangle(cornerRadius: innerRadius, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
+                            .frame(width: trackWidth, height: isExpanded ? baseHeight + listHeight - (trackPadding * 2) : baseHeight - (trackPadding * 2))
+                    }
+                    .frame(width: width, height: isExpanded ? baseHeight + listHeight : baseHeight)
+                    
+                    Group {
+                        if volumeFillCenter {
+                            RoundedRectangle(cornerRadius: outerRadius - trackPadding, style: .continuous)
+                                .fill(actualIsMuted ? Color.secondary.opacity(0.7) : Color.blue.opacity(0.85))
+                                .padding(trackPadding)
+                        } else {
+                            RoundedRectangle(cornerRadius: outerRadius - trackPadding, style: .continuous)
+                                .strokeBorder(actualIsMuted ? Color.secondary.opacity(0.7) : Color.blue.opacity(0.85), lineWidth: innerPadding)
+                                .padding(trackPadding)
+                        }
+                    }
+                    .mask(
+                        HStack(spacing: 0) {
+                            Spacer().frame(width: trackPadding)
+                            Rectangle()
+                                .frame(width: max(0, trackWidth * animatedVolumeProgress))
+                            Spacer(minLength: 0)
+                        }
+                    )
+                    
+                    if !volumeFillCenter {
+                        ZStack {
+                            ActiveVisualEffectView()
+                                .clipShape(RoundedRectangle(cornerRadius: outerRadius - trackPadding - innerPadding, style: .continuous))
+                            
+                            RoundedRectangle(cornerRadius: outerRadius - trackPadding - innerPadding, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
+                                .blendMode(.overlay)
+                        }
+                        .padding(trackPadding + innerPadding)
+                    }
+                }
+            )
+            .frame(width: width)
+            .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
+            .padding(20)
+            .onHover { hovering in
+                isHovering = hovering
+                if !isPreview {
+                    mediaKeyManager.keepAlive(for: "volume", isHovering: hovering || isExpanded)
+                }
             }
         }
-        .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
-        .padding(20)
+        // Gdy nakładka jest rozwinięta, timer utrzymuje ją przy życiu niezależnie od kursora
+        .onChange(of: isExpanded) { expanded in
+            if expanded {
+                expandedKeepAliveTimer?.invalidate()
+                expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    DispatchQueue.main.async {
+                        if !isPreview { mediaKeyManager.keepAlive(for: "volume", isHovering: true) }
+                    }
+                }
+            } else {
+                expandedKeepAliveTimer?.invalidate()
+                expandedKeepAliveTimer = nil
+                if !isPreview {
+                    mediaKeyManager.keepAlive(for: "volume", isHovering: isHovering)
+                }
+            }
+        }
         .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             if isPreview {
@@ -675,6 +777,49 @@ struct VolumeOverlayView: View {
                 animatedVolumeProgress = targetProgress
             }
         }
+        // Odświeżamy listę urządzeń gdy CoreAudio zgłosi zmianę (np. podłączenie słuchawek)
+        .onChange(of: mediaKeyManager.audioDevicesChanged) { _ in
+            if isExpanded {
+                availableDevices = VolumeManager.shared.getAvailableOutputDevices()
+            }
+        }
+    }
+}
+
+private struct DeviceRowView: View {
+    let device: (id: UInt32, name: String)
+    let isCurrent: Bool
+    let onSelect: () -> Void
+    @State private var isHovering: Bool = false
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack {
+                Text(device.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                Spacer()
+                if isCurrent {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.blue)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isHovering ? Color.primary.opacity(0.08) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .transition(.identity)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.12)) { isHovering = hovering }
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
     }
 }
 
@@ -682,6 +827,8 @@ struct BrightnessOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = true
     @State private var animatedBrightnessProgress: CGFloat = 0.0
+    @State private var isDragging: Bool = false
+    @State private var holdTimer: Timer? = nil
     var isPreview: Bool = false
     
     private var actualBrightness: Int {
@@ -766,6 +913,41 @@ struct BrightnessOverlayView: View {
         }
         .frame(width: width, height: height)
         .contentShape(Capsule())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    if isPreview { return }
+                    if isDragging {
+                        let v = max(0, min(1, value.location.x / width))
+                        mediaKeyManager.setBrightness(to: Int(v * 100))
+                    } else {
+                        let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
+                        if moved {
+                            holdTimer?.invalidate()
+                            holdTimer = nil
+                            isDragging = true
+                            let v = max(0, min(1, value.location.x / width))
+                            mediaKeyManager.setBrightness(to: Int(v * 100))
+                        } else if holdTimer == nil {
+                            let timer = Timer(timeInterval: 0.2, repeats: false) { _ in
+                                DispatchQueue.main.async {
+                                    isDragging = true
+                                    let v = max(0, min(1, value.location.x / width))
+                                    mediaKeyManager.setBrightness(to: Int(v * 100))
+                                }
+                            }
+                            RunLoop.main.add(timer, forMode: .common)
+                            holdTimer = timer
+                        }
+                    }
+                }
+                .onEnded { value in
+                    if isPreview { return }
+                    holdTimer?.invalidate()
+                    holdTimer = nil
+                    isDragging = false
+                }
+        )
         .onHover { isHovering in
             if !isPreview {
                 mediaKeyManager.keepAlive(for: "brightness", isHovering: isHovering)

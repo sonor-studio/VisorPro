@@ -192,6 +192,7 @@ class MediaKeyManager: ObservableObject {
     @Published var isMuted: Bool = false
     @Published var showVolumeIndicator: Bool = false
     @Published var currentAudioDeviceName: String = "Volume"
+    @Published var audioDevicesChanged: UUID = UUID()
     private var volumeTimer: Timer?
     
     @Published var currentBrightness: Int = 50
@@ -294,6 +295,8 @@ class MediaKeyManager: ObservableObject {
     @Published var mediaElapsedTime: Double = 0.0
     @Published var mediaIsPlaying: Bool = false
     @Published var mediaAction: String = "pause"
+    @Published var mediaBundleId: String = ""
+    @Published var mediaAlbum: String = ""
     
     @AppStorage("notifyMediaStart") var notifyMediaStart: Bool = true
 
@@ -948,11 +951,25 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func updateMediaInfo(title: String, artist: String, duration: Double, elapsedTime: Double, isPlaying: Bool, mediaAction: String, triggerNotification: Bool) {
-        // Prevent recursive updates from the observer by just updating properties
+    func updateMediaInfo(title: String, artist: String, album: String, duration: Double, elapsedTime: Double, isPlaying: Bool, mediaAction: String, bundleId: String, triggerNotification: Bool) {
+        let isVisible = activePeripheralNotifications.contains { $0.id == "media" }
+        if isVisible && !self.mediaBundleId.isEmpty && bundleId != "" && self.mediaBundleId != bundleId {
+            // Ignorujemy powiadomienia z innej aplikacji, dopóki obecna nakładka nie zniknie
+            return
+        }
+
+        if mediaTitle == title && mediaArtist == artist && mediaDuration == duration && mediaElapsedTime == elapsedTime && mediaIsPlaying == isPlaying && mediaAction == self.mediaAction {
+            return
+        }
+        
+        self.mediaTitle = title
+        self.mediaArtist = artist
+        self.mediaAlbum = album
         self.mediaDuration = duration
         self.mediaElapsedTime = elapsedTime
         self.mediaIsPlaying = isPlaying
+        self.mediaAction = mediaAction
+        self.mediaBundleId = bundleId
         
         var finalTrigger = triggerNotification
         if finalTrigger {
@@ -1584,6 +1601,52 @@ class MediaKeyManager: ObservableObject {
         mediaKeyTap = nil
         mediaKeyRunLoopSource = nil
         
+    }
+    
+    func sendMediaRemoteCommand(_ commandId: Int32) {
+        let bundle = CFBundleCreate(kCFAllocatorDefault, NSURL(fileURLWithPath: "/System/Library/PrivateFrameworks/MediaRemote.framework"))
+        if let pointer = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteSendCommand" as CFString) {
+            typealias MRMediaRemoteSendCommandFunc = @convention(c) (Int32, Any?) -> Void
+            let command = unsafeBitCast(pointer, to: MRMediaRemoteSendCommandFunc.self)
+            command(commandId, nil)
+        }
+    }
+    
+    func setVolume(to level: Int) {
+        self.currentVolume = level
+        VolumeManager.shared.setVolume(to: level) { _, _ in }
+    }
+    
+    func toggleVolumeMute() {
+        self.isMuted.toggle()
+        VolumeManager.shared.toggleMute { _, _ in }
+    }
+    
+    func setBrightness(to level: Int) {
+        self.currentBrightness = level
+        BrightnessManager.shared.setBrightness(to: level) { _ in }
+    }
+    
+    func simulatePlayPause() {
+        sendMediaRemoteCommand(2) // togglePlayPause
+    }
+    
+    func simulateNext() {
+        sendMediaRemoteCommand(4) // nextTrack
+    }
+    
+    func simulatePrevious() {
+        sendMediaRemoteCommand(5) // previousTrack
+    }
+    
+
+    func simulateSeek(to time: Double) {
+        let bundle = CFBundleCreate(kCFAllocatorDefault, NSURL(fileURLWithPath: "/System/Library/PrivateFrameworks/MediaRemote.framework"))
+        if let pointer = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteSetElapsedTime" as CFString) {
+            typealias MRMediaRemoteSetElapsedTimeFunc = @convention(c) (Double) -> Void
+            let command = unsafeBitCast(pointer, to: MRMediaRemoteSetElapsedTimeFunc.self)
+            command(time)
+        }
     }
 }
 
