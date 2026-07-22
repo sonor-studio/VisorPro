@@ -242,7 +242,7 @@ struct SingleOverlayContainer: View {
         ZStack {
             if hasAppeared && isOverlayActive {
                 overlayView(for: overlay)
-                    .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: transitionAnchor)))
+                    .transition(.opacity.combined(with: .scale(x: 1.0, y: 0.01, anchor: transitionAnchor)).combined(with: .offset(y: overlay.position == "top" ? -10 : 10)))
             }
         }
         .padding(.top, (overlay.type == .volume || overlay.type == .media || overlay.type == .battery) && overlay.position == "top" ? 15 : 0)
