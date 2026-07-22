@@ -95,8 +95,24 @@ class BatteryObserver {
                             }
                         }
                         
+                        var cycleCount = 0
+                        var health = 100
+                        var condition = "Normal"
+                        
+                        if let battery = self.getBatteryDescription() {
+                            cycleCount = battery["CycleCount"] as? Int ?? 0
+                            if let cond = battery["BatteryHealth"] as? String {
+                                condition = cond
+                            }
+                            let nominal = (battery["BatteryData"] as? [String: Any])?["NominalChargeCapacity"] as? Double ?? 0
+                            let design = (battery["BatteryData"] as? [String: Any])?["DesignCapacity"] as? Double ?? 0
+                            if design > 0 {
+                                health = Int((nominal / design) * 100)
+                            }
+                        }
+                        
                         DispatchQueue.main.async {
-                            manager.updateBatteryState(percentage: capacity, pluggedIn: isPluggedIn, timeRemaining: timeStr)
+                            manager.updateBatteryState(percentage: capacity, pluggedIn: isPluggedIn, timeRemaining: timeStr, cycleCount: cycleCount, healthPercentage: health, condition: condition)
                         }
                     }
                     

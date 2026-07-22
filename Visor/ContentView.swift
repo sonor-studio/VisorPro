@@ -179,6 +179,10 @@ struct BatteryOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @State private var animatedBatteryProgress: CGFloat = 0.0
     @State private var isPulsing: Bool = false
+    @State private var isExpanded: Bool = false
+    @State private var isHovering: Bool = false
+    @State private var expandedKeepAliveTimer: Timer? = nil
+    
     var isWarningMode: Bool = false
     var isPreview: Bool = false
     
@@ -209,117 +213,194 @@ struct BatteryOverlayView: View {
     }
     
     private func mockedTimeRemaining(for percentage: Int) -> String {
-        let isDischarging = !actualIsPluggedIn
-        
-        if isDischarging {
-            // Time until empty
-            let totalMinutesLeft = Int(Double(percentage) * 3.5) // Simulation: 3.5 mins per percent
-            let hours = totalMinutesLeft / 60
-            let minutes = totalMinutesLeft % 60
-            
-            if isWarningMode {
-                return "\(totalMinutesLeft) mins remaining"
-            }
-            
-            if hours > 0 {
-                return "About \(hours)h \(minutes)m remaining"
-            } else {
-                return "About \(minutes)m remaining"
-            }
-        } else {
-            // Time until full charge
-            let remainingPercent = 100 - percentage
-            let totalMinutesLeft = Int(Double(remainingPercent) * 1.5) // Simulation: 1.5 mins per percent
-            let hours = totalMinutesLeft / 60
-            let minutes = totalMinutesLeft % 60
-            
-            if hours > 0 {
-                return "About \(hours)h \(minutes)m to full"
-            } else {
-                return "About \(minutes)m to full"
-            }
-        }
+        return isPreview ? "About 1h 20m to full" : mediaKeyManager.batteryTimeRemaining
     }
     
     var body: some View {
         let width: CGFloat = 260
-        let height: CGFloat = 56
+        let baseHeight: CGFloat = 56
+        let expandedHeight: CGFloat = 160
         let trackPadding: CGFloat = 4
         let innerPadding: CGFloat = 3
+        let outerRadius: CGFloat = baseHeight / 2
         
         let trackWidth = width - (trackPadding * 2)
-        let trackHeight = height - (trackPadding * 2)
+        let trackHeight = baseHeight - (trackPadding * 2)
         let innerWidth = trackWidth - (innerPadding * 2)
         let innerHeight = trackHeight - (innerPadding * 2)
         
-        ZStack(alignment: .leading) {
-            // WARSTWA 1: Baza
-            ZStack {
-                ActiveVisualEffectView()
-                    .clipShape(Capsule())
-                
-                Capsule()
-                    .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
-                    .frame(width: trackWidth, height: trackHeight)
-            }
-            .frame(width: width, height: height)
-            
-            // WARSTWA 2: Pasek postępu baterii (dookoła)
-            CustomCapsule()
-                .trim(from: 0, to: animatedBatteryProgress)
-                .stroke(batteryColor, style: StrokeStyle(lineWidth: innerPadding, lineCap: .round))
-                .frame(width: trackWidth - innerPadding, height: trackHeight - innerPadding)
-                .padding(.leading, trackPadding + (innerPadding / 2.0))
-                .opacity(isWarningMode && isPulsing ? 0.3 : 1.0)
-                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isPulsing)
-            
-            // WARSTWA 3: Górna warstwa
-            HStack(alignment: .center, spacing: 14) {
-                Image(systemName: iconName)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.primary)
-                    .frame(width: 26, height: 24)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    if actualPercentage == 100 {
-                        Text("Connected")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.secondary)
-                        AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)
-                    } else {
-                        AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: actualIsPluggedIn)
-                        MarqueeText(text: mockedTimeRemaining(for: actualPercentage), font: .system(size: 11, weight: .bold, design: .rounded), foregroundColor: .secondary)
-                    }
+        VStack(spacing: 0) {
+            ZStack(alignment: .leading) {
+                // WARSTWA 1: Baza
+                ZStack {
+                    ActiveVisualEffectView()
+                        .clipShape(Capsule())
+                    
+                    Capsule()
+                        .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
+                        .frame(width: trackWidth, height: trackHeight)
                 }
-                Spacer(minLength: 8)
+                .frame(width: width, height: baseHeight)
+                
+                // WARSTWA 2: Pasek postępu baterii (dookoła)
+                CustomCapsule()
+                    .trim(from: 0, to: animatedBatteryProgress)
+                    .stroke(batteryColor, style: StrokeStyle(lineWidth: innerPadding, lineCap: .round))
+                    .frame(width: trackWidth - innerPadding, height: trackHeight - innerPadding)
+                    .padding(.leading, trackPadding + (innerPadding / 2.0))
+                    .opacity(isWarningMode && isPulsing ? 0.3 : 1.0)
+                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isPulsing)
+                
+                // WARSTWA 3: Górna warstwa
+                HStack(alignment: .center, spacing: 14) {
+                    Image(systemName: iconName)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.primary)
+                        .frame(width: 26, height: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        if actualPercentage == 100 {
+                            Text("Connected")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundColor(.secondary)
+                            AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)
+                        } else {
+                            AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: actualIsPluggedIn)
+                            MarqueeText(text: mockedTimeRemaining(for: actualPercentage), font: .system(size: 11, weight: .bold, design: .rounded), foregroundColor: .secondary)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                }
+                .padding(.horizontal, 16)
+                .frame(width: innerWidth, height: innerHeight)
+                .glassEffect(.thinMaterial, in: Capsule())
+                .padding(.leading, trackPadding + innerPadding)
+                
+                // WTYCZKA (Na samej górze, nad szkłem, czysty kolor batteryColor)
+                if !isWarningMode && actualIsPluggedIn {
+                    Image(systemName: "powerplug.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
+                        .padding(.bottom, 1.0)
+                        .foregroundColor(batteryColor)
+                        .brightness(-0.1)
+                        .modifier(PlugIconMover(
+                            progress: animatedBatteryProgress,
+                            targetProgress: CGFloat(actualPercentage) / 100.0,
+                            width: trackWidth - innerPadding,
+                            height: trackHeight - innerPadding
+                        ))
+                }
             }
-            .padding(.horizontal, 16)
-            .frame(width: innerWidth, height: innerHeight)
-            .glassEffect(.thinMaterial, in: Capsule())
-            .padding(.leading, trackPadding + innerPadding)
+            .frame(width: width, height: baseHeight)
+            .contentShape(Capsule())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in }
+                    .onEnded { value in
+                        if value.translation.width == 0 && value.translation.height == 0 {
+                            // Click handling if needed
+                        }
+                    }
+            )
             
-            // WTYCZKA (Na samej górze, nad szkłem, czysty kolor batteryColor)
-            if !isWarningMode && actualIsPluggedIn {
-                Image(systemName: "powerplug.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 20, height: 20)
-                    .padding(.bottom, 1.0) // Delikatniejsze przesunięcie!
-                    .foregroundColor(batteryColor)
-                    .brightness(-0.1) // Sztuczne obniżenie jasności "na ślepo", by wyrównać odczucie kolorów
-                    .modifier(PlugIconMover(
-                        progress: animatedBatteryProgress,
-                        targetProgress: CGFloat(actualPercentage) / 100.0,
-                        width: trackWidth - innerPadding,
-                        height: trackHeight - innerPadding
-                    ))
+            if isExpanded {
+                VStack(spacing: 12) {
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Kondycja")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundColor(.secondary)
+                            Text(mediaKeyManager.batteryCondition)
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(.primary)
+                        }
+                        
+                        Divider()
+                            .frame(height: 24)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Pojemność")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundColor(.secondary)
+                            Text("\(mediaKeyManager.batteryHealthPercentage)%")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(.primary)
+                        }
+                        
+                        Divider()
+                            .frame(height: 24)
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Cykle")
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .foregroundColor(.secondary)
+                            Text("\(mediaKeyManager.batteryCycleCount)")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundColor(.primary)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    
+                    Button(action: {
+                        mediaKeyManager.openBatterySettings()
+                    }) {
+                        Text("Otwórz Ustawienia Baterii")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.85))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
+                }
+                .frame(width: width, height: expandedHeight - baseHeight)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .frame(width: width, height: height)
-        .contentShape(Capsule())
-        .onHover { isHovering in
+        .background(
+            ZStack {
+                if isExpanded {
+                    ActiveVisualEffectView()
+                        .clipShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
+                    
+                    RoundedRectangle(cornerRadius: outerRadius, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
+                }
+            }
+        )
+        .frame(width: width, height: isExpanded ? expandedHeight : baseHeight)
+        .onHover { hovering in
+            isHovering = hovering
             if !isPreview {
-                mediaKeyManager.keepAlive(for: "battery", isHovering: isHovering)
+                mediaKeyManager.keepAlive(for: "battery", isHovering: hovering || isExpanded)
+            }
+        }
+        .onChange(of: isExpanded) { expanded in
+            if expanded {
+                expandedKeepAliveTimer?.invalidate()
+                expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    mediaKeyManager.keepAlive(for: "battery", isHovering: true)
+                }
+                VisorWindowManager.shared.setWindowIgnoresMouseEvents(false)
+            } else {
+                expandedKeepAliveTimer?.invalidate()
+                expandedKeepAliveTimer = nil
+                VisorWindowManager.shared.setWindowIgnoresMouseEvents(true)
+            }
+        }
+        .onChange(of: isHovering) { hover in
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0)) {
+                if hover && !isWarningMode { // Tylko przy ładowaniu/zwykłym info
+                    isExpanded = true
+                } else if !hover {
+                    isExpanded = false
+                }
             }
         }
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
@@ -333,32 +414,24 @@ struct BatteryOverlayView: View {
             
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 let distance = isWarningMode ? (1.0 - targetProgress) : targetProgress
-                
-                // Dla trybu ostrzegawczego wydłużamy czas do 2.2s i spłaszczamy krzywą
                 let actualDuration = isWarningMode ? 2.2 : (3.5 * Double(distance))
                 
                 let animation: Animation
                 if isWarningMode {
-                    animation = .timingCurve(0.2, 0.8, 0.3, 1.0, duration: actualDuration)
+                    animation = Animation.easeOut(duration: actualDuration)
                 } else {
-                    animation = .easeOut(duration: max(0.1, actualDuration))
+                    animation = Animation.timingCurve(0.4, 0.0, 0.2, 1.0, duration: actualDuration)
                 }
                 
                 withAnimation(animation) {
                     animatedBatteryProgress = targetProgress
                 }
-                if isWarningMode {
+            }
+            
+            if isWarningMode {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                     isPulsing = true
                 }
-            }
-        }
-        .onChange(of: actualPercentage) { newValue in
-            let targetProgress = CGFloat(newValue) / 100.0
-            let distance = abs(animatedBatteryProgress - targetProgress)
-            let dynamicDuration = 3.5 * Double(distance)
-            
-            withAnimation(.easeOut(duration: max(0.1, dynamicDuration))) {
-                animatedBatteryProgress = targetProgress
             }
         }
     }

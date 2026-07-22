@@ -187,6 +187,9 @@ class MediaKeyManager: ObservableObject {
     @Published var showLowBatteryWarning: Bool = false
     @Published var showChargingStatus: Bool = false
     @Published var batteryTimeRemaining: String = "Calculating..."
+    @Published var batteryCycleCount: Int = 0
+    @Published var batteryHealthPercentage: Int = 100
+    @Published var batteryCondition: String = "Normal"
     
     @Published var currentVolume: Int = 50
     @Published var isMuted: Bool = false
@@ -1178,15 +1181,25 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func updateBatteryState(percentage: Int, pluggedIn: Bool, timeRemaining: String) {
+    func updateBatteryState(percentage: Int, pluggedIn: Bool, timeRemaining: String, cycleCount: Int = 0, healthPercentage: Int = 100, condition: String = "Normal") {
         if !enableBattery { return }
         let wasInitialized = self.isBatteryInitialized
         self.isPluggedIn = pluggedIn
         self.currentBatteryPercentage = percentage
         self.batteryTimeRemaining = timeRemaining
+        self.batteryCycleCount = cycleCount
+        self.batteryHealthPercentage = healthPercentage
+        self.batteryCondition = condition
         if !wasInitialized {
             self.isBatteryInitialized = true
         }
+    }
+    
+    func openBatterySettings() {
+        let task = Process()
+        task.launchPath = "/usr/bin/open"
+        task.arguments = ["x-apple.systempreferences:com.apple.Battery-Settings.extension"]
+        task.launch()
     }
     
     private var mediaKeyTap: CFMachPort?
