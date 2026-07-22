@@ -242,7 +242,10 @@ struct SingleOverlayContainer: View {
         ZStack {
             if hasAppeared && isOverlayActive {
                 overlayView(for: overlay)
-                    .transition(.opacity.combined(with: .scale(scale: 0.01, anchor: transitionAnchor)).combined(with: .offset(y: overlay.position == "top" ? -20 : 20)))
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .offset(y: overlay.position == "top" ? -40 : 40)).combined(with: .scale(scale: 0.9, anchor: transitionAnchor)),
+                        removal: .opacity.combined(with: .offset(y: overlay.position == "top" ? -40 : 40)).combined(with: .scale(scale: 0.9, anchor: transitionAnchor))
+                    ))
             }
         }
         .padding(.top, (overlay.type == .volume || overlay.type == .media || overlay.type == .battery) && overlay.position == "top" ? 15 : 0)
@@ -252,7 +255,9 @@ struct SingleOverlayContainer: View {
         .edgesIgnoringSafeArea(.all)
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                hasAppeared = true
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                    hasAppeared = true
+                }
             }
         }
     }
