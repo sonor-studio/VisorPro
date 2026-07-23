@@ -38,7 +38,7 @@ struct BluetoothOverlayView: View {
         let trackWidth = width - (trackPadding * 2)
         let trackHeight = height - (trackPadding * 2)
         let innerWidth = trackWidth - (innerPadding * 2)
-        let innerHeight = trackHeight - (trackPadding * 2)
+        let innerHeight = trackHeight - (innerPadding * 2)
         
         ZStack(alignment: .leading) {
             ZStack {
@@ -57,7 +57,7 @@ struct BluetoothOverlayView: View {
                 .mask(
                     HStack(spacing: 0) {
                         TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
-                            .id(notification?.timestamp ?? Date())
+                            .id(notification?.timestamp ?? Date(timeIntervalSince1970: 0))
                         Spacer(minLength: 0)
                     }
                 )
@@ -91,7 +91,7 @@ struct BluetoothOverlayView: View {
                 }
                 .padding(.horizontal, 12)
                 .frame(width: innerWidth, height: innerHeight)
-                .glassEffect(.thinMaterial, in: Capsule())
+                .background(.regularMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)

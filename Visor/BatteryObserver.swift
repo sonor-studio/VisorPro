@@ -31,6 +31,69 @@ class BatteryObserver {
         }
     }
     
+    func refresh() {
+        updateLivePowerDraw()
+    }
+    
+    private func getBatteryDescriptionFast() -> [String: Any]? {
+        let matchingDict = IOServiceMatching("AppleSmartBattery")
+        let service = IOServiceGetMatchingService(0, matchingDict)
+        
+        if service != 0 {
+            var props: Unmanaged<CFMutableDictionary>?
+            if IORegistryEntryCreateCFProperties(service, &props, kCFAllocatorDefault, 0) == kIOReturnSuccess {
+                let dict = props?.takeRetainedValue() as? [String: Any]
+                IOObjectRelease(service)
+                return dict
+            }
+            IOObjectRelease(service)
+        }
+        return nil
+    }
+    
+    private func updateLivePowerDraw() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            var powerDrawStr = self.manager?.batteryPowerDraw ?? "0.0 W"
+            
+            if let battery = self.getBatteryDescriptionFast() {
+                let voltage = battery["Voltage"] as? Double ?? (battery["AppleRawBatteryVoltage"] as? Double ?? 0.0)
+                var amperage = 0.0
+                if let ampNumber = battery["Amperage"] as? NSNumber {
+                    amperage = Double(Int64(bitPattern: ampNumber.uint64Value))
+                }
+                if amperage == 0.0, let instAmpNumber = battery["InstantAmperage"] as? NSNumber {
+                    amperage = Double(Int64(bitPattern: instAmpNumber.uint64Value))
+                }
+                
+                let info = IOPSCopyPowerSourcesInfo().takeRetainedValue()
+                let sources = IOPSCopyPowerSourcesList(info).takeRetainedValue() as Array
+                var isChargingSys = false
+                for source in sources {
+                    if let desc = IOPSGetPowerSourceDescription(info, source).takeUnretainedValue() as? [String: Any] {
+                        if let isCharging = desc[kIOPSIsChargingKey] as? Bool {
+                            isChargingSys = isCharging
+                        }
+                    }
+                }
+                
+                if voltage > 0 && amperage != 0 {
+                    let watts = abs((voltage / 1000.0) * (amperage / 1000.0))
+                    let prefix = isChargingSys ? "+" : "-"
+                    powerDrawStr = String(format: "%@%.1f W", prefix, watts)
+                } else {
+                    if let adapter = battery["AdapterDetails"] as? [String: Any], let adapterWatts = adapter["Watts"] as? NSNumber {
+                        powerDrawStr = "AC \(adapterWatts.intValue)W"
+                    }
+                }
+            }
+            
+            DispatchQueue.main.async {
+                self.manager?.batteryPowerDraw = powerDrawStr
+            }
+        }
+    }
+    
     private func checkBatteryState(initial: Bool) {
         guard let manager = manager else { return }
         
@@ -50,7 +113,7 @@ class BatteryObserver {
                     if !initial && !manager.useSystemOSD {
                         if let lastState = lastChargingState["InternalBattery"], lastState != isPluggedIn {
                             DispatchQueue.main.async {
-                                manager.lastAction = isPluggedIn ? "Podłączono zasilanie ⚡️" : "Odłączono zasilanie 🔋"
+                                manager.lastAction = isPluggedIn ? "Power connected ⚡️" : "Power disconnected 🔋"
                             }
                         }
                         
@@ -58,7 +121,7 @@ class BatteryObserver {
                             if let target = Int(manager.targetBatteryPercentage) {
                                 if capacity == target {
                                     DispatchQueue.main.async {
-                                        manager.lastAction = "Bateria osiągnęła \(target)%!"
+                                        manager.lastAction = "Battery reached \(target)%!"
                                     }
                                 }
                             }
@@ -76,20 +139,20 @@ class BatteryObserver {
                             if sysTimeToFull > 0 && sysTimeToFull < 10000 {
                                 let hours = sysTimeToFull / 60
                                 let minutes = sysTimeToFull % 60
-                                timeStr = hours > 0 ? "\(hours)h \(minutes)m do pełnego" : "\(minutes)m do pełnego"
+                                timeStr = hours > 0 ? "\(hours)h \(minutes)m until full" : "\(minutes)m until full"
                             } else if capacity == 100 {
-                                timeStr = "W pełni naładowana"
+                                timeStr = "Fully charged"
                             } else {
                                 timeStr = self.calculateFallbackTime(isPluggedIn: isPluggedIn)
-                                if timeStr == "Obliczanie..." && !isChargingSys {
-                                    timeStr = "Nie ładuje"
+                                if timeStr == "Calculating..." && !isChargingSys {
+                                    timeStr = "Not charging"
                                 }
                             }
                         } else {
                             if sysTimeToEmpty > 0 && sysTimeToEmpty < 10000 {
                                 let hours = sysTimeToEmpty / 60
                                 let minutes = sysTimeToEmpty % 60
-                                timeStr = hours > 0 ? "\(hours)h \(minutes)m pozostało" : "\(minutes)m pozostało"
+                                timeStr = hours > 0 ? "\(hours)h \(minutes)m remaining" : "\(minutes)m remaining"
                             } else {
                                 timeStr = self.calculateFallbackTime(isPluggedIn: isPluggedIn)
                             }
@@ -99,7 +162,8 @@ class BatteryObserver {
                         var health = 100
                         var condition = "Normal"
                         
-                        if let battery = self.getBatteryDescription() {
+                        var powerDrawStr = "0.0 W"
+                        if let battery = self.getBatteryDescriptionFast() {
                             cycleCount = battery["CycleCount"] as? Int ?? 0
                             if let cond = battery["BatteryHealth"] as? String {
                                 condition = cond
@@ -109,10 +173,29 @@ class BatteryObserver {
                             if design > 0 {
                                 health = Int((nominal / design) * 100)
                             }
+                            
+                            let voltage = battery["Voltage"] as? Double ?? (battery["AppleRawBatteryVoltage"] as? Double ?? 0.0)
+                            var amperage = 0.0
+                            if let ampNumber = battery["Amperage"] as? NSNumber {
+                                amperage = Double(Int64(bitPattern: ampNumber.uint64Value))
+                            }
+                            if amperage == 0.0, let instAmpNumber = battery["InstantAmperage"] as? NSNumber {
+                                amperage = Double(Int64(bitPattern: instAmpNumber.uint64Value))
+                            }
+                            
+                            if voltage > 0 && amperage != 0 {
+                                let watts = abs((voltage / 1000.0) * (amperage / 1000.0))
+                                let prefix = isChargingSys ? "+" : "-"
+                                powerDrawStr = String(format: "%@%.1f W", prefix, watts)
+                            } else {
+                                if let adapter = battery["AdapterDetails"] as? [String: Any], let adapterWatts = adapter["Watts"] as? NSNumber {
+                                    powerDrawStr = "AC \(adapterWatts.intValue)W"
+                                }
+                            }
                         }
                         
                         DispatchQueue.main.async {
-                            manager.updateBatteryState(percentage: capacity, pluggedIn: isPluggedIn, timeRemaining: timeStr, cycleCount: cycleCount, healthPercentage: health, condition: condition)
+                            manager.updateBatteryState(percentage: capacity, pluggedIn: isPluggedIn, timeRemaining: timeStr, cycleCount: cycleCount, healthPercentage: health, condition: condition, powerDraw: powerDrawStr)
                         }
                     }
                     
@@ -172,7 +255,7 @@ class BatteryObserver {
     }
     
     private func calculateFallbackTime(isPluggedIn: Bool) -> String {
-        guard let battery = self.getBatteryDescription() else { return "Obliczanie..." }
+        guard let battery = self.getBatteryDescriptionFast() else { return "Calculating..." }
         let amperageRaw = (battery["BatteryData"] as? [String: Any])?["Amperage"] as? Double ?? battery["Amperage"] as? Double ?? 0
         
         if self.smoothedAmperage != nil {
@@ -187,7 +270,7 @@ class BatteryObserver {
         let maxCapacity = (battery["BatteryData"] as? [String: Any])?["FullChargeCapacity"] as? Double ?? battery["MaxCapacity"] as? Double ?? 0
         
         if amperage == 0 || maxCapacity == 0 {
-            return "Obliczanie..."
+            return "Calculating..."
         }
         
         if isPluggedIn {
@@ -195,24 +278,23 @@ class BatteryObserver {
             let hoursLeft = capacityNeeded / abs(amperage)
             let totalMinutes = Int(hoursLeft * 60)
             
-            if totalMinutes <= 0 || totalMinutes > 10000 { return "Obliczanie..." }
+            if totalMinutes <= 0 || totalMinutes > 10000 { return "Calculating..." }
             
             let hours = totalMinutes / 60
             let minutes = totalMinutes % 60
             let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
-            return "\(timeString) do pełnego"
+            return "\(timeString) until full"
             
         } else {
             let capacityAvailable = currentCapacity
             let hoursLeft = capacityAvailable / abs(amperage)
             let totalMinutes = Int(hoursLeft * 60)
-            
-            if totalMinutes <= 0 || totalMinutes > 10000 { return "Obliczanie..." }
+            if totalMinutes <= 0 || totalMinutes > 10000 { return "Calculating..." }
             
             let hours = totalMinutes / 60
             let minutes = totalMinutes % 60
             let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
-            return "\(timeString) pozostało"
+            return "\(timeString) remaining"
         }
     }
     

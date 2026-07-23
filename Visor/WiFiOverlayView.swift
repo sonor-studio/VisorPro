@@ -83,7 +83,7 @@ struct WiFiOverlayView: View {
                 }
                 .padding(.horizontal, 12)
                 .frame(width: innerWidth, height: innerHeight)
-                .glassEffect(.thinMaterial, in: Capsule())
+                .background(.regularMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)

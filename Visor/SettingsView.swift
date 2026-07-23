@@ -171,10 +171,20 @@ struct SettingsView: View {
                 w.backgroundColor = .clear
                 w.styleMask.insert(.miniaturizable)
                 
+                // Zmień aplikację na normalną (.regular), aby miała ikonę w Docku
+                // i zachowywała się jak standardowe okno (np. minimalizacja do paska)
+                NSApp.setActivationPolicy(.regular)
+                
                 // Automatycznie wymuś aktywację aplikacji i wyciągnięcie okna na wierzch, gdy tylko się pojawi
                 NSApp.activate(ignoringOtherApps: true)
                 w.makeKeyAndOrderFront(nil)
                 w.level = .normal
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
+            if let closedWindow = notification.object as? NSWindow, closedWindow == window {
+                // Przywróć tryb akcesoryjny (bez Docka) po zamknięciu okna
+                NSApp.setActivationPolicy(.accessory)
             }
         }
     }

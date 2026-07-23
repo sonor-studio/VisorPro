@@ -190,6 +190,7 @@ class MediaKeyManager: ObservableObject {
     @Published var batteryCycleCount: Int = 0
     @Published var batteryHealthPercentage: Int = 100
     @Published var batteryCondition: String = "Normal"
+    @Published var batteryPowerDraw: String = "0.0 W"
     
     @Published var currentVolume: Int = 50
     @Published var isMuted: Bool = false
@@ -1181,7 +1182,7 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func updateBatteryState(percentage: Int, pluggedIn: Bool, timeRemaining: String, cycleCount: Int = 0, healthPercentage: Int = 100, condition: String = "Normal") {
+    func updateBatteryState(percentage: Int, pluggedIn: Bool, timeRemaining: String, cycleCount: Int = 0, healthPercentage: Int = 100, condition: String = "Normal", powerDraw: String = "0.0 W") {
         if !enableBattery { return }
         let wasInitialized = self.isBatteryInitialized
         self.isPluggedIn = pluggedIn
@@ -1190,9 +1191,14 @@ class MediaKeyManager: ObservableObject {
         self.batteryCycleCount = cycleCount
         self.batteryHealthPercentage = healthPercentage
         self.batteryCondition = condition
+        self.batteryPowerDraw = powerDraw
         if !wasInitialized {
             self.isBatteryInitialized = true
         }
+    }
+    
+    func refreshBatteryState() {
+        batteryObserver?.refresh()
     }
     
     func openBatterySettings() {

@@ -65,7 +65,7 @@ struct LanguageOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-                .glassEffect(.thinMaterial, in: Capsule())
+                .background(.regularMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)

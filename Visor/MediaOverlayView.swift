@@ -260,7 +260,7 @@ struct MediaOverlayView: View {
         .background(
             ZStack {
                 ZStack {
-                    ActiveVisualEffectView()
+                    Color.clear.background(.regularMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: height / 2, style: .continuous))
                     
                     RoundedRectangle(cornerRadius: innerRadius, style: .continuous)
@@ -285,12 +285,11 @@ struct MediaOverlayView: View {
                 
                 // Wewnętrzna warstwa (3D) taka sama jak w nakładce głośności
                 ZStack {
-                    ActiveVisualEffectView()
+                    Color.clear.background(.regularMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: (height / 2) - trackPadding - innerPadding, style: .continuous))
                     
                     RoundedRectangle(cornerRadius: (height / 2) - trackPadding - innerPadding, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
-                        .blendMode(.overlay)
+                        .strokeBorder(Color.glassBorder, lineWidth: 1)
                 }
                 .padding(trackPadding + innerPadding)
             }

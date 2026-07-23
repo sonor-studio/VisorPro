@@ -177,6 +177,7 @@ struct ContentView: View {
 
 struct BatteryOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @Environment(\.colorScheme) var colorScheme
     @State private var animatedBatteryProgress: CGFloat = 0.0
     @State private var isPulsing: Bool = false
     @State private var isExpanded: Bool = false
@@ -233,9 +234,6 @@ struct BatteryOverlayView: View {
             ZStack(alignment: .leading) {
                 // WARSTWA 1: Baza
                 ZStack {
-                    ActiveVisualEffectView()
-                        .clipShape(Capsule())
-                    
                     Capsule()
                         .strokeBorder(Color.primary.opacity(0.15), lineWidth: innerPadding)
                         .frame(width: trackWidth, height: trackHeight)
@@ -273,7 +271,7 @@ struct BatteryOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-                .glassEffect(.thinMaterial, in: Capsule())
+                .background(.regularMaterial, in: Capsule())
                 .padding(.leading, trackPadding + innerPadding)
                 
                 // WTYCZKA (Na samej górze, nad szkłem, czysty kolor batteryColor)
@@ -312,10 +310,10 @@ struct BatteryOverlayView: View {
             VStack(spacing: 12) {
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Kondycja")
+                        Text(isWarningMode ? "Condition" : "Power Draw")
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(.secondary)
-                        Text(mediaKeyManager.batteryCondition)
+                        Text(isWarningMode ? mediaKeyManager.batteryCondition : mediaKeyManager.batteryPowerDraw)
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundColor(.primary)
                     }
@@ -324,7 +322,7 @@ struct BatteryOverlayView: View {
                         .frame(height: 24)
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Pojemność")
+                        Text("Capacity")
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(.secondary)
                         Text("\(mediaKeyManager.batteryHealthPercentage)%")
@@ -336,7 +334,7 @@ struct BatteryOverlayView: View {
                         .frame(height: 24)
                     
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Cykle")
+                        Text("Cycles")
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(.secondary)
                         Text("\(mediaKeyManager.batteryCycleCount)")
@@ -350,13 +348,13 @@ struct BatteryOverlayView: View {
                 Button(action: {
                     mediaKeyManager.openBatterySettings()
                 }) {
-                    Text("Otwórz Ustawienia Baterii")
+                    Text("Open Battery Settings")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.85))
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(Color.primary.opacity(0.1))
+                        .clipShape(Capsule())
                 }
                 .buttonStyle(PlainButtonStyle())
                 .padding(.horizontal, 20)
@@ -367,15 +365,13 @@ struct BatteryOverlayView: View {
             .opacity(isExpanded ? 1 : 0)
         }
         .background(
-            ZStack {
-                if isExpanded {
-                    ActiveVisualEffectView()
-                        .clipShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
-                    
+            Color.clear.background(.regularMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
+                .overlay(
                     RoundedRectangle(cornerRadius: outerRadius, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
-                }
-            }
+                        .strokeBorder(Color.glassBorder, lineWidth: 1)
+                        .opacity(isExpanded ? 1 : 0)
+                )
         )
         .frame(width: width, height: isExpanded ? expandedHeight : baseHeight, alignment: .top)
         .onHover { hovering in
@@ -389,7 +385,10 @@ struct BatteryOverlayView: View {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                     DispatchQueue.main.async {
-                        if !isPreview { mediaKeyManager.keepAlive(for: "battery", isHovering: true) }
+                        if !isPreview {
+                            mediaKeyManager.keepAlive(for: "battery", isHovering: true)
+                            mediaKeyManager.refreshBatteryState()
+                        }
                     }
                 }
             } else {
@@ -750,7 +749,7 @@ struct VolumeOverlayView: View {
             .background(
                 ZStack {
                     ZStack {
-                        ActiveVisualEffectView()
+                        Color.clear.background(.regularMaterial)
                             .clipShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
                         
                         // Ramka szara: korneRadius zmniejszony o trackPadding – koncentryczne łuki
@@ -782,12 +781,11 @@ struct VolumeOverlayView: View {
                     
                     if !volumeFillCenter {
                         ZStack {
-                            ActiveVisualEffectView()
+                            Color.clear.background(.regularMaterial)
                                 .clipShape(RoundedRectangle(cornerRadius: outerRadius - trackPadding - innerPadding, style: .continuous))
                             
                             RoundedRectangle(cornerRadius: outerRadius - trackPadding - innerPadding, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5)
-                                .blendMode(.overlay)
+                                .strokeBorder(Color.glassBorder, lineWidth: 1)
                         }
                         .padding(trackPadding + innerPadding)
                     }
@@ -931,7 +929,7 @@ struct BrightnessOverlayView: View {
         ZStack(alignment: .leading) {
             // WARSTWA 1: Baza (Szkło + grubsza szara ramka)
             ZStack {
-                ActiveVisualEffectView()
+                Color.clear.background(.regularMaterial)
                     .clipShape(Capsule())
                 
                 Capsule()
@@ -1109,7 +1107,7 @@ struct CopyOverlayView: View {
         ZStack(alignment: .leading) {
             // WARSTWA 1: Baza (Szkło + grubsza szara ramka)
             ZStack {
-                ActiveVisualEffectView()
+                Color.clear.background(.regularMaterial)
                     .clipShape(Capsule())
                 
                 Capsule()
@@ -1153,7 +1151,7 @@ struct CopyOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-                .glassEffect(.thinMaterial, in: Capsule())
+                .background(.regularMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)
@@ -1201,7 +1199,7 @@ struct CapsLockOverlayView: View {
         
         ZStack(alignment: .leading) {
             ZStack {
-                ActiveVisualEffectView()
+                Color.clear.background(.regularMaterial)
                     .clipShape(Capsule())
                 
                 Capsule()
@@ -1239,7 +1237,7 @@ struct CapsLockOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-                .glassEffect(.thinMaterial, in: Capsule())
+                .background(.regularMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)
@@ -1284,7 +1282,7 @@ struct ThemeOverlayView: View {
         ZStack(alignment: .leading) {
             // WARSTWA 1: Baza
             ZStack {
-                ActiveVisualEffectView()
+                Color.clear.background(.regularMaterial)
                     .clipShape(Capsule())
                 
                 Capsule()
@@ -1324,7 +1322,7 @@ struct ThemeOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-                .glassEffect(.thinMaterial, in: Capsule())
+                .background(.regularMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)
@@ -1389,7 +1387,7 @@ struct PeripheralOverlayView: View {
         ZStack(alignment: .leading) {
             // WARSTWA 1: Baza
             ZStack {
-                ActiveVisualEffectView()
+                Color.clear.background(.regularMaterial)
                     .clipShape(Capsule())
                 
                 Capsule()
@@ -1405,7 +1403,7 @@ struct PeripheralOverlayView: View {
                 .mask(
                     HStack(spacing: 0) {
                         TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
-                            .id(notification?.timestamp ?? Date())
+                            .id(notification?.timestamp ?? Date(timeIntervalSince1970: 0))
                         Spacer(minLength: 0)
                     }
                 )
@@ -1419,7 +1417,7 @@ struct PeripheralOverlayView: View {
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(isConnected ? "Połączono" : "Rozłączono")
+                        Text(isConnected ? "Connected" : "Disconnected")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
                         
@@ -1429,7 +1427,7 @@ struct PeripheralOverlayView: View {
                 }
                 .padding(.horizontal, 16)
                 .frame(width: innerWidth, height: innerHeight)
-                .glassEffect(.thinMaterial, in: Capsule())
+                .background(.regularMaterial, in: Capsule())
             .padding(.leading, trackPadding + innerPadding)
         }
         .frame(width: width, height: height)
@@ -1450,11 +1448,6 @@ struct PeripheralOverlayView: View {
 struct ConditionalGlassEffect: ViewModifier {
     var isActive: Bool
     func body(content: Content) -> some View {
-        if isActive {
-            content.glassEffect(.thinMaterial, in: Capsule(), blendingMode: .behindWindow)
-        } else {
-            content.glassEffect(.thinMaterial, in: Capsule(), blendingMode: .withinWindow)
-        }
+        content.background(isActive ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.thinMaterial), in: Capsule())
     }
 }
-
