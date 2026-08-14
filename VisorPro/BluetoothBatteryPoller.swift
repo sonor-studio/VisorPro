@@ -134,8 +134,9 @@ class BluetoothBatteryPoller {
             }
             
             // Note: system_profiler doesn't easily tell us if it's currently plugged in/charging
-            // so we assume isPluggedIn = false for simple wireless accessories (unless battery == 100).
-            let isPluggedIn = (battery == 100) 
+            // so we assume isPluggedIn = false for simple wireless accessories.
+            // Previously we checked if battery == 100, but that causes false charging states for fully charged headphones.
+            let isPluggedIn = false
             self.manager?.updateAccessoryState(deviceName: name, percentage: battery, isPluggedIn: isPluggedIn)
             
             let lastBat = self.lastLevels[name]

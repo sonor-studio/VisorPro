@@ -197,6 +197,8 @@ class VisorProWindowManager: ObservableObject {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
+        panel.ignoresMouseEvents = false
+        panel.acceptsMouseMovedEvents = true
         
         return panel
     }
@@ -240,7 +242,7 @@ struct SingleOverlayContainer: View {
     }
     
     var body: some View {
-        let h: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth) ? 400 : 120)
+        let h: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth || overlay.type == .mic || overlay.type == .camera) ? 400 : 120)
         let align: Alignment = {
             if overlay.position == "top" { return .top }
             if overlay.position == "bottom" { return .bottom }

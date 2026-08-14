@@ -2,7 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>VisorPro wymaga dostępu do Apple Events, aby przełączać motyw systemowy (jasny/ciemny).</string>
 	<key>NSFocusStatusUsageDescription</key>
 	<string>Pozwól na dostęp, aby wyświetlać zmiany trybu skupienia.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>VisorPro używa mikrofonu, by wyświetlić animację fali dźwiękowej po rozwinięciu nakładki mikrofonu.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>VisorPro używa kamery, by wyświetlić podgląd na żywo w nakładce kamery.</string>
 </dict>
 </plist>

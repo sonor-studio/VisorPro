@@ -140,7 +140,7 @@ struct LanguageOverlayView: View {
                 isExpanded.toggle()
             }
         }
-        .onHover { hovering in
+        .onHoverExact { hovering in
             isHovering = hovering
             if !isPreview {
                 mediaKeyManager.keepAlive(for: "language", isHovering: hovering || isExpanded)
@@ -195,7 +195,7 @@ struct LanguageRowView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .contentShape(Rectangle())
-        .onHover { hovering in
+        .onHoverExact { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovering = hovering
             }

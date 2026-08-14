@@ -329,7 +329,7 @@ struct MediaOverlayView: View {
         )
         .frame(width: width, height: isExpanded ? height + listHeight + 4 : height, alignment: .top)
         .contentShape(RoundedRectangle(cornerRadius: height / 2, style: .continuous))
-        .onHover { isHovering in
+        .onHoverExact { isHovering in
             if !isPreview {
                 mediaKeyManager.keepAlive(for: "media", isHovering: isHovering || isExpanded)
             }

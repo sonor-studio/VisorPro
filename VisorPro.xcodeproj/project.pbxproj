@@ -404,11 +404,14 @@
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "VisorPro wymaga dostepu do Apple Events do kontroli glosnosci i motywu.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Aplikacja wymaga Bluetooth do dzialania OSD";
 				INFOPLIST_KEY_NSFocusStatusUsageDescription = "Pozwól na dostęp, aby wyświetlać zmiany trybu skupienia.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationUsageDescription = "Aplikacja wymaga dostepu do lokalizacji w celu odczytania nazwy sieci Wi-Fi.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Aplikacja wymaga dostepu do lokalizacji w celu odczytania nazwy sieci Wi-Fi.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VisorPro uzywa mikrofonu, by wyswietlac animacje fali dzwiekowej po rozwinieciu nakladki mikrofonu.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "VisorPro uzywa kamery, by wyswietlic podglad na zywo w nakladce kamery.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -453,11 +456,14 @@
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "VisorPro wymaga dostepu do Apple Events do kontroli glosnosci i motywu.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "Aplikacja wymaga Bluetooth do dzialania OSD";
 				INFOPLIST_KEY_NSFocusStatusUsageDescription = "Pozwól na dostęp, aby wyświetlać zmiany trybu skupienia.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationUsageDescription = "Aplikacja wymaga dostepu do lokalizacji w celu odczytania nazwy sieci Wi-Fi.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Aplikacja wymaga dostepu do lokalizacji w celu odczytania nazwy sieci Wi-Fi.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VisorPro uzywa mikrofonu, by wyswietlac animacje fali dzwiekowej po rozwinieciu nakladki mikrofonu.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "VisorPro uzywa kamery, by wyswietlic podglad na zywo w nakladce kamery.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

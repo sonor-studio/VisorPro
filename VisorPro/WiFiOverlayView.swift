@@ -5,6 +5,10 @@ struct StatRow: View {
     let label: String
     let value: String
     var allowShrink: Bool = false
+    var isCopyable: Bool = false
+    var onCopy: (() -> Void)? = nil
+    
+    @State private var copied: Bool = false
     
     var body: some View {
         HStack {
@@ -19,17 +23,46 @@ struct StatRow: View {
             
             Spacer()
             
-            if allowShrink {
-                Text(value)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            } else {
-                Text(value)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundColor(.primary)
+            HStack(spacing: 6) {
+                if allowShrink {
+                    Text(value)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                } else {
+                    Text(value)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(.primary)
+                }
+                
+                if isCopyable {
+                    Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(copied ? .green : .secondary.opacity(0.7))
+                        .frame(width: 14)
+                        .transition(.scale.combined(with: .opacity))
+                        .id(copied ? "check" : "copy")
+                }
             }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if isCopyable {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(value, forType: .string)
+                    onCopy?()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        copied = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            copied = false
+                        }
+                    }
+                }
+            }
+            .help(isCopyable ? "Copy to clipboard" : "")
         }
     }
 }
@@ -189,7 +222,7 @@ struct WiFiOverlayView: View {
         .frame(width: 260, height: isExpanded ? 56 + listHeight : 56, alignment: .top)
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .onHover { hovering in
+        .onHoverExact { hovering in
             if !isPreview {
                 isHovering = hovering
                 mediaKeyManager.keepAlive(for: "wifi", isHovering: hovering || isExpanded)
@@ -212,7 +245,11 @@ struct WiFiOverlayView: View {
     private var statsView: some View {
         VStack(spacing: 8) {
             if let ip = isPreview ? "192.168.1.12" : mediaKeyManager.wiFiIPAddress {
-                StatRow(icon: "network", label: "IP Address", value: ip)
+                StatRow(icon: "network", label: "IP Address", value: ip, isCopyable: true, onCopy: {
+                    if !isPreview {
+                        mediaKeyManager.pendingClipboardActionTimestamp = Date()
+                    }
+                })
             }
             if let txRate = isPreview ? 866.0 : mediaKeyManager.wiFiTxRate {
                 StatRow(icon: "bolt.horizontal", label: "Tx Rate", value: "\(Int(txRate)) Mbps")

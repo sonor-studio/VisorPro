@@ -19,6 +19,27 @@ class AVObserver {
     }
     
     private func setupMicObserver() {
+        var devicesAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &devicesAddress,
+            DispatchQueue.main
+        ) { [weak self] _, _ in
+            self?.rebuildMicDevices()
+        }
+        
+        rebuildMicDevices()
+    }
+    
+    private func rebuildMicDevices() {
+        // We don't strictly need to remove old listeners because AudioObjectAddPropertyListenerBlock with the same block on the same device just adds it or is safe, but ideally we'd remove. For simplicity, we just rebuild the list.
+        micDevices.removeAll()
+        
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -42,16 +63,18 @@ class AVObserver {
             var streamSize: UInt32 = 0
             AudioObjectGetPropertyDataSize(device, &streamAddr, 0, nil, &streamSize)
             if streamSize > 0 {
-                micDevices.append(device)
-                
-                var runningAddress = AudioObjectPropertyAddress(
-                    mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
-                    mScope: kAudioObjectPropertyScopeGlobal,
-                    mElement: kAudioObjectPropertyElementMain
-                )
-                
-                AudioObjectAddPropertyListenerBlock(device, &runningAddress, DispatchQueue.main) { [weak self] _, _ in
-                    self?.checkMicState()
+                if !micDevices.contains(device) {
+                    micDevices.append(device)
+                    
+                    var runningAddress = AudioObjectPropertyAddress(
+                        mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+                        mScope: kAudioObjectPropertyScopeGlobal,
+                        mElement: kAudioObjectPropertyElementMain
+                    )
+                    
+                    AudioObjectAddPropertyListenerBlock(device, &runningAddress, DispatchQueue.main) { [weak self] _, _ in
+                        self?.checkMicState()
+                    }
                 }
             }
         }
@@ -81,8 +104,19 @@ class AVObserver {
         }
         
         DispatchQueue.main.async { [weak self] in
-            if self?.manager?.isMicActive != isAnyRunning {
-                self?.manager?.triggerMicIndicator(isActive: isAnyRunning, deviceName: activeDeviceName)
+            guard let self = self else { return }
+            self.micDebounceTimer?.invalidate()
+            
+            if isAnyRunning {
+                if self.manager?.isMicActive != true {
+                    self.manager?.triggerMicIndicator(isActive: true, deviceName: activeDeviceName)
+                }
+            } else {
+                self.micDebounceTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { _ in
+                    if self.manager?.isMicActive == true {
+                        self.manager?.triggerMicIndicator(isActive: false, deviceName: "")
+                    }
+                }
             }
         }
     }
@@ -119,6 +153,9 @@ class AVObserver {
         checkCameraState()
     }
     
+    private var cameraDebounceTimer: Timer?
+    private var micDebounceTimer: Timer?
+    
     private func checkCameraState() {
         var isAnyRunning = false
         var activeDeviceName = ""
@@ -141,11 +178,25 @@ class AVObserver {
         }
         
         DispatchQueue.main.async { [weak self] in
-            if self?.manager?.isCameraActive != isAnyRunning {
-                self?.manager?.triggerCameraIndicator(isActive: isAnyRunning, deviceName: activeDeviceName)
+            guard let self = self else { return }
+            self.cameraDebounceTimer?.invalidate()
+            
+            if isAnyRunning {
+                // If it's running, update immediately
+                if self.manager?.isCameraActive != true {
+                    self.manager?.triggerCameraIndicator(isActive: true, deviceName: activeDeviceName)
+                }
+            } else {
+                // If it's NOT running, debounce by 1.5 seconds to ignore brief dropouts during macOS Reaction injection
+                self.cameraDebounceTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { _ in
+                    if self.manager?.isCameraActive == true {
+                        self.manager?.triggerCameraIndicator(isActive: false, deviceName: "")
+                    }
+                }
             }
         }
     }
+
     
     private func getAudioDeviceName(deviceID: AudioDeviceID) -> String {
         var name = ""

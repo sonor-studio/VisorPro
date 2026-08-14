@@ -39,8 +39,8 @@ struct ContentView: View {
             let batId = (mediaKeyManager.showLowBatteryWarning && !mediaKeyManager.isPluggedIn) ? "battery_warning" : "battery_charging"
             active.append(ActiveOverlay(id: batId, type: .battery, position: batteryOverlayPosition, notification: nil)) 
         }
-        if mediaKeyManager.showCopyIndicator { active.append(ActiveOverlay(id: "copy", type: .copy, position: copyOverlayPosition, notification: nil)) }
-        if mediaKeyManager.showCapsLockIndicator { active.append(ActiveOverlay(id: "capsLock", type: .capsLock, position: capsLockOverlayPosition, notification: nil)) }
+        if mediaKeyManager.showCopyIndicator { active.append(ActiveOverlay(id: "copy_\(mediaKeyManager.clipboardEventId)", type: .copy, position: copyOverlayPosition, notification: nil)) }
+        if mediaKeyManager.showCapsLockIndicator { active.append(ActiveOverlay(id: "capsLock_\(mediaKeyManager.capsLockEventId)", type: .capsLock, position: capsLockOverlayPosition, notification: nil)) }
         
         let btPos = UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom"
         for notif in mediaKeyManager.activeBluetoothNotifications {
@@ -48,22 +48,22 @@ struct ContentView: View {
         }
         
         let langPos = UserDefaults.standard.string(forKey: "languageOverlayPosition") ?? "bottom"
-        if mediaKeyManager.showLanguageIndicator { active.append(ActiveOverlay(id: "language", type: .language, position: langPos, notification: nil)) }
+        if mediaKeyManager.showLanguageIndicator { active.append(ActiveOverlay(id: "language_\(mediaKeyManager.languageEventId)", type: .language, position: langPos, notification: nil)) }
         
         let mediaPos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
-        if mediaKeyManager.showMediaIndicator { active.append(ActiveOverlay(id: "media", type: .media, position: mediaPos, notification: nil)) }
+        if mediaKeyManager.showMediaIndicator { active.append(ActiveOverlay(id: "media_\(mediaKeyManager.mediaEventId)", type: .media, position: mediaPos, notification: nil)) }
         
         let themePos = UserDefaults.standard.string(forKey: "themeOverlayPosition") ?? "bottom"
-        if mediaKeyManager.showThemeIndicator { active.append(ActiveOverlay(id: "theme", type: .theme, position: themePos, notification: nil)) }
+        if mediaKeyManager.showThemeIndicator { active.append(ActiveOverlay(id: "theme_\(mediaKeyManager.themeEventId)", type: .theme, position: themePos, notification: nil)) }
         
         let micPos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
-        if mediaKeyManager.showMicIndicator { active.append(ActiveOverlay(id: "mic", type: .mic, position: micPos, notification: nil)) }
+        if mediaKeyManager.showMicIndicator { active.append(ActiveOverlay(id: "mic_\(mediaKeyManager.micEventId)", type: .mic, position: micPos, notification: nil)) }
         
         let camPos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
-        if mediaKeyManager.showCameraIndicator { active.append(ActiveOverlay(id: "camera", type: .camera, position: camPos, notification: nil)) }
+        if mediaKeyManager.showCameraIndicator { active.append(ActiveOverlay(id: "camera_\(mediaKeyManager.cameraEventId)", type: .camera, position: camPos, notification: nil)) }
         
         let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
-        if mediaKeyManager.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi", type: .wifi, position: wifiPos, notification: nil)) }
+        if mediaKeyManager.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi_\(mediaKeyManager.wiFiEventId)", type: .wifi, position: wifiPos, notification: nil)) }
         
         let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
         for notif in mediaKeyManager.activePeripheralNotifications {
@@ -401,7 +401,7 @@ struct BatteryOverlayView: View {
                 )
         )
         .frame(width: width, height: isExpanded ? expandedHeight : baseHeight, alignment: .top)
-        .onHover { hovering in
+        .onHoverExact { hovering in
             isHovering = hovering
             if !isPreview {
                 mediaKeyManager.keepAlive(for: "battery", isHovering: hovering || isExpanded)
@@ -741,7 +741,7 @@ struct VolumeOverlayView: View {
         .frame(width: 260, height: isExpanded ? 56 + listHeight : 56, alignment: .top)
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .onHover { hovering in
+        .onHoverExact { hovering in
             isHovering = hovering
             if !isPreview {
                 mediaKeyManager.keepAlive(for: "volume", isHovering: hovering || isExpanded)
@@ -798,9 +798,10 @@ struct VolumeOverlayView: View {
     }
 }
 
-private struct DeviceRowView: View {
+struct DeviceRowView: View {
     let device: (id: UInt32, name: String)
     let isCurrent: Bool
+    var tintColor: Color = .blue
     let onSelect: () -> Void
     @State private var isHovering: Bool = false
     
@@ -815,7 +816,7 @@ private struct DeviceRowView: View {
                 if isCurrent {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.blue)
+                        .foregroundColor(tintColor)
                 }
             }
             .padding(.horizontal, 12)
@@ -828,7 +829,7 @@ private struct DeviceRowView: View {
         }
         .buttonStyle(.plain)
         .transition(.identity)
-        .onHover { hovering in
+        .onHoverExact { hovering in
             withAnimation(.easeInOut(duration: 0.12)) { isHovering = hovering }
             if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
@@ -898,7 +899,7 @@ struct BrightnessOverlayView: View {
         .frame(width: 260, height: 56, alignment: .top)
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .onHover { hovering in
+        .onHoverExact { hovering in
             if !isPreview {
                 mediaKeyManager.keepAlive(for: "brightness", isHovering: hovering)
             }
@@ -988,11 +989,6 @@ struct CopyOverlayView: View {
     }
     
     var body: some View {
-        let actionTitle = "Text Copied"
-        let actionIcon = "doc.on.doc"
-        let actionColor = Color.blue
-        let actionFallbackText = "Copied to clipboard"
-        
         let displayedText = isPreview ? "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg" : (mediaKeyManager.copiedText.isEmpty ? actionFallbackText : mediaKeyManager.copiedText)
         let reqHeight = calculatedTextHeight(for: displayedText)
         let canExpand = reqHeight > 22
@@ -1077,7 +1073,7 @@ struct CopyOverlayView: View {
         .frame(width: 260, height: (isExpanded && canExpand) ? 56 + listHeight : 56, alignment: .top)
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .onHover { hovering in
+        .onHoverExact { hovering in
             isHovering = hovering
             if !isPreview {
                 mediaKeyManager.keepAlive(for: "copy", isHovering: hovering || isExpanded)
@@ -1174,7 +1170,7 @@ struct CapsLockOverlayView: View {
         .frame(width: 230, height: 56, alignment: .top)
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .onHover { hovering in
+        .onHoverExact { hovering in
             if !isPreview {
                 self.isHovering = hovering
                 mediaKeyManager.keepAlive(for: "capsLock", isHovering: hovering)
@@ -1202,23 +1198,24 @@ struct ThemeOverlayView: View {
         let iconColor: Color
         
         if isPreview {
-            titleText = "Dark Theme"
-            iconName = "moon.fill"
-            iconColor = .indigo
-        } else {
-            let style = mediaKeyManager.overlayTheme
-            if style == "dark" {
+            if previewIsDark {
                 titleText = "Dark Theme"
                 iconName = "moon.fill"
                 iconColor = .indigo
-            } else if style == "light" {
+            } else {
                 titleText = "Light Theme"
                 iconName = "sun.max.fill"
                 iconColor = .orange
+            }
+        } else {
+            if mediaKeyManager.isDarkMode {
+                titleText = "Dark Mode"
+                iconName = "moon.fill"
+                iconColor = .indigo
             } else {
-                titleText = "Auto Theme"
-                iconName = "circle.lefthalf.filled"
-                iconColor = .blue
+                titleText = "Light Mode"
+                iconName = "sun.max.fill"
+                iconColor = .orange
             }
         }
 
@@ -1264,13 +1261,37 @@ struct ThemeOverlayView: View {
         .frame(width: 230, height: 56, alignment: .top)
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .onHover { hovering in
+        .onHoverExact { hovering in
             if !isPreview {
                 self.isHovering = hovering
                 mediaKeyManager.keepAlive(for: "theme", isHovering: hovering)
             }
         }
         .applyTheme(mediaKeyManager.overlayTheme)
+        .simultaneousGesture(TapGesture().onEnded {
+            if !isPreview {
+                toggleSystemTheme()
+            }
+        })
+    }
+    
+    private func toggleSystemTheme() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let scriptSource = """
+            tell application "System Events"
+                tell appearance preferences
+                    set dark mode to not dark mode
+                end tell
+            end tell
+            """
+            if let script = NSAppleScript(source: scriptSource) {
+                var error: NSDictionary?
+                script.executeAndReturnError(&error)
+                if let error = error {
+                    print("Failed to toggle theme: \(error)")
+                }
+            }
+        }
     }
 }
 
@@ -1350,7 +1371,7 @@ struct PeripheralOverlayView: View {
         .frame(width: 260, height: 56, alignment: .top)
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .onHover { hovering in
+        .onHoverExact { hovering in
             if !isPreview {
                 self.isHovering = hovering
                 let keepAliveType = notification != nil ? "peripheral_\(notification!.id)" : "peripheral"

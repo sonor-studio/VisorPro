@@ -24,11 +24,17 @@ class BluetoothObserver: NSObject {
     }
     
     private func shouldShowNotification(for device: IOBluetoothDevice) -> Bool {
+        let majorClass = device.deviceClassMajor
+        // 0 = Miscellaneous (often iPhones/Apple Watches), 1 = Computer, 2 = Phone, 3 = LAN/Network Access Point
+        if majorClass == 0 || majorClass == 1 || majorClass == 2 || majorClass == 3 {
+            return false
+        }
         return true
     }
     
     @objc func deviceDidConnect(_ notification: IOBluetoothUserNotification, fromDevice device: IOBluetoothDevice) {
         if isInitialLoad { return }
+        if !shouldShowNotification(for: device) { return }
         guard let rawName = device.name else { return } // Ignoruj urządzenia bez nazwy
         
         let name = rawName.replacingOccurrences(of: "’", with: "'")
@@ -52,6 +58,7 @@ class BluetoothObserver: NSObject {
     
     @objc func deviceDidDisconnect(_ notification: IOBluetoothUserNotification, fromDevice device: IOBluetoothDevice) {
         if isInitialLoad { return }
+        if !shouldShowNotification(for: device) { return }
         guard let rawName = device.name else { return }
         
         let name = rawName.replacingOccurrences(of: "’", with: "'")

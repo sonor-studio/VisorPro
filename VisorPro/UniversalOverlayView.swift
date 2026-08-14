@@ -22,6 +22,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var onRightTap: (() -> Void)? = nil
     var onSimpleTap: (() -> Void)? = nil
     
+    var isExpandable: Bool = true
+    
     @ViewBuilder var baseContent: () -> BaseContent
     @ViewBuilder var expandedContent: () -> ExpandedContent
     
@@ -140,14 +142,18 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                         onLeftTap?()
                                     } else {
                                         onRightTap?()
-                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                            isExpanded.toggle()
+                                        if isExpandable {
+                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                                isExpanded.toggle()
+                                            }
                                         }
                                     }
                                 } else {
                                     onSimpleTap?()
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                        isExpanded.toggle()
+                                    if isExpandable {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                            isExpanded.toggle()
+                                        }
                                     }
                                 }
                             }

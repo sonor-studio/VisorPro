@@ -31,10 +31,28 @@ class VolumeManager {
             DispatchQueue.main
         ) { [weak self] _, _ in
             guard let self = self else { return }
-            // Małe opóźnienie – CoreAudio potrzebuje chwili na zatwierdzenie zmiany
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 let newName = self.getCurrentAudioDeviceName()
                 MediaKeyManager.shared.currentAudioDeviceName = newName
+                MediaKeyManager.shared.audioDevicesChanged = UUID()
+            }
+        }
+        
+        // Listener na zmianę domyślnego urządzenia wejściowego
+        var defaultInputAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &defaultInputAddress,
+            DispatchQueue.main
+        ) { [weak self] _, _ in
+            guard let self = self else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                let newName = self.getCurrentInputDeviceName()
+                MediaKeyManager.shared.currentMicDeviceName = newName
                 MediaKeyManager.shared.audioDevicesChanged = UUID()
             }
         }
@@ -161,6 +179,126 @@ class VolumeManager {
         }
         
         return outputDevices
+    }
+    
+    func getCurrentInputDeviceName() -> String {
+        var defaultInputDeviceID = AudioDeviceID(0)
+        var defaultInputDeviceIDSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+        
+        var getDefaultInputDevicePropertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &getDefaultInputDevicePropertyAddress,
+            0,
+            nil,
+            &defaultInputDeviceIDSize,
+            &defaultInputDeviceID
+        )
+        
+        guard status == noErr else { return "Microphone" }
+        
+        var deviceName = "" as CFString
+        var deviceNameSize = UInt32(MemoryLayout<CFString>.size)
+        
+        var deviceNamePropertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceNameCFString,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        let nameStatus = AudioObjectGetPropertyData(
+            defaultInputDeviceID,
+            &deviceNamePropertyAddress,
+            0,
+            nil,
+            &deviceNameSize,
+            &deviceName
+        )
+        
+        guard nameStatus == noErr else { return "Microphone" }
+        return deviceName as String
+    }
+    
+    func getAvailableInputDevices() -> [(id: AudioDeviceID, name: String)] {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var dataSize: UInt32 = 0
+        AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &dataSize)
+        
+        let deviceCount = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+        if deviceCount == 0 { return [] }
+        
+        var deviceIDs = [AudioDeviceID](repeating: 0, count: deviceCount)
+        AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &dataSize, &deviceIDs)
+        
+        var inputDevices: [(id: AudioDeviceID, name: String)] = []
+        
+        for deviceID in deviceIDs {
+            var streamConfigAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyStreamConfiguration,
+                mScope: kAudioDevicePropertyScopeInput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            
+            var streamConfigSize: UInt32 = 0
+            if AudioObjectGetPropertyDataSize(deviceID, &streamConfigAddress, 0, nil, &streamConfigSize) != noErr {
+                continue
+            }
+            
+            let audioBufferList = AudioBufferList.allocate(maximumBuffers: Int(streamConfigSize))
+            defer { free(audioBufferList.unsafeMutablePointer) }
+            
+            if AudioObjectGetPropertyData(deviceID, &streamConfigAddress, 0, nil, &streamConfigSize, audioBufferList.unsafeMutablePointer) != noErr {
+                continue
+            }
+            
+            let buffers = UnsafeBufferPointer<AudioBuffer>(start: &audioBufferList.unsafeMutablePointer.pointee.mBuffers, count: Int(audioBufferList.unsafeMutablePointer.pointee.mNumberBuffers))
+            var hasInput = false
+            for buffer in buffers {
+                if buffer.mNumberChannels > 0 {
+                    hasInput = true
+                    break
+                }
+            }
+            
+            if hasInput {
+                var nameAddress = AudioObjectPropertyAddress(
+                    mSelector: kAudioDevicePropertyDeviceNameCFString,
+                    mScope: kAudioObjectPropertyScopeGlobal,
+                    mElement: kAudioObjectPropertyElementMain
+                )
+                var deviceName: CFString?
+                var nameSize = UInt32(MemoryLayout<CFString?>.size)
+                if AudioObjectGetPropertyData(deviceID, &nameAddress, 0, nil, &nameSize, &deviceName) == noErr, let name = deviceName as String? {
+                    inputDevices.append((id: deviceID, name: name))
+                }
+            }
+        }
+        
+        return inputDevices
+    }
+    
+    func setInputDevice(id: AudioDeviceID) {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var deviceID = id
+        AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &deviceID)
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            MediaKeyManager.shared.currentMicDeviceName = self.getCurrentInputDeviceName()
+        }
     }
     
     func setOutputDevice(id: AudioDeviceID) {
@@ -312,6 +450,144 @@ class VolumeManager {
             AudioObjectSetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
             muteAddress.mElement = 2
             AudioObjectSetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+        }
+    }
+    
+    private var muteEnforcerTimer: Timer?
+    private var targetMicVolume: Float = 0.5
+    private var isMicMuted: Bool = false
+    private var isEnforcing: Bool = false
+    
+    func getMicVolume() -> (Float, Bool) {
+        let scriptSource = "input volume of (get volume settings)"
+        if let script = NSAppleScript(source: scriptSource) {
+            var error: NSDictionary?
+            let descriptor = script.executeAndReturnError(&error)
+            if error == nil {
+                let vol = descriptor.int32Value
+                if vol >= 0 && vol <= 100 {
+                    return (Float(vol) / 100.0, vol == 0)
+                }
+            }
+        }
+        
+        return (0.5, false)
+    }
+    
+    func setMicVolume(volume: Float, mute: Bool) {
+        targetMicVolume = volume
+        isMicMuted = mute
+        
+        if mute {
+            startMuteEnforcer()
+        } else {
+            stopMuteEnforcer()
+        }
+        
+        applyMicVolumeAndMute(volume: volume, mute: mute)
+    }
+    
+    private func startMuteEnforcer() {
+        if muteEnforcerTimer == nil {
+            DispatchQueue.main.async {
+                self.muteEnforcerTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                    guard let self = self else { return }
+                    if self.isMicMuted {
+                        self.applyMicVolumeAndMute(volume: 0, mute: true)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func stopMuteEnforcer() {
+        DispatchQueue.main.async {
+            self.muteEnforcerTimer?.invalidate()
+            self.muteEnforcerTimer = nil
+        }
+    }
+    
+    private func applyMicVolumeAndMute(volume: Float, mute: Bool) {
+        guard !isEnforcing else { return }
+        isEnforcing = true
+        
+        // 1. Zmiana dla domyślnego urządzenia przez AppleScript (100% niezawodności)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let targetVolume = mute ? 0 : Int(volume * 100)
+            let scriptSource = "set volume input volume \(targetVolume)"
+            if let script = NSAppleScript(source: scriptSource) {
+                var error: NSDictionary?
+                script.executeAndReturnError(&error)
+            }
+            
+            // 2. Zmiana dla WSZYSTKICH urządzeń wejściowych
+            self.setAllInputDevicesVolume(volume: volume, mute: mute)
+            DispatchQueue.main.async {
+                self.isEnforcing = false
+            }
+        }
+    }
+    
+    private func setAllInputDevicesVolume(volume: Float, mute: Bool) {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        var dataSize: UInt32 = 0
+        AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &dataSize)
+        
+        let deviceCount = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+        var devices = [AudioDeviceID](repeating: 0, count: deviceCount)
+        
+        AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &dataSize, &devices)
+        
+        for device in devices {
+            var streamAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyStreams,
+                mScope: kAudioDevicePropertyScopeInput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            var streamSize: UInt32 = 0
+            AudioObjectGetPropertyDataSize(device, &streamAddr, 0, nil, &streamSize)
+            
+            // Jeśli urządzenie ma kanał wejściowy (jest mikrofonem)
+            if streamSize > 0 {
+                var vol = volume
+                var volAddress = AudioObjectPropertyAddress(
+                    mSelector: kAudioDevicePropertyVolumeScalar,
+                    mScope: kAudioDevicePropertyScopeInput,
+                    mElement: kAudioObjectPropertyElementMain
+                )
+                
+                volAddress.mElement = 0
+                AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+                volAddress.mElement = 1
+                AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+                volAddress.mElement = 2
+                AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+                
+                var systemVolAddress = AudioObjectPropertyAddress(
+                    mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+                    mScope: kAudioDevicePropertyScopeInput,
+                    mElement: kAudioObjectPropertyElementMain
+                )
+                AudioHardwareServiceSetPropertyData(device, &systemVolAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+                
+                var muteAddress = AudioObjectPropertyAddress(
+                    mSelector: kAudioDevicePropertyMute,
+                    mScope: kAudioDevicePropertyScopeInput,
+                    mElement: kAudioObjectPropertyElementMain
+                )
+                var muteVal: UInt32 = mute ? 1 : 0
+                muteAddress.mElement = 0
+                AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+                muteAddress.mElement = 1
+                AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+                muteAddress.mElement = 2
+                AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+            }
         }
     }
 

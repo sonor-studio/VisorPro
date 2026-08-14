@@ -139,7 +139,7 @@ struct KeyboardBrightnessOverlayView: View {
         .frame(width: width, height: height, alignment: .top)
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
-        .onHover { hovering in
+        .onHoverExact { hovering in
             if !isPreview {
                 mediaKeyManager.keepAlive(for: "keyboardBrightness", isHovering: hovering)
             }

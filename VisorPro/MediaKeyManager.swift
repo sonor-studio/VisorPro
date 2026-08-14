@@ -240,9 +240,15 @@ class MediaKeyManager: ObservableObject {
     @Published var currentKeyboardBrightness: Int = 50
     @Published var showKeyboardBrightnessIndicator: Bool = false
     private var keyboardBrightnessTimer: Timer?
-    
     private var chargingTimer: Timer?
     
+    // Zmienne do niezawodnego sprzętowego wykrywania skrótów schowka
+    private var hardwareKeyPollingTimer: Timer?
+    var detectedHardwareAction: String?
+    var detectedHardwareActionTimestamp: Date?
+    var lastPasteTrigger: Date?
+    
+    public var lastChangeCount: Int = 0
     @Published var showCopyIndicator: Bool = false
     @Published var copiedText: String = ""
     @Published var clipboardAction: String = "copy" // "copy", "cut", "paste"
@@ -429,13 +435,16 @@ class MediaKeyManager: ObservableObject {
     }
     
     @Published var showMicIndicator: Bool = false
+    @Published var isMicExpanded: Bool = false
     @Published var isMicActive: Bool = false
     @Published var activeMicName: String = ""
+    @Published var currentMicDeviceName: String = ""
     @Published var micEventId: UUID = UUID()
     private var micTimer: Timer?
     private var lastMicEventTime: Date = Date.distantPast
     
     @Published var showCameraIndicator: Bool = false
+    @Published var isCameraExpanded: Bool = false
     @Published var isCameraActive: Bool = false
     @Published var activeCameraName: String = ""
     @Published var cameraEventId: UUID = UUID()
@@ -561,16 +570,48 @@ class MediaKeyManager: ObservableObject {
             self.dismissCollidingIndicators(newPosition: pos, source: "theme")
             
             self.isDarkMode = isDark
-            self.themeEventId = UUID()
-            
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.showThemeIndicator = true
-            }
-            
-            self.themeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showThemeIndicator = false
+            let executeShow = {
+
+                self.themeEventId = UUID()
+
+                withAnimation(.easeInOut(duration: 0.15)) {
+
+                    self.showThemeIndicator = true
+
                 }
+
+                self.themeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+
+                    withAnimation(.easeInOut(duration: 0.25)) {
+
+                        self?.showThemeIndicator = false
+
+                    }
+
+                }
+
+            }
+
+            
+
+            if self.showThemeIndicator {
+
+                withAnimation(.easeInOut(duration: 0.25)) {
+
+                    self.showThemeIndicator = false
+
+                }
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+
+                    executeShow()
+
+                }
+
+            } else {
+
+                executeShow()
+
             }
         }
     }
@@ -586,17 +627,49 @@ class MediaKeyManager: ObservableObject {
         dismissCollidingIndicators(newPosition: pos, source: "language")
         
         self.currentKeyboardLanguage = language
-        self.languageEventId = UUID()
-        
-        withAnimation(.easeInOut(duration: 0.15)) {
-            showLanguageIndicator = true
-        }
-        
-        languageTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self?.showLanguageIndicator = false
+            let executeShow = {
+
+                self.languageEventId = UUID()
+
+                withAnimation(.easeInOut(duration: 0.15)) {
+
+                    self.showLanguageIndicator = true
+
+                }
+
+                self.languageTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+
+                    withAnimation(.easeInOut(duration: 0.25)) {
+
+                        self?.showLanguageIndicator = false
+
+                    }
+
+                }
+
             }
-        }
+
+            
+
+            if self.showLanguageIndicator {
+
+                withAnimation(.easeInOut(duration: 0.25)) {
+
+                    self.showLanguageIndicator = false
+
+                }
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+
+                    executeShow()
+
+                }
+
+            } else {
+
+                executeShow()
+
+            }
     }
     
     func getAvailableLanguages() -> [KeyboardLayout] {
@@ -681,16 +754,19 @@ class MediaKeyManager: ObservableObject {
             self.micTimer?.invalidate()
             let pos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
             self.dismissCollidingIndicators(newPosition: pos, source: "mic")
+            withAnimation(.easeInOut(duration: 0.15)) {
+
             
             self.micEventId = UUID()
-            
-            withAnimation(.easeInOut(duration: 0.15)) {
                 self.showMicIndicator = true
             }
             
-            self.micTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showMicIndicator = false
+            
+            if !self.isMicExpanded {
+                self.micTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self?.showMicIndicator = false
+                    }
                 }
             }
         }
@@ -718,16 +794,19 @@ class MediaKeyManager: ObservableObject {
             self.cameraTimer?.invalidate()
             let pos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
             self.dismissCollidingIndicators(newPosition: pos, source: "camera")
+            withAnimation(.easeInOut(duration: 0.15)) {
+
             
             self.cameraEventId = UUID()
-            
-            withAnimation(.easeInOut(duration: 0.15)) {
                 self.showCameraIndicator = true
             }
             
-            self.cameraTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showCameraIndicator = false
+            
+            if !self.isCameraExpanded {
+                self.cameraTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self?.showCameraIndicator = false
+                    }
                 }
             }
         }
@@ -852,10 +931,10 @@ class MediaKeyManager: ObservableObject {
             self.accessoryBatteryTimer?.invalidate()
             let pos = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
             self.dismissCollidingIndicators(newPosition: pos, source: "accessoryBattery")
+            withAnimation(.easeInOut(duration: 0.15)) {
+
             
             self.accessoryBatteryEventId = UUID()
-            
-            withAnimation(.easeInOut(duration: 0.15)) {
                 self.showAccessoryBatteryIndicator = true
             }
             
@@ -889,6 +968,13 @@ class MediaKeyManager: ObservableObject {
     func fetchBluetoothDetails() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             self?.btPoller?.forcePoll()
+        }
+    }
+    
+    func disconnectBluetoothDevice(macAddress: String) {
+        guard let device = IOBluetoothDevice(addressString: macAddress) else { return }
+        if device.isConnected() {
+            device.closeConnection()
         }
     }
     
@@ -973,17 +1059,49 @@ class MediaKeyManager: ObservableObject {
         
         self.copiedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         self.clipboardAction = action
-        self.clipboardEventId = UUID()
-        
-        withAnimation(.easeInOut(duration: 0.15)) {
-            showCopyIndicator = true
-        }
-        
-        copyTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self?.showCopyIndicator = false
+            let executeShow = {
+
+                self.clipboardEventId = UUID()
+
+                withAnimation(.easeInOut(duration: 0.15)) {
+
+                    self.showCopyIndicator = true
+
+                }
+
+                self.copyTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+
+                    withAnimation(.easeInOut(duration: 0.25)) {
+
+                        self?.showCopyIndicator = false
+
+                    }
+
+                }
+
             }
-        }
+
+            
+
+            if self.showCopyIndicator {
+
+                withAnimation(.easeInOut(duration: 0.25)) {
+
+                    self.showCopyIndicator = false
+
+                }
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+
+                    executeShow()
+
+                }
+
+            } else {
+
+                executeShow()
+
+            }
     }
     
     func triggerCapsLockIndicator(isOn: Bool) {
@@ -997,17 +1115,49 @@ class MediaKeyManager: ObservableObject {
         dismissCollidingIndicators(newPosition: pos, source: "capsLock")
         
         self.isCapsLockOn = isOn
-        self.capsLockEventId = UUID()
-        
-        withAnimation(.easeInOut(duration: 0.15)) {
-            showCapsLockIndicator = true
-        }
-        
-        capsLockTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self?.showCapsLockIndicator = false
+            let executeShow = {
+
+                self.capsLockEventId = UUID()
+
+                withAnimation(.easeInOut(duration: 0.15)) {
+
+                    self.showCapsLockIndicator = true
+
+                }
+
+                self.capsLockTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+
+                    withAnimation(.easeInOut(duration: 0.25)) {
+
+                        self?.showCapsLockIndicator = false
+
+                    }
+
+                }
+
             }
-        }
+
+            
+
+            if self.showCapsLockIndicator {
+
+                withAnimation(.easeInOut(duration: 0.25)) {
+
+                    self.showCapsLockIndicator = false
+
+                }
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+
+                    executeShow()
+
+                }
+
+            } else {
+
+                executeShow()
+
+            }
     }
     
     
@@ -1090,16 +1240,48 @@ class MediaKeyManager: ObservableObject {
             self.wiFiSSID = ssid
             self.wiFiIsConnected = isConnected
             self.wiFiIsHotspot = isHotspot
-            self.wiFiEventId = UUID()
-            
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.showWiFiIndicator = true
-            }
-            
-            self.wiFiTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showWiFiIndicator = false
+            let executeShow = {
+
+                self.wiFiEventId = UUID()
+
+                withAnimation(.easeInOut(duration: 0.15)) {
+
+                    self.showWiFiIndicator = true
+
                 }
+
+                self.wiFiTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+
+                    withAnimation(.easeInOut(duration: 0.25)) {
+
+                        self?.showWiFiIndicator = false
+
+                    }
+
+                }
+
+            }
+
+            
+
+            if self.showWiFiIndicator {
+
+                withAnimation(.easeInOut(duration: 0.25)) {
+
+                    self.showWiFiIndicator = false
+
+                }
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+
+                    executeShow()
+
+                }
+
+            } else {
+
+                executeShow()
+
             }
         }
     }
@@ -1113,7 +1295,14 @@ class MediaKeyManager: ObservableObject {
             
             var channelStr: String? = nil
             if let channel = interface.wlanChannel() {
-                let band = channel.channelBand == .band5GHz ? "5 GHz" : "2.4 GHz"
+                let band: String
+                if channel.channelBand == .band5GHz {
+                    band = "5 GHz"
+                } else if channel.channelBand == .band6GHz {
+                    band = "6 GHz"
+                } else {
+                    band = "2.4 GHz"
+                }
                 channelStr = "Ch \(channel.channelNumber) (\(band))"
             }
             
@@ -1165,23 +1354,57 @@ class MediaKeyManager: ObservableObject {
             let rssi = interface.rssiValue()
             let txRate = interface.transmitRate()
             
+            var channelStr: String? = nil
+            if let channel = interface.wlanChannel() {
+                let band: String
+                if channel.channelBand == .band5GHz {
+                    band = "5 GHz"
+                } else if channel.channelBand == .band6GHz {
+                    band = "6 GHz"
+                } else {
+                    band = "2.4 GHz"
+                }
+                channelStr = "Ch \(channel.channelNumber) (\(band))"
+            }
+            
+            var ipAddr: String? = nil
+            var ifaddr: UnsafeMutablePointer<ifaddrs>?
+            if getifaddrs(&ifaddr) == 0 {
+                var ptr = ifaddr
+                while ptr != nil {
+                    defer { ptr = ptr?.pointee.ifa_next }
+                    let interfaceInfo = ptr?.pointee
+                    if interfaceInfo?.ifa_addr.pointee.sa_family == UInt8(AF_INET) {
+                        if String(cString: (interfaceInfo?.ifa_name)!) == "en0" {
+                            var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                            getnameinfo(interfaceInfo?.ifa_addr, socklen_t((interfaceInfo?.ifa_addr.pointee.sa_len)!),
+                                        &hostname, socklen_t(hostname.count), nil, socklen_t(0), NI_NUMERICHOST)
+                            ipAddr = String(cString: hostname)
+                        }
+                    }
+                }
+                freeifaddrs(ifaddr)
+            }
+            
             DispatchQueue.main.async {
                 self.wiFiRSSI = rssi
                 self.wiFiTxRate = txRate
+                if let newChannel = channelStr {
+                    self.wiFiChannel = newChannel
+                }
+                if let newIp = ipAddr {
+                    self.wiFiIPAddress = newIp
+                }
             }
         }
     }
     
     func openNetworkSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.network") {
-            NSWorkspace.shared.open(url)
-        }
+        NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Library/PreferencePanes/Network.prefPane"))
     }
     
     func openBluetoothSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.bluetooth") {
-            NSWorkspace.shared.open(url)
-        }
+        NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Library/PreferencePanes/Bluetooth.prefPane"))
     }
     
     func updateMediaInfo(title: String, artist: String, album: String, duration: Double, elapsedTime: Double, isPlaying: Bool, mediaAction: String, bundleId: String, triggerNotification: Bool) {
@@ -1404,17 +1627,48 @@ class MediaKeyManager: ObservableObject {
             
             let pos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
             self.dismissCollidingIndicators(newPosition: pos, source: "media")
-            
-            self.mediaEventId = UUID()
-            
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.showMediaIndicator = true
-            }
-            
-            self.mediaTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showMediaIndicator = false
+            let executeShow = {
+
+                self.mediaEventId = UUID()
+
+                withAnimation(.easeInOut(duration: 0.15)) {
+
+                    self.showMediaIndicator = true
+
                 }
+
+                self.mediaTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+
+                    withAnimation(.easeInOut(duration: 0.25)) {
+
+                        self?.showMediaIndicator = false
+
+                    }
+
+                }
+
+            }
+
+            
+
+            if self.showMediaIndicator {
+
+                withAnimation(.easeInOut(duration: 0.25)) {
+
+                    self.showMediaIndicator = false
+
+                }
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+
+                    executeShow()
+
+                }
+
+            } else {
+
+                executeShow()
+
             }
         }
     }
@@ -1483,6 +1737,7 @@ class MediaKeyManager: ObservableObject {
             self?.currentVolume = vol
             self?.isMuted = muted
             self?.currentAudioDeviceName = VolumeManager.shared.getCurrentAudioDeviceName()
+            self?.currentMicDeviceName = VolumeManager.shared.getCurrentInputDeviceName()
         }
         
         BrightnessManager.shared.fetchCurrentBrightness { [weak self] brightness in
@@ -1590,7 +1845,10 @@ class MediaKeyManager: ObservableObject {
                     if isCustomCopy || isNativeCopy {
                         self.pendingClipboardAction = "copy"
                         self.pendingClipboardActionTimestamp = Date()
-                        // UWAGA: Nie wyświetlamy OSD tutaj! OSD pokaże PasteboardObserver TYLKO jeśli schowek faktycznie się zmieni!
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            let text = NSPasteboard.general.string(forType: .string) ?? "Skopiowany plik"
+                            self.triggerClipboardIndicator(text: text, action: "copy")
+                        }
                     } else if isCustomPaste || isNativePaste {
                         let types = NSPasteboard.general.types ?? []
                         let isFile = types.contains(.fileURL) || 
@@ -1598,30 +1856,28 @@ class MediaKeyManager: ObservableObject {
                                      types.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType"))
                         
                         if isFile {
-                            // Jeśli w schowku jest plik, wklejanie działa TYLKO natywnym skrótem (Cmd+V).
-                            // Customowy skrót nic nie zrobi w Finderze, więc go ignorujemy (żeby nie pokazywać fałszywego OSD).
                             if isCustomPaste && !isNativePaste { return }
                         } else {
-                            // Jeśli w schowku jest tekst, wklejanie działa TYLKO customowym skrótem (zgodnie z intencją usera).
-                            // Ignorujemy natywne Cmd+V, żeby nie pokazywać fałszywego OSD.
                             if isNativePaste && !isCustomPaste { return }
                         }
                         
-                        // Sprawdzamy czy wklejanie jest w ogóle możliwe w aktywnej aplikacji (np. pole tekstowe)
                         if !self.canPasteInFrontmostApp() {
                             return
                         }
                         
-                        // Przy wklejaniu schowek się nie zmienia, więc musimy pokazać OSD od razu
+                        self.pendingClipboardAction = "paste"
+                        self.pendingClipboardActionTimestamp = Date()
                         DispatchQueue.main.async {
-                            self.lastAction = "Wklejono tekst"
                             let text = NSPasteboard.general.string(forType: .string) ?? "Wklejony plik"
                             self.triggerClipboardIndicator(text: text, action: "paste")
                         }
                     } else if isCustomCut || isNativeCut {
                         self.pendingClipboardAction = "cut"
                         self.pendingClipboardActionTimestamp = Date()
-                        // Podobnie jak przy kopiowaniu – OSD pokaże się dopiero gdy system faktycznie wytnie dane
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            let text = NSPasteboard.general.string(forType: .string) ?? "Wycięty plik"
+                            self.triggerClipboardIndicator(text: text, action: "cut")
+                        }
                     }
                 }
             }
@@ -1643,8 +1899,45 @@ class MediaKeyManager: ObservableObject {
         // === TAP 2: Active tap – media keys (głośność + jasność) ===
         // Tworzony dynamicznie – istnieje TYLKO gdy Volume lub Brightness jest włączone.
         // Gdy oba wyłączone, tap jest usuwany i macOS obsługuje klawisze w 100% natywnie.
+        
+        startHardwareKeyPolling()
+        
         hasStarted = true
         setupMediaKeyTap()
+    }
+    
+    private func startHardwareKeyPolling() {
+        hardwareKeyPollingTimer?.invalidate()
+        hardwareKeyPollingTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            guard let self = self, self.enableKeyboard else { return }
+            
+            // Cmd (lewy lub prawy)
+            let cmdPressed = CGEventSource.keyState(.hidSystemState, key: 55) || CGEventSource.keyState(.hidSystemState, key: 54)
+            if !cmdPressed { return }
+            
+            if CGEventSource.keyState(.hidSystemState, key: 7) { // X
+                self.detectedHardwareAction = "cut"
+                self.detectedHardwareActionTimestamp = Date()
+            } else if CGEventSource.keyState(.hidSystemState, key: 8) { // C
+                self.detectedHardwareAction = "copy"
+                self.detectedHardwareActionTimestamp = Date()
+            } else if CGEventSource.keyState(.hidSystemState, key: 9) { // V
+                self.detectedHardwareAction = "paste"
+                self.detectedHardwareActionTimestamp = Date()
+                
+                // Dla wklejania wywołujemy OSD bezpośrednio, bo schowek może się nie zmienić (PasteboardObserver nie zadziała)
+                if let last = self.lastPasteTrigger, Date().timeIntervalSince(last) < 1.0 { return }
+                
+                // Sprawdzamy czy okno pozwala na wklejanie, żeby uniknąć fałszywych alarmów (np. Finder bez aktywnej zmiany nazwy)
+                if !self.canPasteInFrontmostApp() { return }
+                
+                self.lastPasteTrigger = Date()
+                DispatchQueue.main.async {
+                    let text = NSPasteboard.general.string(forType: .string) ?? "Wklejony plik"
+                    self.triggerClipboardIndicator(text: text, action: "paste")
+                }
+            }
+        }
     }
     
     private func enforceNotificationLimit() {
@@ -1972,16 +2265,21 @@ class PasteboardObserver {
         if currentChangeCount != lastChangeCount {
             lastChangeCount = currentChangeCount
             
-            // Sprawdzamy czy ostatnia akcja klawiatury (kopiuj/wytnij) nastąpiła w ciągu ostatnich 1.5 sekundy
-            var action = "copy" // domyślnie zakładamy kopiowanie (np. przy użyciu myszki do kopiowania/wycinania)
-            if let pending = manager.pendingClipboardAction,
-               let timestamp = manager.pendingClipboardActionTimestamp,
+            // Jeśli właśnie nacisnęliśmy skrót klawiszowy (Cmd+C/X/V), OSD zostało już wyświetlone bezpośrednio.
+            // Ignorujemy tę zmianę schowka, żeby nie nadpisać OSD domyślnym "Skopiowano".
+            if let timestamp = manager.pendingClipboardActionTimestamp,
                Date().timeIntervalSince(timestamp) < 1.5 {
-                action = pending
+                return
             }
             
-            manager.pendingClipboardAction = nil
-            manager.pendingClipboardActionTimestamp = nil
+            // W przeciwnym razie (np. kopiowanie myszką) domyślnie zakładamy kopiowanie
+            var action = "copy" 
+            
+            if let hwAction = manager.detectedHardwareAction,
+               let hwTimestamp = manager.detectedHardwareActionTimestamp,
+               Date().timeIntervalSince(hwTimestamp) < 1.5 {
+                action = hwAction
+            }
             
             // Sprawdzamy czy w schowku jest tekst
             if let copiedText = NSPasteboard.general.string(forType: .string) {
