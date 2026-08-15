@@ -373,7 +373,9 @@ struct BatteryOverlayView: View {
                 .padding(.top, 12)
                 
                 Button(action: {
-                    mediaKeyManager.openBatterySettings()
+                    if !isPreview {
+                        mediaKeyManager.openBatterySettings()
+                    }
                 }) {
                     Text("Open Battery Settings")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
@@ -679,6 +681,7 @@ struct VolumeOverlayView: View {
         let currentDevices = isPreview ? [(id: UInt32(1), name: "MacBook Pro Speakers"), (id: UInt32(2), name: "AirPods Pro")] : availableDevices
         let maxListHeight: CGFloat = 160
         let listHeight = currentDevices.isEmpty ? 0 : min(CGFloat(currentDevices.count * 40 + 10), maxListHeight)
+        let volPos = UserDefaults.standard.string(forKey: "volumeOverlayPosition") ?? "bottom"
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -701,6 +704,7 @@ struct VolumeOverlayView: View {
                     availableDevices = VolumeManager.shared.getAvailableOutputDevices()
                 }
             },
+            expandUpwards: volPos == "bottom",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)
@@ -722,11 +726,13 @@ struct VolumeOverlayView: View {
                         ForEach(currentDevices, id: \.id) { device in
                             DeviceRowView(
                                 device: device,
-                                isCurrent: device.name == mediaKeyManager.currentAudioDeviceName,
+                                isCurrent: isPreview ? (device.id == 2) : device.name == mediaKeyManager.currentAudioDeviceName,
                                 onSelect: {
-                                    VolumeManager.shared.setOutputDevice(id: device.id)
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                        isExpanded = false
+                                    if !isPreview {
+                                        VolumeManager.shared.setOutputDevice(id: device.id)
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                            isExpanded = false
+                                        }
                                     }
                                 }
                             )
@@ -794,6 +800,11 @@ struct VolumeOverlayView: View {
             if isExpanded {
                 availableDevices = VolumeManager.shared.getAvailableOutputDevices()
             }
+        }
+        .onDisappear {
+            expandedKeepAliveTimer?.invalidate()
+            expandedKeepAliveTimer = nil
+            mediaKeyManager.keepAlive(for: "volume", isHovering: false)
         }
     }
 }
@@ -995,6 +1006,7 @@ struct CopyOverlayView: View {
         let listHeight = min(reqHeight, 250)
         
         let trackWidth: CGFloat = 260 - 8 // width - 2*trackPadding
+        let copyPos = UserDefaults.standard.string(forKey: "copyOverlayPosition") ?? "bottom"
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -1020,6 +1032,8 @@ struct CopyOverlayView: View {
                     mediaKeyManager.keepAlive(for: "copy", isHovering: true)
                 }
             },
+            isExpandable: canExpand,
+            expandUpwards: copyPos == "bottom",
             baseContent: {
                 HStack(alignment: .top, spacing: 0) {
                     Image(systemName: actionIcon)
@@ -1298,6 +1312,7 @@ struct ThemeOverlayView: View {
 struct PeripheralOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @State private var isHovering: Bool = false
+    @State private var isExpanded: Bool = false
     
     var isPreview: Bool = false
     var previewIsConnected: Bool = false
@@ -1330,10 +1345,32 @@ struct PeripheralOverlayView: View {
     var body: some View {
         let actionColor: Color = isConnected ? .green : .red
         let trackWidth: CGFloat = 260 - 8 // width - 2*trackPadding
+        let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
+        
+        let hasDetails = notification?.details?.isEmpty == false
+        let isDrive = notification?.type == "USB Drive" || notification?.type == "USB Device"
+        let isExpandable = isConnected && (hasDetails || isDrive)
+        
+        var calcHeight: CGFloat = 0
+        if isExpandable {
+            calcHeight += 1 // Divider
+            if hasDetails {
+                calcHeight += 12 // Spacing before details
+                let count = CGFloat(notification?.details?.count ?? 0)
+                calcHeight += (count * 16) + (max(count - 1, 0) * 8) // 16 per row + 8 spacing
+            }
+            if isDrive {
+                calcHeight += 12 // Spacing before buttons
+                calcHeight += 46 // buttons: 4 top, 30 content, 12 bottom
+            } else if hasDetails {
+                calcHeight += 12 // Spacing before clear frame
+                calcHeight += 4 // clear frame
+            }
+        }
         
         return UniversalOverlayView(
             isPreview: isPreview,
-            isExpanded: .constant(false),
+            isExpanded: $isExpanded,
             showProgressBar: true,
             progress: 1.0,
             customProgressMask: AnyView(
@@ -1343,39 +1380,142 @@ struct PeripheralOverlayView: View {
             barColor: actionColor,
             fillCenter: false, // uses strokeBorder
             isMuted: false,
-            listHeight: 0,
+            listHeight: calcHeight,
             customWidth: 260,
             supportDragGesture: false,
+            isExpandable: isExpandable,
+            expandUpwards: periPos == "bottom",
             baseContent: {
-                HStack(alignment: .center, spacing: 14) {
+                HStack(alignment: .top, spacing: 0) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.primary)
+                        .foregroundColor(isConnected ? .primary : .secondary)
                         .frame(width: 26, height: 24)
+                        .padding(.leading, 16)
+                        .padding(.top, 4)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(isConnected ? "Connected" : "Disconnected")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
+                            .padding(.leading, 14)
+                            .padding(.trailing, 16)
                         
                         MarqueeText(text: deviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                            .padding(.leading, 14)
+                            .padding(.trailing, 16)
                     }
-                    Spacer(minLength: 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.horizontal, 16 + 4 + 3)
+                .padding(.vertical, 5)
             },
             expandedContent: {
-                EmptyView()
+                if isExpandable {
+                    VStack(spacing: 12) {
+                        let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
+                        if periPos != "bottom" {
+                            Divider()
+                                .padding(.horizontal, 16)
+                                .opacity(0.5)
+                        }
+                        
+                        if let details = notification?.details, !details.isEmpty {
+                            VStack(spacing: 8) {
+                                ForEach(details.sorted(by: { $0.key > $1.key }), id: \.key) { key, value in
+                                    HStack(alignment: .center) {
+                                        Text(key)
+                                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                            .frame(width: 85, alignment: .leading)
+                                        
+                                        Spacer(minLength: 4)
+                                        
+                                        Text(value)
+                                            .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
+                            }
+                        }
+                        
+                        if isDrive {
+                            HStack(spacing: 8) {
+                                Button(action: {
+                                    if !isPreview {
+                                        mediaKeyManager.openDrive(named: deviceName)
+                                    }
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "folder")
+                                        Text("Open in Finder")
+                                    }
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.primary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color.primary.opacity(0.1))
+                                    .cornerRadius(28 - 4 - 3)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                Button(action: {
+                                    if !isPreview {
+                                        mediaKeyManager.ejectDrive(named: deviceName)
+                                    }
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "eject")
+                                        Text("Eject")
+                                    }
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.primary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color.primary.opacity(0.1))
+                                    .cornerRadius(28 - 4 - 3)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 12)
+                            .padding(.top, 4)
+                        } else if hasDetails {
+                            Color.clear.frame(height: 4)
+                        }
+                        
+                        if periPos == "bottom" {
+                            Divider()
+                                .padding(.horizontal, 16)
+                                .opacity(0.5)
+                        }
+                    }
+                } else {
+                    EmptyView()
+                }
             }
         )
-        .frame(width: 260, height: 56, alignment: .top)
+        .frame(width: 260, height: (isExpanded && isExpandable) ? 56 + calcHeight : 56, alignment: .top)
         .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 8)
         .padding(20)
+        .onChange(of: isExpanded) { expanded in
+            if !isPreview {
+                let keepAliveType = notification != nil ? "peripheral_\(notification!.id)" : "peripheral"
+                mediaKeyManager.keepAlive(for: keepAliveType, isHovering: isHovering || expanded)
+            }
+        }
         .onHoverExact { hovering in
             if !isPreview {
                 self.isHovering = hovering
                 let keepAliveType = notification != nil ? "peripheral_\(notification!.id)" : "peripheral"
-                mediaKeyManager.keepAlive(for: keepAliveType, isHovering: hovering)
+                mediaKeyManager.keepAlive(for: keepAliveType, isHovering: hovering || isExpanded)
+            }
+        }
+        .onChange(of: notification?.isConnected) { connected in
+            if connected == false {
+                isExpanded = false
             }
         }
         .applyTheme(mediaKeyManager.overlayTheme)

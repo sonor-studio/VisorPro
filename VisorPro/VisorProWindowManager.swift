@@ -122,20 +122,20 @@ class VisorProWindowManager: ObservableObject {
             let total = group.count
             
             let x = xPos(for: overlay.position, index: index, total: total, in: screenSize) + screenOrigin.x
-            let y = yPos(for: overlay.position, in: screenSize) + screenOrigin.y
+            let yCenter = yPos(for: overlay.position, in: screenSize) + screenOrigin.y
             
             let windowWidth: CGFloat = 400
-            let windowHeight: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth) ? 400 : 120)
+            let windowHeight: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth || overlay.type == .peripheral || overlay.type == .mic || overlay.type == .camera) ? 400 : 120)
             
 
             let originX = x - (windowWidth / 2)
             let originY: CGFloat
             if overlay.position == "top" {
-                originY = y - windowHeight + 38
+                originY = yCenter + 43 - windowHeight
             } else if overlay.position == "bottom" {
-                originY = y - 63
+                originY = yCenter - 43
             } else {
-                originY = y - (windowHeight / 2)
+                originY = yCenter - (windowHeight / 2)
             }
             
             let targetOrigin = NSPoint(x: originX, y: originY)
@@ -178,7 +178,7 @@ class VisorProWindowManager: ObservableObject {
     }
     
     private func createPanel(for overlay: ActiveOverlay) -> NSPanel {
-        let h: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth) ? 400 : 120)
+        let h: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth || overlay.type == .peripheral || overlay.type == .mic || overlay.type == .camera) ? 400 : 120)
         let panel = VisorProOverlayPanel(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: h),
             styleMask: [.nonactivatingPanel, .borderless],
@@ -242,7 +242,7 @@ struct SingleOverlayContainer: View {
     }
     
     var body: some View {
-        let h: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth || overlay.type == .mic || overlay.type == .camera) ? 400 : 120)
+        let h: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth || overlay.type == .peripheral || overlay.type == .mic || overlay.type == .camera) ? 400 : 120)
         let align: Alignment = {
             if overlay.position == "top" { return .top }
             if overlay.position == "bottom" { return .bottom }

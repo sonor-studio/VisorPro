@@ -23,6 +23,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var onSimpleTap: (() -> Void)? = nil
     
     var isExpandable: Bool = true
+    var expandUpwards: Bool = false
     
     @ViewBuilder var baseContent: () -> BaseContent
     @ViewBuilder var expandedContent: () -> ExpandedContent
@@ -43,7 +44,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         let isStretch = overlayExpansionStyle == "stretch"
         let currentHeight = isStretch && isExpanded ? baseHeight + listHeight : baseHeight
         
-        ZStack(alignment: .top) {
+        ZStack(alignment: expandUpwards ? .bottom : .top) {
             ZStack(alignment: .leading) {
                 // WARSTWA 1: Baza
                 Group {
@@ -169,8 +170,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             
             // Szuflada z zawartością
             expandedContent()
-                .frame(width: width, height: isExpanded ? listHeight : 0, alignment: .top)
-                .padding(.top, isExpanded ? baseHeight : baseHeight)
+                .frame(width: width, height: isExpanded ? listHeight : 0, alignment: expandUpwards ? .bottom : .top)
+                .padding(expandUpwards ? .bottom : .top, isExpanded ? baseHeight : baseHeight)
                 .clipped()
                 .opacity(isExpanded ? 1 : 0)
         }

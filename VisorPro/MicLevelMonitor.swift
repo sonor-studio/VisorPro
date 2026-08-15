@@ -8,45 +8,69 @@ class MicLevelMonitor: ObservableObject {
     
     @Published var levels: [CGFloat] = Array(repeating: 0.1, count: 13)
     
-    private let audioEngine = AVAudioEngine()
+    private var audioEngine = AVAudioEngine()
     private var isMonitoring = false
+    private let engineQueue = DispatchQueue(label: "com.visorpro.miclevelmonitor", qos: .userInitiated)
+    private var monitoringSessionID = UUID()
     
-    private init() {}
-    
-    func startMonitoring() {
-        guard !isMonitoring else { return }
-        
-        AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
-            guard granted else {
-                print("[MicLevelMonitor] Mic access denied")
-                return
-            }
-            
-            DispatchQueue.main.async {
-                self?.setupAndStartEngine()
+    private init() {
+        NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self, self.isMonitoring else { return }
+            self.stopMonitoring()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.startMonitoring()
             }
         }
     }
     
-    private func setupAndStartEngine() {
-        // Reset levels
-        self.levels = Array(repeating: 0.1, count: 13)
+    func startMonitoring() {
+        guard !isMonitoring else { return }
+        isMonitoring = true
+        let sessionID = UUID()
+        self.monitoringSessionID = sessionID
         
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
+            guard granted else {
+                print("[MicLevelMonitor] Mic access denied")
+                DispatchQueue.main.async { self?.isMonitoring = false }
+                return
+            }
+            
+            self?.setupAndStartEngine(sessionID: sessionID)
+        }
+    }
+    
+    private func setupAndStartEngine(sessionID: UUID) {
+        DispatchQueue.main.async {
+            self.levels = Array(repeating: 0.1, count: 13)
+        }
+        
+        engineQueue.async { [weak self] in
             guard let self = self else { return }
+            
+            // If stopMonitoring was called before we started
+            guard self.monitoringSessionID == sessionID, self.isMonitoring else { return }
+            
+            // Recreate engine to prevent stale device format exceptions
+            if self.audioEngine.isRunning {
+                self.audioEngine.stop()
+            }
+            self.audioEngine = AVAudioEngine()
+            
             let inputNode = self.audioEngine.inputNode
             let format = inputNode.outputFormat(forBus: 0)
             
-            // Remove tap just in case
             inputNode.removeTap(onBus: 0)
             
-            if format.channelCount == 0 {
+            // Use nil for format to let the engine automatically use the correct node format,
+            // or fallback to a standard format if the node's format is totally invalid.
+            if format.channelCount == 0 || format.sampleRate == 0 {
                 let backupFormat = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)
                 inputNode.installTap(onBus: 0, bufferSize: 1024, format: backupFormat) { [weak self] (buffer, time) in
                     self?.processBuffer(buffer: buffer)
                 }
             } else {
-                inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] (buffer, time) in
+                inputNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] (buffer, time) in
                     self?.processBuffer(buffer: buffer)
                 }
             }
@@ -54,21 +78,33 @@ class MicLevelMonitor: ObservableObject {
             self.audioEngine.prepare()
             do {
                 try self.audioEngine.start()
-                self.isMonitoring = true
+                // Final check to prevent leak if stop was called during engine startup
+                if self.monitoringSessionID != sessionID || !self.isMonitoring {
+                    self.audioEngine.stop()
+                }
             } catch {
                 print("[MicLevelMonitor] Error starting audio engine: \(error)")
+                DispatchQueue.main.async {
+                    if self.monitoringSessionID == sessionID {
+                        self.isMonitoring = false
+                    }
+                }
             }
         }
     }
     
     func stopMonitoring() {
         guard isMonitoring else { return }
-        
-        let inputNode = audioEngine.inputNode
-        inputNode.removeTap(onBus: 0)
-        audioEngine.stop()
-        
         isMonitoring = false
+        monitoringSessionID = UUID() // invalidate any pending starts
+        
+        engineQueue.async { [weak self] in
+            guard let self = self else { return }
+            if self.audioEngine.isRunning {
+                self.audioEngine.inputNode.removeTap(onBus: 0)
+                self.audioEngine.stop()
+            }
+        }
         
         DispatchQueue.main.async {
             self.levels = Array(repeating: 0.1, count: 13)

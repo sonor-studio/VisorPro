@@ -123,6 +123,8 @@ struct BluetoothOverlayView: View {
             return "point.3.connected.trianglepath.dotted"
         }()
         
+        let btPos = UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom"
+        
         return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: $isExpanded,
@@ -149,6 +151,7 @@ struct BluetoothOverlayView: View {
                     mediaKeyManager.keepAlive(for: keepAliveType, isHovering: true)
                 }
             },
+            expandUpwards: btPos == "bottom",
             baseContent: {
                 HStack(alignment: .top, spacing: 0) {
                     Image(systemName: iconName)
@@ -293,9 +296,11 @@ struct BluetoothOverlayView: View {
                         }
                         
                         Button(action: {
-                            mediaKeyManager.openBluetoothSettings()
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                isExpanded = false
+                            if !isPreview {
+                                mediaKeyManager.openBluetoothSettings()
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                    isExpanded = false
+                                }
                             }
                         }) {
                             HStack(spacing: 4) {

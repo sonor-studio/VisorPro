@@ -32,6 +32,7 @@ struct DeviceNotification: Identifiable, Equatable {
     let icon: String
     let isConnected: Bool
     let timestamp: Date
+    var details: [String: String]? = nil
 }
 
 class MediaKeyManager: ObservableObject {
@@ -440,6 +441,7 @@ class MediaKeyManager: ObservableObject {
     @Published var activeMicName: String = ""
     @Published var currentMicDeviceName: String = ""
     @Published var micEventId: UUID = UUID()
+    @Published var isSwitchingMic: Bool = false
     private var micTimer: Timer?
     private var lastMicEventTime: Date = Date.distantPast
     
@@ -730,6 +732,13 @@ class MediaKeyManager: ObservableObject {
         }
     }
 
+    func startMicSwitchingBuffer() {
+        isSwitchingMic = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            self.isSwitchingMic = false
+        }
+    }
+
     func triggerMicIndicator(isActive: Bool, deviceName: String = "") {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -741,6 +750,8 @@ class MediaKeyManager: ObservableObject {
             if isActive {
                 self.activeMicName = deviceName.isEmpty ? "System Microphone" : deviceName
             }
+            
+            if self.isSwitchingMic { return }
             
             if !self.enablePrivacy { return }
             if isActive {
@@ -868,7 +879,7 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func triggerPeripheralIndicator(deviceName: String, type: String, typeIcon: String, isConnected: Bool) {
+    func triggerPeripheralIndicator(deviceName: String, type: String, typeIcon: String, isConnected: Bool, details: [String: String]? = nil) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if !self.enablePeripheral { return }
@@ -887,7 +898,7 @@ class MediaKeyManager: ObservableObject {
             let pos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "top"
             self.dismissCollidingIndicators(newPosition: pos, source: "peripheral")
             
-            let newNotif = DeviceNotification(id: deviceName, deviceName: deviceName, type: type, icon: typeIcon, isConnected: isConnected, timestamp: Date())
+            let newNotif = DeviceNotification(id: deviceName, deviceName: deviceName, type: type, icon: typeIcon, isConnected: isConnected, timestamp: Date(), details: details)
             
             withAnimation(.easeInOut(duration: 0.15)) {
                 if let idx = self.activePeripheralNotifications.firstIndex(where: { $0.id == deviceName }) {
@@ -905,6 +916,37 @@ class MediaKeyManager: ObservableObject {
                     self?.activePeripheralNotifications.removeAll(where: { $0.id == deviceName })
                 }
             }
+        }
+    }
+    
+    func openDrive(named name: String) {
+        let lowerName = name.lowercased()
+        let removables = (NSWorkspace.shared.mountedRemovableMedia() as? [String]) ?? []
+        let match = removables.first(where: { path in
+            let pathLower = URL(fileURLWithPath: path).lastPathComponent.lowercased()
+            return lowerName.contains(pathLower) || pathLower.contains(lowerName)
+        }) ?? removables.last
+        
+        if let target = match {
+            NSWorkspace.shared.open(URL(fileURLWithPath: target))
+        } else {
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/Volumes"))
+        }
+    }
+
+    func ejectDrive(named name: String) {
+        let lowerName = name.lowercased()
+        let removables = (NSWorkspace.shared.mountedRemovableMedia() as? [String]) ?? []
+        let match = removables.first(where: { path in
+            let pathLower = URL(fileURLWithPath: path).lastPathComponent.lowercased()
+            return lowerName.contains(pathLower) || pathLower.contains(lowerName)
+        }) ?? removables.last
+        
+        if let target = match {
+            let task = Process()
+            task.launchPath = "/usr/sbin/diskutil"
+            task.arguments = ["eject", target]
+            try? task.run()
         }
     }
     
@@ -2447,7 +2489,20 @@ class PeripheralObserver {
             // If the name is something generic like "USB2.0 Hub", we rely on the type.
             let displayName = name.count > 0 ? name : type
             
-            manager?.triggerPeripheralIndicator(deviceName: displayName, type: type, typeIcon: typeIcon, isConnected: isConnected)
+            var details: [String: String] = [:]
+            
+            var propsUnmanaged: Unmanaged<CFMutableDictionary>?
+            if IORegistryEntryCreateCFProperties(device, &propsUnmanaged, kCFAllocatorDefault, 0) == KERN_SUCCESS,
+               let props = propsUnmanaged?.takeRetainedValue() as? [String: Any] {
+                if let vendor = props["USB Vendor Name"] as? String {
+                    details["Vendor"] = vendor.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                if let product = props["USB Product Name"] as? String {
+                    details["Product"] = product.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+            }
+            
+            manager?.triggerPeripheralIndicator(deviceName: displayName, type: type, typeIcon: typeIcon, isConnected: isConnected, details: details.isEmpty ? nil : details)
         }
     }
     

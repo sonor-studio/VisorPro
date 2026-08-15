@@ -27,3 +27,4 @@ DerivedData
 
 # Skrypty testowe w głównym katalogu
 /test*.swift
+.DS_Store

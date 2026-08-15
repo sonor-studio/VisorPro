@@ -520,75 +520,63 @@ class VolumeManager {
                 script.executeAndReturnError(&error)
             }
             
-            // 2. Zmiana dla WSZYSTKICH urządzeń wejściowych
-            self.setAllInputDevicesVolume(volume: volume, mute: mute)
+            // 2. Zmiana dla domyślnego urządzenia wejściowego (fallback CoreAudio)
+            self.setCurrentInputDeviceVolume(volume: volume, mute: mute)
             DispatchQueue.main.async {
                 self.isEnforcing = false
             }
         }
     }
     
-    private func setAllInputDevicesVolume(volume: Float, mute: Bool) {
+    private func setCurrentInputDeviceVolume(volume: Float, mute: Bool) {
         var propertyAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
         
-        var dataSize: UInt32 = 0
-        AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &dataSize)
+        var defaultDeviceID: AudioDeviceID = 0
+        var dataSize = UInt32(MemoryLayout<AudioDeviceID>.size)
         
-        let deviceCount = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
-        var devices = [AudioDeviceID](repeating: 0, count: deviceCount)
+        AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &dataSize, &defaultDeviceID)
         
-        AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, &dataSize, &devices)
+        guard defaultDeviceID != kAudioObjectUnknown else { return }
         
-        for device in devices {
-            var streamAddr = AudioObjectPropertyAddress(
-                mSelector: kAudioDevicePropertyStreams,
-                mScope: kAudioDevicePropertyScopeInput,
-                mElement: kAudioObjectPropertyElementMain
-            )
-            var streamSize: UInt32 = 0
-            AudioObjectGetPropertyDataSize(device, &streamAddr, 0, nil, &streamSize)
-            
-            // Jeśli urządzenie ma kanał wejściowy (jest mikrofonem)
-            if streamSize > 0 {
-                var vol = volume
-                var volAddress = AudioObjectPropertyAddress(
-                    mSelector: kAudioDevicePropertyVolumeScalar,
-                    mScope: kAudioDevicePropertyScopeInput,
-                    mElement: kAudioObjectPropertyElementMain
-                )
-                
-                volAddress.mElement = 0
-                AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
-                volAddress.mElement = 1
-                AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
-                volAddress.mElement = 2
-                AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
-                
-                var systemVolAddress = AudioObjectPropertyAddress(
-                    mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
-                    mScope: kAudioDevicePropertyScopeInput,
-                    mElement: kAudioObjectPropertyElementMain
-                )
-                AudioHardwareServiceSetPropertyData(device, &systemVolAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
-                
-                var muteAddress = AudioObjectPropertyAddress(
-                    mSelector: kAudioDevicePropertyMute,
-                    mScope: kAudioDevicePropertyScopeInput,
-                    mElement: kAudioObjectPropertyElementMain
-                )
-                var muteVal: UInt32 = mute ? 1 : 0
-                muteAddress.mElement = 0
-                AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
-                muteAddress.mElement = 1
-                AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
-                muteAddress.mElement = 2
-                AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
-            }
-        }
+        let device = defaultDeviceID
+        
+        var vol = volume
+        var volAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyVolumeScalar,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        volAddress.mElement = 0
+        AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+        volAddress.mElement = 1
+        AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+        volAddress.mElement = 2
+        AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+        
+        var systemVolAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioHardwareServiceSetPropertyData(device, &systemVolAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+        
+        var muteAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var muteVal: UInt32 = mute ? 1 : 0
+        muteAddress.mElement = 0
+        AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+        muteAddress.mElement = 1
+        AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+        muteAddress.mElement = 2
+        AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
     }
 
     func changeVolume(increase: Bool, completion: @escaping (Int, Bool) -> Void) {

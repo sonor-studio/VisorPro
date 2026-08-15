@@ -6,6 +6,7 @@ struct StatRow: View {
     let value: String
     var allowShrink: Bool = false
     var isCopyable: Bool = false
+    var disableCopy: Bool = false
     var onCopy: (() -> Void)? = nil
     
     @State private var copied: Bool = false
@@ -47,7 +48,7 @@ struct StatRow: View {
             }
             .contentShape(Rectangle())
             .onTapGesture {
-                if isCopyable {
+                if isCopyable && !disableCopy {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
                     pasteboard.setString(value, forType: .string)
@@ -62,7 +63,7 @@ struct StatRow: View {
                     }
                 }
             }
-            .help(isCopyable ? "Copy to clipboard" : "")
+            .help((isCopyable && !disableCopy) ? "Copy to clipboard" : "")
         }
     }
 }
@@ -106,6 +107,7 @@ struct WiFiOverlayView: View {
         
         let listHeight: CGFloat = actualIsConnected ? 160 : 70
         let iconName = actualIsConnected ? (actualIsHotspot ? "personalhotspot" : "wifi") : "wifi.slash"
+        let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -132,6 +134,7 @@ struct WiFiOverlayView: View {
                     mediaKeyManager.keepAlive(for: "wifi", isHovering: true)
                 }
             },
+            expandUpwards: wifiPos == "bottom",
             baseContent: {
                 HStack(alignment: .top, spacing: 0) {
                     Image(systemName: iconName)
@@ -172,7 +175,9 @@ struct WiFiOverlayView: View {
                             
                             HStack(spacing: 8) {
                                 Button(action: {
-                                    mediaKeyManager.disconnectWiFi()
+                                    if !isPreview {
+                                        mediaKeyManager.disconnectWiFi()
+                                    }
                                 }) {
                                     HStack(spacing: 4) {
                                         Image(systemName: "wifi.slash")
@@ -193,9 +198,11 @@ struct WiFiOverlayView: View {
                         } else {
                             HStack(spacing: 8) {
                                 Button(action: {
-                                    mediaKeyManager.openNetworkSettings()
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                        isExpanded = false
+                                    if !isPreview {
+                                        mediaKeyManager.openNetworkSettings()
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                            isExpanded = false
+                                        }
                                     }
                                 }) {
                                     HStack(spacing: 4) {
@@ -245,7 +252,7 @@ struct WiFiOverlayView: View {
     private var statsView: some View {
         VStack(spacing: 8) {
             if let ip = isPreview ? "192.168.1.12" : mediaKeyManager.wiFiIPAddress {
-                StatRow(icon: "network", label: "IP Address", value: ip, isCopyable: true, onCopy: {
+                StatRow(icon: "network", label: "IP Address", value: ip, isCopyable: true, disableCopy: isPreview, onCopy: {
                     if !isPreview {
                         mediaKeyManager.pendingClipboardActionTimestamp = Date()
                     }
