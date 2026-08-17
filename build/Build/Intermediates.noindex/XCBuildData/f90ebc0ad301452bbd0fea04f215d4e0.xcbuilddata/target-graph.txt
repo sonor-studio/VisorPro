@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'Visor' in project 'Visor' (no dependencies)
