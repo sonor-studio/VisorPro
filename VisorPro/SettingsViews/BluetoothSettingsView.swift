@@ -153,19 +153,7 @@ struct BluetoothSettingsView: View {
                         .foregroundColor(.secondary)
                         .padding(.top, 10)
                     
-                    HStack(spacing: 30) {
-                        Spacer()
-                        PositionPickerItem(title: "Top", isSelected: bluetoothOverlayPosition == "top") {
-                            bluetoothOverlayPosition = "top"
-                        }
-                        PositionPickerItem(title: "Bottom", isSelected: bluetoothOverlayPosition == "bottom") {
-                            bluetoothOverlayPosition = "bottom"
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(12)
+                    PositionPickerGroup(selection: $bluetoothOverlayPosition)
                 }
                 .padding(.horizontal)
                 

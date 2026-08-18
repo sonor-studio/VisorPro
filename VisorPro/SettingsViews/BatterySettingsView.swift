@@ -178,19 +178,7 @@ struct BatterySettingsView: View {
                         .foregroundColor(.secondary)
                         .padding(.top, 10)
                     
-                    HStack(spacing: 30) {
-                        Spacer()
-                        PositionPickerItem(title: "Top", isSelected: batteryOverlayPosition == "top") {
-                            batteryOverlayPosition = "top"
-                        }
-                        PositionPickerItem(title: "Bottom", isSelected: batteryOverlayPosition == "bottom") {
-                            batteryOverlayPosition = "bottom"
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(12)
+                    PositionPickerGroup(selection: $batteryOverlayPosition)
                 }
                 .padding(.horizontal)
                 

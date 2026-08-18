@@ -93,19 +93,7 @@ struct KeyboardBrightnessSettingsView: View {
                         .foregroundColor(.secondary)
                         .padding(.top, 10)
                     
-                    HStack(spacing: 30) {
-                        Spacer()
-                        PositionPickerItem(title: "Top", isSelected: keyboardBrightnessOverlayPosition == "top") {
-                            keyboardBrightnessOverlayPosition = "top"
-                        }
-                        PositionPickerItem(title: "Bottom", isSelected: keyboardBrightnessOverlayPosition == "bottom") {
-                            keyboardBrightnessOverlayPosition = "bottom"
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(12)
+                    PositionPickerGroup(selection: $keyboardBrightnessOverlayPosition)
                 }
                 .padding(.horizontal)
                 

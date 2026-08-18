@@ -83,19 +83,7 @@ struct VolumeSettingsView: View {
                         .foregroundColor(.secondary)
                         .padding(.top, 10)
                     
-                    HStack(spacing: 30) {
-                        Spacer()
-                        PositionPickerItem(title: "Top", isSelected: volumeOverlayPosition == "top") {
-                            volumeOverlayPosition = "top"
-                        }
-                        PositionPickerItem(title: "Bottom", isSelected: volumeOverlayPosition == "bottom") {
-                            volumeOverlayPosition = "bottom"
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(12)
+                    PositionPickerGroup(selection: $volumeOverlayPosition)
                 }
                 .padding(.horizontal)
                 

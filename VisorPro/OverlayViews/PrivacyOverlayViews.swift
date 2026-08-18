@@ -397,3 +397,73 @@ struct CameraOverlayView: View {
     }
 }
 
+struct LocationOverlayView: View {
+    @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @State private var isExpanded: Bool = false
+    
+    var isPreview: Bool = false
+    var previewIsActive: Bool = true
+    
+    private var actualIsActive: Bool {
+        isPreview ? previewIsActive : mediaKeyManager.isLocationActive
+    }
+    
+    private var actionColor: Color {
+        actualIsActive ? .blue : .secondary
+    }
+    
+    private var actionTitle: String {
+        actualIsActive ? "Location in Use" : "Location Idle"
+    }
+    
+    var body: some View {
+        
+        let locPos = UserDefaults.standard.string(forKey: "locationOverlayPosition") ?? "top"
+        
+        return UniversalOverlayView(
+            isPreview: isPreview,
+            isExpanded: $isExpanded,
+            showProgressBar: true,
+            hasTimeoutProgress: true,
+            timeoutEventId: mediaKeyManager.locationEventId,
+            barColor: actionColor,
+            fillCenter: false,
+            isMuted: false,
+            listHeight: 0,
+            customWidth: 260,
+            customHeight: 56,
+            supportDragGesture: false,
+            isExpandable: false,
+            expandUpwards: locPos == "bottom",
+            keepAliveId: "location",
+            baseContent: {
+                HStack(alignment: .center, spacing: 14) {
+                    Image(systemName: actualIsActive ? "location.fill" : "location.slash.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(actualIsActive ? .primary : .secondary)
+                        .frame(width: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(actionTitle)
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(.secondary)
+                        
+                        let displayedName = mediaKeyManager.activeLocationAppName.isEmpty ? "Location Services" : mediaKeyManager.activeLocationAppName
+                        MarqueeText(text: isPreview ? "System Location" : displayedName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                    }
+                    
+                    Spacer(minLength: 8)
+                }
+                .padding(.horizontal, 16)
+            },
+            expandedContent: {
+                EmptyView()
+            }
+        )
+        .padding(20)
+        .onDisappear {
+            mediaKeyManager.keepAlive(for: "location", isHovering: false)
+        }
+        .applyTheme(mediaKeyManager.overlayTheme)
+    }
+}

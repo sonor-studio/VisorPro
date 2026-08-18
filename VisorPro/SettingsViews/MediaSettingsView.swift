@@ -91,19 +91,7 @@ struct MediaSettingsView: View {
                         .foregroundColor(.secondary)
                         .padding(.top, 10)
                     
-                    HStack(spacing: 30) {
-                        Spacer()
-                        PositionPickerItem(title: "Top", isSelected: mediaOverlayPosition == "top") {
-                            mediaOverlayPosition = "top"
-                        }
-                        PositionPickerItem(title: "Bottom", isSelected: mediaOverlayPosition == "bottom") {
-                            mediaOverlayPosition = "bottom"
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(12)
+                    PositionPickerGroup(selection: $mediaOverlayPosition)
                 }
                 .padding(.horizontal)
                 

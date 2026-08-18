@@ -83,19 +83,7 @@ struct BrightnessSettingsView: View {
                         .foregroundColor(.secondary)
                         .padding(.top, 10)
                     
-                    HStack(spacing: 30) {
-                        Spacer()
-                        PositionPickerItem(title: "Top", isSelected: brightnessOverlayPosition == "top") {
-                            brightnessOverlayPosition = "top"
-                        }
-                        PositionPickerItem(title: "Bottom", isSelected: brightnessOverlayPosition == "bottom") {
-                            brightnessOverlayPosition = "bottom"
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(12)
+                    PositionPickerGroup(selection: $brightnessOverlayPosition)
                 }
                 .padding(.horizontal)
                 

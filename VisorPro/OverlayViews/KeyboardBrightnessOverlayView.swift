@@ -30,6 +30,7 @@ struct KeyboardBrightnessOverlayView: View {
             },
             isExpandable: false,
             keepAliveId: "keyboardBrightness",
+            disableTimeoutMode: true,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

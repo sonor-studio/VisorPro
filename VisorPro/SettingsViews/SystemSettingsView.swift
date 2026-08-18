@@ -88,19 +88,7 @@ struct SystemSettingsView: View {
                             .padding(.bottom, 4)
                             .padding(.leading, 4)
                         
-                        HStack(spacing: 30) {
-                            Spacer()
-                            PositionPickerItem(title: "Top", isSelected: fanOverlayPosition == "top") {
-                                fanOverlayPosition = "top"
-                            }
-                            PositionPickerItem(title: "Bottom", isSelected: fanOverlayPosition == "bottom") {
-                                fanOverlayPosition = "bottom"
-                            }
-                            Spacer()
-                        }
-                        .padding()
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(12)
+                        PositionPickerGroup(selection: $fanOverlayPosition)
                         .padding(.horizontal)
                     }
                 }

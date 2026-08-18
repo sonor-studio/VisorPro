@@ -41,6 +41,7 @@ struct BrightnessOverlayView: View {
             isExpandable: false,
             expandUpwards: bPos == "bottom",
             keepAliveId: "brightness",
+            disableTimeoutMode: true,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

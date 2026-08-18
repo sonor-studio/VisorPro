@@ -96,4 +96,8 @@ class TrackingNSView: NSView {
             }
         }
     }
+    
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        return nil // Let clicks pass through to views underneath
+    }
 }

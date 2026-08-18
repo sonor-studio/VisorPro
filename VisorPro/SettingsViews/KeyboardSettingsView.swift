@@ -86,17 +86,8 @@ struct KeyboardSettingsView: View {
                                         .padding(.top, 10)
                                         .padding(.horizontal)
                                     
-                                    HStack(spacing: 30) {
-                                        Spacer()
-                                        PositionPickerItem(title: "Top", isSelected: copyOverlayPosition == "top") {
-                                            copyOverlayPosition = "top"
-                                        }
-                                        PositionPickerItem(title: "Bottom", isSelected: copyOverlayPosition == "bottom") {
-                                            copyOverlayPosition = "bottom"
-                                        }
-                                        Spacer()
-                                    }
-                                    .padding(.bottom, 12)
+                                    PositionPickerGroup(selection: $copyOverlayPosition)
+                                        .padding(.bottom, 12)
                                 }
                             }
                             .toggleStyle(.switch)
@@ -139,19 +130,11 @@ struct KeyboardSettingsView: View {
                                         .padding(.top, 10)
                                         .padding(.horizontal)
                                     
-                                    HStack(spacing: 30) {
-                                        Spacer()
-                                        PositionPickerItem(title: "Top", isSelected: capsLockOverlayPosition == "top") {
-                                            capsLockOverlayPosition = "top"
-                                            languageOverlayPosition = "top"
+                                    PositionPickerGroup(selection: $capsLockOverlayPosition)
+                                        .padding(.bottom, 12)
+                                        .onChange(of: capsLockOverlayPosition) { _, new in
+                                            languageOverlayPosition = new
                                         }
-                                        PositionPickerItem(title: "Bottom", isSelected: capsLockOverlayPosition == "bottom") {
-                                            capsLockOverlayPosition = "bottom"
-                                            languageOverlayPosition = "bottom"
-                                        }
-                                        Spacer()
-                                    }
-                                    .padding(.bottom, 12)
                                 }
                             }
                             .toggleStyle(.switch)

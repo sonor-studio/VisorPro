@@ -4,6 +4,7 @@ struct PrivacySettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("micOverlayPosition") private var micOverlayPosition: String = "top"
     @AppStorage("cameraOverlayPosition") private var cameraOverlayPosition: String = "top"
+    @AppStorage("locationOverlayPosition") private var locationOverlayPosition: String = "top"
     
     var body: some View {
         ScrollView {
@@ -78,17 +79,8 @@ struct PrivacySettingsView: View {
                                         .padding(.top, 10)
                                         .padding(.horizontal)
                                     
-                                    HStack(spacing: 30) {
-                                        Spacer()
-                                        PositionPickerItem(title: "Top", isSelected: micOverlayPosition == "top") {
-                                            micOverlayPosition = "top"
-                                        }
-                                        PositionPickerItem(title: "Bottom", isSelected: micOverlayPosition == "bottom") {
-                                            micOverlayPosition = "bottom"
-                                        }
-                                        Spacer()
-                                    }
-                                    .padding(.bottom, 12)
+                                    PositionPickerGroup(selection: $micOverlayPosition)
+                                        .padding(.bottom, 12)
                                 }
                             }
                             .toggleStyle(.switch)
@@ -131,18 +123,74 @@ struct PrivacySettingsView: View {
                                         .padding(.top, 10)
                                         .padding(.horizontal)
                                     
-                                    HStack(spacing: 30) {
-                                        Spacer()
-                                        PositionPickerItem(title: "Top", isSelected: cameraOverlayPosition == "top") {
-                                            cameraOverlayPosition = "top"
-                                        }
-                                        PositionPickerItem(title: "Bottom", isSelected: cameraOverlayPosition == "bottom") {
-                                            cameraOverlayPosition = "bottom"
-                                        }
-                                        Spacer()
-                                    }
-                                    .padding(.bottom, 12)
+                                    PositionPickerGroup(selection: $cameraOverlayPosition)
+                                        .padding(.bottom, 12)
                                 }
+                            }
+                            .toggleStyle(.switch)
+                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                        
+                        // Category 3: Location Card
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Location")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.primary)
+                                .padding(.leading, 4)
+                            
+                            VStack(spacing: 0) {
+                                CustomSettingsRow(icon: "location.fill", iconColor: .blue, title: "Notify on Location Request", subtitle: "Show an overlay when location services are requested") {
+                                    Toggle("", isOn: $mediaKeyManager.notifyOnLocationOn).labelsHidden()
+                                }
+                                if mediaKeyManager.notifyOnLocationOn {
+                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnLocationOn)
+                                }
+                                
+                                Divider()
+                                
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Overlay Position")
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                        .padding(.top, 10)
+                                        .padding(.horizontal)
+                                    
+                                    PositionPickerGroup(selection: $locationOverlayPosition)
+                                        .padding(.bottom, 12)
+                                }
+                                
+                                Divider()
+                                
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text("App Filters")
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                        .padding(.top, 10)
+                                        .padding(.horizontal)
+                                        .padding(.bottom, 5)
+                                    
+                                    CustomSettingsRow(icon: "gearshape", iconColor: .gray, title: "System Services", subtitle: "Diagnostic tools, background daemons") {
+                                        Toggle("", isOn: $mediaKeyManager.locationShowSystemServices).labelsHidden()
+                                    }
+                                    CustomSettingsRow(icon: "cloud.sun.fill", iconColor: .blue, title: "Weather", subtitle: "Apple Weather app & widgets") {
+                                        Toggle("", isOn: $mediaKeyManager.locationShowWeather).labelsHidden()
+                                    }
+                                    CustomSettingsRow(icon: "map.fill", iconColor: .green, title: "Maps", subtitle: "Apple Maps") {
+                                        Toggle("", isOn: $mediaKeyManager.locationShowMaps).labelsHidden()
+                                    }
+                                    CustomSettingsRow(icon: "safari.fill", iconColor: .blue, title: "Safari", subtitle: "Websites requesting location") {
+                                        Toggle("", isOn: $mediaKeyManager.locationShowSafari).labelsHidden()
+                                    }
+                                    CustomSettingsRow(icon: "app.dashed", iconColor: .purple, title: "Other Apps", subtitle: "Any other application") {
+                                        Toggle("", isOn: $mediaKeyManager.locationShowOtherApps).labelsHidden()
+                                    }
+                                }
+                                .padding(.bottom, 8)
                             }
                             .toggleStyle(.switch)
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))

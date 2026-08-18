@@ -23,21 +23,21 @@ struct FanOverlayView: View {
             keepAliveId: "fan",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
-                    Image(systemName: "fanblades.fill")
+                    Image(systemName: actualIsRunning ? "fanblades.fill" : "fanblades.slash")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.primary)
+                        .foregroundColor(actualIsRunning ? .primary : .gray)
                         .frame(width: 26, height: 24)
                     
-                    Text("Fan")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-                    
-                    Spacer(minLength: 8)
-                    
-                    Text(actualIsRunning ? "Running" : "Stopped")
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(actualIsRunning ? "Running" : "Stopped")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(.secondary)
+                        
+                        Text("Fan")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
+                    }
+                    Spacer()
                 }
                 .padding(.horizontal, 16)
             },

@@ -12,12 +12,7 @@ class VisorProWindowManager: ObservableObject {
     private var shownPanels: Set<String> = []
     private var cancellables = Set<AnyCancellable>()
     
-    @AppStorage("volumeOverlayPosition") private var volumeOverlayPosition: String = "bottom"
-    @AppStorage("batteryOverlayPosition") private var batteryOverlayPosition: String = "top"
-    @AppStorage("brightnessOverlayPosition") private var brightnessOverlayPosition: String = "top"
-    @AppStorage("keyboardBrightnessOverlayPosition") private var keyboardBrightnessOverlayPosition: String = "top"
-    @AppStorage("copyOverlayPosition") private var copyOverlayPosition: String = "bottom"
-    @AppStorage("capsLockOverlayPosition") private var capsLockOverlayPosition: String = "bottom"
+
     
     private init() {
         MediaKeyManager.shared.objectWillChange.sink { [weak self] _ in
@@ -45,6 +40,13 @@ class VisorProWindowManager: ObservableObject {
     var allActiveOverlays: [ActiveOverlay] {
         let manager = MediaKeyManager.shared
         var active: [ActiveOverlay] = []
+        
+        let volumeOverlayPosition = UserDefaults.standard.string(forKey: "volumeOverlayPosition") ?? "bottom"
+        let batteryOverlayPosition = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
+        let brightnessOverlayPosition = UserDefaults.standard.string(forKey: "brightnessOverlayPosition") ?? "top"
+        let keyboardBrightnessOverlayPosition = UserDefaults.standard.string(forKey: "keyboardBrightnessOverlayPosition") ?? "top"
+        let copyOverlayPosition = UserDefaults.standard.string(forKey: "copyOverlayPosition") ?? "bottom"
+        let capsLockOverlayPosition = UserDefaults.standard.string(forKey: "capsLockOverlayPosition") ?? "bottom"
         
         let showBattery = manager.showChargingStatus || manager.showLowBatteryWarning
         
@@ -78,6 +80,9 @@ class VisorProWindowManager: ObservableObject {
         let camPos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
         if manager.showCameraIndicator { active.append(ActiveOverlay(id: "camera", type: .camera, position: camPos, notification: nil)) }
         
+        let locPos = UserDefaults.standard.string(forKey: "locationOverlayPosition") ?? "top"
+        if manager.showLocationIndicator { active.append(ActiveOverlay(id: "location", type: .location, position: locPos, notification: nil)) }
+        
         let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
         if manager.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi", type: .wifi, position: wifiPos, notification: nil)) }
         
@@ -97,7 +102,7 @@ class VisorProWindowManager: ObservableObject {
         let limit = max(1, manager.maxSimultaneousNotifications)
         
         var finalActive: [ActiveOverlay] = []
-        for pos in ["top", "center", "bottom"] {
+        for pos in ["top_left", "top", "top_right", "center", "bottom_left", "bottom", "bottom_right"] {
             let items = active.filter { $0.position == pos }
             finalActive.append(contentsOf: items.prefix(limit))
         }
@@ -185,9 +190,9 @@ class VisorProWindowManager: ObservableObject {
                 
                 let originX = x - (windowWidth / 2)
                 let originY: CGFloat
-                if overlay.position == "top" {
+                if overlay.position.hasPrefix("top") {
                     originY = yCenter + 43 - windowHeight
-                } else if overlay.position == "bottom" {
+                } else if overlay.position.hasPrefix("bottom") {
                     originY = yCenter - 43
                 } else {
                     originY = yCenter - (windowHeight / 2)
@@ -265,7 +270,7 @@ class VisorProWindowManager: ObservableObject {
         let bottomPadding: CGFloat = 40
         let topPadding: CGFloat = 10
         let pillHeight: CGFloat = 56
-        if position == "top" { return size.height - topPadding - (pillHeight / 2) } 
+        if position.hasPrefix("top") { return size.height - topPadding - (pillHeight / 2) } 
         if position == "center" { return size.height / 2 }
         return bottomPadding + (pillHeight / 2)
     }
@@ -273,9 +278,19 @@ class VisorProWindowManager: ObservableObject {
     private func xPos(for position: String, index: Int, total: Int, in size: CGSize) -> CGFloat {
         let averageWidth: CGFloat = 260
         let spacing: CGFloat = 24
-        let totalWidth = CGFloat(total) * averageWidth + CGFloat(max(0, total - 1)) * spacing
-        let startX = (size.width - totalWidth) / 2 + (averageWidth / 2)
-        return startX + CGFloat(index) * (averageWidth + spacing)
+        let margin: CGFloat = 40
+        
+        if position.hasSuffix("_left") {
+            let startX = margin + (averageWidth / 2)
+            return startX + CGFloat(index) * (averageWidth + spacing)
+        } else if position.hasSuffix("_right") {
+            let startX = size.width - margin - (averageWidth / 2)
+            return startX - CGFloat(index) * (averageWidth + spacing)
+        } else {
+            let totalWidth = CGFloat(total) * averageWidth + CGFloat(max(0, total - 1)) * spacing
+            let startX = (size.width - totalWidth) / 2 + (averageWidth / 2)
+            return startX + CGFloat(index) * (averageWidth + spacing)
+        }
     }
 }
 
@@ -302,24 +317,24 @@ struct SingleOverlayContainer: View {
     var body: some View {
         let h: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth || overlay.type == .peripheral || overlay.type == .mic || overlay.type == .camera || overlay.type == .display) ? 400 : 120)
         let align: Alignment = {
-            if overlay.position == "top" { return .top }
-            if overlay.position == "bottom" { return .bottom }
+            if overlay.position.hasPrefix("top") { return .top }
+            if overlay.position.hasPrefix("bottom") { return .bottom }
             return .center
         }()
         
-        let transitionAnchor: UnitPoint = (overlay.position == "top") ? .top : .bottom
+        let transitionAnchor: UnitPoint = (overlay.position.hasPrefix("top")) ? .top : .bottom
         
         ZStack {
             if hasAppeared && isOverlayActive, let current = currentOverlay {
                 overlayView(for: current)
                     .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .offset(y: overlay.position == "top" ? -40 : 40)).combined(with: .scale(scale: 0.9, anchor: transitionAnchor)),
-                        removal: .opacity.combined(with: .offset(y: overlay.position == "top" ? -40 : 40)).combined(with: .scale(scale: 0.9, anchor: transitionAnchor))
+                        insertion: .opacity.combined(with: .offset(y: overlay.position.hasPrefix("top") ? -40 : 40)).combined(with: .scale(scale: 0.9, anchor: transitionAnchor)),
+                        removal: .opacity.combined(with: .offset(y: overlay.position.hasPrefix("top") ? -40 : 40)).combined(with: .scale(scale: 0.9, anchor: transitionAnchor))
                     ))
             }
         }
-        .padding(.top, overlay.position == "top" ? 15 : 0)
-        .padding(.bottom, overlay.position == "bottom" ? 15 : 0)
+        .padding(.top, overlay.position.hasPrefix("top") ? 15 : 0)
+        .padding(.bottom, overlay.position.hasPrefix("bottom") ? 15 : 0)
         .animation(.spring(response: 0.35, dampingFraction: 0.7), value: hasAppeared && isOverlayActive)
         .frame(width: 400, height: h, alignment: align)
         .edgesIgnoringSafeArea(.all)
@@ -347,6 +362,7 @@ struct SingleOverlayContainer: View {
         case .theme: ThemeOverlayView()
         case .mic: MicOverlayView()
         case .camera: CameraOverlayView()
+        case .location: LocationOverlayView()
         case .wifi: WiFiOverlayView()
         case .peripheral: PeripheralOverlayView(notification: overlay.notification)
         case .display: DisplayOverlayView(notification: overlay.notification)

@@ -138,19 +138,7 @@ struct PeripheralSettingsView: View {
                             .foregroundColor(.secondary)
                             .padding(.top, 10)
                         
-                        HStack(spacing: 30) {
-                            Spacer()
-                            PositionPickerItem(title: "Top", isSelected: peripheralOverlayPosition == "top") {
-                                peripheralOverlayPosition = "top"
-                            }
-                            PositionPickerItem(title: "Bottom", isSelected: peripheralOverlayPosition == "bottom") {
-                                peripheralOverlayPosition = "bottom"
-                            }
-                            Spacer()
-                        }
-                        .padding()
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(12)
+                        PositionPickerGroup(selection: $peripheralOverlayPosition)
                     }
                     .padding(.horizontal)
                 }

@@ -60,6 +60,7 @@ struct VolumeOverlayView: View {
                 }
             },
             expandUpwards: volPos == "bottom",
+            disableTimeoutMode: true,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

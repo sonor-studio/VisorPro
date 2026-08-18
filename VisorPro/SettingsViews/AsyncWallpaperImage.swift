@@ -21,13 +21,22 @@ struct AsyncWallpaperImage: View {
     }
     
     private func load() {
-        Task.detached(priority: .userInitiated) {
-            guard let rawImage = NSImage(contentsOfFile: path) else { return }
-            let targetSize = NSSize(width: 160, height: 100)
-            let newImage = NSImage(size: targetSize)
-            newImage.lockFocus()
-            rawImage.draw(in: NSRect(origin: .zero, size: targetSize))
-            newImage.unlockFocus()
+        Task.detached(priority: .background) {
+            let fileURL = URL(fileURLWithPath: path)
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+                kCGImageSourceThumbnailMaxPixelSize: 320,
+                kCGImageSourceShouldCacheImmediately: true
+            ]
+            
+            guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
+                  let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                return
+            }
+            
+            let newImage = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+            
             await MainActor.run {
                 self.image = newImage
             }

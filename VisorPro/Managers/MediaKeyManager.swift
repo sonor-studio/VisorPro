@@ -441,7 +441,7 @@ class MediaKeyManager: ObservableObject {
     @Published var enablePrivacy: Bool = UserDefaults.standard.object(forKey: "enablePrivacy") as? Bool ?? true {
         didSet { 
             UserDefaults.standard.set(enablePrivacy, forKey: "enablePrivacy")
-            if !enablePrivacy { withAnimation { self.showMicIndicator = false; self.showCameraIndicator = false } }
+            if !enablePrivacy { withAnimation { self.showMicIndicator = false; self.showCameraIndicator = false; self.showLocationIndicator = false } }
         }
     }
     @Published var notifyOnMicOn: Bool = UserDefaults.standard.object(forKey: "notifyOnMicOn") as? Bool ?? true {
@@ -474,10 +474,41 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(soundOnCameraOff, forKey: "soundOnCameraOff") }
     }
     
+    @Published var notifyOnLocationOn: Bool = UserDefaults.standard.object(forKey: "notifyOnLocationOn") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnLocationOn, forKey: "notifyOnLocationOn") }
+    }
+
+    @Published var soundOnLocationOn: String = UserDefaults.standard.string(forKey: "soundOnLocationOn") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnLocationOn, forKey: "soundOnLocationOn") }
+    }
+    
+    @Published var locationShowSystemServices: Bool = UserDefaults.standard.object(forKey: "locationShowSystemServices") as? Bool ?? false {
+        didSet { UserDefaults.standard.set(locationShowSystemServices, forKey: "locationShowSystemServices") }
+    }
+    @Published var locationShowWeather: Bool = UserDefaults.standard.object(forKey: "locationShowWeather") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(locationShowWeather, forKey: "locationShowWeather") }
+    }
+    @Published var locationShowMaps: Bool = UserDefaults.standard.object(forKey: "locationShowMaps") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(locationShowMaps, forKey: "locationShowMaps") }
+    }
+    @Published var locationShowSafari: Bool = UserDefaults.standard.object(forKey: "locationShowSafari") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(locationShowSafari, forKey: "locationShowSafari") }
+    }
+    @Published var locationShowOtherApps: Bool = UserDefaults.standard.object(forKey: "locationShowOtherApps") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(locationShowOtherApps, forKey: "locationShowOtherApps") }
+    }
+    
     @Published var showMicIndicator: Bool = false
     @Published var isMicExpanded: Bool = false
     @Published var isMicActive: Bool = false
     @Published var activeMicName: String = ""
+    
+    @Published var showLocationIndicator: Bool = false
+    @Published var isLocationExpanded: Bool = false
+    @Published var isLocationActive: Bool = false
+    @Published var locationEventId = UUID()
+    @Published var activeLocationAppName: String = ""
+    private var locationTimer: Timer?
     @Published var currentMicDeviceName: String = ""
     @Published var micEventId: UUID = UUID()
     @Published var isSwitchingMic: Bool = false
@@ -490,8 +521,8 @@ class MediaKeyManager: ObservableObject {
     @Published var activeCameraName: String = ""
     @Published var cameraEventId: UUID = UUID()
     private var cameraTimer: Timer?
-    
     private var avObserver: AVObserver?
+    private var locationObserver: LocationObserver?
     
     // Peripherals
     @Published var enablePeripheral: Bool = UserDefaults.standard.object(forKey: "enablePeripheral") as? Bool ?? true {
@@ -883,17 +914,47 @@ class MediaKeyManager: ObservableObject {
             let pos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
             self.dismissCollidingIndicators(newPosition: pos, source: "camera")
             withAnimation(.easeInOut(duration: 0.15)) {
-
-            
-            self.cameraEventId = UUID()
+                self.cameraEventId = UUID()
                 self.showCameraIndicator = true
             }
-            
             
             if !self.isCameraExpanded {
                 self.cameraTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                     withAnimation(.easeInOut(duration: 0.25)) {
                         self?.showCameraIndicator = false
+                    }
+                }
+            }
+        }
+    }
+    
+    func triggerLocationIndicator(appName: String = "") {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            if !self.enablePrivacy { return }
+            if !self.notifyOnLocationOn { return }
+            
+            self.isLocationActive = true
+            if !appName.isEmpty {
+                self.activeLocationAppName = appName
+            }
+            
+            self.playNotificationSound(named: self.soundOnLocationOn)
+            
+            self.locationTimer?.invalidate()
+            let pos = UserDefaults.standard.string(forKey: "locationOverlayPosition") ?? "top"
+            self.dismissCollidingIndicators(newPosition: pos, source: "location")
+            withAnimation(.easeInOut(duration: 0.15)) {
+                self.locationEventId = UUID()
+                self.showLocationIndicator = true
+            }
+            
+            if !self.isLocationExpanded {
+                self.locationTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self?.showLocationIndicator = false
+                        self?.isLocationActive = false
                     }
                 }
             }
@@ -1877,6 +1938,16 @@ class MediaKeyManager: ObservableObject {
                     withAnimation(.easeInOut(duration: 0.25)) { self?.showCameraIndicator = false }
                 }
             }
+        case "location":
+            locationTimer?.invalidate()
+            if !isHovering {
+                locationTimer = Timer.scheduledTimer(withTimeInterval: defaultDelay, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self?.showLocationIndicator = false
+                        self?.isLocationActive = false
+                    }
+                }
+            }
         case "bluetooth":
             bluetoothTimer?.invalidate()
             if !isHovering {
@@ -2193,6 +2264,9 @@ class MediaKeyManager: ObservableObject {
         
         self.avObserver = AVObserver(manager: self)
         self.avObserver?.startObserving()
+        
+        self.locationObserver = LocationObserver(manager: self)
+        self.locationObserver?.startObserving()
         
         if let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() {
             if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) {

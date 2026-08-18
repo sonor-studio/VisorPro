@@ -142,19 +142,7 @@ struct WiFiSettingsView: View {
                         .foregroundColor(.secondary)
                         .padding(.top, 10)
                     
-                    HStack(spacing: 30) {
-                        Spacer()
-                        PositionPickerItem(title: "Top", isSelected: wifiOverlayPosition == "top") {
-                            wifiOverlayPosition = "top"
-                        }
-                        PositionPickerItem(title: "Bottom", isSelected: wifiOverlayPosition == "bottom") {
-                            wifiOverlayPosition = "bottom"
-                        }
-                        Spacer()
-                    }
-                    .padding()
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(12)
+                    PositionPickerGroup(selection: $wifiOverlayPosition)
                 }
                 .padding(.horizontal)
                 

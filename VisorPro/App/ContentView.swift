@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
-        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, wifi, peripheral, display, fan
+        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, location, wifi, peripheral, display, fan
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -62,6 +62,9 @@ struct ContentView: View {
         let camPos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
         if mediaKeyManager.showCameraIndicator { active.append(ActiveOverlay(id: "camera_\(mediaKeyManager.cameraEventId)", type: .camera, position: camPos, notification: nil)) }
         
+        let locPos = UserDefaults.standard.string(forKey: "locationOverlayPosition") ?? "top"
+        if mediaKeyManager.showLocationIndicator { active.append(ActiveOverlay(id: "location_\(mediaKeyManager.locationEventId)", type: .location, position: locPos, notification: nil)) }
+        
         let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
         if mediaKeyManager.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi_\(mediaKeyManager.wiFiEventId)", type: .wifi, position: wifiPos, notification: nil)) }
         
@@ -81,7 +84,7 @@ struct ContentView: View {
         let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)
         
         var finalActive: [ActiveOverlay] = []
-        for pos in ["top", "center", "bottom"] {
+        for pos in ["top_left", "top", "top_right", "center", "bottom_left", "bottom", "bottom_right"] {
             let items = active.filter { $0.position == pos }
             finalActive.append(contentsOf: items.prefix(limit))
         }
@@ -91,9 +94,19 @@ struct ContentView: View {
     private func xPos(for position: String, index: Int, total: Int, in size: CGSize) -> CGFloat {
         let averageWidth: CGFloat = 260
         let spacing: CGFloat = 24
-        let totalWidth = CGFloat(total) * averageWidth + CGFloat(max(0, total - 1)) * spacing
-        let startX = (size.width - totalWidth) / 2 + (averageWidth / 2)
-        return startX + CGFloat(index) * (averageWidth + spacing)
+        let margin: CGFloat = 40
+        
+        if position.hasSuffix("_left") {
+            let startX = margin + (averageWidth / 2)
+            return startX + CGFloat(index) * (averageWidth + spacing)
+        } else if position.hasSuffix("_right") {
+            let startX = size.width - margin - (averageWidth / 2)
+            return startX - CGFloat(index) * (averageWidth + spacing)
+        } else {
+            let totalWidth = CGFloat(total) * averageWidth + CGFloat(max(0, total - 1)) * spacing
+            let startX = (size.width - totalWidth) / 2 + (averageWidth / 2)
+            return startX + CGFloat(index) * (averageWidth + spacing)
+        }
     }
     
     private func yPos(for overlay: ActiveOverlay, in size: CGSize) -> CGFloat {
@@ -101,7 +114,7 @@ struct ContentView: View {
         // Ustalmy prawdziwą wysokość pigułki w zależności od typu, żeby krawędzie (górna/dolna) idealnie się licowały!
         let pillHeight: CGFloat = 56
         
-        if overlay.position == "top" { return padding + (pillHeight / 2) } 
+        if overlay.position.hasPrefix("top") { return padding + (pillHeight / 2) } 
         if overlay.position == "center" { return size.height / 2 }
         return size.height - padding - (pillHeight / 2)
     }
@@ -121,6 +134,7 @@ struct ContentView: View {
         case .theme: ThemeOverlayView()
         case .mic: MicOverlayView()
         case .camera: CameraOverlayView()
+        case .location: LocationOverlayView()
         case .wifi: WiFiOverlayView()
         case .peripheral: PeripheralOverlayView(notification: overlay.notification)
         case .display: DisplayOverlayView(notification: overlay.notification)
@@ -141,11 +155,13 @@ struct ContentView: View {
         let showTheme = mediaKeyManager.showThemeIndicator
         let showMic = mediaKeyManager.showMicIndicator
         let showCamera = mediaKeyManager.showCameraIndicator
+        let showLocation = mediaKeyManager.showLocationIndicator
         let showWiFi = mediaKeyManager.showWiFiIndicator
         let showPeripheral = !mediaKeyManager.activePeripheralNotifications.isEmpty
         let showDisplay = !mediaKeyManager.activeDisplayNotifications.isEmpty
+        let showFan = mediaKeyManager.showFanIndicator
         
-        let isVisible = showBattery || showVolume || showBrightness || showKeyboardBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showWiFi || showPeripheral || showDisplay
+        let isVisible = showBattery || showVolume || showBrightness || showKeyboardBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showLocation || showWiFi || showPeripheral || showDisplay || showFan
         
         
         ZStack {
