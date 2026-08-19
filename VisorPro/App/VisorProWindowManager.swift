@@ -13,68 +13,49 @@ class VisorProWindowManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var overlayTimestamps: [String: Date] = [:]
     
-    private func assignSlots(overlays: [ActiveOverlay], limit: Int) -> [String: Int] {
-        var slotMap: [String: Int] = [:]
-        var filledSlots = Set<Int>()
+    private func calculateDynamicPositions(overlays: [ActiveOverlay], in size: CGSize) -> [String: CGFloat] {
+        var posMap: [String: CGFloat] = [:]
         
         let lefts = overlays.filter { $0.position.hasSuffix("_left") }
         let rights = overlays.filter { $0.position.hasSuffix("_right") }
         let centers = overlays.filter { !$0.position.hasSuffix("_left") && !$0.position.hasSuffix("_right") }
         
-        for overlay in lefts {
-            for i in 0..<limit {
-                if !filledSlots.contains(i) {
-                    slotMap[overlay.id] = i
-                    filledSlots.insert(i)
-                    break
-                }
-            }
-        }
-        
-        for overlay in rights {
-            for i in (0..<limit).reversed() {
-                if !filledSlots.contains(i) {
-                    slotMap[overlay.id] = i
-                    filledSlots.insert(i)
-                    break
-                }
-            }
-        }
-        
-        let middle = limit / 2
-        for overlay in centers {
-            var bestSlot = -1
-            var minDistance = Int.max
-            for i in 0..<limit {
-                if !filledSlots.contains(i) {
-                    let dist = abs(i - middle)
-                    if dist < minDistance {
-                        minDistance = dist
-                        bestSlot = i
-                    } else if dist == minDistance && i < bestSlot {
-                        bestSlot = i
-                    }
-                }
-            }
-            if bestSlot != -1 {
-                slotMap[overlay.id] = bestSlot
-                filledSlots.insert(bestSlot)
-            }
-        }
-        
-        return slotMap
-    }
-    
-    private func getSlotX(index: Int, totalSlots: Int, in size: CGSize) -> CGFloat {
-        if totalSlots <= 1 {
-            return size.width / 2
-        }
         let margin: CGFloat = 40
         let averageWidth: CGFloat = 260
-        let availableWidth = size.width - 2 * margin
-        let spacing = (availableWidth - CGFloat(totalSlots) * averageWidth) / CGFloat(totalSlots - 1)
+        let spacing: CGFloat = 24
         
-        return margin + (averageWidth / 2) + CGFloat(index) * (averageWidth + spacing)
+        var safeMinX: CGFloat = 0
+        var safeMaxX: CGFloat = size.width
+        
+        if !lefts.isEmpty {
+            let leftsTotalW = CGFloat(lefts.count) * averageWidth + CGFloat(lefts.count - 1) * spacing
+            safeMinX = margin + leftsTotalW + spacing
+            
+            for (i, overlay) in lefts.enumerated() {
+                posMap[overlay.id] = margin + (averageWidth / 2) + CGFloat(i) * (averageWidth + spacing)
+            }
+        }
+        
+        if !rights.isEmpty {
+            let rightsTotalW = CGFloat(rights.count) * averageWidth + CGFloat(rights.count - 1) * spacing
+            safeMaxX = size.width - margin - rightsTotalW - spacing
+            
+            for (i, overlay) in rights.enumerated() {
+                posMap[overlay.id] = size.width - margin - (averageWidth / 2) - CGFloat(i) * (averageWidth + spacing)
+            }
+        }
+        
+        if !centers.isEmpty {
+            let centerTotalW = CGFloat(centers.count) * averageWidth + CGFloat(centers.count - 1) * spacing
+            let availableWidth = max(0, safeMaxX - safeMinX)
+            let startX = safeMinX + (availableWidth - centerTotalW) / 2 + (averageWidth / 2)
+            
+            for (i, overlay) in centers.enumerated() {
+                posMap[overlay.id] = startX + CGFloat(i) * (averageWidth + spacing)
+            }
+        }
+        
+        return posMap
     }
 
     
@@ -167,7 +148,9 @@ class VisorProWindowManager: ObservableObject {
         
         let now = Date()
         for overlay in active {
-            if self.overlayTimestamps[overlay.id] == nil {
+            if let triggerTime = manager.overlayTriggerTimes[overlay.id] {
+                self.overlayTimestamps[overlay.id] = triggerTime
+            } else if self.overlayTimestamps[overlay.id] == nil {
                 self.overlayTimestamps[overlay.id] = now
             }
         }
@@ -256,21 +239,19 @@ class VisorProWindowManager: ObservableObject {
             }
         }
         
-        let limit = max(1, MediaKeyManager.shared.maxSimultaneousNotifications)
         let topOverlays = active.filter { $0.position.hasPrefix("top") }
         let bottomOverlays = active.filter { $0.position.hasPrefix("bottom") }
-        
-        let topSlots = assignSlots(overlays: topOverlays, limit: limit)
-        let bottomSlots = assignSlots(overlays: bottomOverlays, limit: limit)
-        let allSlots = topSlots.merging(bottomSlots) { (current, _) in current }
         
         for (screenIndex, screen) in finalScreens.enumerated() {
             let screenSize = screen.visibleFrame.size
             let screenOrigin = screen.visibleFrame.origin
             
+            let topPositions = calculateDynamicPositions(overlays: topOverlays, in: screenSize)
+            let bottomPositions = calculateDynamicPositions(overlays: bottomOverlays, in: screenSize)
+            let allPositions = topPositions.merging(bottomPositions) { (current, _) in current }
+            
             for overlay in active {
                 let windowId = "\(overlay.id)_screen_\(screenIndex)"
-                let assignedSlot = allSlots[overlay.id] ?? 0
                 
                 let panel: NSPanel
                 if let existing = windows[windowId] {
@@ -280,7 +261,7 @@ class VisorProWindowManager: ObservableObject {
                     windows[windowId] = panel
                 }
                 
-                let x = getSlotX(index: assignedSlot, totalSlots: limit, in: screenSize) + screenOrigin.x
+                let x = (allPositions[overlay.id] ?? (screenSize.width / 2)) + screenOrigin.x
                 let yCenter = yPos(for: overlay.position, in: screenSize) + screenOrigin.y
                 
                 let currentWidth = panel.frame.width
@@ -320,9 +301,7 @@ class VisorProWindowManager: ObservableObject {
                     panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                     panel.orderFront(nil)
                 } else if !MediaKeyManager.shared.isDisplayTransitioning {
-                    let originDrift = abs(panel.frame.origin.y - targetOrigin.y) > 0.5
-                    
-                    if lastTarget == nil || abs(lastTarget!.x - targetOrigin.x) > 0.5 || abs(lastTarget!.y - targetOrigin.y) > 0.5 || originDrift {
+                    if lastTarget == nil || abs(lastTarget!.x - targetOrigin.x) > 0.5 || abs(lastTarget!.y - targetOrigin.y) > 0.5 {
                         targetOrigins[windowId] = targetOrigin
                         NSAnimationContext.runAnimationGroup { ctx in
                             ctx.duration = 0.35

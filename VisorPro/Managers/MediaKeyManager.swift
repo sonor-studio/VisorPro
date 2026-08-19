@@ -46,6 +46,8 @@ class MediaKeyManager: ObservableObject {
     @Published var activeDisplayNotifications: [DeviceNotification] = []
     private var notificationTimers: [String: Timer] = [:]
     
+    var overlayTriggerTimes: [String: Date] = [:]
+    
     var lastDisplayConnectionTime: Date? = nil
     
     @AppStorage("maxSimultaneousNotifications") var maxSimultaneousNotifications: Int = 5
@@ -675,7 +677,7 @@ class MediaKeyManager: ObservableObject {
 
                 withAnimation(.easeInOut(duration: 0.15)) {
 
-                    self.showThemeIndicator = true
+                    self.showThemeIndicator = true; self.overlayTriggerTimes["theme"] = Date()
 
                 }
 
@@ -733,7 +735,7 @@ class MediaKeyManager: ObservableObject {
 
                 withAnimation(.easeInOut(duration: 0.15)) {
 
-                    self.showLanguageIndicator = true
+                    self.showLanguageIndicator = true; self.overlayTriggerTimes["language"] = Date()
 
                 }
 
@@ -874,7 +876,7 @@ class MediaKeyManager: ObservableObject {
 
             
             self.micEventId = UUID()
-                self.showMicIndicator = true
+                self.showMicIndicator = true; self.overlayTriggerTimes["mic"] = Date()
             }
             
             if !self.isMicExpanded {
@@ -915,7 +917,7 @@ class MediaKeyManager: ObservableObject {
             self.dismissCollidingIndicators(newPosition: pos, source: "camera")
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.cameraEventId = UUID()
-                self.showCameraIndicator = true
+                self.showCameraIndicator = true; self.overlayTriggerTimes["camera"] = Date()
             }
             
             if !self.isCameraExpanded {
@@ -947,7 +949,7 @@ class MediaKeyManager: ObservableObject {
             self.dismissCollidingIndicators(newPosition: pos, source: "location")
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.locationEventId = UUID()
-                self.showLocationIndicator = true
+                self.showLocationIndicator = true; self.overlayTriggerTimes["location"] = Date()
             }
             
             if !self.isLocationExpanded {
@@ -1048,11 +1050,11 @@ class MediaKeyManager: ObservableObject {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showLowBatteryWarning = true
+                    self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery"] = Date()
                 }
             }
         } else {
-            withAnimation(.easeInOut(duration: 0.25)) { self.showLowBatteryWarning = true }
+            withAnimation(.easeInOut(duration: 0.25)) { self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery"] = Date() }
         }
         
         chargingTimer?.invalidate()
@@ -1083,12 +1085,12 @@ class MediaKeyManager: ObservableObject {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showChargingStatus = true
+                    self.showChargingStatus = true; self.overlayTriggerTimes["battery"] = Date()
                 }
             }
         } else {
             withAnimation(.easeInOut(duration: 0.25)) {
-                self.showChargingStatus = true
+                self.showChargingStatus = true; self.overlayTriggerTimes["battery"] = Date()
             }
         }
         
@@ -1128,7 +1130,7 @@ class MediaKeyManager: ObservableObject {
             }
             
             let timerKey = "peripheral_\(deviceName)"
-            self.notificationTimers[timerKey]?.invalidate()
+            self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
             self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.activePeripheralNotifications.removeAll(where: { $0.id == deviceName })
@@ -1181,7 +1183,7 @@ class MediaKeyManager: ObservableObject {
             }
             
             let timerKey = "display_\(id)"
-            self.notificationTimers[timerKey]?.invalidate()
+            self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
             self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                     self?.activeDisplayNotifications.removeAll(where: { $0.id == id })
@@ -1315,7 +1317,7 @@ class MediaKeyManager: ObservableObject {
         dismissCollidingIndicators(newPosition: volPos, source: "volume")
         
         withAnimation(.easeInOut(duration: 0.25)) {
-            showVolumeIndicator = true
+            showVolumeIndicator = true; self.overlayTriggerTimes["volume"] = Date()
         }
         
         volumeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
@@ -1335,7 +1337,7 @@ class MediaKeyManager: ObservableObject {
         dismissCollidingIndicators(newPosition: brightPos, source: "brightness")
         
         withAnimation(.easeInOut(duration: 0.25)) {
-            showBrightnessIndicator = true
+            showBrightnessIndicator = true; self.overlayTriggerTimes["brightness"] = Date()
         }
         
         brightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
@@ -1355,7 +1357,7 @@ class MediaKeyManager: ObservableObject {
         dismissCollidingIndicators(newPosition: brightPos, source: "keyboardBrightness")
         
         withAnimation(.easeInOut(duration: 0.25)) {
-            showKeyboardBrightnessIndicator = true
+            showKeyboardBrightnessIndicator = true; self.overlayTriggerTimes["keyboardBrightness"] = Date()
         }
         
         keyboardBrightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
@@ -1388,7 +1390,7 @@ class MediaKeyManager: ObservableObject {
 
                 withAnimation(.easeInOut(duration: 0.15)) {
 
-                    self.showCopyIndicator = true
+                    self.showCopyIndicator = true; self.overlayTriggerTimes["copy"] = Date()
 
                 }
 
@@ -1442,7 +1444,7 @@ class MediaKeyManager: ObservableObject {
                 guard let self = self else { return }
             self.fanEventId = UUID()
             withAnimation(.easeInOut(duration: 0.15)) {
-                self.showFanIndicator = true
+                self.showFanIndicator = true; self.overlayTriggerTimes["fan"] = Date()
             }
             
             let task = DispatchWorkItem { [weak self] in
@@ -1484,7 +1486,7 @@ class MediaKeyManager: ObservableObject {
 
                 withAnimation(.easeInOut(duration: 0.15)) {
 
-                    self.showCapsLockIndicator = true
+                    self.showCapsLockIndicator = true; self.overlayTriggerTimes["capsLock"] = Date()
 
                 }
 
@@ -1548,7 +1550,7 @@ class MediaKeyManager: ObservableObject {
             }
             
             let timerKey = "bluetooth_\(deviceAddress)"
-            self.notificationTimers[timerKey]?.invalidate()
+            self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
             self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.activeBluetoothNotifications.removeAll(where: { $0.id == deviceAddress })
@@ -1592,7 +1594,7 @@ class MediaKeyManager: ObservableObject {
 
                 withAnimation(.easeInOut(duration: 0.15)) {
 
-                    self.showWiFiIndicator = true
+                    self.showWiFiIndicator = true; self.overlayTriggerTimes["wifi"] = Date()
 
                 }
 
@@ -1796,7 +1798,7 @@ class MediaKeyManager: ObservableObject {
         if finalTrigger && enableMediaNotification {
             // Show overlay
             withAnimation {
-                self.showMediaIndicator = true
+                self.showMediaIndicator = true; self.overlayTriggerTimes["media"] = Date()
                 self.mediaHideTimer?.invalidate()
                 self.mediaHideTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
                     withAnimation {
@@ -2006,7 +2008,7 @@ class MediaKeyManager: ObservableObject {
 
                 withAnimation(.easeInOut(duration: 0.15)) {
 
-                    self.showMediaIndicator = true
+                    self.showMediaIndicator = true; self.overlayTriggerTimes["media"] = Date()
 
                 }
 

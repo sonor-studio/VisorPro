@@ -93,68 +93,50 @@ struct ContentView: View {
         return finalActive
     }
     
-    private func assignSlots(overlays: [ActiveOverlay], limit: Int) -> [String: Int] {
-        var slotMap: [String: Int] = [:]
-        var filledSlots = Set<Int>()
+
+    private func calculateDynamicPositions(overlays: [ActiveOverlay], in size: CGSize) -> [String: CGFloat] {
+        var posMap: [String: CGFloat] = [:]
         
         let lefts = overlays.filter { $0.position.hasSuffix("_left") }
         let rights = overlays.filter { $0.position.hasSuffix("_right") }
         let centers = overlays.filter { !$0.position.hasSuffix("_left") && !$0.position.hasSuffix("_right") }
         
-        for overlay in lefts {
-            for i in 0..<limit {
-                if !filledSlots.contains(i) {
-                    slotMap[overlay.id] = i
-                    filledSlots.insert(i)
-                    break
-                }
-            }
-        }
-        
-        for overlay in rights {
-            for i in (0..<limit).reversed() {
-                if !filledSlots.contains(i) {
-                    slotMap[overlay.id] = i
-                    filledSlots.insert(i)
-                    break
-                }
-            }
-        }
-        
-        let middle = limit / 2
-        for overlay in centers {
-            var bestSlot = -1
-            var minDistance = Int.max
-            for i in 0..<limit {
-                if !filledSlots.contains(i) {
-                    let dist = abs(i - middle)
-                    if dist < minDistance {
-                        minDistance = dist
-                        bestSlot = i
-                    } else if dist == minDistance && i < bestSlot {
-                        bestSlot = i
-                    }
-                }
-            }
-            if bestSlot != -1 {
-                slotMap[overlay.id] = bestSlot
-                filledSlots.insert(bestSlot)
-            }
-        }
-        
-        return slotMap
-    }
-    
-    private func getSlotX(index: Int, totalSlots: Int, in size: CGSize) -> CGFloat {
-        if totalSlots <= 1 {
-            return size.width / 2
-        }
         let margin: CGFloat = 40
         let averageWidth: CGFloat = 260
-        let availableWidth = size.width - 2 * margin
-        let spacing = (availableWidth - CGFloat(totalSlots) * averageWidth) / CGFloat(totalSlots - 1)
+        let spacing: CGFloat = 24
         
-        return margin + (averageWidth / 2) + CGFloat(index) * (averageWidth + spacing)
+        var safeMinX: CGFloat = 0
+        var safeMaxX: CGFloat = size.width
+        
+        if !lefts.isEmpty {
+            let leftsTotalW = CGFloat(lefts.count) * averageWidth + CGFloat(lefts.count - 1) * spacing
+            safeMinX = margin + leftsTotalW + spacing
+            
+            for (i, overlay) in lefts.enumerated() {
+                posMap[overlay.id] = margin + (averageWidth / 2) + CGFloat(i) * (averageWidth + spacing)
+            }
+        }
+        
+        if !rights.isEmpty {
+            let rightsTotalW = CGFloat(rights.count) * averageWidth + CGFloat(rights.count - 1) * spacing
+            safeMaxX = size.width - margin - rightsTotalW - spacing
+            
+            for (i, overlay) in rights.enumerated() {
+                posMap[overlay.id] = size.width - margin - (averageWidth / 2) - CGFloat(i) * (averageWidth + spacing)
+            }
+        }
+        
+        if !centers.isEmpty {
+            let centerTotalW = CGFloat(centers.count) * averageWidth + CGFloat(centers.count - 1) * spacing
+            let availableWidth = max(0, safeMaxX - safeMinX)
+            let startX = safeMinX + (availableWidth - centerTotalW) / 2 + (averageWidth / 2)
+            
+            for (i, overlay) in centers.enumerated() {
+                posMap[overlay.id] = startX + CGFloat(i) * (averageWidth + spacing)
+            }
+        }
+        
+        return posMap
     }
     
     private func yPos(for overlay: ActiveOverlay, in size: CGSize) -> CGFloat {
@@ -220,17 +202,15 @@ struct ContentView: View {
             }
             .allowsHitTesting(false)
             
-            let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)
             let topOverlays = allActiveOverlays.filter { $0.position.hasPrefix("top") }
             let bottomOverlays = allActiveOverlays.filter { $0.position.hasPrefix("bottom") }
-            let topSlots = assignSlots(overlays: topOverlays, limit: limit)
-            let bottomSlots = assignSlots(overlays: bottomOverlays, limit: limit)
-            let allSlots = topSlots.merging(bottomSlots) { (current, _) in current }
+            
+            let topPositions = calculateDynamicPositions(overlays: topOverlays, in: geoSize)
+            let bottomPositions = calculateDynamicPositions(overlays: bottomOverlays, in: geoSize)
+            let allPositions = topPositions.merging(bottomPositions) { (current, _) in current }
             
             ForEach(allActiveOverlays) { overlay in
-                let assignedSlot = allSlots[overlay.id] ?? 0
-                
-                let xPosition = getSlotX(index: assignedSlot, totalSlots: limit, in: geoSize)
+                let xPosition = allPositions[overlay.id] ?? (geoSize.width / 2)
                 let yPosition = yPos(for: overlay, in: geoSize)
                 
                 overlayView(for: overlay)
