@@ -8,7 +8,7 @@ struct WallpaperPickerView: View {
     
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            LazyHStack(spacing: 12) {
                 BackgroundOptionButton(
                     title: "Puste tło",
                     isSelected: previewBackgroundStyle == "gradient",
@@ -53,22 +53,53 @@ struct WallpaperPickerView: View {
             loadCurrentDesktop()
             loadBuiltInWallpapers()
         }
+        .onDisappear {
+            builtInWallpapers.removeAll()
+            desktopImage = nil
+            desktopColor = nil
+            WallpaperHelper.clearCache()
+        }
     }
     
     private func loadCurrentDesktop() {
         Task { @MainActor in
+            if let cached = WallpaperHelper.cachedWallpaper {
+                self.desktopImage = cached
+                return
+            } else if let cachedCol = WallpaperHelper.cachedColor {
+                self.desktopColor = cachedCol
+                return
+            }
+            
+            var loadedImage: NSImage? = nil
+            var loadedColor: NSColor? = nil
+            
             if let wallpaperURL = WallpaperHelper.getActiveDynamicWallpaperURL() {
                 if wallpaperURL.pathExtension.lowercased() == "mov" {
-                    if let image = await WallpaperHelper.generateImageFromVideoWallpaper(videoURL: wallpaperURL) {
-                        self.desktopImage = image
+                    if let image = await WallpaperHelper.generateImageFromVideoWallpaper(videoURL: wallpaperURL, targetSize: 800) {
+                        loadedImage = image
                     }
-                } else if let image = NSImage(contentsOf: wallpaperURL) {
-                    self.desktopImage = image
+                } else if let image = WallpaperHelper.loadThumbnail(from: wallpaperURL, targetSize: 800) {
+                    loadedImage = image
                 }
-            } else if let screen = NSScreen.screens.first, let url = NSWorkspace.shared.desktopImageURL(for: screen), let image = NSImage(contentsOf: url) {
-                self.desktopImage = image
-            } else if let screen = NSScreen.screens.first, let color = NSWorkspace.shared.desktopImageOptions(for: screen)?[.fillColor] as? NSColor {
-                self.desktopColor = color
+            }
+            
+            if loadedImage == nil, let screen = NSScreen.screens.first, let url = NSWorkspace.shared.desktopImageURL(for: screen) {
+                if let image = WallpaperHelper.loadThumbnail(from: url, targetSize: 800) {
+                    loadedImage = image
+                }
+            }
+            
+            if loadedImage == nil, let screen = NSScreen.screens.first, let color = NSWorkspace.shared.desktopImageOptions(for: screen)?[.fillColor] as? NSColor {
+                loadedColor = color
+            }
+            
+            if let finalImage = loadedImage {
+                WallpaperHelper.cachedWallpaper = finalImage
+                self.desktopImage = finalImage
+            } else if let finalColor = loadedColor {
+                WallpaperHelper.cachedColor = finalColor
+                self.desktopColor = finalColor
             }
         }
     }

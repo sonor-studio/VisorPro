@@ -45,7 +45,6 @@ struct FanOverlayView: View {
                 EmptyView()
             }
         )
-        .padding(20)
-        .applyTheme(mediaKeyManager.overlayTheme)
+                .applyTheme(mediaKeyManager.overlayTheme)
     }
 }

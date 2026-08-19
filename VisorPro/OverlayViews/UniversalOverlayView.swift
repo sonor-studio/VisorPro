@@ -126,7 +126,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     )
                 }
                 
-                // WARSTWA 3: Szkło wewnątrz paska
                 ZStack {
                     Color.clear.background(.thinMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: innerRadius - innerPadding, style: .continuous))

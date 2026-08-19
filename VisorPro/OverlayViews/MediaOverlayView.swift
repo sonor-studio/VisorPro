@@ -215,8 +215,7 @@ struct MediaOverlayView: View {
             }
         )
 
-        .padding(20)
-        .applyTheme(mediaKeyManager.overlayTheme)
+                .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             localElapsed = mediaKeyManager.mediaElapsedTime
         }

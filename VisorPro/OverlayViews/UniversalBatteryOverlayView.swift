@@ -214,8 +214,13 @@ struct UniversalBatteryOverlayView: View {
             }
         )
 
-        .padding(20)
-        .applyTheme(mediaKeyManager.overlayTheme)
+        .onHoverExact { hovering in
+            isHovering = hovering
+            if !isPreview {
+                mediaKeyManager.keepAlive(for: "battery", isHovering: hovering || isExpanded)
+            }
+        }
+                .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             let targetProgress = CGFloat(actualPercentage) / 100.0
             animatedBatteryProgress = isWarningMode ? 1.0 : 0.0
@@ -250,12 +255,7 @@ struct UniversalBatteryOverlayView: View {
                 animatedBatteryProgress = CGFloat(newValue) / 100.0
             }
         }
-        .onHoverExact { hovering in
-            isHovering = hovering
-            if !isPreview {
-                mediaKeyManager.keepAlive(for: "battery", isHovering: hovering || isExpanded)
-            }
-        }
+
         .onChange(of: isExpanded) { _, expanded in
             if expanded {
                 expandedKeepAliveTimer?.invalidate()

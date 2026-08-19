@@ -9,13 +9,9 @@ struct PreviewBackgroundView: View {
         Group {
             if previewBackgroundStyle.starts(with: "builtin:") {
                 let path = String(previewBackgroundStyle.dropFirst(8))
-                if let img = NSImage(contentsOfFile: path) {
-                    Color.clear.frame(minHeight: 180).overlay(
-                        Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
-                    ).clipped().cornerRadius(16)
-                } else {
-                    Color.black.frame(minHeight: 180).cornerRadius(16)
-                }
+                Color.clear.frame(minHeight: 180).overlay(
+                    AsyncWallpaperImage(path: path)
+                ).clipped().cornerRadius(16)
             } else if previewBackgroundStyle == "wallpaper" {
                 if let img = wallpaperImage {
                     Color.clear
@@ -44,20 +40,51 @@ struct PreviewBackgroundView: View {
         }
         .onAppear {
             Task { @MainActor in
+                // Sprawdzenie cache
+                if let cached = WallpaperHelper.cachedWallpaper {
+                    self.wallpaperImage = cached
+                    return
+                } else if let cachedCol = WallpaperHelper.cachedColor {
+                    self.wallpaperColor = cachedCol
+                    return
+                }
+                
+                var loadedImage: NSImage? = nil
+                var loadedColor: NSColor? = nil
+                
                 if let wallpaperURL = WallpaperHelper.getActiveDynamicWallpaperURL() {
                     if wallpaperURL.pathExtension.lowercased() == "mov" {
-                        if let image = await WallpaperHelper.generateImageFromVideoWallpaper(videoURL: wallpaperURL) {
-                            self.wallpaperImage = image
+                        if let image = await WallpaperHelper.generateImageFromVideoWallpaper(videoURL: wallpaperURL, targetSize: 800) {
+                            loadedImage = image
                         }
-                    } else if let image = NSImage(contentsOf: wallpaperURL) {
-                        self.wallpaperImage = image
+                    } else if let image = WallpaperHelper.loadThumbnail(from: wallpaperURL, targetSize: 800) {
+                        loadedImage = image
                     }
-                } else if let screen = NSScreen.screens.first, let url = NSWorkspace.shared.desktopImageURL(for: screen), let image = NSImage(contentsOf: url) {
-                    self.wallpaperImage = image
-                } else if let screen = NSScreen.screens.first, let color = NSWorkspace.shared.desktopImageOptions(for: screen)?[.fillColor] as? NSColor {
-                    self.wallpaperColor = color
+                }
+                
+                if loadedImage == nil, let screen = NSScreen.screens.first, let url = NSWorkspace.shared.desktopImageURL(for: screen) {
+                    if let image = WallpaperHelper.loadThumbnail(from: url, targetSize: 800) {
+                        loadedImage = image
+                    }
+                }
+                
+                if loadedImage == nil, let screen = NSScreen.screens.first, let color = NSWorkspace.shared.desktopImageOptions(for: screen)?[.fillColor] as? NSColor {
+                    loadedColor = color
+                }
+                
+                if let finalImage = loadedImage {
+                    WallpaperHelper.cachedWallpaper = finalImage
+                    self.wallpaperImage = finalImage
+                } else if let finalColor = loadedColor {
+                    WallpaperHelper.cachedColor = finalColor
+                    self.wallpaperColor = finalColor
                 }
             }
+        }
+        .onDisappear {
+            wallpaperImage = nil
+            wallpaperColor = nil
+            WallpaperHelper.clearCache()
         }
     }
 }

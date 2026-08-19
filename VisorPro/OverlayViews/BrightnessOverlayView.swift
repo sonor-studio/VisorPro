@@ -64,8 +64,7 @@ struct BrightnessOverlayView: View {
                 EmptyView()
             }
         )
-        .padding(20)
-        .applyTheme(mediaKeyManager.overlayTheme)
+                .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             if isPreview {
                 animatedBrightnessProgress = 0.1

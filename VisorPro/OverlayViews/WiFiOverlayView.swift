@@ -222,8 +222,7 @@ struct WiFiOverlayView: View {
             }
         )
 
-        .padding(20)
-        .applyTheme(mediaKeyManager.overlayTheme)
+                .applyTheme(mediaKeyManager.overlayTheme)
         .onChange(of: isExpanded) { _, expanded in
             if expanded {
                 refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in

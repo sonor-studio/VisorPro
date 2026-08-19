@@ -88,8 +88,7 @@ struct LanguageOverlayView: View {
             }
         )
 
-        .padding(20)
-        .applyTheme(mediaKeyManager.overlayTheme)
+                .applyTheme(mediaKeyManager.overlayTheme)
     }
 }
 

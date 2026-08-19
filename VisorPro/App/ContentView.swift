@@ -83,30 +83,78 @@ struct ContentView: View {
         
         let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)
         
+        let topOverlays = active.filter { $0.position.hasPrefix("top") }.prefix(limit)
+        let bottomOverlays = active.filter { $0.position.hasPrefix("bottom") }.prefix(limit)
+            
         var finalActive: [ActiveOverlay] = []
-        for pos in ["top_left", "top", "top_right", "center", "bottom_left", "bottom", "bottom_right"] {
-            let items = active.filter { $0.position == pos }
-            finalActive.append(contentsOf: items.prefix(limit))
-        }
+        finalActive.append(contentsOf: topOverlays)
+        finalActive.append(contentsOf: bottomOverlays)
+        
         return finalActive
     }
     
-    private func xPos(for position: String, index: Int, total: Int, in size: CGSize) -> CGFloat {
-        let averageWidth: CGFloat = 260
-        let spacing: CGFloat = 24
-        let margin: CGFloat = 40
+    private func assignSlots(overlays: [ActiveOverlay], limit: Int) -> [String: Int] {
+        var slotMap: [String: Int] = [:]
+        var filledSlots = Set<Int>()
         
-        if position.hasSuffix("_left") {
-            let startX = margin + (averageWidth / 2)
-            return startX + CGFloat(index) * (averageWidth + spacing)
-        } else if position.hasSuffix("_right") {
-            let startX = size.width - margin - (averageWidth / 2)
-            return startX - CGFloat(index) * (averageWidth + spacing)
-        } else {
-            let totalWidth = CGFloat(total) * averageWidth + CGFloat(max(0, total - 1)) * spacing
-            let startX = (size.width - totalWidth) / 2 + (averageWidth / 2)
-            return startX + CGFloat(index) * (averageWidth + spacing)
+        let lefts = overlays.filter { $0.position.hasSuffix("_left") }
+        let rights = overlays.filter { $0.position.hasSuffix("_right") }
+        let centers = overlays.filter { !$0.position.hasSuffix("_left") && !$0.position.hasSuffix("_right") }
+        
+        for overlay in lefts {
+            for i in 0..<limit {
+                if !filledSlots.contains(i) {
+                    slotMap[overlay.id] = i
+                    filledSlots.insert(i)
+                    break
+                }
+            }
         }
+        
+        for overlay in rights {
+            for i in (0..<limit).reversed() {
+                if !filledSlots.contains(i) {
+                    slotMap[overlay.id] = i
+                    filledSlots.insert(i)
+                    break
+                }
+            }
+        }
+        
+        let middle = limit / 2
+        for overlay in centers {
+            var bestSlot = -1
+            var minDistance = Int.max
+            for i in 0..<limit {
+                if !filledSlots.contains(i) {
+                    let dist = abs(i - middle)
+                    if dist < minDistance {
+                        minDistance = dist
+                        bestSlot = i
+                    } else if dist == minDistance && i < bestSlot {
+                        bestSlot = i
+                    }
+                }
+            }
+            if bestSlot != -1 {
+                slotMap[overlay.id] = bestSlot
+                filledSlots.insert(bestSlot)
+            }
+        }
+        
+        return slotMap
+    }
+    
+    private func getSlotX(index: Int, totalSlots: Int, in size: CGSize) -> CGFloat {
+        if totalSlots <= 1 {
+            return size.width / 2
+        }
+        let margin: CGFloat = 40
+        let averageWidth: CGFloat = 260
+        let availableWidth = size.width - 2 * margin
+        let spacing = (availableWidth - CGFloat(totalSlots) * averageWidth) / CGFloat(totalSlots - 1)
+        
+        return margin + (averageWidth / 2) + CGFloat(index) * (averageWidth + spacing)
     }
     
     private func yPos(for overlay: ActiveOverlay, in size: CGSize) -> CGFloat {
@@ -172,12 +220,17 @@ struct ContentView: View {
             }
             .allowsHitTesting(false)
             
+            let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)
+            let topOverlays = allActiveOverlays.filter { $0.position.hasPrefix("top") }
+            let bottomOverlays = allActiveOverlays.filter { $0.position.hasPrefix("bottom") }
+            let topSlots = assignSlots(overlays: topOverlays, limit: limit)
+            let bottomSlots = assignSlots(overlays: bottomOverlays, limit: limit)
+            let allSlots = topSlots.merging(bottomSlots) { (current, _) in current }
+            
             ForEach(allActiveOverlays) { overlay in
-                let overlaysInPos = allActiveOverlays.filter { $0.position == overlay.position }
-                let index = overlaysInPos.firstIndex(of: overlay) ?? 0
-                let total = overlaysInPos.count
+                let assignedSlot = allSlots[overlay.id] ?? 0
                 
-                let xPosition = xPos(for: overlay.position, index: index, total: total, in: geoSize)
+                let xPosition = getSlotX(index: assignedSlot, totalSlots: limit, in: geoSize)
                 let yPosition = yPos(for: overlay, in: geoSize)
                 
                 overlayView(for: overlay)

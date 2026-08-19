@@ -3,6 +3,14 @@ import AVFoundation
 
 @MainActor
 struct WallpaperHelper {
+    static var cachedWallpaper: NSImage?
+    static var cachedColor: NSColor?
+    
+    static func clearCache() {
+        cachedWallpaper = nil
+        cachedColor = nil
+    }
+
     static func getActiveDynamicWallpaperURL() -> URL? {
         let fileManager = FileManager.default
         guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
@@ -73,13 +81,31 @@ struct WallpaperHelper {
         return nil
     }
     
-    static func generateImageFromVideoWallpaper(videoURL: URL) async -> NSImage? {
+    static func loadThumbnail(from url: URL, targetSize: CGFloat = 800) -> NSImage? {
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: targetSize
+        ]
+        
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        
+        let size = NSSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height))
+        return NSImage(cgImage: cgImage, size: size)
+    }
+    
+    static func generateImageFromVideoWallpaper(videoURL: URL, targetSize: CGFloat = 800) async -> NSImage? {
         let asset = AVURLAsset(url: videoURL)
         let imageGenerator = AVAssetImageGenerator(asset: asset)
         
         imageGenerator.appliesPreferredTrackTransform = true
         imageGenerator.requestedTimeToleranceBefore = .zero
         imageGenerator.requestedTimeToleranceAfter = .zero
+        imageGenerator.maximumSize = CGSize(width: targetSize, height: targetSize)
         
         let time = CMTime(seconds: 0.0, preferredTimescale: 600)
         

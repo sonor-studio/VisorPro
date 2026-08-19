@@ -244,8 +244,7 @@ struct MicOverlayView: View {
             }
         }
 
-        .padding(20)
-        .applyTheme(mediaKeyManager.overlayTheme)
+                .applyTheme(mediaKeyManager.overlayTheme)
     }
 }
 
@@ -376,8 +375,7 @@ struct CameraOverlayView: View {
             }
         )
 
-        .padding(20)
-        .onChange(of: isExpanded) { _, expanded in
+                .onChange(of: isExpanded) { _, expanded in
             mediaKeyManager.isCameraExpanded = expanded
         }
         .onChange(of: actualIsActive) { _, isActive in
@@ -460,8 +458,7 @@ struct LocationOverlayView: View {
                 EmptyView()
             }
         )
-        .padding(20)
-        .onDisappear {
+                .onDisappear {
             mediaKeyManager.keepAlive(for: "location", isHovering: false)
         }
         .applyTheme(mediaKeyManager.overlayTheme)

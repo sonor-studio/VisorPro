@@ -70,14 +70,13 @@ struct CapsLockOverlayView: View {
         )
         .frame(width: 230, height: 56, alignment: .top)
 
-        .padding(20)
         .onHoverExact { hovering in
             if !isPreview {
                 self.isHovering = hovering
                 mediaKeyManager.keepAlive(for: "capsLock", isHovering: hovering)
             }
         }
-        .onAppear {
+                .onAppear {
             localPreviewIsOn = previewIsOn
         }
         .applyTheme(mediaKeyManager.overlayTheme)

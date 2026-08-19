@@ -11,7 +11,71 @@ class VisorProWindowManager: ObservableObject {
     private var targetOrigins: [String: NSPoint] = [:]
     private var shownPanels: Set<String> = []
     private var cancellables = Set<AnyCancellable>()
+    private var overlayTimestamps: [String: Date] = [:]
     
+    private func assignSlots(overlays: [ActiveOverlay], limit: Int) -> [String: Int] {
+        var slotMap: [String: Int] = [:]
+        var filledSlots = Set<Int>()
+        
+        let lefts = overlays.filter { $0.position.hasSuffix("_left") }
+        let rights = overlays.filter { $0.position.hasSuffix("_right") }
+        let centers = overlays.filter { !$0.position.hasSuffix("_left") && !$0.position.hasSuffix("_right") }
+        
+        for overlay in lefts {
+            for i in 0..<limit {
+                if !filledSlots.contains(i) {
+                    slotMap[overlay.id] = i
+                    filledSlots.insert(i)
+                    break
+                }
+            }
+        }
+        
+        for overlay in rights {
+            for i in (0..<limit).reversed() {
+                if !filledSlots.contains(i) {
+                    slotMap[overlay.id] = i
+                    filledSlots.insert(i)
+                    break
+                }
+            }
+        }
+        
+        let middle = limit / 2
+        for overlay in centers {
+            var bestSlot = -1
+            var minDistance = Int.max
+            for i in 0..<limit {
+                if !filledSlots.contains(i) {
+                    let dist = abs(i - middle)
+                    if dist < minDistance {
+                        minDistance = dist
+                        bestSlot = i
+                    } else if dist == minDistance && i < bestSlot {
+                        bestSlot = i
+                    }
+                }
+            }
+            if bestSlot != -1 {
+                slotMap[overlay.id] = bestSlot
+                filledSlots.insert(bestSlot)
+            }
+        }
+        
+        return slotMap
+    }
+    
+    private func getSlotX(index: Int, totalSlots: Int, in size: CGSize) -> CGFloat {
+        if totalSlots <= 1 {
+            return size.width / 2
+        }
+        let margin: CGFloat = 40
+        let averageWidth: CGFloat = 260
+        let availableWidth = size.width - 2 * margin
+        let spacing = (availableWidth - CGFloat(totalSlots) * averageWidth) / CGFloat(totalSlots - 1)
+        
+        return margin + (averageWidth / 2) + CGFloat(index) * (averageWidth + spacing)
+    }
 
     
     private init() {
@@ -101,11 +165,31 @@ class VisorProWindowManager: ObservableObject {
         
         let limit = max(1, manager.maxSimultaneousNotifications)
         
-        var finalActive: [ActiveOverlay] = []
-        for pos in ["top_left", "top", "top_right", "center", "bottom_left", "bottom", "bottom_right"] {
-            let items = active.filter { $0.position == pos }
-            finalActive.append(contentsOf: items.prefix(limit))
+        let now = Date()
+        for overlay in active {
+            if self.overlayTimestamps[overlay.id] == nil {
+                self.overlayTimestamps[overlay.id] = now
+            }
         }
+        let activeIds = Set(active.map { $0.id })
+        for id in self.overlayTimestamps.keys {
+            if !activeIds.contains(id) {
+                self.overlayTimestamps.removeValue(forKey: id)
+            }
+        }
+        
+        let topOverlays = active.filter { $0.position.hasPrefix("top") }
+            .sorted { (self.overlayTimestamps[$0.id] ?? now) > (self.overlayTimestamps[$1.id] ?? now) }
+            .prefix(limit)
+            
+        let bottomOverlays = active.filter { $0.position.hasPrefix("bottom") }
+            .sorted { (self.overlayTimestamps[$0.id] ?? now) > (self.overlayTimestamps[$1.id] ?? now) }
+            .prefix(limit)
+            
+        var finalActive: [ActiveOverlay] = []
+        finalActive.append(contentsOf: topOverlays)
+        finalActive.append(contentsOf: bottomOverlays)
+        
         return finalActive
     }
     
@@ -172,40 +256,21 @@ class VisorProWindowManager: ObservableObject {
             }
         }
         
+        let limit = max(1, MediaKeyManager.shared.maxSimultaneousNotifications)
+        let topOverlays = active.filter { $0.position.hasPrefix("top") }
+        let bottomOverlays = active.filter { $0.position.hasPrefix("bottom") }
+        
+        let topSlots = assignSlots(overlays: topOverlays, limit: limit)
+        let bottomSlots = assignSlots(overlays: bottomOverlays, limit: limit)
+        let allSlots = topSlots.merging(bottomSlots) { (current, _) in current }
+        
         for (screenIndex, screen) in finalScreens.enumerated() {
             let screenSize = screen.visibleFrame.size
             let screenOrigin = screen.visibleFrame.origin
             
             for overlay in active {
                 let windowId = "\(overlay.id)_screen_\(screenIndex)"
-                let group = active.filter { $0.position == overlay.position }
-                let index = group.firstIndex(of: overlay) ?? 0
-                let total = group.count
-                
-                let x = xPos(for: overlay.position, index: index, total: total, in: screenSize) + screenOrigin.x
-                let yCenter = yPos(for: overlay.position, in: screenSize) + screenOrigin.y
-                
-                let windowWidth: CGFloat = 400
-                let windowHeight: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth || overlay.type == .peripheral || overlay.type == .mic || overlay.type == .camera || overlay.type == .display || overlay.type == .fan) ? 400 : 120)
-                
-                let originX = x - (windowWidth / 2)
-                let originY: CGFloat
-                if overlay.position.hasPrefix("top") {
-                    originY = yCenter + 43 - windowHeight
-                } else if overlay.position.hasPrefix("bottom") {
-                    originY = yCenter - 43
-                } else {
-                    originY = yCenter - (windowHeight / 2)
-                }
-                
-                let targetOrigin = NSPoint(x: originX, y: originY)
-                
-                if let last = targetOrigins[windowId], abs(last.y - originY) > 200 {
-                    windows[windowId]?.close()
-                    windows.removeValue(forKey: windowId)
-                    targetOrigins.removeValue(forKey: windowId)
-                    shownPanels.remove(windowId)
-                }
+                let assignedSlot = allSlots[overlay.id] ?? 0
                 
                 let panel: NSPanel
                 if let existing = windows[windowId] {
@@ -214,25 +279,55 @@ class VisorProWindowManager: ObservableObject {
                     panel = createPanel(for: overlay)
                     windows[windowId] = panel
                 }
+                
+                let x = getSlotX(index: assignedSlot, totalSlots: limit, in: screenSize) + screenOrigin.x
+                let yCenter = yPos(for: overlay.position, in: screenSize) + screenOrigin.y
+                
+                let currentWidth = panel.frame.width
+                let currentHeight = panel.frame.height
+                
+                let originX = x - (currentWidth / 2)
+                let originY: CGFloat
+                
+                let baseH: CGFloat = (overlay.type == .media) ? 72 : 56
+                let offsetFromBottom = 15 + (baseH / 2)
+                let offsetFromTop = 10 + (baseH / 2)
+                
+                if overlay.position.hasPrefix("top") {
+                    originY = yCenter + offsetFromTop - currentHeight
+                } else if overlay.position.hasPrefix("bottom") {
+                    originY = yCenter - offsetFromBottom
+                } else {
+                    originY = yCenter - (currentHeight / 2)
+                }
+                
+                let targetOrigin = NSPoint(x: originX, y: originY)
+                
+                if let last = targetOrigins[windowId], abs(last.y - originY) > 2000 {
+                    windows[windowId]?.close()
+                    windows.removeValue(forKey: windowId)
+                    targetOrigins.removeValue(forKey: windowId)
+                    shownPanels.remove(windowId)
+                }
+                
                 let lastTarget = targetOrigins[windowId]
                 let isFirstShow = !shownPanels.contains(windowId)
                 
                 if isFirstShow {
-                    // Pierwsze pojawienie się – animacja wejścia jest obsługiwana w SwiftUI (hasAppeared)
                     shownPanels.insert(windowId)
                     targetOrigins[windowId] = targetOrigin
                     panel.alphaValue = 1
-                    panel.setFrameOrigin(targetOrigin)
+                    panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                     panel.orderFront(nil)
                 } else if !MediaKeyManager.shared.isDisplayTransitioning {
-                    if lastTarget == nil || abs(lastTarget!.x - targetOrigin.x) > 0.5 || abs(lastTarget!.y - targetOrigin.y) > 0.5 {
-                        // Zmiana pozycji – animowane przesunięcie
+                    let originDrift = abs(panel.frame.origin.y - targetOrigin.y) > 0.5
+                    
+                    if lastTarget == nil || abs(lastTarget!.x - targetOrigin.x) > 0.5 || abs(lastTarget!.y - targetOrigin.y) > 0.5 || originDrift {
                         targetOrigins[windowId] = targetOrigin
-                        let newFrame = NSRect(origin: targetOrigin, size: panel.frame.size)
                         NSAnimationContext.runAnimationGroup { ctx in
                             ctx.duration = 0.35
                             ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                            panel.animator().setFrame(newFrame, display: true)
+                            panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         }
                     }
                 }
@@ -241,27 +336,35 @@ class VisorProWindowManager: ObservableObject {
     }
     
     private func createPanel(for overlay: ActiveOverlay) -> NSPanel {
-        let h: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth || overlay.type == .peripheral || overlay.type == .mic || overlay.type == .camera || overlay.type == .display || overlay.type == .fan) ? 400 : 120)
+        let w: CGFloat = (overlay.type == .capsLock || overlay.type == .theme) ? 230 : 260
+        let h: CGFloat = (overlay.type == .media) ? 72 : 56
         let panel = VisorProOverlayPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: h),
+            contentRect: NSRect(x: 0, y: 0, width: w + 24, height: h + 25),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
         )
         
-        let view = SingleOverlayContainer(overlay: overlay)
-            .environmentObject(MediaKeyManager.shared)
+        if overlay.position.hasPrefix("top") {
+            panel.anchorMode = .top
+        } else if overlay.position.hasPrefix("bottom") {
+            panel.anchorMode = .bottom
+        } else {
+            panel.anchorMode = .center
+        }
         
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = false
+        
+        let view = SingleOverlayContainer(overlay: overlay).environmentObject(MediaKeyManager.shared)
         panel.contentView = NSHostingView(rootView: view)
+        
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         panel.hidesOnDeactivate = false
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.hasShadow = false
         panel.ignoresMouseEvents = false
-        panel.acceptsMouseMovedEvents = true
         
         return panel
     }
@@ -275,38 +378,74 @@ class VisorProWindowManager: ObservableObject {
         return bottomPadding + (pillHeight / 2)
     }
 
-    private func xPos(for position: String, index: Int, total: Int, in size: CGSize) -> CGFloat {
-        let averageWidth: CGFloat = 260
-        let spacing: CGFloat = 24
-        let margin: CGFloat = 40
-        
-        if position.hasSuffix("_left") {
-            let startX = margin + (averageWidth / 2)
-            return startX + CGFloat(index) * (averageWidth + spacing)
-        } else if position.hasSuffix("_right") {
-            let startX = size.width - margin - (averageWidth / 2)
-            return startX - CGFloat(index) * (averageWidth + spacing)
-        } else {
-            let totalWidth = CGFloat(total) * averageWidth + CGFloat(max(0, total - 1)) * spacing
-            let startX = (size.width - totalWidth) / 2 + (averageWidth / 2)
-            return startX + CGFloat(index) * (averageWidth + spacing)
-        }
-    }
+
+}
+
+
+enum WindowAnchorMode {
+    case top
+    case bottom
+    case center
 }
 
 class VisorProOverlayPanel: NSPanel {
+    var anchorMode: WindowAnchorMode = .center
+    
     override var canBecomeKey: Bool { return false }
     override var canBecomeMain: Bool { return false }
+    
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
         return frameRect
     }
+    
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        var newFrame = frameRect
+        let oldFrame = self.frame
+        
+        if oldFrame.size.height > 0 && oldFrame.size.height != newFrame.size.height {
+            switch anchorMode {
+            case .bottom:
+                newFrame.origin.y = oldFrame.minY
+            case .top:
+                newFrame.origin.y = oldFrame.maxY - newFrame.height
+            case .center:
+                let oldCenterY = oldFrame.midY
+                newFrame.origin.y = oldCenterY - (newFrame.height / 2)
+            }
+        }
+        
+        super.setFrame(newFrame, display: flag)
+    }
+    
+    override func setFrame(_ frameRect: NSRect, display flag: Bool, animate: Bool) {
+        var newFrame = frameRect
+        let oldFrame = self.frame
+        
+        if oldFrame.size.height > 0 && oldFrame.size.height != newFrame.size.height {
+            switch anchorMode {
+            case .bottom:
+                newFrame.origin.y = oldFrame.minY
+            case .top:
+                newFrame.origin.y = oldFrame.maxY - newFrame.height
+            case .center:
+                let oldCenterY = oldFrame.midY
+                newFrame.origin.y = oldCenterY - (newFrame.height / 2)
+            }
+        }
+        
+        super.setFrame(newFrame, display: flag, animate: animate)
+    }
 }
+
+
+
 
 struct SingleOverlayContainer: View {
     let overlay: VisorProWindowManager.ActiveOverlay
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     
     @State private var hasAppeared = false
+    
     private var currentOverlay: VisorProWindowManager.ActiveOverlay? {
         VisorProWindowManager.shared.allActiveOverlays.first(where: { $0.id == overlay.id })
     }
@@ -315,13 +454,6 @@ struct SingleOverlayContainer: View {
     }
     
     var body: some View {
-        let h: CGFloat = overlay.type == .copy ? 2000 : ((overlay.type == .volume || overlay.type == .media || overlay.type == .battery || overlay.type == .language || overlay.type == .wifi || overlay.type == .bluetooth || overlay.type == .peripheral || overlay.type == .mic || overlay.type == .camera || overlay.type == .display) ? 400 : 120)
-        let align: Alignment = {
-            if overlay.position.hasPrefix("top") { return .top }
-            if overlay.position.hasPrefix("bottom") { return .bottom }
-            return .center
-        }()
-        
         let transitionAnchor: UnitPoint = (overlay.position.hasPrefix("top")) ? .top : .bottom
         
         ZStack {
@@ -331,13 +463,16 @@ struct SingleOverlayContainer: View {
                         insertion: .opacity.combined(with: .offset(y: overlay.position.hasPrefix("top") ? -40 : 40)).combined(with: .scale(scale: 0.9, anchor: transitionAnchor)),
                         removal: .opacity.combined(with: .offset(y: overlay.position.hasPrefix("top") ? -40 : 40)).combined(with: .scale(scale: 0.9, anchor: transitionAnchor))
                     ))
+            } else {
+                let w: CGFloat = (overlay.type == .capsLock || overlay.type == .theme) ? 230 : 260
+                let h: CGFloat = (overlay.type == .media) ? 72 : 56
+                Color.clear.frame(width: w, height: h).allowsHitTesting(false)
             }
         }
-        .padding(.top, overlay.position.hasPrefix("top") ? 15 : 0)
-        .padding(.bottom, overlay.position.hasPrefix("bottom") ? 15 : 0)
+        .padding(.top, 10)
+        .padding(.bottom, 15)
+        .padding(.horizontal, 12)
         .animation(.spring(response: 0.35, dampingFraction: 0.7), value: hasAppeared && isOverlayActive)
-        .frame(width: 400, height: h, alignment: align)
-        .edgesIgnoringSafeArea(.all)
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {

@@ -310,8 +310,7 @@ struct LegacyBatteryOverlayView: View {
             }
         }
 
-        .padding(20)
-        .applyTheme(mediaKeyManager.overlayTheme)
+                .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             let targetProgress = CGFloat(actualPercentage) / 100.0
             

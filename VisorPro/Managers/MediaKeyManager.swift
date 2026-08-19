@@ -1502,25 +1502,7 @@ class MediaKeyManager: ObservableObject {
 
             
 
-            if self.showCapsLockIndicator {
-
-                withAnimation(.easeInOut(duration: 0.25)) {
-
-                    self.showCapsLockIndicator = false
-
-                }
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-
-                    executeShow()
-
-                }
-
-            } else {
-
-                executeShow()
-
-            }
+            executeShow()
     }
     
     

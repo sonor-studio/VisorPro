@@ -220,18 +220,17 @@ struct PeripheralOverlayView: View {
         )
         .frame(width: 260, height: (isExpanded && isExpandable) ? 56 + calcHeight : 56, alignment: .top)
 
-        .padding(20)
-        .onChange(of: isExpanded) { _, expanded in
-            if !isPreview {
-                let keepAliveType = notification != nil ? "peripheral_\(notification!.id)" : "peripheral"
-                mediaKeyManager.keepAlive(for: keepAliveType, isHovering: isHovering || expanded)
-            }
-        }
         .onHoverExact { hovering in
             if !isPreview {
                 self.isHovering = hovering
                 let keepAliveType = notification != nil ? "peripheral_\(notification!.id)" : "peripheral"
                 mediaKeyManager.keepAlive(for: keepAliveType, isHovering: hovering || isExpanded)
+            }
+        }
+                .onChange(of: isExpanded) { _, expanded in
+            if !isPreview {
+                let keepAliveType = notification != nil ? "peripheral_\(notification!.id)" : "peripheral"
+                mediaKeyManager.keepAlive(for: keepAliveType, isHovering: isHovering || expanded)
             }
         }
         .onChange(of: notification?.isConnected) { _, connected in

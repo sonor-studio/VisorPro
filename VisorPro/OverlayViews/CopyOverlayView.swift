@@ -147,14 +147,13 @@ struct CopyOverlayView: View {
         )
         .frame(width: 260, height: (isExpanded && canExpand) ? 56 + listHeight : 56, alignment: .top)
 
-        .padding(20)
         .onHoverExact { hovering in
             isHovering = hovering
             if !isPreview {
                 mediaKeyManager.keepAlive(for: "copy", isHovering: hovering || isExpanded)
             }
         }
-        .onChange(of: isExpanded) { _, expanded in
+                .onChange(of: isExpanded) { _, expanded in
             if expanded {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in

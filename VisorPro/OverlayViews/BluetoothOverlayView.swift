@@ -319,8 +319,7 @@ struct BluetoothOverlayView: View {
             }
         )
 
-        .padding(20)
-        .onChange(of: isExpanded) { _, expanded in
+                .onChange(of: isExpanded) { _, expanded in
             if expanded && actualIsConnected {
                 refreshTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
                     mediaKeyManager.fetchBluetoothDetails()

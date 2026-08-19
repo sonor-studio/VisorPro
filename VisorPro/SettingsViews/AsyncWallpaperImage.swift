@@ -18,6 +18,9 @@ struct AsyncWallpaperImage: View {
         .onAppear {
             load()
         }
+        .onDisappear {
+            image = nil
+        }
     }
     
     private func load() {

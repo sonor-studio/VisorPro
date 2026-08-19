@@ -212,6 +212,11 @@ struct SettingsView: View {
                 w.backgroundColor = .clear
                 w.styleMask.insert(.miniaturizable)
                 
+                // Przywracamy domyślną zakładkę, jeśli została wyczyszczona
+                if selection == .none {
+                    selection = .general
+                }
+                
                 // Zmień aplikację na normalną (.regular), aby miała ikonę w Docku
                 // i zachowywała się jak standardowe okno (np. minimalizacja do paska)
                 NSApp.setActivationPolicy(.regular)
@@ -222,10 +227,30 @@ struct SettingsView: View {
                 w.level = .normal
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
+            if let openedWindow = notification.object as? NSWindow, openedWindow == window {
+                // Przywracamy domyślną zakładkę po ponownym otwarciu okna
+                if selection == .none {
+                    selection = .general
+                }
+                
+                // Zmień aplikację na normalną (.regular), aby Dashboard zachowywał się jak zwykłe okno (ikona w Docku, normalne kolizje)
+                if NSApp.activationPolicy() != .regular {
+                    NSApp.setActivationPolicy(.regular)
+                    NSApp.activate(ignoringOtherApps: true)
+                    window?.level = .normal
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
             if let closedWindow = notification.object as? NSWindow, closedWindow == window {
                 // Przywróć tryb akcesoryjny (bez Docka) po zamknięciu okna
                 NSApp.setActivationPolicy(.accessory)
+                
+                // Wymuś odmontowanie aktywnej zakładki (np. z tapetami), co zwalnia pamięć,
+                // ponieważ okno "Settings" w SwiftUI domyślnie tylko się chowa, a nie niszczy
+                selection = .none
+                WallpaperHelper.clearCache()
             }
         }
     }
