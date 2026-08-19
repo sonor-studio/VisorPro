@@ -106,7 +106,7 @@ class PeripheralObserver {
             } else if lowerName.contains("hub") {
                 type = "USB Hub"
                 typeIcon = "point.3.connected.trianglepath.dotted"
-            } else if lowerName.contains("drive") || lowerName.contains("sandisk") || lowerName.contains("ssd") {
+            } else if lowerName.contains("drive") || lowerName.contains("sandisk") || lowerName.contains("ssd") || lowerName.contains("mass storage") || lowerName.contains("memory") || lowerName.contains("disk") || lowerName.contains("storage") || lowerName.contains("flash") || lowerName.contains("stick") {
                 type = "USB Drive"
                 typeIcon = "externaldrive"
             } else if lowerName.contains("audio") || lowerName.contains("mic") {
@@ -130,16 +130,74 @@ class PeripheralObserver {
             var propsUnmanaged: Unmanaged<CFMutableDictionary>?
             if IORegistryEntryCreateCFProperties(device, &propsUnmanaged, kCFAllocatorDefault, 0) == KERN_SUCCESS,
                let props = propsUnmanaged?.takeRetainedValue() as? [String: Any] {
+                
                 if let vendor = props["USB Vendor Name"] as? String {
                     details["Vendor"] = vendor.trimmingCharacters(in: .whitespacesAndNewlines)
+                } else if let vendor = props["kUSBVendorString"] as? String {
+                    details["Vendor"] = vendor.trimmingCharacters(in: .whitespacesAndNewlines)
                 }
+                
                 if let product = props["USB Product Name"] as? String {
                     details["Product"] = product.trimmingCharacters(in: .whitespacesAndNewlines)
+                } else if let product = props["kUSBProductString"] as? String {
+                    details["Product"] = product.trimmingCharacters(in: .whitespacesAndNewlines)
                 }
+                
+                if let serial = props["USB Serial Number"] as? String, !serial.isEmpty {
+                    details["Serial"] = serial.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                
+                if let vid = props["idVendor"] as? Int, let pid = props["idProduct"] as? Int {
+                    details["Device ID"] = String(format: "0x%04X:0x%04X", vid, pid)
+                }
+                
+                if let speed = props["Device Speed"] as? Int {
+                    let speedStr: String
+                    switch speed {
+                        case 0: speedStr = "Low (1.5 Mbps)"
+                        case 1: speedStr = "Full (12 Mbps)"
+                        case 2: speedStr = "High (480 Mbps)"
+                        case 3: speedStr = "Super (5 Gbps)"
+                        case 4: speedStr = "Super+ (10+ Gbps)"
+                        default: speedStr = "Unknown"
+                    }
+                    details["Speed"] = speedStr
+                }
+                
+                if let busPower = props["Bus Power Used"] as? Int {
+                    if busPower > 0 {
+                        details["Power Used"] = "\(busPower * 2) mA"
+                    }
+                }
+            }
+            
+            // Extract BSD Name to reliably link the USB device to a volume
+            if let bsdName = findDiskBSDName(for: device) {
+                details["BSD Name"] = bsdName
             }
             
             manager?.triggerPeripheralIndicator(deviceName: displayName, type: type, typeIcon: typeIcon, isConnected: isConnected, details: details.isEmpty ? nil : details)
         }
+    }
+    
+    private func findDiskBSDName(for device: io_registry_entry_t) -> String? {
+        var iterator: io_iterator_t = 0
+        guard IORegistryEntryCreateIterator(device, kIOServicePlane, IOOptionBits(kIORegistryIterateRecursively), &iterator) == KERN_SUCCESS else {
+            return nil
+        }
+        defer { IOObjectRelease(iterator) }
+
+        var child = IOIteratorNext(iterator)
+        while child != 0 {
+            if let bsdRef = IORegistryEntryCreateCFProperty(child, "BSD Name" as CFString, kCFAllocatorDefault, 0),
+               let bsdName = bsdRef as? String, bsdName.hasPrefix("disk") {
+                IOObjectRelease(child)
+                return bsdName
+            }
+            IOObjectRelease(child)
+            child = IOIteratorNext(iterator)
+        }
+        return nil
     }
     
     deinit {

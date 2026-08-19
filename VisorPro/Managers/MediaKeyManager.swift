@@ -1103,38 +1103,63 @@ class MediaKeyManager: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if !self.enablePeripheral { return }
-            if isConnected && !self.notifyOnPeripheralConnect { return }
-            if !isConnected && !self.notifyOnPeripheralDisconnect { return }
             
-            if !self.peripheralHistory.contains(deviceName) {
-                self.peripheralHistory.append(deviceName)
-            }
-            if self.peripheralIcons[deviceName] != typeIcon {
-                self.peripheralIcons[deviceName] = typeIcon
-            }
-            if self.peripheralBlocklist.contains(deviceName) { return }
-            self.playNotificationSound(named: isConnected ? self.soundOnPeripheralConnect : self.soundOnPeripheralDisconnect)
-            
-            let pos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "top"
-            self.dismissCollidingIndicators(newPosition: pos, source: "peripheral")
-            
-            let newNotif = DeviceNotification(id: deviceName, deviceName: deviceName, type: type, icon: typeIcon, isConnected: isConnected, timestamp: Date(), details: details)
-            
-            withAnimation(.easeInOut(duration: 0.15)) {
-                if let idx = self.activePeripheralNotifications.firstIndex(where: { $0.id == deviceName }) {
-                    self.activePeripheralNotifications[idx] = newNotif
-                } else {
-                    self.activePeripheralNotifications.append(newNotif)
+            // Fix for USB bus resets: delay disconnects by 1s. If reconnect happens within 1s, ignore both.
+            let debounceKey = "peripheral_debounce_\(deviceName)"
+            if !isConnected {
+                self.notificationTimers[debounceKey]?.invalidate()
+                self.notificationTimers[debounceKey] = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { [weak self] _ in
+                    self?.notificationTimers.removeValue(forKey: debounceKey)
+                    self?.showPeripheralOverlay(deviceName: deviceName, type: type, typeIcon: typeIcon, isConnected: false, details: details)
                 }
-                self.enforceNotificationLimit()
-            }
-            
-            let timerKey = "peripheral_\(deviceName)"
-            self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
-            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.activePeripheralNotifications.removeAll(where: { $0.id == deviceName })
+            } else {
+                if let timer = self.notificationTimers[debounceKey] {
+                    let wasValid = timer.isValid
+                    timer.invalidate()
+                    self.notificationTimers.removeValue(forKey: debounceKey)
+                    
+                    if wasValid {
+                        // It reconnected before the 1s timer fired. This was a bus reset. Ignore it to prevent spam.
+                        return
+                    }
                 }
+                self.showPeripheralOverlay(deviceName: deviceName, type: type, typeIcon: typeIcon, isConnected: true, details: details)
+            }
+        }
+    }
+    
+    private func showPeripheralOverlay(deviceName: String, type: String, typeIcon: String, isConnected: Bool, details: [String: String]? = nil) {
+        if isConnected && !self.notifyOnPeripheralConnect { return }
+        if !isConnected && !self.notifyOnPeripheralDisconnect { return }
+        
+        if !self.peripheralHistory.contains(deviceName) {
+            self.peripheralHistory.append(deviceName)
+        }
+        if self.peripheralIcons[deviceName] != typeIcon {
+            self.peripheralIcons[deviceName] = typeIcon
+        }
+        if self.peripheralBlocklist.contains(deviceName) { return }
+        self.playNotificationSound(named: isConnected ? self.soundOnPeripheralConnect : self.soundOnPeripheralDisconnect)
+        
+        let pos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "top"
+        self.dismissCollidingIndicators(newPosition: pos, source: "peripheral")
+        
+        let newNotif = DeviceNotification(id: deviceName, deviceName: deviceName, type: type, icon: typeIcon, isConnected: isConnected, timestamp: Date(), details: details)
+        
+        withAnimation(.easeInOut(duration: 0.15)) {
+            if let idx = self.activePeripheralNotifications.firstIndex(where: { $0.id == deviceName }) {
+                self.activePeripheralNotifications[idx] = newNotif
+            } else {
+                self.activePeripheralNotifications.append(newNotif)
+            }
+            self.enforceNotificationLimit()
+        }
+        
+        let timerKey = "peripheral_\(deviceName)"
+        self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
+        self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                self?.activePeripheralNotifications.removeAll(where: { $0.id == deviceName })
             }
         }
     }
@@ -1192,43 +1217,140 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    private func getRemovables() -> [String] {
-        let keys: [URLResourceKey] = [.volumeIsRemovableKey]
+    private func getMountPoint(for notification: DeviceNotification) -> URL? {
+        let keys: [URLResourceKey] = [.volumeIsInternalKey, .volumeTotalCapacityKey]
         let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: []) ?? []
-        return urls.filter { url in
-            guard let values = try? url.resourceValues(forKeys: Set(keys)) else { return false }
-            return values.volumeIsRemovable == true
-        }.map { $0.path }
+        let bsdName = notification.details?["BSD Name"]
+        let productName = notification.details?["Product"]?.lowercased() ?? ""
+        let deviceName = notification.deviceName.lowercased()
+        
+        var matchingUrls: [URL] = []
+        
+        for url in urls {
+            guard url.path.hasPrefix("/Volumes/") else { continue }
+            if let session = DASessionCreate(kCFAllocatorDefault),
+               let disk = DADiskCreateFromVolumePath(kCFAllocatorDefault, session, url as CFURL) {
+                
+                var matched = false
+                
+                // 1. Try strict BSD match if available and valid
+                if let bsdCStr = DADiskGetBSDName(disk) {
+                    let volBsd = String(cString: bsdCStr)
+                    if let b = bsdName, b.hasPrefix("disk"), (volBsd == b || volBsd.hasPrefix(b + "s")) {
+                        matched = true
+                    }
+                }
+                
+                // 2. Try matching the hardware product name via DiskArbitration
+                if !matched, let desc = DADiskCopyDescription(disk) as? [String: Any] {
+                    let model = (desc[kDADiskDescriptionDeviceModelKey as String] as? String ?? "").lowercased()
+                    let vendor = (desc[kDADiskDescriptionDeviceVendorKey as String] as? String ?? "").lowercased()
+                    let combined = "\(vendor) \(model)"
+                    
+                    if !productName.isEmpty && (combined.contains(productName) || productName.contains(model)) {
+                        matched = true
+                    } else if !deviceName.isEmpty && deviceName != "usb device" && deviceName != "mass storage" {
+                        if combined.contains(deviceName) || deviceName.contains(model) {
+                            matched = true
+                        }
+                    }
+                }
+                
+                // 3. Try matching the volume name itself as a fallback
+                if !matched {
+                    let pathLower = url.lastPathComponent.lowercased()
+                    if !productName.isEmpty && (pathLower.contains(productName) || productName.contains(pathLower)) {
+                        matched = true
+                    } else if !deviceName.isEmpty && deviceName != "usb device" && deviceName != "mass storage" {
+                        if pathLower.contains(deviceName) || deviceName.contains(pathLower) {
+                            matched = true
+                        }
+                    }
+                }
+                
+                if matched {
+                    matchingUrls.append(url)
+                }
+            }
+        }
+        
+        // If multiple partitions matched (e.g. HDD with System Reserved + Data), pick the largest one!
+        if matchingUrls.count > 1 {
+            return matchingUrls.max { u1, u2 in
+                let c1 = (try? u1.resourceValues(forKeys: [.volumeTotalCapacityKey]))?.volumeTotalCapacity ?? 0
+                let c2 = (try? u2.resourceValues(forKeys: [.volumeTotalCapacityKey]))?.volumeTotalCapacity ?? 0
+                return c1 < c2
+            }
+        }
+        
+        return matchingUrls.first
     }
     
-    func openDrive(named name: String) {
-        let lowerName = name.lowercased()
-        let removables = getRemovables()
-        let match = removables.first(where: { path in
-            let pathLower = URL(fileURLWithPath: path).lastPathComponent.lowercased()
-            return lowerName.contains(pathLower) || pathLower.contains(lowerName)
-        }) ?? removables.last
+    func getDriveCapacity(for notification: DeviceNotification) -> (total: Int, available: Int)? {
+        guard let target = getMountPoint(for: notification) else { return nil }
         
-        if let target = match {
-            NSWorkspace.shared.open(URL(fileURLWithPath: target))
-        } else {
-            NSWorkspace.shared.open(URL(fileURLWithPath: "/Volumes"))
+        let keys: [URLResourceKey] = [.volumeTotalCapacityKey, .volumeAvailableCapacityKey]
+        if let values = try? target.resourceValues(forKeys: Set(keys)),
+           let total = values.volumeTotalCapacity, let available = values.volumeAvailableCapacity {
+            return (total, available)
+        }
+        return nil
+    }
+    
+    private func getDeviceNode(for volume: String) -> String? {
+        let task = Process()
+        task.launchPath = "/usr/sbin/diskutil"
+        task.arguments = ["info", "-plist", volume]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        try? task.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        if let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+           let deviceNode = plist["DeviceNode"] as? String {
+            return deviceNode
+        }
+        return nil
+    }
+    
+    func openDrive(for notification: DeviceNotification) {
+        if let target = getMountPoint(for: notification) {
+            NSWorkspace.shared.open(target)
         }
     }
-
-    func ejectDrive(named name: String) {
-        let lowerName = name.lowercased()
-        let removables = getRemovables()
-        let match = removables.first(where: { path in
-            let pathLower = URL(fileURLWithPath: path).lastPathComponent.lowercased()
-            return lowerName.contains(pathLower) || pathLower.contains(lowerName)
-        }) ?? removables.last
-        
-        if let target = match {
+    
+    func ejectDrive(for notification: DeviceNotification, completion: @escaping (Bool, String?) -> Void = { _,_ in }) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let target = self.getMountPoint(for: notification) else {
+                DispatchQueue.main.async { completion(false, nil) }
+                return
+            }
+            
+            let deviceNode = self.getDeviceNode(for: target.path)
             let task = Process()
             task.launchPath = "/usr/sbin/diskutil"
-            task.arguments = ["eject", target]
-            try? task.run()
+            task.arguments = ["unmount", target.path]
+            do {
+                try task.run()
+                task.waitUntilExit()
+                DispatchQueue.main.async { completion(task.terminationStatus == 0, deviceNode) }
+            } catch {
+                DispatchQueue.main.async { completion(false, nil) }
+            }
+        }
+    }
+    
+    func mountDrive(deviceNode: String, completion: @escaping (Bool) -> Void = { _ in }) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let task = Process()
+            task.launchPath = "/usr/sbin/diskutil"
+            task.arguments = ["mount", deviceNode]
+            do {
+                try task.run()
+                task.waitUntilExit()
+                DispatchQueue.main.async { completion(task.terminationStatus == 0) }
+            } catch {
+                DispatchQueue.main.async { completion(false) }
+            }
         }
     }
     
