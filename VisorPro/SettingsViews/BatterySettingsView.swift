@@ -6,6 +6,7 @@ struct BatterySettingsView: View {
     @AppStorage("batteryOverlayPosition") private var batteryOverlayPosition: String = "top"
     @AppStorage("batteryUseUniversalStyle") private var batteryUseUniversalStyle: Bool = true
     @AppStorage("batteryFillCenter") private var batteryFillCenter: Bool = true
+    @AppStorage("batteryAllowExpansion") private var batteryAllowExpansion: Bool = true
     @State private var isAccessoryHistoryExpanded: Bool = false
     
     var body: some View {
@@ -33,7 +34,7 @@ struct BatterySettingsView: View {
                     ZStack {
                         PreviewBackgroundView()
                         
-                        BatteryOverlayView(isWarningMode: false, isPreview: true)
+                        BatteryOverlayView(isWarningMode: false, isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
                             .scaleEffect(0.85)
                     }
                     .padding(.horizontal)
@@ -42,10 +43,10 @@ struct BatterySettingsView: View {
                 
                 Divider()
                 
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Test Overlays")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
+                        .font(.headline)
+                        .foregroundColor(.secondary)
                         .padding(.bottom, 4)
                         .padding(.leading, 4)
                     
@@ -54,6 +55,18 @@ struct BatterySettingsView: View {
                             mediaKeyManager.triggerTestBatteryOverlay(type: "plugged")
                         }) {
                             Text("Charging")
+                                .font(.system(size: 12, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(Color.primary.opacity(0.1))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Button(action: {
+                            mediaKeyManager.triggerTestBatteryOverlay(type: "unplugged")
+                        }) {
+                            Text("Unplugged")
                                 .font(.system(size: 12, weight: .medium))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
@@ -103,10 +116,21 @@ struct BatterySettingsView: View {
                 
                 Divider()
                 
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Overlay Triggers")
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("MacBook Battery")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.primary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        
+                    
+                    Text("Overlay Triggers")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 10)
                         .padding(.bottom, 4)
                         .padding(.leading, 4)
                     
@@ -116,6 +140,13 @@ struct BatterySettingsView: View {
                         }
                         if mediaKeyManager.notifyOnPlug {
                             SoundPickerRow(selectedSound: $mediaKeyManager.soundOnPlug)
+                        }
+                        Divider().padding(.leading, 48)
+                        CustomSettingsRow(icon: "powercord", iconColor: .green, title: "Unplugged from power", subtitle: "Show when disconnecting the charger") {
+                            Toggle("", isOn: $mediaKeyManager.notifyOnUnplug).labelsHidden()
+                        }
+                        if mediaKeyManager.notifyOnUnplug {
+                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnUnplug)
                         }
                         Divider().padding(.leading, 48)
                         CustomSettingsRow(icon: "battery.25", iconColor: .green, title: "Battery drops to 20%", subtitle: "Show low battery warning") {
@@ -147,9 +178,29 @@ struct BatterySettingsView: View {
                             .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                     )
                     
+                    Text("Behavior")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 10)
+                        .padding(.bottom, 4)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .green, title: "Allow Expansion", subtitle: "Allow overlay to expand and show detailed status") {
+                            Toggle("", isOn: $batteryAllowExpansion).labelsHidden()
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                    
                     Text("Visual Style")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
+                        .font(.headline)
+                        .foregroundColor(.secondary)
                         .padding(.top, 10)
                         .padding(.bottom, 4)
                         .padding(.leading, 4)
@@ -177,6 +228,7 @@ struct BatterySettingsView: View {
                         .font(.headline)
                         .foregroundColor(.secondary)
                         .padding(.top, 10)
+                        .padding(.leading, 4)
                     
                     PositionPickerGroup(selection: $batteryOverlayPosition)
                 }
@@ -184,10 +236,21 @@ struct BatterySettingsView: View {
                 
                 Divider()
                 
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Accessory Batteries")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.primary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        
+                    
+                    Text("Behavior")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 10)
                         .padding(.bottom, 4)
                         .padding(.leading, 4)
                     
@@ -311,7 +374,6 @@ struct BatterySettingsView: View {
         }
         return order.map { baseName in
             var components = dict[baseName]!
-            // Jeśli mamy zduplikowany stary wpis (sam baseName bez końcówek), a są też inne końcówki (Lewa, Prawa), usuńmy go z widoku
             if components.count > 1, let idx = components.firstIndex(of: baseName) {
                 components.remove(at: idx)
             }

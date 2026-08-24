@@ -10,86 +10,104 @@ struct FeedbackSettingsView: View {
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                // Header
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Submit Feedback")
-                        .font(.title)
-                        .fontWeight(.semibold)
+            VStack(alignment: .leading, spacing: 24) {
+                // Header with graphic
+                HStack(spacing: 16) {
+                    ZStack {
+                        Circle()
+                            .fill(LinearGradient(gradient: Gradient(colors: [Color.blue.opacity(0.2), Color.purple.opacity(0.2)]), startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 64, height: 64)
+                        Image(systemName: "envelope.badge.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(.blue)
+                    }
                     
-                    Text("We'd love to hear your thoughts! Let us know how we can improve VisorPro.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.bottom, 24)
-                
-                // Form Container
-                VStack(spacing: 20) {
-                    // Type Selection
-                    HStack(alignment: .top) {
-                        Text("Category:")
-                            .frame(width: 100, alignment: .trailing)
-                            .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Submit Feedback")
+                            .font(.title)
+                            .fontWeight(.bold)
                         
-                        VStack(alignment: .leading, spacing: 10) {
+                        Text("We'd love to hear your thoughts! Let us know how we can improve VisorPro.")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.bottom, 8)
+                
+                // Form Sections
+                VStack(alignment: .leading, spacing: 12) {
+                    
+                    Text("Details")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.primary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        
+                    
+                    VStack(spacing: 0) {
+                        CustomSettingsRow(icon: "tag.fill", iconColor: .orange, title: "Category", subtitle: "What kind of feedback is this?") {
                             Picker("", selection: $feedbackType) {
                                 ForEach(feedbackTypes, id: \.self) { type in
                                     Text(type).tag(type)
                                 }
                             }
-                            .pickerStyle(SegmentedPickerStyle())
+                            .pickerStyle(MenuPickerStyle())
                             .labelsHidden()
-                            .frame(width: 200)
-                            
-                            if feedbackType == "Other" {
-                                TextField("Please specify...", text: $otherTypeDetails)
+                            .frame(width: 120)
+                        }
+                        
+                        if feedbackType == "Other" {
+                            Divider().padding(.leading, 48)
+                            CustomSettingsRow(icon: "ellipsis.bubble.fill", iconColor: .gray, title: "Specify", subtitle: "Provide more details") {
+                                TextField("Optional", text: $otherTypeDetails)
                                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                                    .frame(maxWidth: 300)
+                                    .frame(maxWidth: 150)
                             }
                         }
-                        Spacer()
+                        
+                        Divider().padding(.leading, 48)
+                        
+                        CustomSettingsRow(icon: "at", iconColor: .blue, title: "Email Address", subtitle: "Optional, if you want a reply") {
+                            TextField("email@example.com", text: $emailAddress)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                                .frame(maxWidth: 200)
+                        }
                     }
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
                     
-                    Divider()
-                        .padding(.leading, 116)
-                    
-                    // Email
-                    HStack(alignment: .center) {
-                        Text("Email:")
-                            .frame(width: 100, alignment: .trailing)
-                            .foregroundColor(.secondary)
+                    Text("Message")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.primary)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 8)
                         
-                        TextField("Optional for replies", text: $emailAddress)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .frame(maxWidth: 300)
-                        
-                        Spacer()
-                    }
                     
-                    Divider()
-                        .padding(.leading, 116)
-                    
-                    // Description
-                    HStack(alignment: .top) {
-                        Text("Description:")
-                            .frame(width: 100, alignment: .trailing)
-                            .foregroundColor(.secondary)
-                        
+                    VStack(alignment: .leading, spacing: 0) {
                         TextEditor(text: $description)
                             .font(.body)
                             .frame(minHeight: 120, maxHeight: 250)
                             .scrollContentBackground(.hidden)
-                            .background(Color(NSColor.textBackgroundColor))
-                            .cornerRadius(6)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                            )
-                        
-                        Spacer()
+                            .background(Color.clear)
+                            .padding(8)
                     }
-                    
-                    Divider()
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
                     
                     // Submit Button
                     HStack {
@@ -97,33 +115,32 @@ struct FeedbackSettingsView: View {
                         Button(action: {
                             submitFeedback()
                         }) {
-                            Text("Send Feedback")
-                                .fontWeight(.medium)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 4)
+                            HStack {
+                                Image(systemName: "paperplane.fill")
+                                Text("Send Feedback")
+                            }
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 6)
                         }
                         .buttonStyle(BorderedProminentButtonStyle())
+                        .tint(.blue)
                         .disabled(description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (feedbackType == "Other" && otherTypeDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
                     }
-                    .padding(.top, 4)
+                    .padding(.top, 10)
                 }
-                .padding(24)
-                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
-                )
                 
                 Spacer()
             }
             .padding(40)
             .frame(maxWidth: 700)
         }
+        .navigationTitle("Feedback")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.clear)
     }
     
     private func submitFeedback() {
-        print("Feedback submitted: \(feedbackType) - \(otherTypeDetails) - \(description)")
         description = ""
         otherTypeDetails = ""
         emailAddress = ""

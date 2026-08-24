@@ -3,6 +3,7 @@ import IOBluetooth
 
 struct BluetoothOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @AppStorage("bluetoothAllowExpansion") private var bluetoothAllowExpansion: Bool = true
     @State private var isHovering = false
     @State private var refreshTimer: Timer?
     @State private var isExpanded: Bool = false
@@ -25,7 +26,7 @@ struct BluetoothOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsConnected ? .blue : .secondary
+        actualIsConnected ? .indigo : .secondary
     }
     
     private var actionTitle: String {
@@ -62,7 +63,6 @@ struct BluetoothOverlayView: View {
     }
     
     var body: some View {
-        let actionColor: Color = actualIsConnected ? .blue : .secondary
         
         let deviceId = isPreview ? "00:11:22:33:44:55" : (notification?.id ?? "")
         let hasDetails = isPreview || mediaKeyManager.bluetoothDetails[deviceId] != nil
@@ -82,22 +82,6 @@ struct BluetoothOverlayView: View {
             if details["Typ"] != nil { rowsCount += 1 }
             if details["Firmware"] != nil { rowsCount += 1 }
             if details["RSSI"] != nil { rowsCount += 1 }
-        }
-        
-        let listHeight: CGFloat
-        if !actualIsConnected {
-            listHeight = 60
-        } else if !hasDetails {
-            listHeight = 100
-        } else if !effectiveDeviceBatteries.isEmpty {
-            let visualBatteriesHeight: CGFloat = 135
-            if showDetails {
-                listHeight = visualBatteriesHeight + CGFloat(rowsCount * 22) + 80
-            } else {
-                listHeight = visualBatteriesHeight + 55
-            }
-        } else {
-            listHeight = CGFloat(rowsCount * 22 + 68)
         }
         
         let nameLower = actualDeviceName.lowercased()
@@ -134,7 +118,6 @@ struct BluetoothOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: false,
-            listHeight: listHeight,
             customWidth: 260,
             customHeight: 56,
             supportDragGesture: false,
@@ -145,7 +128,7 @@ struct BluetoothOverlayView: View {
                     }
                 }
             },
-            isExpandable: true,
+            isExpandable: bluetoothAllowExpansion,
             expandUpwards: btPos == "bottom",
             keepAliveId: keepAliveType,
             baseContent: {
@@ -247,7 +230,7 @@ struct BluetoothOverlayView: View {
                         
                         if showDetails || effectiveDeviceBatteries.isEmpty {
                             VStack(spacing: 8) {
-                                if let details = isPreview ? ["MAC": "00:11:22:33:44:55", "Typ": "Audio", "Firmware": "1.0.0", "RSSI": "-45 dBm", "SystemName": "AirPods Pro"] : mediaKeyManager.bluetoothDetails[deviceId] {
+                                if let details = isPreview ? ["MAC": "00:11:22:33:44:55", "Typ": "Headphones", "Firmware": "1.0.0", "RSSI": "-45 dBm", "SystemName": "AirPods Pro"] : mediaKeyManager.bluetoothDetails[deviceId] {
                                     if let mac = details["MAC"] {
                                         StatRow(icon: "network", label: "MAC Address", value: mac, allowShrink: true)
                                     }
@@ -313,7 +296,7 @@ struct BluetoothOverlayView: View {
                         .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
+                    
                     .padding(.top, 4)
                 }
             }
@@ -330,6 +313,5 @@ struct BluetoothOverlayView: View {
                 showDetails = false
             }
         }
-        .applyTheme(mediaKeyManager.overlayTheme)
     }
 }

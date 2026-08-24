@@ -16,21 +16,24 @@ struct FanOverlayView: View {
         UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: $isExpanded,
-            showProgressBar: false,
-            progress: 0,
+            showProgressBar: true,
+            progress: 1.0,
             hasTimeoutProgress: true,
+            timeoutEventId: mediaKeyManager.fanEventId,
+            barColor: actualIsRunning ? Color(red: 0.55, green: 0.8, blue: 1.0) : .secondary,
+            fillCenter: false,
             isExpandable: false,
             keepAliveId: "fan",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
-                    Image(systemName: actualIsRunning ? "fanblades.fill" : "fanblades.slash")
+                    Image(systemName: "fanblades.fill")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsRunning ? .primary : .gray)
+                        .foregroundColor(actualIsRunning ? .primary : .secondary)
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(actualIsRunning ? "Running" : "Stopped")
-                            .font(.system(size: 12, weight: .regular))
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
                         
                         Text("Fan")
@@ -45,6 +48,5 @@ struct FanOverlayView: View {
                 EmptyView()
             }
         )
-                .applyTheme(mediaKeyManager.overlayTheme)
     }
 }

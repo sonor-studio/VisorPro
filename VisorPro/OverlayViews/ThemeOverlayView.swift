@@ -3,7 +3,7 @@ import SwiftUI
 struct ThemeOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @Environment(\.colorScheme) var colorScheme
-    @State private var isHovering: Bool = false
+    @AppStorage("themeAllowInteractivity") private var themeAllowInteractivity: Bool = true
     
     var isPreview: Bool = false
     var previewIsDark: Bool = false
@@ -17,21 +17,21 @@ struct ThemeOverlayView: View {
             if previewIsDark {
                 titleText = "Dark Theme"
                 iconName = "moon.fill"
-                iconColor = .indigo
+                iconColor = Color(red: 0.2, green: 0.25, blue: 0.65)
             } else {
                 titleText = "Light Theme"
                 iconName = "sun.max.fill"
-                iconColor = .orange
+                iconColor = Color(red: 1.0, green: 0.72, blue: 0.0)
             }
         } else {
             if mediaKeyManager.isDarkMode {
                 titleText = "Dark Mode"
                 iconName = "moon.fill"
-                iconColor = .indigo
+                iconColor = Color(red: 0.2, green: 0.25, blue: 0.65)
             } else {
                 titleText = "Light Mode"
                 iconName = "sun.max.fill"
-                iconColor = .orange
+                iconColor = Color(red: 1.0, green: 0.72, blue: 0.0)
             }
         }
         let trackWidth: CGFloat = 230 - 8
@@ -41,17 +41,20 @@ struct ThemeOverlayView: View {
             isPreview: isPreview,
             isExpanded: .constant(false),
             showProgressBar: true,
-            progress: 1.0,
-            customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering || mediaKeyManager.globalHoveredTypes.contains("theme"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
-                    .id(mediaKeyManager.themeEventId)
-            ),
+            hasTimeoutProgress: true,
+            timeoutEventId: mediaKeyManager.themeEventId,
             barColor: iconColor,
-            fillCenter: false, // uses strokeBorder in original
+            fillCenter: false, // It was using strokeBorder
             isMuted: false,
-            listHeight: 0,
             customWidth: 230,
             supportDragGesture: false,
+            onSimpleTap: {
+                if !isPreview {
+                    toggleSystemTheme()
+                }
+            },
+            isExpandable: false,
+            keepAliveId: "theme",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)
@@ -75,19 +78,6 @@ struct ThemeOverlayView: View {
             }
         )
         .frame(width: 230, height: 56, alignment: .top)
-
-        .onHoverExact { hovering in
-            if !isPreview {
-                self.isHovering = hovering
-                mediaKeyManager.keepAlive(for: "theme", isHovering: hovering)
-            }
-        }
-                .applyTheme(mediaKeyManager.overlayTheme)
-        .simultaneousGesture(TapGesture().onEnded {
-            if !isPreview {
-                toggleSystemTheme()
-            }
-        })
     }
     
     private func toggleSystemTheme() {
@@ -103,7 +93,6 @@ struct ThemeOverlayView: View {
                 var error: NSDictionary?
                 script.executeAndReturnError(&error)
                 if let error = error {
-                    print("Failed to toggle theme: \(error)")
                 }
             }
         }

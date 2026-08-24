@@ -4,18 +4,21 @@ struct PreviewBackgroundView: View {
     @AppStorage("previewBackgroundStyle") private var previewBackgroundStyle = "gradient"
     @State private var wallpaperImage: NSImage?
     @State private var wallpaperColor: NSColor?
+    @Environment(\.colorScheme) var colorScheme
+    
+    var minHeight: CGFloat = 180
     
     var body: some View {
         Group {
             if previewBackgroundStyle.starts(with: "builtin:") {
                 let path = String(previewBackgroundStyle.dropFirst(8))
-                Color.clear.frame(minHeight: 180).overlay(
+                Color.clear.frame(minHeight: minHeight).overlay(
                     AsyncWallpaperImage(path: path)
                 ).clipped().cornerRadius(16)
             } else if previewBackgroundStyle == "wallpaper" {
                 if let img = wallpaperImage {
                     Color.clear
-                        .frame(minHeight: 180)
+                        .frame(minHeight: minHeight)
                         .overlay(
                             Image(nsImage: img)
                                 .resizable()
@@ -25,19 +28,29 @@ struct PreviewBackgroundView: View {
                         .cornerRadius(16)
                 } else if let color = wallpaperColor {
                     Color(nsColor: color)
-                        .frame(minHeight: 180)
+                        .frame(minHeight: minHeight)
                         .cornerRadius(16)
                 } else {
                     Color.black
-                        .frame(minHeight: 180)
+                        .frame(minHeight: minHeight)
                         .cornerRadius(16)
                 }
             } else {
                 Color.clear
-                    .glassEffect(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                    .frame(minHeight: 180)
+                    .glassEffect(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .frame(minHeight: minHeight)
             }
         }
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    (previewBackgroundStyle == "gradient" && colorScheme == .dark) 
+                        ? Color.white.opacity(0.04) 
+                        : Color.white.opacity(0.15), 
+                    lineWidth: 1
+                )
+        )
         .onAppear {
             Task { @MainActor in
                 // Sprawdzenie cache
@@ -57,13 +70,13 @@ struct PreviewBackgroundView: View {
                         if let image = await WallpaperHelper.generateImageFromVideoWallpaper(videoURL: wallpaperURL, targetSize: 800) {
                             loadedImage = image
                         }
-                    } else if let image = WallpaperHelper.loadThumbnail(from: wallpaperURL, targetSize: 800) {
+                    } else if let image = await WallpaperHelper.loadThumbnail(from: wallpaperURL, targetSize: 800) {
                         loadedImage = image
                     }
                 }
                 
                 if loadedImage == nil, let screen = NSScreen.screens.first, let url = NSWorkspace.shared.desktopImageURL(for: screen) {
-                    if let image = WallpaperHelper.loadThumbnail(from: url, targetSize: 800) {
+                    if let image = await WallpaperHelper.loadThumbnail(from: url, targetSize: 800) {
                         loadedImage = image
                     }
                 }

@@ -3,6 +3,7 @@ import SwiftUI
 struct DisplaySettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("displayOverlayPosition") private var displayOverlayPosition: String = "bottom"
+    @AppStorage("displayAllowExpansion") private var displayAllowExpansion: Bool = true
     
     var body: some View {
         ScrollView {
@@ -31,9 +32,9 @@ struct DisplaySettingsView: View {
                             PreviewBackgroundView()
                             
                             HStack(spacing: -10) {
-                                DisplayOverlayView(isPreview: true, previewIsConnected: true)
+                                DisplayOverlayView(isPreview: true, previewIsConnected: true).applyTheme(mediaKeyManager.overlayTheme)
                                     .scaleEffect(0.85)
-                                DisplayOverlayView(isPreview: true, previewIsConnected: false)
+                                DisplayOverlayView(isPreview: true, previewIsConnected: false).applyTheme(mediaKeyManager.overlayTheme)
                                     .scaleEffect(0.85)
                             }
                         }
@@ -43,10 +44,10 @@ struct DisplaySettingsView: View {
                     
                     Divider()
                     
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Overlay Triggers")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
+                            .font(.headline)
+                            .foregroundColor(.secondary)
                             .padding(.bottom, 4)
                             .padding(.leading, 4)
                         
@@ -70,6 +71,26 @@ struct DisplaySettingsView: View {
                             }
                             if mediaKeyManager.notifyOnDisplayDisconnect {
                                 SoundPickerRow(selectedSound: $mediaKeyManager.soundOnDisplayDisconnect)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                        
+                        Text("Behavior")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .blue, title: "Allow Expansion", subtitle: "Allow overlay to expand and show display details") {
+                                Toggle("", isOn: $displayAllowExpansion).labelsHidden()
                             }
                         }
                         .toggleStyle(.switch)

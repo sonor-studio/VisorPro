@@ -179,18 +179,22 @@ class AVObserver {
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.cameraDebounceTimer?.invalidate()
             
             if isAnyRunning {
-                // If it's running, update immediately
+                self.cameraDebounceTimer?.invalidate()
+                self.cameraDebounceTimer = nil
+                
                 if self.manager?.isCameraActive != true {
                     self.manager?.triggerCameraIndicator(isActive: true, deviceName: activeDeviceName)
                 }
             } else {
-                // If it's NOT running, debounce by 1.5 seconds to ignore brief dropouts during macOS Reaction injection
-                self.cameraDebounceTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { _ in
-                    if self.manager?.isCameraActive == true {
-                        self.manager?.triggerCameraIndicator(isActive: false, deviceName: "")
+                if self.cameraDebounceTimer == nil {
+                    self.cameraDebounceTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+                        guard let self = self else { return }
+                        if self.manager?.isCameraActive == true {
+                            self.manager?.triggerCameraIndicator(isActive: false, deviceName: "")
+                        }
+                        self.cameraDebounceTimer = nil
                     }
                 }
             }
@@ -256,3 +260,193 @@ class AVObserver {
         return devicesList
     }
 }
+
+class CameraClientObserver {
+    weak var manager: MediaKeyManager?
+    
+    init(manager: MediaKeyManager) {
+        self.manager = manager
+    }
+    
+    func fetchActiveCameraClient() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let process = Process()
+            process.launchPath = "/usr/bin/log"
+            process.arguments = ["show", "--predicate", "subsystem == 'com.apple.cmio' AND eventMessage CONTAINS 'CMIODeviceStartStream'", "--last", "1m", "--style", "json"]
+            
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            
+            do {
+                try process.run()
+                
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                let jsonArray = try? JSONSerialization.jsonObject(with: data, options: []) as? [[String: Any]]
+                if jsonArray == nil || jsonArray?.isEmpty == true {
+                    DispatchQueue.main.async {
+                        self?.manager?.finalizeCameraIndicator(appName: "")
+                    }
+                }
+                if let jsonArray = jsonArray {
+                    if let lastEntry = jsonArray.last,
+                       let pid = lastEntry["processID"] as? Int,
+                       let path = lastEntry["processImagePath"] as? String {
+                        
+                        var appName = ""
+                        var iconPath = path
+                        
+                        if let range = path.range(of: ".app/") {
+                            let appBundlePath = String(path[..<range.lowerBound]) + ".app"
+                            appName = FileManager.default.displayName(atPath: appBundlePath).replacingOccurrences(of: ".app", with: "")
+                            iconPath = appBundlePath
+                        }
+                        
+                        if appName.isEmpty {
+                            appName = NSRunningApplication(processIdentifier: Int32(pid))?.localizedName ?? (path as NSString).lastPathComponent.replacingOccurrences(of: ".app", with: "")
+                        }
+                        
+                        let lowerName = appName.lowercased()
+                        if lowerName.contains("webkit") || lowerName.contains("safari") {
+                            appName = "Safari"
+                            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+                                iconPath = url.path
+                            }
+                        } else if lowerName.contains("avconferenced") {
+                            appName = "FaceTime"
+                            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.FaceTime") {
+                                iconPath = url.path
+                            }
+                        } else if lowerName.contains("apple account") || lowerName.starts(with: "sys") {
+                            appName = "System Settings"
+                            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.systempreferences") {
+                                iconPath = url.path
+                            }
+                        } else if appName.starts(with: "com.apple.") {
+                            appName = appName.replacingOccurrences(of: "com.apple.", with: "")
+                            if appName.contains(".") {
+                                appName = appName.components(separatedBy: ".").last ?? appName
+                            }
+                        } else if appName.contains(".") && !appName.contains(" ") {
+                            appName = appName.components(separatedBy: ".").last ?? appName
+                        }
+                        
+                        DispatchQueue.main.async {
+                            if let manager = self?.manager {
+                                if !appName.isEmpty {
+                                    manager.activeCameraClientName = appName
+                                    manager.activeCameraClientBundleID = iconPath
+                                    manager.activeCameraClientPID = Int32(pid)
+                                }
+                                manager.finalizeCameraIndicator(appName: appName)
+                            }
+                        }
+                    }
+                }
+            } catch {
+            }
+        }
+    }
+    
+    func startObserving() {
+        // precyzyjnego `log show` dla CoreMediaIO w fetchActiveCameraClient(),
+    }
+    
+    func stopObserving() {
+    }
+    
+    deinit {
+    }
+    
+    func fetchActiveMicClient() {
+        let task = Process()
+        task.launchPath = "/usr/bin/log"
+        // coreaudio logs use "Started  Input" (with two spaces)
+        task.arguments = [
+            "show",
+            "--last", "1m",
+            "--predicate", "subsystem == 'com.apple.coreaudio' AND eventMessage CONTAINS 'Started  Input'",
+            "--style", "json"
+        ]
+        
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        
+        do {
+            try task.run()
+            
+            DispatchQueue.global(qos: .background).async { [weak self] in
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                task.waitUntilExit()
+                
+                guard let self = self, let output = String(data: data, encoding: .utf8) else { return }
+                
+                let logs = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+                if logs == nil || logs?.isEmpty == true {
+                    DispatchQueue.main.async {
+                        self.manager?.finalizeMicIndicator(appName: "")
+                    }
+                }
+                
+                if let logs = logs {
+                    if let lastLog = logs.last {
+                        var appName = ""
+                        var iconPath = ""
+                        var pid: Int? = nil
+                        
+                        if let path = lastLog["processImagePath"] as? String {
+                            iconPath = path
+                            let url = URL(fileURLWithPath: path)
+                            
+                            if let appRange = path.range(of: ".app/") {
+                                let bundlePath = String(path[..<appRange.upperBound]).dropLast()
+                                let bundleURL = URL(fileURLWithPath: String(bundlePath))
+                                appName = bundleURL.deletingPathExtension().lastPathComponent
+                                iconPath = String(bundlePath)
+                            } else {
+                                appName = url.lastPathComponent
+                            }
+                            
+                            let lowerName = appName.lowercased()
+                            if lowerName.contains("webkit") || lowerName.contains("safari") {
+                                appName = "Safari"
+                                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") { iconPath = url.path }
+                            } else if lowerName.contains("avconferenced") {
+                                appName = "FaceTime"
+                                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.FaceTime") { iconPath = url.path }
+                            } else if lowerName.contains("corespeechd") || lowerName.contains("siri") {
+                                appName = "Siri"
+                                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Siri") { iconPath = url.path }
+                            } else if lowerName.contains("apple account") || lowerName.starts(with: "sys") {
+                                appName = "System Settings"
+                                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.systempreferences") { iconPath = url.path }
+                            } else if appName.starts(with: "com.apple.") {
+                                appName = appName.replacingOccurrences(of: "com.apple.", with: "")
+                                if appName.contains(".") {
+                                    appName = appName.components(separatedBy: ".").last ?? appName
+                                }
+                            } else if appName.contains(".") && !appName.contains(" ") {
+                                appName = appName.components(separatedBy: ".").last ?? appName
+                            }
+                        }
+                        
+                        if let processID = lastLog["processID"] as? Int32 {
+                            pid = Int(processID)
+                        } else if let processID = lastLog["processID"] as? Int {
+                            pid = processID
+                        }
+                        
+                        DispatchQueue.main.async {
+                            if !appName.isEmpty {
+                                self.manager?.activeMicClientName = appName
+                                self.manager?.activeMicClientBundleID = iconPath
+                                self.manager?.activeMicClientPID = pid
+                            }
+                            self.manager?.finalizeMicIndicator(appName: appName)
+                        }
+                    }
+                }
+            }
+        } catch {
+        }
+    }}

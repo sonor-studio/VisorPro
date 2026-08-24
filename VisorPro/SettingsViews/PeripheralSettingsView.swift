@@ -3,6 +3,7 @@ import SwiftUI
 struct PeripheralSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("peripheralOverlayPosition") private var peripheralOverlayPosition: String = "top"
+    @AppStorage("peripheralAllowExpansion") private var peripheralAllowExpansion: Bool = true
     @State private var isHistoryExpanded: Bool = false
     
     var body: some View {
@@ -32,9 +33,9 @@ struct PeripheralSettingsView: View {
                             PreviewBackgroundView()
                             
                             HStack(spacing: -10) {
-                                PeripheralOverlayView(isPreview: true, previewIsConnected: true)
+                                PeripheralOverlayView(isPreview: true, previewIsConnected: true).applyTheme(mediaKeyManager.overlayTheme)
                                     .scaleEffect(0.85)
-                                PeripheralOverlayView(isPreview: true, previewIsConnected: false)
+                                PeripheralOverlayView(isPreview: true, previewIsConnected: false).applyTheme(mediaKeyManager.overlayTheme)
                                     .scaleEffect(0.85)
                             }
                         }
@@ -44,10 +45,10 @@ struct PeripheralSettingsView: View {
                     
                     Divider()
                     
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Overlay Triggers")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
+                            .font(.headline)
+                            .foregroundColor(.secondary)
                             .padding(.bottom, 4)
                             .padding(.leading, 4)
                         
@@ -92,18 +93,35 @@ struct PeripheralSettingsView: View {
                                         title: device,
                                         subtitle: mediaKeyManager.peripheralBlocklist.contains(device) ? "Notifications disabled" : "Notifications enabled"
                                     ) {
-                                        Toggle("", isOn: Binding(
-                                            get: { !mediaKeyManager.peripheralBlocklist.contains(device) },
-                                            set: { isOn in
-                                                if isOn {
-                                                    mediaKeyManager.peripheralBlocklist.removeAll { $0 == device }
-                                                } else {
-                                                    if !mediaKeyManager.peripheralBlocklist.contains(device) {
-                                                        mediaKeyManager.peripheralBlocklist.append(device)
+                                        HStack(spacing: 12) {
+                                            Toggle("", isOn: Binding(
+                                                get: { !mediaKeyManager.peripheralBlocklist.contains(device) },
+                                                set: { isOn in
+                                                    if isOn {
+                                                        mediaKeyManager.peripheralBlocklist.removeAll { $0 == device }
+                                                    } else {
+                                                        if !mediaKeyManager.peripheralBlocklist.contains(device) {
+                                                            mediaKeyManager.peripheralBlocklist.append(device)
+                                                        }
                                                     }
                                                 }
+                                            )).labelsHidden()
+                                            
+                                            Button(action: {
+                                                withAnimation {
+                                                    mediaKeyManager.peripheralHistory.removeAll { $0 == device }
+                                                    mediaKeyManager.peripheralBlocklist.removeAll { $0 == device }
+                                                }
+                                            }) {
+                                                Image(systemName: "trash")
+                                                    .foregroundColor(.red.opacity(0.7))
+                                                    .font(.system(size: 14))
                                             }
-                                        )).labelsHidden()
+                                            .buttonStyle(.plain)
+                                            .onHover { hovering in
+                                                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                                            }
+                                        }
                                     }
                                     if device != displayedHistory.last || (mediaKeyManager.peripheralHistory.count > 3) {
                                         Divider().padding(.leading, 48)
@@ -132,6 +150,26 @@ struct PeripheralSettingsView: View {
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                         }
+                        
+                        Text("Behavior")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .teal, title: "Allow Expansion", subtitle: "Allow overlay to expand and show peripheral details") {
+                                Toggle("", isOn: $peripheralAllowExpansion).labelsHidden()
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
                         
                         Text("Overlay Position")
                             .font(.headline)

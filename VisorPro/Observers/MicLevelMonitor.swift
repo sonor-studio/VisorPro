@@ -74,7 +74,6 @@ class MicLevelMonitor: ObservableObject {
         } else {
             AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
                 guard granted else {
-                    print("[MicLevelMonitor] Mic access denied")
                     DispatchQueue.main.async { self?.isMonitoring = false }
                     return
                 }
@@ -118,7 +117,6 @@ class MicLevelMonitor: ObservableObject {
             // If the hardware format is still completely broken (e.g., Bluetooth initializing), DO NOT INSTALL THE TAP!
             // Forcing a tap with 0 sample rate or 0 channels, or a mismatched hardcoded format, will crash the app with NSException.
             guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
-                print("[MicLevelMonitor] Invalid hardware format, aborting tap installation to prevent crash.")
                 self.audioEngine = nil
                 return
             }
@@ -139,7 +137,6 @@ class MicLevelMonitor: ObservableObject {
                     self.audioEngine = nil
                 }
             } catch {
-                print("[MicLevelMonitor] Error starting audio engine: \(error)")
                 // Fast retry every 100ms up to 5 times (helps instantly catch Bluetooth device readiness)
                 if retryCount < 6 {
                     engine.inputNode.removeTap(onBus: 0)

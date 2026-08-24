@@ -6,6 +6,7 @@ import ServiceManagement
 struct SettingsView: View {
     enum SidebarItem: Hashable {
         case general
+        case recentChanges
         case volume
         case brightness
         case keyboardBrightness
@@ -18,7 +19,6 @@ struct SettingsView: View {
         case theme
         case peripheral
         case display
-        case settings
         case feedback
         case macSystem
     }
@@ -35,6 +35,20 @@ struct SettingsView: View {
                             Text("General")
                         } icon: {
                             SidebarIcon(systemName: "gearshape.fill", color: .gray)
+                        }
+                    }
+                    NavigationLink(value: SidebarItem.recentChanges) {
+                        Label {
+                            Text("Changelog")
+                        } icon: {
+                            SidebarIcon(systemName: "clock.arrow.circlepath", color: .indigo)
+                        }
+                    }
+                    NavigationLink(value: SidebarItem.feedback) {
+                        Label {
+                            Text("Feedback")
+                        } icon: {
+                            SidebarIcon(systemName: "envelope.fill", color: .blue)
                         }
                     }
                 }
@@ -132,23 +146,6 @@ struct SettingsView: View {
                         }
                     }
                 }
-                
-                Section("System") {
-                    NavigationLink(value: SidebarItem.settings) {
-                        Label {
-                            Text("Settings")
-                        } icon: {
-                            SidebarIcon(systemName: "slider.horizontal.3", color: .gray)
-                        }
-                    }
-                    NavigationLink(value: SidebarItem.feedback) {
-                        Label {
-                            Text("Feedback")
-                        } icon: {
-                            SidebarIcon(systemName: "envelope.fill", color: .blue)
-                        }
-                    }
-                }
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 200, max: 250)
             .hideSidebarToggle()
@@ -157,6 +154,10 @@ struct SettingsView: View {
                 switch selection {
                 case .general:
                     GeneralSettingsView()
+                case .recentChanges:
+                    Text("Ostatnie zmiany (puste)")
+                        .font(.title)
+                        .foregroundColor(.secondary)
                 case .volume:
                     VolumeSettingsView()
                 case .brightness:
@@ -181,8 +182,6 @@ struct SettingsView: View {
                     PeripheralSettingsView()
                 case .display:
                     DisplaySettingsView()
-                case .settings:
-                    AppConfigurationView()
                 case .feedback:
                     FeedbackSettingsView()
                 case .macSystem:
@@ -194,15 +193,14 @@ struct SettingsView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Zapewniamy całkowicie przeźroczyste tło detali, by materiał tła okna był widoczny
             .background(Color.clear)
         }
-        .frame(minWidth: 700, minHeight: 500)
+        .frame(minWidth: 700, maxWidth: .infinity, minHeight: 500, maxHeight: .infinity)
         .background(WindowAccessor(window: $window))
         .background(
             ZStack {
                 VisualEffectView(material: .popover, blendingMode: .behindWindow)
-                Color(NSColor.windowBackgroundColor).opacity(0.25) // Pośrednia przeźroczystość
+                Color(NSColor.windowBackgroundColor).opacity(0.25)
             }
             .ignoresSafeArea()
         )
@@ -211,17 +209,15 @@ struct SettingsView: View {
                 w.isOpaque = false
                 w.backgroundColor = .clear
                 w.styleMask.insert(.miniaturizable)
+                w.styleMask.insert(.resizable)
+                w.minSize = NSSize(width: 700, height: 500)
                 
-                // Przywracamy domyślną zakładkę, jeśli została wyczyszczona
                 if selection == .none {
                     selection = .general
                 }
                 
-                // Zmień aplikację na normalną (.regular), aby miała ikonę w Docku
-                // i zachowywała się jak standardowe okno (np. minimalizacja do paska)
                 NSApp.setActivationPolicy(.regular)
                 
-                // Automatycznie wymuś aktywację aplikacji i wyciągnięcie okna na wierzch, gdy tylko się pojawi
                 NSApp.activate(ignoringOtherApps: true)
                 w.makeKeyAndOrderFront(nil)
                 w.level = .normal
@@ -229,12 +225,10 @@ struct SettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             if let openedWindow = notification.object as? NSWindow, openedWindow == window {
-                // Przywracamy domyślną zakładkę po ponownym otwarciu okna
                 if selection == .none {
                     selection = .general
                 }
                 
-                // Zmień aplikację na normalną (.regular), aby Dashboard zachowywał się jak zwykłe okno (ikona w Docku, normalne kolizje)
                 if NSApp.activationPolicy() != .regular {
                     NSApp.setActivationPolicy(.regular)
                     NSApp.activate(ignoringOtherApps: true)
@@ -244,11 +238,8 @@ struct SettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
             if let closedWindow = notification.object as? NSWindow, closedWindow == window {
-                // Przywróć tryb akcesoryjny (bez Docka) po zamknięciu okna
                 NSApp.setActivationPolicy(.accessory)
                 
-                // Wymuś odmontowanie aktywnej zakładki (np. z tapetami), co zwalnia pamięć,
-                // ponieważ okno "Settings" w SwiftUI domyślnie tylko się chowa, a nie niszczy
                 selection = .none
                 WallpaperHelper.clearCache()
             }

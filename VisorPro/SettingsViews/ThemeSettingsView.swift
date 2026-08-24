@@ -3,6 +3,7 @@ import SwiftUI
 struct ThemeSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("themeOverlayPosition") private var themeOverlayPosition: String = "top"
+    @AppStorage("themeAllowInteractivity") private var themeAllowInteractivity: Bool = true
     
     var body: some View {
         ScrollView {
@@ -31,9 +32,9 @@ struct ThemeSettingsView: View {
                             PreviewBackgroundView()
                             
                             HStack(spacing: -10) {
-                                ThemeOverlayView(isPreview: true, previewIsDark: false)
+                                ThemeOverlayView(isPreview: true, previewIsDark: false).applyTheme(mediaKeyManager.overlayTheme)
                                     .scaleEffect(0.85)
-                                ThemeOverlayView(isPreview: true, previewIsDark: true)
+                                ThemeOverlayView(isPreview: true, previewIsDark: true).applyTheme(mediaKeyManager.overlayTheme)
                                     .scaleEffect(0.85)
                             }
                         }
@@ -43,10 +44,10 @@ struct ThemeSettingsView: View {
                     
                     Divider()
                     
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Overlay Triggers")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
+                            .font(.headline)
+                            .foregroundColor(.secondary)
                             .padding(.bottom, 4)
                             .padding(.leading, 4)
                         
@@ -64,6 +65,26 @@ struct ThemeSettingsView: View {
                         if mediaKeyManager.notifyOnThemeLight {
                             SoundPickerRow(selectedSound: $mediaKeyManager.soundOnThemeLight)
                         }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                        
+                        Text("Behavior")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "hand.tap.fill", iconColor: .purple, title: "Allow Interactivity", subtitle: "Allow tapping to toggle system theme") {
+                                Toggle("", isOn: $themeAllowInteractivity).labelsHidden()
+                            }
                         }
                         .toggleStyle(.switch)
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))

@@ -3,6 +3,7 @@ import SwiftUI
 struct UniversalBatteryOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("batteryFillCenter") private var batteryFillCenter: Bool = true
+    @AppStorage("batteryAllowExpansion") private var batteryAllowExpansion: Bool = true
     @State private var animatedBatteryProgress: CGFloat = 0.0
     @State private var isExpanded: Bool = false
     @State private var isHovering: Bool = false
@@ -64,11 +65,10 @@ struct UniversalBatteryOverlayView: View {
             barColor: batteryColor,
             fillCenter: batteryFillCenter,
             isMuted: false,
-            listHeight: 108 + (isWarningMode && !mediaKeyManager.topBatteryConsumers.isEmpty ? CGFloat(mediaKeyManager.topBatteryConsumers.count * 20 + 24) : 0),
             customWidth: 260,
             customHeight: isFullyCharged ? 56 : 72,
             supportDragGesture: false,
-            isExpandable: true,
+            isExpandable: batteryAllowExpansion,
             expandUpwards: batPos == "bottom",
             keepAliveId: "battery",
             disableTimeoutMode: true,
@@ -90,7 +90,7 @@ struct UniversalBatteryOverlayView: View {
                                 AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: true)
                             }
                         } else {
-                            Text(isWarningMode ? "Low Battery" : (actualIsPluggedIn ? "Charging" : "Battery"))
+                            Text(isWarningMode ? "Low Battery" : (actualIsPluggedIn ? "Charging" : "Unplugged"))
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
                             AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)
@@ -103,51 +103,51 @@ struct UniversalBatteryOverlayView: View {
             },
             expandedContent: {
                 VStack(spacing: 12) {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(isWarningMode ? "Condition" : "Power")
+                    HStack(spacing: 8) {
+                        VStack(alignment: .center, spacing: 4) {
+                            Text((isWarningMode || !actualIsPluggedIn) ? "Condition" : "Power")
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                            Text(isWarningMode ? mediaKeyManager.batteryCondition : mediaKeyManager.batteryPowerDraw)
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            Text((isWarningMode || !actualIsPluggedIn) ? mediaKeyManager.batteryCondition : mediaKeyManager.batteryPowerDraw)
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.5)
+                                .truncationMode(.tail)
                         }
+                        .frame(maxWidth: .infinity, alignment: .center)
                         
                         Divider()
                             .frame(height: 24)
                         
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .center, spacing: 4) {
                             Text("Capacity")
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.6)
                             Text("\(mediaKeyManager.batteryHealthPercentage)%")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.8)
+                                .truncationMode(.tail)
                         }
+                        .frame(maxWidth: .infinity, alignment: .center)
                         
                         Divider()
                             .frame(height: 24)
                         
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .center, spacing: 4) {
                             Text("Cycles")
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.6)
                             Text("\(mediaKeyManager.batteryCycleCount)")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.8)
+                                .truncationMode(.tail)
                         }
+                        .frame(maxWidth: .infinity, alignment: .center)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
@@ -209,7 +209,7 @@ struct UniversalBatteryOverlayView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 16)
+                    
                 }
             }
         )
@@ -220,7 +220,6 @@ struct UniversalBatteryOverlayView: View {
                 mediaKeyManager.keepAlive(for: "battery", isHovering: hovering || isExpanded)
             }
         }
-                .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             let targetProgress = CGFloat(actualPercentage) / 100.0
             animatedBatteryProgress = isWarningMode ? 1.0 : 0.0

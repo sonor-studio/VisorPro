@@ -3,6 +3,8 @@ import SwiftUI
 struct MediaSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("mediaOverlayPosition") private var mediaOverlayPosition: String = "bottom"
+    @AppStorage("mediaAllowExpansion") private var mediaAllowExpansion: Bool = true
+    @AppStorage("mediaAllowInteractivity") private var mediaAllowInteractivity: Bool = true
     
     var body: some View {
         ScrollView {
@@ -29,7 +31,7 @@ struct MediaSettingsView: View {
                     ZStack {
                         PreviewBackgroundView()
                         
-                        MediaOverlayView(isPreview: true)
+                        MediaOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
                             .scaleEffect(0.85)
                     }
                     .padding(.horizontal)
@@ -38,7 +40,7 @@ struct MediaSettingsView: View {
                 
                 Divider()
                 
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Notification Events")
                         .font(.headline)
                         .foregroundColor(.secondary)
@@ -85,7 +87,37 @@ struct MediaSettingsView: View {
                 
                 Divider()
                 
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Behavior")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 4)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .red, title: "Allow Expansion", subtitle: "Allow overlay to expand and show playback controls") {
+                            Toggle("", isOn: $mediaAllowExpansion).labelsHidden()
+                        }
+                        
+                        Divider().padding(.leading, 40)
+                        
+                        CustomSettingsRow(icon: "hand.tap.fill", iconColor: .red, title: "Allow Interactivity", subtitle: "Allow dragging to seek and tapping to play/pause") {
+                            Toggle("", isOn: $mediaAllowInteractivity).labelsHidden()
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
+                
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Overlay Position")
                         .font(.headline)
                         .foregroundColor(.secondary)

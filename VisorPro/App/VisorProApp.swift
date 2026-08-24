@@ -33,19 +33,18 @@ struct VisorProApp: App {
             SettingsView()
                 .environmentObject(mediaKeyManager)
         }
+        .windowResizability(.contentSize)
         
         MenuBarExtra("VisorPro", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
             if #available(macOS 14.0, *) {
                 SettingsLink {
                     Text("Dashboard...")
                 }
-                .keyboardShortcut(",", modifiers: .command)
             } else {
                 Button("Dashboard...") {
                     NSApp.activate(ignoringOtherApps: true)
                     NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
                 }
-                .keyboardShortcut(",", modifiers: .command)
             }
             
             Divider()
@@ -53,7 +52,6 @@ struct VisorProApp: App {
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
-            .keyboardShortcut("q", modifiers: .command)
         }
     }
 }
@@ -71,10 +69,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(withTitle: "Settings...", action: Selector(("showSettingsWindow:")), keyEquivalent: ",")
         NSApp.mainMenu = mainMenu
         
-        // Inicjalizacja menedżerów
         let _ = MediaKeyManager.shared
         let _ = VisorProWindowManager.shared
         let _ = FanObserver.shared
+        let _ = RamObserver.shared
         
         MediaKeyManager.shared.start()
         PowerChimeManager.disableChargingSound()
@@ -88,7 +86,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         
-        // Fallback: jeśli system nie zdołał otworzyć okna ustawień (bo brak aktywnej sceny), otwieramy je ręcznie
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             let hasVisibleSettings = NSApp.windows.contains { $0.isVisible && ($0.title == "General" || $0.title == "Settings" || $0.title == "VisorPro") }
             if !hasVisibleSettings {
@@ -99,6 +96,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 settingsWindow.title = "Settings"
                 settingsWindow.center()
                 settingsWindow.contentView = NSHostingView(rootView: SettingsView().environmentObject(MediaKeyManager.shared))
+                settingsWindow.minSize = NSSize(width: 700, height: 500)
                 settingsWindow.makeKeyAndOrderFront(nil)
             }
         }

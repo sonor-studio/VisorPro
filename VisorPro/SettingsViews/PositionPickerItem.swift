@@ -20,7 +20,6 @@ struct PositionPickerItem: View {
                         .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.2)))
                         .frame(width: 80, height: 50)
                     
-                    // Ekranik z pillsem (nakładką)
                     Capsule()
                         .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.5))
                         .frame(width: 24, height: 6)

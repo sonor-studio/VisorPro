@@ -34,7 +34,6 @@ class AudioRouteObserver {
     init(manager: MediaKeyManager) {
         self.manager = manager
         startObserving()
-        // Inicjalizujemy dla początkowego urządzenia
         updateCurrentDeviceAndListen()
     }
     
@@ -71,11 +70,10 @@ class AudioRouteObserver {
             }
             
             if status == noErr, let name = deviceName as String? {
-                manager.lastAction = "Wyjście audio: \(name)"
+                manager.lastAction = "Audio output: \(name)"
             }
         }
         
-        // Aktualizuj głośność po zmianie urządzenia, aby nowo podłączone słuchawki nie resetowały głośności od zera
         handleVolumeChanged()
     }
     

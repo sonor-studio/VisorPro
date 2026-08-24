@@ -4,6 +4,7 @@ struct DisplayOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @State private var isHovering: Bool = false
     @State private var isExpanded: Bool = false
+    @AppStorage("displayAllowExpansion") private var displayAllowExpansion: Bool = true
     
     var isPreview: Bool = false
     var previewIsConnected: Bool = false
@@ -52,7 +53,7 @@ struct DisplayOverlayView: View {
     }
     
     var body: some View {
-        let actionColor: Color = isConnected ? .blue : .secondary
+        let actionColor: Color = isConnected ? Color(red: 0.0, green: 0.8, blue: 0.7) : .secondary
         let pos = UserDefaults.standard.string(forKey: "displayOverlayPosition") ?? "bottom"
         
         return UniversalOverlayView(
@@ -64,10 +65,9 @@ struct DisplayOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: false,
-            listHeight: isConnected ? (notification?.details?["resolution"] != nil ? 110 : 80) : 44,
             customWidth: 260,
             supportDragGesture: false,
-            isExpandable: true,
+            isExpandable: displayAllowExpansion,
             expandUpwards: pos == "bottom",
             keepAliveId: "display_\(notification?.id ?? deviceName)",
             baseContent: {
@@ -191,7 +191,6 @@ struct DisplayOverlayView: View {
                 isExpanded = false
             }
         }
-        .applyTheme(mediaKeyManager.overlayTheme)
     }
     
     private func manualToggle() {

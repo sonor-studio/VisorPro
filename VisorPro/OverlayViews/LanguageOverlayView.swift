@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LanguageOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @AppStorage("languageAllowExpansion") private var languageAllowExpansion: Bool = true
     @State private var isExpanded = false
     @State private var availableLanguages: [KeyboardLayout] = []
     
@@ -19,7 +20,6 @@ struct LanguageOverlayView: View {
         
         let maxListHeight: CGFloat = 160
         let calculatedListHeight = CGFloat(availableLanguages.count) * 36 + 10
-        let listHeight = min(maxListHeight, calculatedListHeight)
         let langPos = UserDefaults.standard.string(forKey: "languageOverlayPosition") ?? "bottom"
         
         return UniversalOverlayView(
@@ -28,9 +28,8 @@ struct LanguageOverlayView: View {
             showProgressBar: true,
             hasTimeoutProgress: true,
             timeoutEventId: mediaKeyManager.languageEventId,
-            barColor: .orange,
+            barColor: .purple,
             fillCenter: false,
-            listHeight: listHeight,
             customWidth: 260,
             customHeight: 56,
             supportDragGesture: false,
@@ -39,7 +38,7 @@ struct LanguageOverlayView: View {
                     availableLanguages = mediaKeyManager.getAvailableLanguages()
                 }
             },
-            isExpandable: true,
+            isExpandable: languageAllowExpansion,
             expandUpwards: langPos == "bottom",
             keepAliveId: "language",
             baseContent: {
@@ -54,11 +53,6 @@ struct LanguageOverlayView: View {
                         .foregroundColor(.primary)
                     
                     Spacer()
-                    
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
                 .padding(.horizontal, 16)
             },
@@ -82,13 +76,12 @@ struct LanguageOverlayView: View {
                         }
                     }
                     .padding(.top, 2)
-                    .padding(.bottom, 8)
+                    
                     .padding(.horizontal, 8)
                 }
             }
         )
 
-                .applyTheme(mediaKeyManager.overlayTheme)
     }
 }
 
@@ -109,7 +102,7 @@ struct LanguageRowView: View {
                 if layout.isSelected || (isPreview && layout.name == "Polski") {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.purple)
                 }
             }
             .padding(.vertical, 8)

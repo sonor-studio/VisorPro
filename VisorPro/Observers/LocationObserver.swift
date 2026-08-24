@@ -34,7 +34,6 @@ class LocationObserver {
                         if !isSystem, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
                             let path = url.path
                             
-                            // Rozpoznajemy usługi systemowe
                             if path.hasPrefix("/System/Library/") || 
                                path.hasPrefix("/usr/") || 
                                path.contains("CoreServices") || 
@@ -66,7 +65,6 @@ class LocationObserver {
             let data = fileHandle.availableData
             guard data.count > 0, let output = String(data: data, encoding: .utf8) else { return }
             
-            // Szukamy specyficznych fraz, które locationd loguje przy faktycznym udostępnianiu lokalizacji
             if output.localizedCaseInsensitiveContains("authorized for location") || 
                output.localizedCaseInsensitiveContains("sending location to client") ||
                (output.localizedCaseInsensitiveContains("client") && output.localizedCaseInsensitiveContains("starting now")) {
@@ -100,7 +98,6 @@ class LocationObserver {
         do {
             try process?.run()
         } catch {
-            print("Nie udało się uruchomić log stream dla lokalizacji: \(error)")
         }
     }
     

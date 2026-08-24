@@ -5,6 +5,7 @@ struct TimeoutProgressBar: View {
     let isHovering: Bool
     let initialDuration: Double
     let hoverOutDuration: Double
+    var eventId: AnyHashable? = nil
     
     @State private var animatedProgress: CGFloat = 1.0
     @State private var currentHoveringState: Bool = false
@@ -19,9 +20,33 @@ struct TimeoutProgressBar: View {
                     animatedProgress = hovering ? 1.0 : 0.0
                 }
             }
+            .onChange(of: eventId) { _, _ in
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    animatedProgress = 1.0
+                }
+                
+                if !currentHoveringState {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        if !currentHoveringState {
+                            let adjustedDuration = max(0.1, initialDuration - 0.2)
+                            withAnimation(.linear(duration: adjustedDuration)) {
+                                animatedProgress = 0.0
+                            }
+                        }
+                    }
+                }
+            }
             .onAppear {
                 currentHoveringState = isHovering
-                animatedProgress = 1.0
+                
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    animatedProgress = 1.0
+                }
+                
                 if !isHovering {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         if !currentHoveringState {

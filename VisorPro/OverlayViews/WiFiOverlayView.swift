@@ -70,6 +70,7 @@ struct StatRow: View {
 
 struct WiFiOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @AppStorage("wifiAllowExpansion") private var wifiAllowExpansion: Bool = true
     @State private var isExpanded: Bool = false
     @State private var refreshTimer: Timer?
     var isPreview: Bool = false
@@ -101,9 +102,7 @@ struct WiFiOverlayView: View {
     }
     
     var body: some View {
-        let actionColor: Color = actualIsConnected ? .cyan : .secondary
         
-        let listHeight: CGFloat = actualIsConnected ? 160 : 70
         let iconName = actualIsConnected ? (actualIsHotspot ? "personalhotspot" : "wifi") : "wifi.slash"
         let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
         
@@ -116,7 +115,6 @@ struct WiFiOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: false,
-            listHeight: listHeight,
             customWidth: 260,
             customHeight: 56,
             supportDragGesture: false,
@@ -127,7 +125,7 @@ struct WiFiOverlayView: View {
                     }
                 }
             },
-            isExpandable: true,
+            isExpandable: wifiAllowExpansion,
             expandUpwards: wifiPos == "bottom",
             keepAliveId: "wifi",
             baseContent: {
@@ -188,7 +186,7 @@ struct WiFiOverlayView: View {
                                 .buttonStyle(.plain)
                             }
                             .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
+                            
                             .padding(.top, 4)
                         } else {
                             HStack(spacing: 8) {
@@ -214,7 +212,7 @@ struct WiFiOverlayView: View {
                                 .buttonStyle(.plain)
                             }
                             .padding(.horizontal, 16)
-                            .padding(.bottom, 12)
+                            
                             .padding(.top, 4)
                         }
                     }
@@ -222,7 +220,6 @@ struct WiFiOverlayView: View {
             }
         )
 
-                .applyTheme(mediaKeyManager.overlayTheme)
         .onChange(of: isExpanded) { _, expanded in
             if expanded {
                 refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in

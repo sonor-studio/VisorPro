@@ -3,6 +3,7 @@ import SwiftUI
 struct KeyboardBrightnessOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("keyboardBrightnessFillCenter") private var keyboardBrightnessFillCenter: Bool = true
+    @AppStorage("keyboardBrightnessAllowInteractivity") private var keyboardBrightnessAllowInteractivity: Bool = true
     @State private var animatedBrightnessProgress: CGFloat = 0.0
     var isPreview: Bool = false
     
@@ -24,7 +25,7 @@ struct KeyboardBrightnessOverlayView: View {
             fillCenter: keyboardBrightnessFillCenter,
             customWidth: 260,
             customHeight: 56,
-            supportDragGesture: true,
+            supportDragGesture: keyboardBrightnessAllowInteractivity,
             onDrag: { v in
                 mediaKeyManager.setKeyboardBrightness(to: Int(v * 100))
             },
@@ -54,7 +55,6 @@ struct KeyboardBrightnessOverlayView: View {
             }
         )
 
-                .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             if isPreview {
                 animatedBrightnessProgress = 0.1

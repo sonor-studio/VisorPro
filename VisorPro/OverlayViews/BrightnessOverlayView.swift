@@ -3,6 +3,7 @@ import SwiftUI
 struct BrightnessOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = true
+    @AppStorage("brightnessAllowInteractivity") private var brightnessAllowInteractivity: Bool = true
     @State private var animatedBrightnessProgress: CGFloat = 0.0
     var isPreview: Bool = false
     
@@ -34,7 +35,7 @@ struct BrightnessOverlayView: View {
             fillCenter: brightnessFillCenter,
             customWidth: 260,
             customHeight: 56,
-            supportDragGesture: true,
+            supportDragGesture: brightnessAllowInteractivity,
             onDrag: { v in
                 mediaKeyManager.setBrightness(to: Int(v * 100))
             },
@@ -64,7 +65,6 @@ struct BrightnessOverlayView: View {
                 EmptyView()
             }
         )
-                .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             if isPreview {
                 animatedBrightnessProgress = 0.1

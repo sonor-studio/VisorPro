@@ -7,48 +7,52 @@ struct WallpaperPickerView: View {
     @State private var desktopColor: NSColor?
     
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: 12) {
-                BackgroundOptionButton(
-                    title: "Puste tło",
-                    isSelected: previewBackgroundStyle == "gradient",
-                    image: nil,
-                    path: nil,
-                    color: nil,
-                    isGradient: false
-                ) {
-                    previewBackgroundStyle = "gradient"
-                }
-                
-                BackgroundOptionButton(
-                    title: "Tapeta Systemowa",
-                    isSelected: previewBackgroundStyle == "wallpaper",
-                    image: desktopImage,
-                    path: nil,
-                    color: desktopColor,
-                    isGradient: false
-                ) {
-                    previewBackgroundStyle = "wallpaper"
-                }
-                
-                ForEach(builtInWallpapers, id: \.self) { path in
-                    let url = URL(fileURLWithPath: path)
-                    let name = url.deletingPathExtension().lastPathComponent
+        GeometryReader { geometry in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 12) {
                     BackgroundOptionButton(
-                        title: name,
-                        isSelected: previewBackgroundStyle == "builtin:\(path)",
+                        title: "No Background",
+                        isSelected: previewBackgroundStyle == "gradient",
                         image: nil,
-                        path: path,
+                        path: nil,
                         color: nil,
                         isGradient: false
                     ) {
-                        previewBackgroundStyle = "builtin:\(path)"
+                        previewBackgroundStyle = "gradient"
+                    }
+                    
+                    BackgroundOptionButton(
+                        title: "System Wallpaper",
+                        isSelected: previewBackgroundStyle == "wallpaper",
+                        image: desktopImage,
+                        path: nil,
+                        color: desktopColor,
+                        isGradient: false
+                    ) {
+                        previewBackgroundStyle = "wallpaper"
+                    }
+                    
+                    ForEach(builtInWallpapers, id: \.self) { path in
+                        let url = URL(fileURLWithPath: path)
+                        let name = url.deletingPathExtension().lastPathComponent
+                        BackgroundOptionButton(
+                            title: name,
+                            isSelected: previewBackgroundStyle == "builtin:\(path)",
+                            image: nil,
+                            path: path,
+                            color: nil,
+                            isGradient: false
+                        ) {
+                            previewBackgroundStyle = "builtin:\(path)"
+                        }
                     }
                 }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 4)
+                .frame(minWidth: geometry.size.width)
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 4)
         }
+        .frame(height: 90)
         .onAppear {
             loadCurrentDesktop()
             loadBuiltInWallpapers()
@@ -79,13 +83,13 @@ struct WallpaperPickerView: View {
                     if let image = await WallpaperHelper.generateImageFromVideoWallpaper(videoURL: wallpaperURL, targetSize: 800) {
                         loadedImage = image
                     }
-                } else if let image = WallpaperHelper.loadThumbnail(from: wallpaperURL, targetSize: 800) {
+                } else if let image = await WallpaperHelper.loadThumbnail(from: wallpaperURL, targetSize: 800) {
                     loadedImage = image
                 }
             }
             
             if loadedImage == nil, let screen = NSScreen.screens.first, let url = NSWorkspace.shared.desktopImageURL(for: screen) {
-                if let image = WallpaperHelper.loadThumbnail(from: url, targetSize: 800) {
+                if let image = await WallpaperHelper.loadThumbnail(from: url, targetSize: 800) {
                     loadedImage = image
                 }
             }

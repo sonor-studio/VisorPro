@@ -37,7 +37,16 @@ class TrackingNSView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        checkHoverState()
+        if self.window == nil {
+            if lastHoverState == true {
+                lastHoverState = false
+                DispatchQueue.main.async {
+                    self.onHoverChange?(false)
+                }
+            }
+        } else {
+            checkHoverState()
+        }
     }
     
     override func layout() {

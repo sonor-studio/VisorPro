@@ -3,7 +3,12 @@ import SwiftUI
 struct VolumeOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("volumeFillCenter") private var volumeFillCenter: Bool = true
-    @State private var animatedVolumeProgress: CGFloat = 0.0
+    @AppStorage("volumeAllowExpansion") private var volumeAllowExpansion: Bool = true
+    @AppStorage("volumeAllowInteractivity") private var volumeAllowInteractivity: Bool = true
+    @State private var _animatedVolumeProgress: CGFloat? = nil
+    private var animatedVolumeProgress: CGFloat {
+        _animatedVolumeProgress ?? (CGFloat(actualVolume) / 100.0)
+    }
     var isPreview: Bool = false
     
     private var actualVolume: Int {
@@ -34,8 +39,6 @@ struct VolumeOverlayView: View {
 
     var body: some View {
         let currentDevices = isPreview ? [(id: UInt32(1), name: "MacBook Pro Speakers"), (id: UInt32(2), name: "AirPods Pro")] : availableDevices
-        let maxListHeight: CGFloat = 160
-        let listHeight = currentDevices.isEmpty ? 0 : min(CGFloat(currentDevices.count * 40 + 10), maxListHeight)
         let volPos = UserDefaults.standard.string(forKey: "volumeOverlayPosition") ?? "bottom"
         
         return UniversalOverlayView(
@@ -46,8 +49,7 @@ struct VolumeOverlayView: View {
             barColor: .blue,
             fillCenter: volumeFillCenter,
             isMuted: actualIsMuted,
-            listHeight: listHeight,
-            supportDragGesture: true,
+            supportDragGesture: volumeAllowInteractivity,
             onDrag: { v in
                 mediaKeyManager.setVolume(to: Int(v * 100))
             },
@@ -59,6 +61,12 @@ struct VolumeOverlayView: View {
                     availableDevices = VolumeManager.shared.getAvailableOutputDevices()
                 }
             },
+            onSimpleTap: {
+                if !isExpanded {
+                    availableDevices = VolumeManager.shared.getAvailableOutputDevices()
+                }
+            },
+            isExpandable: volumeAllowExpansion,
             expandUpwards: volPos == "bottom",
             disableTimeoutMode: true,
             baseContent: {
@@ -95,12 +103,11 @@ struct VolumeOverlayView: View {
                         }
                     }
                     .padding(.top, 2)
-                    .padding(.bottom, 8)
+                    
                     .padding(.horizontal, 4 + 3 + 4)
                 }
             }
         )
-        .frame(width: 260, height: isExpanded ? 56 + listHeight : 56, alignment: .top)
 
         .onHoverExact { hovering in
             isHovering = hovering
@@ -124,31 +131,26 @@ struct VolumeOverlayView: View {
                 }
             }
         }
-        .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             if isPreview {
-                animatedVolumeProgress = 0.2
+                _animatedVolumeProgress = 0.2
                 withAnimation(.easeInOut(duration: 1.0)) {
-                    animatedVolumeProgress = 0.65
+                    _animatedVolumeProgress = 0.65
                 }
             } else {
-                let targetProgress = CGFloat(actualVolume) / 100.0
-                animatedVolumeProgress = targetProgress
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    animatedVolumeProgress = targetProgress
-                }
+                _animatedVolumeProgress = CGFloat(actualVolume) / 100.0
             }
         }
         .onChange(of: actualVolume) { _, newValue in
             let targetProgress = CGFloat(newValue) / 100.0
             withAnimation(.easeOut(duration: 0.25)) {
-                animatedVolumeProgress = targetProgress
+                _animatedVolumeProgress = targetProgress
             }
         }
         .onChange(of: actualIsMuted) { _, _ in
             let targetProgress = CGFloat(actualVolume) / 100.0
             withAnimation(.easeOut(duration: 0.25)) {
-                animatedVolumeProgress = targetProgress
+                _animatedVolumeProgress = targetProgress
             }
         }
         .onChange(of: mediaKeyManager.audioDevicesChanged) { _, _ in

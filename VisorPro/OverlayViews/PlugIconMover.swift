@@ -68,9 +68,6 @@ struct PlugIconMover: AnimatableModifier {
         else if d <= S1 + S2 + S3 + S4 { angle = 540.0 }
         else if d < total { 
             let p = (d - S1 - S2 - S3 - S4) / S5
-            // Zgodnie z prośbą, opóźniamy start rotacji na ostatnim zakręcie jeszcze bardziej.
-            // Blokujemy obrót przez pierwsze 70% zakrętu,
-            // a przez pozostałe 30% wtyczka wykonuje bardzo ostry, błyskawiczny obrót.
             let delayedP = p < 0.7 ? 0.0 : (p - 0.7) / 0.3
             angle = 540.0 + Double(delayedP) * 90.0 
         }
@@ -80,7 +77,6 @@ struct PlugIconMover: AnimatableModifier {
         var fadeOutEnd = max(0, min(1, targetProgress)) * total
         var fadeOutStart = fadeOutEnd - 120.0
         
-        // Zgodnie z prośbą: przy pełnych 100% chcemy, by zniknęła jeszcze PRZED ostatnim zakrętem (S5)
         if targetProgress >= 0.99 {
             fadeOutEnd = total - S5
             fadeOutStart = fadeOutEnd - 60.0
@@ -95,7 +91,6 @@ struct PlugIconMover: AnimatableModifier {
             }
         }
         
-        // Dodajemy stały offset +5.5 na osiach X i Y (trackPadding + innerPadding/2). 
         return content
             .rotationEffect(.degrees(angle))
             .position(x: pCenter.x + 5.5, y: pCenter.y + 5.5)

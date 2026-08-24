@@ -3,8 +3,8 @@ import Combine
 
 struct PeripheralOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @State private var isHovering: Bool = false
     @State private var isExpanded: Bool = false
+    @AppStorage("peripheralAllowExpansion") private var peripheralAllowExpansion: Bool = true
     @State private var isEjecting = false
     @State private var isEjected = false
     @State private var isMounting = false
@@ -21,97 +21,124 @@ struct PeripheralOverlayView: View {
     var previewIsConnected: Bool = false
     var notification: DeviceNotification?
     
-    var isConnected: Bool {
-        if isPreview { return previewIsConnected }
-        if let notif = notification {
-            return notif.isConnected
+    var actualNotification: DeviceNotification? {
+        if isPreview {
+            return DeviceNotification(
+                id: "preview_disk",
+                deviceName: "SanDisk Extreme",
+                type: "USB Drive",
+                icon: "externaldrive.fill",
+                isConnected: previewIsConnected,
+                timestamp: Date(timeIntervalSince1970: 0),
+                details: [
+                    "Vendor": "SanDisk",
+                    "Product": "Extreme SSD",
+                    "Speed": "SuperSpeed (5 Gbps)",
+                    "Format": "APFS"
+                ]
+            )
         }
+        return notification
+    }
+    
+    var isConnected: Bool {
+        if let notif = actualNotification { return notif.isConnected }
         return mediaKeyManager.peripheralIsConnected
     }
     
     var deviceName: String {
-        if isPreview { return "Magic Mouse" }
-        if let notif = notification {
-            return notif.deviceName
-        }
+        if let notif = actualNotification { return notif.deviceName }
         return mediaKeyManager.peripheralDeviceName
     }
     
     var iconName: String {
-        if isPreview { return "magicmouse.fill" }
-        if let notif = notification {
+        if let notif = actualNotification {
+            let lower = notif.deviceName.lowercased()
+            let lowerType = notif.type.lowercased()
+            if notif.icon != "cable.connector" && !notif.icon.isEmpty {
+                return notif.icon
+            }
+            if lower.contains("iphone") || lowerType.contains("iphone") { return "iphone" }
+            if lower.contains("ipad") || lowerType.contains("ipad") { return "ipad" }
+            if lower.contains("ipod") || lowerType.contains("ipod") { return "ipod" }
+            if lower.contains("mouse") { return "magicmouse" }
+            if lower.contains("keyboard") { return "keyboard" }
+            if lower.contains("headphones") || lower.contains("audio") { return "headphones" }
             return notif.icon
         }
         return mediaKeyManager.peripheralDeviceIcon
     }
     
+    private var batteryLevel: Int? {
+        if isPreview { return 85 }
+        if let raw = actualNotification?.details?["BatteryLevel"], let val = Int(raw) {
+            return val
+        }
+        if let rawBat = actualNotification?.details?["Battery"] {
+            let digits = rawBat.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+            if let val = Int(digits) { return val }
+        }
+        if let val = mediaKeyManager.accessoryBatteryLevels[deviceName] {
+            return val
+        }
+        return nil
+    }
+    
+    private var isBatteryCharging: Bool {
+        if isPreview { return true }
+        if let ch = actualNotification?.details?["Charging"] {
+            return ch.lowercased().contains("yes") || ch.lowercased().contains("true")
+        }
+        if let val = mediaKeyManager.accessoryBatteryCharging[deviceName] {
+            return val
+        }
+        return isConnected
+    }
+    
+    private func batteryDeviceIcon(for deviceName: String, type: String) -> String {
+        let lowerName = deviceName.lowercased()
+        let lowerType = type.lowercased()
+        if lowerName.contains("iphone") || lowerType.contains("iphone") { return "iphone" }
+        if lowerName.contains("ipad") || lowerType.contains("ipad") { return "ipad" }
+        if lowerName.contains("ipod") || lowerType.contains("ipod") { return "ipod" }
+        if lowerName.contains("mouse") || lowerName.contains("mysz") { return "magicmouse.fill" }
+        if lowerName.contains("keyboard") || lowerName.contains("klawiatura") { return "keyboard.fill" }
+        if lowerName.contains("trackpad") { return "magicmouse.fill" }
+        if lowerName.contains("headphone") || lowerName.contains("audio") { return "headphones" }
+        if lowerName.contains("watch") { return "applewatch" }
+        return iconName
+    }
+    
     var body: some View {
-        let actionColor: Color = isConnected ? .teal : .secondary
+        let actionColor: Color = isConnected ? Color(red: 0.85, green: 0.15, blue: 0.55) : .secondary
         let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
         
-        let type = notification?.type ?? ""
-        let typeIcon = notification?.icon ?? ""
+        let type = actualNotification?.type ?? ""
+        let typeIcon = actualNotification?.icon ?? ""
         
-        var calcHeight: CGFloat = 0
-        let hasDetails = isPreview || (notification?.details?.isEmpty == false) || (driveTotalSpace != nil)
-        let isDrive = type == "USB Drive" || typeIcon == "externaldrive" || type == "USB Device"
-        let isExpandable = (hasDetails || isDrive) && isConnected
-        
-        if isExpandable {
-            calcHeight += 12 // Divider and spacing
-            
-            if hasDetails {
-                calcHeight += 12 // Spacing before details
-                
-                if driveTotalSpace != nil {
-                    calcHeight += 38 // Capacity height
-                }
-                
-                let detailsCount = isPreview ? 5 : CGFloat((notification?.details?.count ?? 0) - (notification?.details?["BSD Name"] != nil ? 1 : 0))
-                
-                if detailsCount > 0 {
-                    if showMoreDetails {
-                        calcHeight += (detailsCount * 16) + (max(detailsCount - 1, 0) * 8)
-                        calcHeight += 36 // padding + button + divider
-                    } else {
-                        let hasVendor = isPreview || notification?.details?.keys.contains("Vendor") == true
-                        if hasVendor {
-                            calcHeight += 16
-                        }
-                        if detailsCount > 1 {
-                            calcHeight += 31 // padding + button
-                        }
-                    }
-                }
-            }
-            if isDrive {
-                calcHeight += 14 // Spacing before buttons
-                calcHeight += 50 // buttons: 4 top, 30 content, 16 bottom
-            } else if hasDetails {
-                calcHeight += 14 // Spacing before clear frame
-                calcHeight += 4 // clear frame
-            }
-        }
+        let hasBattery = (batteryLevel != nil) && isConnected
+        let hasDetails = (actualNotification?.details?.isEmpty == false) || (driveTotalSpace != nil)
+        let isDriveType = typeIcon.contains("externaldrive") || typeIcon.contains("opticaldisc") || type == "USB Drive"
+        let isDrive = driveTotalSpace != nil
+        let isExpandable = (hasDetails || isDrive || hasBattery) && isConnected
         
         let trackWidth: CGFloat = 260 - 8
+        let keepAliveId = actualNotification != nil ? "peripheral_\(actualNotification!.id)" : "peripheral"
         
         return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: $isExpanded,
             showProgressBar: true,
-            progress: 1.0,
-            customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering || isExpanded, initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
-                    .id(notification?.timestamp ?? Date(timeIntervalSince1970: 0))
-            ),
+            hasTimeoutProgress: true,
+            timeoutEventId: actualNotification?.timestamp ?? Date(timeIntervalSince1970: 0),
             barColor: actionColor,
             fillCenter: false, // uses strokeBorder
             isMuted: false,
-            listHeight: calcHeight,
             customWidth: 260,
             supportDragGesture: false,
-            isExpandable: isExpandable,
+            isExpandable: isExpandable && peripheralAllowExpansion,
             expandUpwards: periPos == "bottom",
+            keepAliveId: keepAliveId,
             baseContent: {
                 HStack(alignment: .top, spacing: 0) {
                     Image(systemName: iconName)
@@ -142,6 +169,47 @@ struct PeripheralOverlayView: View {
                         Divider()
                             .padding(.horizontal, 16)
                             .opacity(0.5)
+                        
+                        if hasBattery, let battery = batteryLevel {
+                            VStack(spacing: 12) {
+                                HStack(spacing: 24) {
+                                    Spacer()
+                                    
+                                    let batteryIcon: String = {
+                                        if battery >= 85 { return "battery.100" }
+                                        if battery >= 60 { return "battery.75" }
+                                        if battery >= 35 { return "battery.50" }
+                                        if battery >= 15 { return "battery.25" }
+                                        return "battery.0"
+                                    }()
+                                    
+                                    VStack(spacing: 6) {
+                                        Image(systemName: batteryDeviceIcon(for: deviceName, type: type))
+                                            .font(.system(size: 26))
+                                            .foregroundColor(.primary)
+                                            .frame(height: 32)
+                                            
+                                        HStack(spacing: 3) {
+                                            Image(systemName: batteryIcon)
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.secondary)
+                                            if isBatteryCharging {
+                                                Image(systemName: "bolt.fill")
+                                                    .font(.system(size: 8))
+                                                    .foregroundColor(.green)
+                                            }
+                                        }
+                                            
+                                        Text("\(battery)%")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.primary)
+                                    }
+                                    
+                                    Spacer()
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
                         
                         if hasDetails {
                             VStack(spacing: 8) {
@@ -178,31 +246,11 @@ struct PeripheralOverlayView: View {
                                     .padding(.bottom, 4)
                                 }
                                 
-                                let allKeys = notification?.details?.keys.filter { $0 != "BSD Name" }.sorted(by: >) ?? []
+                                let allKeys = actualNotification?.details?.keys.filter { $0 != "BSD Name" && $0 != "BatteryLevel" && (!hasBattery || ($0 != "Battery" && $0 != "Charging")) }.sorted(by: >) ?? []
                                 let vendorKey = allKeys.contains("Vendor") ? ["Vendor"] : []
+                                let otherKeys = allKeys.filter { $0 != "Vendor" }
                                 
-                                // Show Vendor first (if exists)
-                                ForEach(vendorKey, id: \.self) { key in
-                                    if let value = notification?.details?[key] {
-                                        HStack(alignment: .center) {
-                                            Text(key)
-                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                                .foregroundColor(.secondary)
-                                                .frame(width: 85, alignment: .leading)
-                                            
-                                            Spacer(minLength: 4)
-                                            
-                                            Text(value)
-                                                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                                .foregroundColor(.primary)
-                                                .lineLimit(1)
-                                                .truncationMode(.middle)
-                                        }
-                                        .padding(.horizontal, 16)
-                                    }
-                                }
-                                
-                                if allKeys.count > 1 {
+                                if !otherKeys.isEmpty {
                                     Button(action: {
                                         withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                             showMoreDetails.toggle()
@@ -221,51 +269,20 @@ struct PeripheralOverlayView: View {
                                         if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
                                     }
                                     .padding(.top, 4)
-                                    
-                                    if showMoreDetails {
-                                        Divider()
-                                            .padding(.horizontal, 32)
-                                            .opacity(0.3)
-                                            
-                                        let otherKeys = allKeys.filter { $0 != "Vendor" }
-                                        ForEach(otherKeys, id: \.self) { key in
-                                            if let value = notification?.details?[key] {
-                                                HStack(alignment: .center) {
-                                                    Text(key)
-                                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                                        .foregroundColor(.secondary)
-                                                        .frame(width: 85, alignment: .leading)
-                                                    
-                                                    Spacer(minLength: 4)
-                                                    
-                                                    Text(value)
-                                                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                                        .foregroundColor(.primary)
-                                                        .lineLimit(1)
-                                                        .truncationMode(.middle)
-                                                }
-                                                .padding(.horizontal, 16)
-                                            }
-                                        }
-                                    }
                                 }
                                 
-                                if isPreview {
-                                    let mockDetails = [
-                                        PeripheralMockDetail(id: "Vendor", value: "Apple Inc."),
-                                        PeripheralMockDetail(id: "Product", value: "Magic Mouse"),
-                                        PeripheralMockDetail(id: "Speed", value: "High (480 Mbps)"),
-                                        PeripheralMockDetail(id: "Device ID", value: "0x05AC:0x0269"),
-                                        PeripheralMockDetail(id: "Serial", value: "CC23259W33L")
-                                    ]
-                                    ForEach(mockDetails) { detail in
+                                // Vendor always visible BELOW the button
+                                ForEach(vendorKey, id: \.self) { key in
+                                    if let value = actualNotification?.details?[key] {
                                         HStack(alignment: .center) {
-                                            Text(detail.id)
+                                            Text(key)
                                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                                                 .foregroundColor(.secondary)
                                                 .frame(width: 85, alignment: .leading)
+                                            
                                             Spacer(minLength: 4)
-                                            Text(detail.value)
+                                            
+                                            Text(value)
                                                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                                                 .foregroundColor(.primary)
                                                 .lineLimit(1)
@@ -274,8 +291,33 @@ struct PeripheralOverlayView: View {
                                         .padding(.horizontal, 16)
                                     }
                                 }
+                                
+                                if showMoreDetails && !otherKeys.isEmpty {
+                                    Divider()
+                                        .padding(.horizontal, 32)
+                                        .opacity(0.3)
+                                        
+                                    ForEach(otherKeys, id: \.self) { key in
+                                        if let value = actualNotification?.details?[key] {
+                                            HStack(alignment: .center) {
+                                                Text(key)
+                                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                                    .foregroundColor(.secondary)
+                                                    .frame(width: 85, alignment: .leading)
+                                                
+                                                Spacer(minLength: 4)
+                                                
+                                                Text(value)
+                                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                                    .foregroundColor(.primary)
+                                                    .lineLimit(1)
+                                                    .truncationMode(.middle)
+                                            }
+                                            .padding(.horizontal, 16)
+                                        }
+                                    }
+                                }
                             }
-                            .padding(.bottom, 4)
                         }
                         
                         if isDrive {
@@ -329,13 +371,18 @@ struct PeripheralOverlayView: View {
                                 } else {
                                     HStack(spacing: 8) {
                                         Button(action: {
-                                            if !isPreview, let notification = notification {
-                                                mediaKeyManager.openDrive(for: notification)
+                                            if !isPreview, let notif = actualNotification {
+                                                mediaKeyManager.openDrive(for: notif)
                                             }
                                         }) {
                                             HStack(spacing: 4) {
-                                                Image(systemName: "folder")
-                                                Text("Open in Finder")
+                                                if type == "CD/DVD Drive" {
+                                                    Image(systemName: "play.circle")
+                                                    Text("Play Disc")
+                                                } else {
+                                                    Image(systemName: "folder")
+                                                    Text("Open in Finder")
+                                                }
                                             }
                                             .font(.system(size: 11, weight: .bold))
                                             .foregroundColor(.primary)
@@ -347,9 +394,9 @@ struct PeripheralOverlayView: View {
                                         .buttonStyle(.plain)
                                         
                                         Button(action: {
-                                            if !isPreview, let notification = notification {
+                                            if !isPreview, let notif = actualNotification {
                                                 isEjecting = true
-                                                mediaKeyManager.ejectDrive(for: notification) { success, node in
+                                                mediaKeyManager.ejectDrive(for: notif) { success, node in
                                                     isEjecting = false
                                                     if success {
                                                         unmountedDeviceNode = node
@@ -388,10 +435,10 @@ struct PeripheralOverlayView: View {
                                     .padding(.horizontal, 16)
                                 }
                             }
-                            .padding(.bottom, 16)
+                            
                             .padding(.top, 4)
                         } else if hasDetails {
-                            Color.clear.frame(height: 4)
+                            
                         }
                     }
                 } else {
@@ -399,21 +446,11 @@ struct PeripheralOverlayView: View {
                 }
             }
         )
-        .onHoverExact { hovering in
-            if !isPreview {
-                self.isHovering = hovering
-                let keepAliveType = notification != nil ? "peripheral_\(notification!.id)" : "peripheral"
-                mediaKeyManager.keepAlive(for: keepAliveType, isHovering: hovering || isExpanded)
-            }
-        }
         .onChange(of: isExpanded) { _, expanded in
             if !isPreview {
-                let keepAliveType = notification != nil ? "peripheral_\(notification!.id)" : "peripheral"
-                mediaKeyManager.keepAlive(for: keepAliveType, isHovering: isHovering || expanded)
-                
-                let currentType = notification?.type ?? ""
-                let currentIcon = notification?.icon ?? ""
-                let currentIsDrive = currentType == "USB Drive" || currentIcon == "externaldrive" || currentType == "USB Device"
+                let currentType = actualNotification?.type ?? ""
+                let currentIcon = actualNotification?.icon ?? ""
+                let currentIsDrive = currentType == "USB Drive" || currentIcon == "externaldrive" || currentType == "USB Device" || currentType == "CD/DVD Drive"
                 
                 if expanded && currentIsDrive && isConnected {
                     refreshTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
@@ -425,14 +462,14 @@ struct PeripheralOverlayView: View {
                 }
             }
         }
-        .onChange(of: notification?.isConnected) { _, connected in
+        .onChange(of: actualNotification?.isConnected) { _, connected in
             if connected == false {
                 isExpanded = false
             }
         }
-        .onChange(of: notification?.timestamp) { _, _ in
+        .onChange(of: actualNotification?.timestamp) { _, _ in
             // When a new event happens for this device (like physically replugging), reset the manual mount/eject states
-            if notification?.isConnected == true {
+            if actualNotification?.isConnected == true {
                 isEjected = false
                 isEjecting = false
                 isMounting = false
@@ -444,10 +481,17 @@ struct PeripheralOverlayView: View {
             }
         }
         .onAppear {
-            fetchDriveCapacity(type: type, typeIcon: typeIcon)
+            if isPreview {
+                driveTotalSpace = "2 TB"
+                driveFreeSpace = "850 GB"
+                rawDriveTotal = 2_000_000_000_000
+                rawDriveFree = 850_000_000_000
+            } else {
+                fetchDriveCapacity(type: type, typeIcon: typeIcon)
+            }
         }
         .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
-            if isConnected && !isEjected && driveTotalSpace == nil && (type == "USB Drive" || typeIcon == "externaldrive" || type == "USB Device") {
+            if isConnected && !isEjected && driveTotalSpace == nil && (type == "USB Drive" || typeIcon == "externaldrive" || type == "USB Device" || type == "CD/DVD Drive") {
                 fetchDriveCapacity(type: type, typeIcon: typeIcon)
             }
         }
@@ -455,13 +499,12 @@ struct PeripheralOverlayView: View {
             refreshTimer?.invalidate()
             refreshTimer = nil
         }
-        .applyTheme(mediaKeyManager.overlayTheme)
     }
     
     private func fetchDriveCapacity(type: String, typeIcon: String) {
-        if type == "USB Drive" || typeIcon == "externaldrive" || type == "USB Device",
-           let notification = notification,
-           let cap = mediaKeyManager.getDriveCapacity(for: notification) {
+        if type == "USB Drive" || typeIcon == "externaldrive" || type == "USB Device" || type == "CD/DVD Drive",
+           let notif = actualNotification,
+           let cap = mediaKeyManager.getDriveCapacity(for: notif) {
             let formatter = ByteCountFormatter()
             formatter.countStyle = .file
             self.driveTotalSpace = formatter.string(fromByteCount: Int64(cap.total))

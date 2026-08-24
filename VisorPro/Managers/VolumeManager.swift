@@ -14,12 +14,23 @@ class VolumeManager {
     private var pendingTask: DispatchWorkItem?
     private var lastProgrammaticChangeTime: Date = Date.distantPast
     
+    private var currentOutputDeviceID: AudioDeviceID = 0
+    private var volumeListenerBlock: AudioObjectPropertyListenerBlock?
+    private var muteListenerBlock: AudioObjectPropertyListenerBlock?
+    
     init() {
         setupAudioDeviceListeners()
+        queue.async {
+            let current = self.getSystemVolume()
+            DispatchQueue.main.async {
+                self.cachedVolume = Int(current.0 * 100)
+                self.cachedMuted = current.1
+                self.isInitialized = true
+            }
+        }
     }
     
     private func setupAudioDeviceListeners() {
-        // Listener na zmianę domyślnego urządzenia wyjściowego
         var defaultDeviceAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -35,10 +46,12 @@ class VolumeManager {
                 let newName = self.getCurrentAudioDeviceName()
                 MediaKeyManager.shared.currentAudioDeviceName = newName
                 MediaKeyManager.shared.audioDevicesChanged = UUID()
+                self.setupVolumeListener()
             }
         }
         
-        // Listener na zmianę domyślnego urządzenia wejściowego
+        setupVolumeListener()
+        
         var defaultInputAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultInputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -57,7 +70,6 @@ class VolumeManager {
             }
         }
         
-        // Listener na zmianę listy dostępnych urządzeń (np. podłączenie słuchawek)
         var devicesAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -305,10 +317,8 @@ class VolumeManager {
         var deviceID = id
         AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &propertyAddress, 0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &deviceID)
         
-        // Aktualizacja nazwy urządzenia i głośności po przełączeniu
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             MediaKeyManager.shared.currentAudioDeviceName = self.getCurrentAudioDeviceName()
-            // Odczytaj głośność nowego urządzenia
             self.fetchCurrentVolume { vol, muted in
                 DispatchQueue.main.async {
                     self.cachedVolume = vol
@@ -332,41 +342,44 @@ class VolumeManager {
         AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &defaultOutputDeviceID)
         
         var volume: Float = 0.5
-        var tempVolume: Float = 0.0
+        var isMuted: UInt32 = 0
         var volSize = UInt32(MemoryLayout<Float>.size)
         
-        // 1. First, try VirtualMainVolume - this correctly handles A2DP AirPods and complex devices
-        var systemVolAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyVolumeScalar,
+        var virtualVolAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
         
-        if AudioObjectGetPropertyData(defaultOutputDeviceID, &systemVolAddress, 0, nil, &volSize, &tempVolume) == noErr {
+        var tempVolume: Float = 0.0
+        if AudioHardwareServiceGetPropertyData(defaultOutputDeviceID, &virtualVolAddress, 0, nil, &volSize, &tempVolume) == noErr {
             volume = tempVolume
         } else {
-            // 2. Fallback to Element 0 (Master)
             var volAddress = AudioObjectPropertyAddress(
                 mSelector: kAudioDevicePropertyVolumeScalar,
                 mScope: kAudioDevicePropertyScopeOutput,
                 mElement: kAudioObjectPropertyElementMain
             )
             
-            if AudioObjectGetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, &volSize, &tempVolume) == noErr {
-                volume = tempVolume
-            } else {
-                // 3. Fallback to Element 1 (Left) and Element 2 (Right) average
-                var leftVolume: Float = -1.0
-                var rightVolume: Float = -1.0
-                
-                volAddress.mElement = 1
+            if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &volAddress) {
                 if AudioObjectGetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, &volSize, &tempVolume) == noErr {
-                    leftVolume = tempVolume
+                    volume = tempVolume
+                }
+            } else {
+                volAddress.mElement = 1
+                var leftVolume: Float = -1.0
+                if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &volAddress) {
+                    if AudioObjectGetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, &volSize, &tempVolume) == noErr {
+                        leftVolume = tempVolume
+                    }
                 }
                 
                 volAddress.mElement = 2
-                if AudioObjectGetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, &volSize, &tempVolume) == noErr {
-                    rightVolume = tempVolume
+                var rightVolume: Float = -1.0
+                if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &volAddress) {
+                    if AudioObjectGetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, &volSize, &tempVolume) == noErr {
+                        rightVolume = tempVolume
+                    }
                 }
                 
                 if leftVolume >= 0 && rightVolume >= 0 {
@@ -379,20 +392,24 @@ class VolumeManager {
             }
         }
         
-        var isMuted: UInt32 = 0
         var muteAddress = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyMute,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
         var muteSize = UInt32(MemoryLayout<UInt32>.size)
-        var status = AudioObjectGetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, &muteSize, &isMuted)
-        if status != noErr {
+        
+        if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &muteAddress) {
+            AudioObjectGetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, &muteSize, &isMuted)
+        } else {
             muteAddress.mElement = 1
-            status = AudioObjectGetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, &muteSize, &isMuted)
-            if status != noErr {
-                muteAddress.mElement = 2
+            if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &muteAddress) {
                 AudioObjectGetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, &muteSize, &isMuted)
+            } else {
+                muteAddress.mElement = 2
+                if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &muteAddress) {
+                    AudioObjectGetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, &muteSize, &isMuted)
+                }
             }
         }
         
@@ -507,7 +524,6 @@ class VolumeManager {
         guard !isEnforcing else { return }
         isEnforcing = true
         
-        // 1. Zmiana dla domyślnego urządzenia przez AppleScript (100% niezawodności)
         DispatchQueue.global(qos: .userInitiated).async {
             let targetVolume = mute ? 0 : Int(volume * 100)
             let scriptSource = "set volume input volume \(targetVolume)"
@@ -516,7 +532,6 @@ class VolumeManager {
                 script.executeAndReturnError(&error)
             }
             
-            // 2. Zmiana dla domyślnego urządzenia wejściowego (fallback CoreAudio)
             self.setCurrentInputDeviceVolume(volume: volume, mute: mute)
             DispatchQueue.main.async {
                 self.isEnforcing = false
@@ -548,11 +563,15 @@ class VolumeManager {
         )
         
         volAddress.mElement = 0
-        AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
-        volAddress.mElement = 1
-        AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
-        volAddress.mElement = 2
-        AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+        var status = AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+        if status != noErr {
+            volAddress.mElement = 1
+            status = AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+            if status != noErr {
+                volAddress.mElement = 2
+                AudioObjectSetPropertyData(device, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+            }
+        }
         
         var systemVolAddress = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyVolumeScalar,
@@ -568,19 +587,20 @@ class VolumeManager {
         )
         var muteVal: UInt32 = mute ? 1 : 0
         muteAddress.mElement = 0
-        AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
-        muteAddress.mElement = 1
-        AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
-        muteAddress.mElement = 2
-        AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+        status = AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+        if status != noErr {
+            muteAddress.mElement = 1
+            status = AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+            if status != noErr {
+                muteAddress.mElement = 2
+                AudioObjectSetPropertyData(device, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+            }
+        }
     }
 
     func changeVolume(increase: Bool, completion: @escaping (Int, Bool) -> Void) {
         DispatchQueue.main.async {
             if !self.isInitialized {
-                let current = self.getSystemVolume()
-                self.cachedVolume = Int(current.0 * 100)
-                self.cachedMuted = current.1
                 self.isInitialized = true
             }
             
@@ -596,8 +616,11 @@ class VolumeManager {
             let targetVol = self.cachedVolume
             let targetMuted = self.cachedMuted
             
-            self.setSystemVolumeCoreAudio(volume: Float(targetVol) / 100.0, mute: targetMuted)
             completion(targetVol, targetMuted)
+            
+            self.queue.async {
+                self.setSystemVolumeCoreAudio(volume: Float(targetVol) / 100.0, mute: targetMuted)
+            }
         }
     }
     
@@ -648,17 +671,17 @@ class VolumeManager {
             let targetVol = self.cachedVolume
             let targetMuted = self.cachedMuted
             
-            self.setSystemVolumeCoreAudio(volume: Float(targetVol) / 100.0, mute: targetMuted)
             completion(targetVol, targetMuted)
+            
+            self.queue.async {
+                self.setSystemVolumeCoreAudio(volume: Float(targetVol) / 100.0, mute: targetMuted)
+            }
         }
     }
     
     func toggleMute(completion: @escaping (Int, Bool) -> Void) {
         DispatchQueue.main.async {
             if !self.isInitialized {
-                let current = self.getSystemVolume()
-                self.cachedVolume = Int(current.0 * 100)
-                self.cachedMuted = current.1
                 self.isInitialized = true
             }
             
@@ -668,8 +691,126 @@ class VolumeManager {
             let targetVol = self.cachedVolume
             let targetMuted = self.cachedMuted
             
-            self.setSystemVolumeCoreAudio(volume: Float(targetVol) / 100.0, mute: targetMuted)
             completion(targetVol, targetMuted)
+            
+            self.queue.async {
+                self.setSystemVolumeCoreAudio(volume: Float(targetVol) / 100.0, mute: targetMuted)
+            }
+        }
+    }
+    private func setupVolumeListener() {
+        NSLog("[Volume Observer] =======================================")
+        NSLog("[Volume Observer] setupVolumeListener is executing!")
+        
+        if currentOutputDeviceID != 0 {
+            if let volBlock = volumeListenerBlock {
+                var virtualAddress = AudioObjectPropertyAddress(
+                    mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+                    mScope: kAudioDevicePropertyScopeOutput,
+                    mElement: kAudioObjectPropertyElementMain
+                )
+                AudioObjectRemovePropertyListenerBlock(currentOutputDeviceID, &virtualAddress, DispatchQueue.main, volBlock)
+                
+                var volAddress = AudioObjectPropertyAddress(
+                    mSelector: kAudioDevicePropertyVolumeScalar,
+                    mScope: kAudioDevicePropertyScopeOutput,
+                    mElement: kAudioObjectPropertyElementMain
+                )
+                AudioObjectRemovePropertyListenerBlock(currentOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
+                volAddress.mElement = 1
+                AudioObjectRemovePropertyListenerBlock(currentOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
+                volAddress.mElement = 2
+                AudioObjectRemovePropertyListenerBlock(currentOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
+            }
+            if let muteBlock = muteListenerBlock {
+                var muteAddress = AudioObjectPropertyAddress(
+                    mSelector: kAudioDevicePropertyMute,
+                    mScope: kAudioDevicePropertyScopeOutput,
+                    mElement: kAudioObjectPropertyElementMain
+                )
+                AudioObjectRemovePropertyListenerBlock(currentOutputDeviceID, &muteAddress, DispatchQueue.main, muteBlock)
+            }
+        }
+        
+        var defaultOutputDeviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &defaultOutputDeviceID)
+        
+        NSLog("[Volume Observer] Default Output Device ID: \(defaultOutputDeviceID)")
+        currentOutputDeviceID = defaultOutputDeviceID
+        
+        if defaultOutputDeviceID != 0 {
+            let volBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+                NSLog("[Volume Observer] VOL BLOCK FIRED!")
+                self?.handleExternalVolumeChange()
+            }
+            volumeListenerBlock = volBlock
+            
+            var virtualAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            var st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &virtualAddress, DispatchQueue.main, volBlock)
+            NSLog("[Volume Observer] Add VirtualMainVolume Listener status: \(st)")
+            
+            var volAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyVolumeScalar,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
+            NSLog("[Volume Observer] Add Volume Listener (Main) status: \(st)")
+            
+            volAddress.mElement = 1
+            st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
+            NSLog("[Volume Observer] Add Volume Listener (Left) status: \(st)")
+            
+            volAddress.mElement = 2
+            st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
+            NSLog("[Volume Observer] Add Volume Listener (Right) status: \(st)")
+            
+            let mBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+                NSLog("[Volume Observer] MUTE BLOCK FIRED!")
+                self?.handleExternalVolumeChange()
+            }
+            muteListenerBlock = mBlock
+            
+            var muteAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyMute,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &muteAddress, DispatchQueue.main, mBlock)
+            NSLog("[Volume Observer] Add Mute Listener (Main) status: \(st)")
+        }
+    }
+    
+    private func handleExternalVolumeChange() {
+        NSLog("[Volume Observer] handleExternalVolumeChange called")
+        if Date().timeIntervalSince(lastProgrammaticChangeTime) < 0.5 {
+            NSLog("[Volume Observer] Ignored due to programmatic change")
+            return
+        }
+        
+        queue.async {
+            let (volFloat, isMuted) = self.getSystemVolume()
+            let volInt = Int(volFloat * 100)
+            NSLog("[Volume Observer] Detected new volume: \(volInt), muted: \(isMuted)")
+            
+            DispatchQueue.main.async {
+                self.cachedVolume = volInt
+                self.cachedMuted = isMuted
+                
+                MediaKeyManager.shared.currentVolume = volInt
+                MediaKeyManager.shared.isMuted = isMuted
+                MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
+            }
         }
     }
 }
@@ -681,6 +822,9 @@ class BrightnessManager {
     
     private var DisplayServicesGetBrightness: (@convention(c) (CGDirectDisplayID, UnsafeMutablePointer<Float>) -> Int32)?
     private var DisplayServicesSetBrightness: (@convention(c) (CGDirectDisplayID, Float) -> Int32)?
+    
+    private var cachedBrightness: Float = 0.5
+    private var isInitialized: Bool = false
     
     init() {
         let handle = dlopen("/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices", RTLD_NOW)
@@ -695,6 +839,17 @@ class BrightnessManager {
             }
         } else {
         }
+        
+        queue.async {
+            var brightness: Float = 0.5
+            if let getFunc = self.DisplayServicesGetBrightness {
+                let _ = getFunc(CGMainDisplayID(), &brightness)
+            }
+            DispatchQueue.main.async {
+                self.cachedBrightness = brightness
+                self.isInitialized = true
+            }
+        }
     }
     
     func fetchCurrentBrightness(completion: @escaping (Int) -> Void) {
@@ -705,29 +860,32 @@ class BrightnessManager {
             }
             let intBrightness = Int(brightness * 100)
             DispatchQueue.main.async {
+                self.cachedBrightness = brightness
+                self.isInitialized = true
                 completion(intBrightness)
             }
         }
     }
     
     func changeBrightness(increase: Bool, completion: @escaping (Int) -> Void) {
-        queue.async {
-            var currentBrightness: Float = 0.5
-            if let getFunc = self.DisplayServicesGetBrightness {
-                let _ = getFunc(CGMainDisplayID(), &currentBrightness)
+        DispatchQueue.main.async {
+            if !self.isInitialized {
+                self.isInitialized = true
             }
             
             let step: Float = 1.0 / 16.0
-            var newBrightness = increase ? currentBrightness + step : currentBrightness - step
+            var newBrightness = increase ? self.cachedBrightness + step : self.cachedBrightness - step
             newBrightness = max(0.0, min(1.0, newBrightness))
             
-            if let setFunc = self.DisplayServicesSetBrightness {
-                let _ = setFunc(CGMainDisplayID(), newBrightness)
-            }
+            self.cachedBrightness = newBrightness
             
             let intBrightness = Int(newBrightness * 100)
-            DispatchQueue.main.async {
-                completion(intBrightness)
+            completion(intBrightness)
+            
+            self.queue.async {
+                if let setFunc = self.DisplayServicesSetBrightness {
+                    let _ = setFunc(CGMainDisplayID(), newBrightness)
+                }
             }
         }
     }
@@ -741,17 +899,19 @@ class BrightnessManager {
     }
     
     func setBrightness(to level: Int, completion: @escaping (Int) -> Void) {
-        queue.async {
+        DispatchQueue.main.async {
             var newBrightness = Float(level) / 100.0
             newBrightness = max(0.0, min(1.0, newBrightness))
             
-            if let setFunc = self.DisplayServicesSetBrightness {
-                let _ = setFunc(CGMainDisplayID(), newBrightness)
-            }
+            self.cachedBrightness = newBrightness
             
             let intBrightness = Int(newBrightness * 100)
-            DispatchQueue.main.async {
-                completion(intBrightness)
+            completion(intBrightness)
+            
+            self.queue.async {
+                if let setFunc = self.DisplayServicesSetBrightness {
+                    let _ = setFunc(CGMainDisplayID(), newBrightness)
+                }
             }
         }
     }

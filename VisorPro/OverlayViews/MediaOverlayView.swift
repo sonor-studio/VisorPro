@@ -3,6 +3,8 @@ import Combine
 
 struct MediaOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @AppStorage("mediaAllowExpansion") private var mediaAllowExpansion: Bool = true
+    @AppStorage("mediaAllowInteractivity") private var mediaAllowInteractivity: Bool = true
     var isPreview: Bool = false
     var previewTitle: String = "Sample Media"
     var previewArtist: String = "YouTube / Safari"
@@ -40,11 +42,8 @@ struct MediaOverlayView: View {
     
     private var actionColor: Color {
         switch actualAction {
-        case "start": return .blue
-        case "resume": return .green
-        case "pause": return .red
         case "end": return .secondary
-        default: return .red
+        default: return .pink
         }
     }
     
@@ -88,7 +87,7 @@ struct MediaOverlayView: View {
     
     private var isPodcastOrBrowser: Bool {
         if !mediaKeyManager.mediaAlbum.isEmpty {
-            return false // Jeśli ma album, traktujemy to jako muzykę (prev/next track)
+            return false
         }
         let bundleId = mediaKeyManager.mediaBundleId.lowercased()
         let browsers = ["safari", "chrome", "edge", "brave", "arc", "podcasts", "company.thebrowser"]
@@ -98,7 +97,6 @@ struct MediaOverlayView: View {
     var body: some View {
         let width: CGFloat = 260
         let height: CGFloat = 72
-        let listHeight: CGFloat = 46
         let mediaPos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
         
         return UniversalOverlayView(
@@ -108,16 +106,15 @@ struct MediaOverlayView: View {
             progress: playbackProgress,
             barColor: actionColor,
             fillCenter: false,
-            listHeight: listHeight,
             customWidth: width,
             customHeight: height,
-            supportDragGesture: true,
+            supportDragGesture: mediaAllowInteractivity,
             onDrag: { v in
                 let newTime = Double(v) * mediaKeyManager.mediaDuration
                 localElapsed = newTime
                 mediaKeyManager.simulateSeek(to: newTime)
             },
-            isExpandable: true,
+            isExpandable: mediaAllowExpansion,
             expandUpwards: mediaPos == "bottom",
             keepAliveId: "media",
             baseContent: {
@@ -215,7 +212,6 @@ struct MediaOverlayView: View {
             }
         )
 
-                .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             localElapsed = mediaKeyManager.mediaElapsedTime
         }

@@ -77,7 +77,6 @@ struct LegacyBatteryOverlayView: View {
                 }
                 .frame(width: width, height: baseHeight)
                 
-                // WARSTWA 2: Pasek postępu baterii (dookoła)
                 CustomCapsule()
                     .trim(from: 0, to: animatedBatteryProgress)
                     .stroke(batteryColor, style: StrokeStyle(lineWidth: innerPadding, lineCap: .round))
@@ -86,7 +85,6 @@ struct LegacyBatteryOverlayView: View {
                     .opacity(isWarningMode && isPulsing ? 0.3 : 1.0)
                     .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isPulsing)
                 
-                // WARSTWA 3: Górna warstwa
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
@@ -104,7 +102,7 @@ struct LegacyBatteryOverlayView: View {
                                 AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: true)
                             }
                         } else {
-                            Text(isWarningMode ? "Low Battery" : (actualIsPluggedIn ? "Charging" : "Battery"))
+                            Text(isWarningMode ? "Low Battery" : (actualIsPluggedIn ? "Charging" : "Unplugged"))
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
                             AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)
@@ -122,7 +120,6 @@ struct LegacyBatteryOverlayView: View {
                 )
                 .padding(.leading, trackPadding + innerPadding)
                 
-                // WTYCZKA (Na samej górze, nad szkłem, czysty kolor batteryColor)
                 if !isWarningMode && actualIsPluggedIn {
                     Image(systemName: "powerplug.fill")
                         .resizable()
@@ -157,12 +154,12 @@ struct LegacyBatteryOverlayView: View {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(isWarningMode ? "Condition" : "Power")
+                        Text((isWarningMode || !actualIsPluggedIn) ? "Condition" : "Power")
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(.secondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
-                        Text(isWarningMode ? mediaKeyManager.batteryCondition : mediaKeyManager.batteryPowerDraw)
+                        Text((isWarningMode || !actualIsPluggedIn) ? mediaKeyManager.batteryCondition : mediaKeyManager.batteryPowerDraw)
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundColor(.primary)
                             .lineLimit(1)
@@ -310,11 +307,9 @@ struct LegacyBatteryOverlayView: View {
             }
         }
 
-                .applyTheme(mediaKeyManager.overlayTheme)
         .onAppear {
             let targetProgress = CGFloat(actualPercentage) / 100.0
             
-            // W trybie ostrzegawczym animujemy ZMNIEJSZANIE się baterii od 100% do celu
             animatedBatteryProgress = isWarningMode ? 1.0 : 0.0
             hasFinishedChargeAnimation = false
             

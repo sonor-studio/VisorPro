@@ -3,6 +3,7 @@ import SwiftUI
 struct WiFiSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("wifiOverlayPosition") private var wifiOverlayPosition: String = "top"
+    @AppStorage("wifiAllowExpansion") private var wifiAllowExpansion: Bool = true
     @State private var isHistoryExpanded: Bool = false
     
     var body: some View {
@@ -31,10 +32,10 @@ struct WiFiSettingsView: View {
                         PreviewBackgroundView()
                         
                         HStack(spacing: -10) {
-                            WiFiOverlayView(isPreview: true, previewIsConnected: true, previewSSID: "Home Network")
+                            WiFiOverlayView(isPreview: true, previewIsConnected: true, previewSSID: "Home Network").applyTheme(mediaKeyManager.overlayTheme)
                                 .scaleEffect(0.85)
                             
-                            WiFiOverlayView(isPreview: true, previewIsConnected: false, previewSSID: "Biuro_5GHz")
+                            WiFiOverlayView(isPreview: true, previewIsConnected: false, previewSSID: "Biuro_5GHz").applyTheme(mediaKeyManager.overlayTheme)
                                 .scaleEffect(0.85)
                         }
                     }
@@ -45,10 +46,10 @@ struct WiFiSettingsView: View {
                 
                 Divider()
                 
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Overlay Triggers")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
+                        .font(.headline)
+                        .foregroundColor(.secondary)
                         .padding(.bottom, 4)
                         .padding(.leading, 4)
                     
@@ -79,8 +80,8 @@ struct WiFiSettingsView: View {
                         let displayedHistory = isHistoryExpanded ? mediaKeyManager.wifiHistory : Array(mediaKeyManager.wifiHistory.prefix(3))
                         
                         Text("Remembered Networks (\(mediaKeyManager.wifiHistory.count))")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
+                            .font(.headline)
+                            .foregroundColor(.secondary)
                             .padding(.top, 10)
                             .padding(.bottom, 4)
                             .padding(.leading, 4)
@@ -88,18 +89,35 @@ struct WiFiSettingsView: View {
                         VStack(spacing: 0) {
                             ForEach(displayedHistory, id: \.self) { network in
                                 CustomSettingsRow(icon: "wifi", iconColor: .cyan, title: network, subtitle: "Show notifications for this network") {
-                                    Toggle("", isOn: Binding(
-                                        get: { !mediaKeyManager.wifiBlocklist.contains(network) },
-                                        set: { isEnabled in
-                                            if isEnabled {
-                                                mediaKeyManager.wifiBlocklist.removeAll { $0 == network }
-                                            } else {
-                                                if !mediaKeyManager.wifiBlocklist.contains(network) {
-                                                    mediaKeyManager.wifiBlocklist.append(network)
+                                    HStack(spacing: 12) {
+                                        Toggle("", isOn: Binding(
+                                            get: { !mediaKeyManager.wifiBlocklist.contains(network) },
+                                            set: { isEnabled in
+                                                if isEnabled {
+                                                    mediaKeyManager.wifiBlocklist.removeAll { $0 == network }
+                                                } else {
+                                                    if !mediaKeyManager.wifiBlocklist.contains(network) {
+                                                        mediaKeyManager.wifiBlocklist.append(network)
+                                                    }
                                                 }
                                             }
+                                        )).labelsHidden()
+                                        
+                                        Button(action: {
+                                            withAnimation {
+                                                mediaKeyManager.wifiHistory.removeAll { $0 == network }
+                                                mediaKeyManager.wifiBlocklist.removeAll { $0 == network }
+                                            }
+                                        }) {
+                                            Image(systemName: "trash")
+                                                .foregroundColor(.red.opacity(0.7))
+                                                .font(.system(size: 14))
                                         }
-                                    )).labelsHidden()
+                                        .buttonStyle(.plain)
+                                        .onHover { hovering in
+                                            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                                        }
+                                    }
                                 }
                                 if network != displayedHistory.last || (mediaKeyManager.wifiHistory.count > 3) {
                                     Divider().padding(.leading, 40)
@@ -136,6 +154,26 @@ struct WiFiSettingsView: View {
                                 .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                         )
                     }
+                    
+                    Text("Behavior")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 10)
+                        .padding(.bottom, 4)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .cyan, title: "Allow Expansion", subtitle: "Allow overlay to expand and show network details") {
+                            Toggle("", isOn: $wifiAllowExpansion).labelsHidden()
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
                     
                     Text("Overlay Position")
                         .font(.headline)

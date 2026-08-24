@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
-        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, location, wifi, peripheral, display, fan
+        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, location, wifi, peripheral, display, fan, ram
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -30,7 +30,7 @@ struct ContentView: View {
     private var allActiveOverlays: [ActiveOverlay] {
         var active: [ActiveOverlay] = []
         
-        let showBattery = mediaKeyManager.showChargingStatus || mediaKeyManager.showLowBatteryWarning
+        let showBattery = mediaKeyManager.showChargingStatus || mediaKeyManager.showLowBatteryWarning || mediaKeyManager.showUnpluggedStatus
         
         if mediaKeyManager.showVolumeIndicator { active.append(ActiveOverlay(id: "volume", type: .volume, position: volumeOverlayPosition, notification: nil)) }
         if mediaKeyManager.showBrightnessIndicator { active.append(ActiveOverlay(id: "brightness", type: .brightness, position: brightnessOverlayPosition, notification: nil)) }
@@ -48,25 +48,25 @@ struct ContentView: View {
         }
         
         let langPos = UserDefaults.standard.string(forKey: "languageOverlayPosition") ?? "bottom"
-        if mediaKeyManager.showLanguageIndicator { active.append(ActiveOverlay(id: "language_\(mediaKeyManager.languageEventId)", type: .language, position: langPos, notification: nil)) }
+        if mediaKeyManager.showLanguageIndicator { active.append(ActiveOverlay(id: "language", type: .language, position: langPos, notification: nil)) }
         
         let mediaPos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
-        if mediaKeyManager.showMediaIndicator { active.append(ActiveOverlay(id: "media_\(mediaKeyManager.mediaEventId)", type: .media, position: mediaPos, notification: nil)) }
+        if mediaKeyManager.showMediaIndicator { active.append(ActiveOverlay(id: "media", type: .media, position: mediaPos, notification: nil)) }
         
         let themePos = UserDefaults.standard.string(forKey: "themeOverlayPosition") ?? "bottom"
-        if mediaKeyManager.showThemeIndicator { active.append(ActiveOverlay(id: "theme_\(mediaKeyManager.themeEventId)", type: .theme, position: themePos, notification: nil)) }
+        if mediaKeyManager.showThemeIndicator { active.append(ActiveOverlay(id: "theme", type: .theme, position: themePos, notification: nil)) }
         
         let micPos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
-        if mediaKeyManager.showMicIndicator { active.append(ActiveOverlay(id: "mic_\(mediaKeyManager.micEventId)", type: .mic, position: micPos, notification: nil)) }
+        if mediaKeyManager.showMicIndicator { active.append(ActiveOverlay(id: "mic", type: .mic, position: micPos, notification: nil)) }
         
         let camPos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
-        if mediaKeyManager.showCameraIndicator { active.append(ActiveOverlay(id: "camera_\(mediaKeyManager.cameraEventId)", type: .camera, position: camPos, notification: nil)) }
+        if mediaKeyManager.showCameraIndicator { active.append(ActiveOverlay(id: "camera", type: .camera, position: camPos, notification: nil)) }
         
         let locPos = UserDefaults.standard.string(forKey: "locationOverlayPosition") ?? "top"
-        if mediaKeyManager.showLocationIndicator { active.append(ActiveOverlay(id: "location_\(mediaKeyManager.locationEventId)", type: .location, position: locPos, notification: nil)) }
+        if mediaKeyManager.showLocationIndicator { active.append(ActiveOverlay(id: "location", type: .location, position: locPos, notification: nil)) }
         
         let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
-        if mediaKeyManager.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi_\(mediaKeyManager.wiFiEventId)", type: .wifi, position: wifiPos, notification: nil)) }
+        if mediaKeyManager.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi", type: .wifi, position: wifiPos, notification: nil)) }
         
         let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
         for notif in mediaKeyManager.activePeripheralNotifications {
@@ -79,7 +79,10 @@ struct ContentView: View {
         }
         
         let fanPos = UserDefaults.standard.string(forKey: "fanOverlayPosition") ?? "bottom"
-        if mediaKeyManager.showFanIndicator { active.append(ActiveOverlay(id: "fan_\(mediaKeyManager.fanEventId)", type: .fan, position: fanPos, notification: nil)) }
+        if mediaKeyManager.showFanIndicator { active.append(ActiveOverlay(id: "fan", type: .fan, position: fanPos, notification: nil)) }
+        
+        let ramPos = UserDefaults.standard.string(forKey: "ramOverlayPosition") ?? "bottom"
+        if mediaKeyManager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
         
         let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)
         
@@ -221,7 +224,6 @@ struct ContentView: View {
     
     private func yPos(for overlay: ActiveOverlay, in size: CGSize) -> CGFloat {
         let padding: CGFloat = 40
-        // Ustalmy prawdziwą wysokość pigułki w zależności od typu, żeby krawędzie (górna/dolna) idealnie się licowały!
         let pillHeight: CGFloat = 56
         
         if overlay.position.hasPrefix("top") { return padding + (pillHeight / 2) } 
@@ -249,11 +251,12 @@ struct ContentView: View {
         case .peripheral: PeripheralOverlayView(notification: overlay.notification)
         case .display: DisplayOverlayView(notification: overlay.notification)
         case .fan: FanOverlayView()
+        case .ram: RamOverlayView()
         }
     }
     
     var body: some View {
-        let showBattery = mediaKeyManager.showChargingStatus || mediaKeyManager.showLowBatteryWarning
+        let showBattery = mediaKeyManager.showChargingStatus || mediaKeyManager.showLowBatteryWarning || mediaKeyManager.showUnpluggedStatus
         let showVolume = mediaKeyManager.showVolumeIndicator
         let showBrightness = mediaKeyManager.showBrightnessIndicator
         let showKeyboardBrightness = mediaKeyManager.showKeyboardBrightnessIndicator
@@ -270,8 +273,9 @@ struct ContentView: View {
         let showPeripheral = !mediaKeyManager.activePeripheralNotifications.isEmpty
         let showDisplay = !mediaKeyManager.activeDisplayNotifications.isEmpty
         let showFan = mediaKeyManager.showFanIndicator
+        let showRam = mediaKeyManager.showRamIndicator
         
-        let isVisible = showBattery || showVolume || showBrightness || showKeyboardBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showLocation || showWiFi || showPeripheral || showDisplay || showFan
+        let isVisible = showBattery || showVolume || showBrightness || showKeyboardBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showLocation || showWiFi || showPeripheral || showDisplay || showFan || showRam
         
         
         ZStack {
@@ -313,7 +317,6 @@ struct ContentView: View {
             guard let window = overlayWindow else { return }
             guard let screen = NSScreen.main else { return }
             
-            // Okno na cały ekran - ContentView zarządza pozycją przez GeometryReader
             window.setFrame(screen.visibleFrame, display: true)
         }
     }
@@ -322,7 +325,6 @@ struct ContentView: View {
 
 
 
-// Widok pomocniczy pozwalający animować wyświetlaną liczbę
 
 #Preview {
     ContentView()

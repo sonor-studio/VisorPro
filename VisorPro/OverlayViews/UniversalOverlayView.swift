@@ -16,7 +16,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var fillCenter: Bool = true
     var isMuted: Bool = false
     
-    var listHeight: CGFloat = 0
     var customWidth: CGFloat = 260
     var customHeight: CGFloat = 56
     
@@ -38,7 +37,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var holdTimer: Timer? = nil
     @State private var isHovering: Bool = false
     @State private var expandedKeepAliveTimer: Timer? = nil
-    @State private var timeoutProgress: CGFloat = 1.0
     
     private var isGloballyHovered: Bool {
         guard let keepAliveId = keepAliveId else { return isHovering }
@@ -59,11 +57,22 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         let innerRadius: CGFloat = outerRadius - trackPadding
         let trackWidth: CGFloat = width - (trackPadding * 2)
         
-        let currentHeight = isExpanded && isExpandable ? baseHeight + listHeight : baseHeight
-        
-        ZStack(alignment: .top) {
+        VStack(spacing: 0) {
+            baseContent()
+                .frame(width: width, height: baseHeight)
+                .allowsHitTesting(false)
+            
+            expandedContent()
+                .padding(.bottom, 16)
+                .frame(width: width)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(height: isExpanded ? nil : 0, alignment: .top)
+                .clipped()
+                .opacity(isExpanded ? 1 : 0)
+        }
+        .frame(width: width, alignment: .top)
+        .background(
             ZStack(alignment: .leading) {
-                // WARSTWA 0.5: Cień wewnętrznego kafelka (pada na zewnętrzne szkło, ale nie na pasek postępu)
                 ZStack {
                     RoundedRectangle(cornerRadius: max(0, innerRadius - 0.75), style: .continuous)
                         .fill(Color.black)
@@ -75,7 +84,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 }
                 .compositingGroup()
                 .padding(trackPadding)
-                .frame(width: width, height: currentHeight)
 
                 // WARSTWA 1: Baza
                 Group {
@@ -83,9 +91,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         .strokeBorder(Color.primary.opacity(0.3), lineWidth: innerPadding)
                         .padding(trackPadding)
                 }
-                .frame(width: width, height: currentHeight)
                 
-                // WARSTWA 2: Pasek postępu
                 if showProgressBar {
                     ZStack {
                         if fillCenter {
@@ -98,14 +104,18 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 .padding(trackPadding)
                         }
                     }
-                    .frame(width: width, height: currentHeight)
                     .mask(
                         Group {
                             if isTimeoutMode {
                                 HStack(spacing: 0) {
                                     Spacer().frame(width: trackPadding)
-                                    Rectangle()
-                                        .modifier(TimeoutProgressBarModifier(progress: timeoutProgress, trackWidth: trackWidth))
+                                    TimeoutProgressBar(
+                                        trackWidth: trackWidth,
+                                        isHovering: isGloballyHovered || isExpanded,
+                                        initialDuration: timeoutDuration,
+                                        hoverOutDuration: timeoutDuration,
+                                        eventId: timeoutEventId
+                                    )
                                     Spacer(minLength: 0)
                                 }
                             } else if let customMask = customProgressMask {
@@ -142,85 +152,70 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         .strokeBorder(Color.glassBorder, lineWidth: 1)
                 }
                 .padding(trackPadding + innerPadding)
-                .frame(width: width, height: currentHeight)
             }
-            .frame(width: width, height: currentHeight)
-            .contentShape(RoundedRectangle(cornerRadius: innerRadius + trackPadding, style: .continuous))
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        if isPreview { return }
-                        if supportDragGesture {
-                            if isDragging {
+        )
+        .contentShape(RoundedRectangle(cornerRadius: innerRadius + trackPadding, style: .continuous))
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    if isPreview { return }
+                    if supportDragGesture {
+                        if isDragging {
+                            let v = max(0, min(1, value.location.x / width))
+                            onDrag?(v)
+                        } else {
+                            let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
+                            if moved {
+                                holdTimer?.invalidate()
+                                holdTimer = nil
+                                isDragging = true
                                 let v = max(0, min(1, value.location.x / width))
                                 onDrag?(v)
-                            } else {
-                                let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
-                                if moved {
-                                    holdTimer?.invalidate()
-                                    holdTimer = nil
-                                    isDragging = true
-                                    let v = max(0, min(1, value.location.x / width))
-                                    onDrag?(v)
-                                } else if holdTimer == nil {
-                                    let timer = Timer(timeInterval: 0.2, repeats: false) { _ in
-                                        DispatchQueue.main.async {
-                                            isDragging = true
-                                            let v = max(0, min(1, value.location.x / width))
-                                            onDrag?(v)
-                                        }
+                            } else if holdTimer == nil {
+                                let timer = Timer(timeInterval: 0.5, repeats: false) { _ in
+                                    DispatchQueue.main.async {
+                                        isDragging = true
+                                        let v = max(0, min(1, value.location.x / width))
+                                        onDrag?(v)
                                     }
-                                    RunLoop.main.add(timer, forMode: .common)
-                                    holdTimer = timer
                                 }
+                                RunLoop.main.add(timer, forMode: .common)
+                                holdTimer = timer
                             }
                         }
                     }
-                    .onEnded { value in
-                        holdTimer?.invalidate()
-                        holdTimer = nil
-                        
-                        if !isDragging {
-                            let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
-                            if !moved {
-                                if supportDragGesture {
-                                    if value.startLocation.x <= 50 && onLeftTap != nil {
-                                        onLeftTap?()
-                                    } else {
-                                        onRightTap?()
-                                        if isExpandable {
-                                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                                isExpanded.toggle()
-                                            }
-                                        }
-                                    }
+                }
+                .onEnded { value in
+                    holdTimer?.invalidate()
+                    holdTimer = nil
+                    
+                    if !isDragging {
+                        let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
+                        if !moved {
+                            if supportDragGesture {
+                                if value.startLocation.x <= 50 && onLeftTap != nil {
+                                    onLeftTap?()
                                 } else {
-                                    onSimpleTap?()
+                                    onRightTap?()
                                     if isExpandable {
                                         withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                             isExpanded.toggle()
                                         }
                                     }
                                 }
+                            } else {
+                                onSimpleTap?()
+                                if isExpandable {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                        isExpanded.toggle()
+                                    }
+                                }
                             }
                         }
-                        isDragging = false
                     }
-            )
-            
-            // Górna warstwa tekst/ikony
-            baseContent()
-                .frame(width: width, height: baseHeight)
-                .allowsHitTesting(false)
-            
-            // Szuflada z zawartością - zawsze rozwija się w dół pod nagłówkiem
-            expandedContent()
-                .frame(width: width, height: isExpanded ? listHeight : 0, alignment: .top)
-                .padding(.top, baseHeight)
-                .clipped()
-                .opacity(isExpanded ? 1 : 0)
-        }
-        .frame(width: width, height: isExpanded && isExpandable ? baseHeight + listHeight : baseHeight, alignment: .top)
+                    isDragging = false
+                }
+        )
         .background(
             (colorScheme == .dark ? Color.black.opacity(0.25) : Color.white.opacity(0.55))
                 .background(.thickMaterial)
@@ -242,23 +237,16 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             }
             .compositingGroup()
         )
-        .onAppear {
-            if isTimeoutMode {
-                timeoutProgress = 1.0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    if !(isGloballyHovered || isExpanded) {
-                        let duration = max(0.1, timeoutDuration - 0.2)
-                        withAnimation(.linear(duration: duration)) {
-                            timeoutProgress = 0.0
-                        }
-                    }
-                }
-            }
-        }
         .onHoverExact { hovering in
             isHovering = hovering
             triggerKeepAlive(hoveringOverride: hovering)
-            updateTimeoutAnimation(renew: hovering)
+        }
+        .onChange(of: isExpandable) { _, newValue in
+            if !newValue && isExpanded {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                    isExpanded = false
+                }
+            }
         }
         .onChange(of: isExpanded) { _, expanded in
             if expanded {
@@ -269,44 +257,12 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     }
                 }
                 triggerKeepAlive(expandedOverride: true)
-                updateTimeoutAnimation(renew: true)
             } else {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = nil
                 if !isPreview, let keepAliveId = keepAliveId {
                     mediaKeyManager.keepAlive(for: keepAliveId, isHovering: isHovering)
                 }
-                updateTimeoutAnimation(renew: isHovering)
-            }
-        }
-        .onChange(of: timeoutEventId) { _, _ in
-            if isTimeoutMode {
-                timeoutProgress = 1.0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    if !(isGloballyHovered || isExpanded) {
-                        let duration = max(0.1, timeoutDuration - 0.2)
-                        withAnimation(.linear(duration: duration)) {
-                            timeoutProgress = 0.0
-                        }
-                    }
-                }
-            }
-        }
-        .onChange(of: mediaKeyManager.globalHoveredTypes) { _, _ in
-            updateTimeoutAnimation(renew: false)
-        }
-    }
-    
-    private func updateTimeoutAnimation(renew: Bool) {
-        guard isTimeoutMode else { return }
-        if renew || isGloballyHovered || isExpanded {
-            withAnimation(.easeOut(duration: 0.2)) {
-                timeoutProgress = 1.0
-            }
-        } else {
-            let duration = max(0.1, timeoutDuration - 0.2)
-            withAnimation(.linear(duration: duration)) {
-                timeoutProgress = 0.0
             }
         }
     }

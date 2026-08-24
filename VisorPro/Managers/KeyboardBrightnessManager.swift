@@ -108,12 +108,12 @@ class KeyboardBrightnessManager {
             var newBrightness = increase ? self.currentBrightness + step : self.currentBrightness - step
             newBrightness = max(0.0, min(1.0, newBrightness))
             
-            self.saveBrightness(newBrightness)
-            
             let intBrightness = Int(newBrightness * 100)
             DispatchQueue.main.async {
                 completion(intBrightness)
             }
+            
+            self.saveBrightness(newBrightness)
         }
     }
     
@@ -130,12 +130,12 @@ class KeyboardBrightnessManager {
             var newBrightness = Float(level) / 100.0
             newBrightness = max(0.0, min(1.0, newBrightness))
             
-            self.saveBrightness(newBrightness)
-            
             let intBrightness = Int(newBrightness * 100)
             DispatchQueue.main.async {
                 completion(intBrightness)
             }
+            
+            self.saveBrightness(newBrightness)
         }
     }
 }

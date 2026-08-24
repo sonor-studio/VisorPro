@@ -47,7 +47,7 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
     }
     
     func startObserving() {
-        self.lastSSID = getSSIDThrottled()
+        self.lastSSID = CWWiFiClient.shared().interface()?.ssid()
         self.lastIsConnected = self.lastSSID != nil
         
         DispatchQueue.main.async { [weak self] in
@@ -55,7 +55,6 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             self.timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
                 self.pollWiFi()
             }
-            
             self.pathMonitor = NWPathMonitor(requiredInterfaceType: .wifi)
             self.pathMonitor?.pathUpdateHandler = { [weak self] path in
                 let expensive = path.isExpensive
@@ -64,15 +63,10 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
                     guard let self = self else { return }
                     if self.isCurrentlyHotspot != expensive {
                         self.isCurrentlyHotspot = expensive
-                        // Jeśli odświeżyło się z opóźnieniem, przekaż to w locie do aktywnej nakładki!
-                        // Zapisujemy lastWasHotspot TYLKO gdy mamy aktywne połączenie (satisfied)
                         if self.lastIsConnected && isSatisfied {
                             self.manager?.wiFiIsHotspot = expensive
                             self.lastWasHotspot = expensive
                         } else if self.lastIsConnected && !isSatisfied {
-                            // Jeśli straciliśmy połączenie (status != .satisfied), NWPathMonitor
-                            // zgłosi expensive = false. Nie chcemy nadpisać lastWasHotspot!
-                            // Tylko aktualizujemy aktualny stan menedżera, bez ruszania lastWasHotspot.
                             self.manager?.wiFiIsHotspot = expensive
                         }
                     }
@@ -81,6 +75,8 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             self.pathMonitor?.start(queue: self.pathQueue)
         }
     }
+    
+    private var isFetchingNetworkSetup: Bool = false
     
     @objc private func pollWiFi() {
         guard let interface = CWWiFiClient.shared().interface() else { return }
@@ -92,53 +88,65 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             return
         }
         
-        var currentSSID = interface.ssid()
-        if currentSSID == nil || currentSSID!.isEmpty {
-            currentSSID = getSSIDThrottled()
-        }
-        
-        if let validSSID = currentSSID, !validSSID.isEmpty {
+        if let ssid = interface.ssid(), !ssid.isEmpty {
             inactiveCounter = 0
-            handleFinalState(isConnected: true, ssid: validSSID)
+            cachedNetworkSetupSSID = ssid
+            handleFinalState(isConnected: true, ssid: ssid)
         } else {
-            inactiveCounter += 1
-            if inactiveCounter >= 8 { // 4 sekundy "pustego" stanu (np. podczas przełączania/DHCP) = dopiero teraz Rozłączono
-                handleFinalState(isConnected: false, ssid: nil)
+            // Asynchronous fetch via networksetup to avoid blocking main thread
+            if Date().timeIntervalSince(lastNetworkSetupPoll) > 3.0 && !isFetchingNetworkSetup {
+                isFetchingNetworkSetup = true
+                lastNetworkSetupPoll = Date()
+                
+                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    let process = Process()
+                    process.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
+                    process.arguments = ["-getairportnetwork", "en0"]
+                    let pipe = Pipe()
+                    process.standardOutput = pipe
+                    
+                    var foundSSID: String? = nil
+                    do {
+                        try process.run()
+                        process.waitUntilExit()
+                        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                        if let output = String(data: data, encoding: .utf8) {
+                            if output.contains("Current Wi-Fi Network:") {
+                                let parts = output.components(separatedBy: "Current Wi-Fi Network: ")
+                                if parts.count > 1 {
+                                    let parsed = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+                                    if parsed != "null" && !parsed.isEmpty {
+                                        foundSSID = parsed
+                                    }
+                                }
+                            }
+                        }
+                    } catch {}
+                    
+                    DispatchQueue.main.async {
+                        guard let self = self else { return }
+                        self.isFetchingNetworkSetup = false
+                        self.cachedNetworkSetupSSID = foundSSID
+                        self.processSSIDResult(foundSSID)
+                    }
+                }
+            } else {
+                // Use cached result while fetching or waiting
+                processSSIDResult(cachedNetworkSetupSSID)
             }
         }
     }
     
-    private func getSSIDThrottled() -> String? {
-        if Date().timeIntervalSince(lastNetworkSetupPoll) < 3.0 {
-            return cachedNetworkSetupSSID
-        }
-        lastNetworkSetupPoll = Date()
-        
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
-        process.arguments = ["-getairportnetwork", "en0"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8) {
-                if output.contains("Current Wi-Fi Network:") {
-                    let parts = output.components(separatedBy: "Current Wi-Fi Network: ")
-                    if parts.count > 1 {
-                        let ssid = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-                        if ssid != "null" && !ssid.isEmpty {
-                            cachedNetworkSetupSSID = ssid
-                            return ssid
-                        }
-                    }
-                }
+    private func processSSIDResult(_ ssid: String?) {
+        if let validSSID = ssid, !validSSID.isEmpty {
+            inactiveCounter = 0
+            handleFinalState(isConnected: true, ssid: validSSID)
+        } else {
+            inactiveCounter += 1
+            if inactiveCounter >= 10 { // 5 sekundy "pustego" stanu
+                handleFinalState(isConnected: false, ssid: nil)
             }
-        } catch {}
-        
-        cachedNetworkSetupSSID = nil
-        return nil
+        }
     }
     
     private func handleFinalState(isConnected: Bool, ssid: String?) {

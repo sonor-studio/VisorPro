@@ -22,7 +22,7 @@ struct ThemeSelectionCard: View {
         Button(action: action) {
             VStack(spacing: 0) {
                 ZStack {
-                    PreviewBackgroundView()
+                    PreviewBackgroundView(minHeight: 100)
                         .environment(\.colorScheme, oppositeScheme)
                         .frame(height: 100)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -35,7 +35,6 @@ struct ThemeSelectionCard: View {
                         barColor: .clear,
                         fillCenter: false,
                         isMuted: false,
-                        listHeight: 0,
                         customWidth: 160,
                         customHeight: 46,
                         supportDragGesture: false,
@@ -67,10 +66,10 @@ struct ThemeSelectionCard: View {
                     .padding(.vertical, 10)
             }
             .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(10)
+            .cornerRadius(16)
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(isSelected ? Color.blue : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(isSelected ? Color.blue : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
             )
         }
         .buttonStyle(PlainButtonStyle())

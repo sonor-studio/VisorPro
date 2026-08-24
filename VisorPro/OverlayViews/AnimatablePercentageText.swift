@@ -7,8 +7,6 @@ struct AnimatablePercentageText: View, Animatable {
     var isPluggedIn: Bool = true
     var customText: String? = nil
     
-    // Zmiana typu na AnimatablePair naprawia znany błąd SwiftUI, w którym animacja
-    // przejścia (np. move) nadpisuje zmienną animatableData i powoduje wartości typu -100.
     var animatableData: AnimatablePair<CGFloat, CGFloat> {
         get { AnimatablePair(progress, 0) }
         set { progress = newValue.first }

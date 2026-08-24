@@ -31,7 +31,6 @@ class BatteryObserver {
             CFRunLoopAddSource(CFRunLoopGetCurrent(), source.takeUnretainedValue(), .defaultMode)
         }
         
-        // Polling co 3 sekundy w celu płynnego i szybkiego aktualizowania m.in. napięcia i czasu ładowania
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
@@ -243,7 +242,6 @@ class BatteryObserver {
                         }
                     }
                     
-                    // Zawsze aktualizuj stan w MediaKeyManager dla Ustawień
                     DispatchQueue.main.async {
                         manager.updateAccessoryState(deviceName: name, percentage: capacity, isPluggedIn: isPluggedIn)
                     }
@@ -290,6 +288,9 @@ class BatteryObserver {
         }
         
         if amperage > 0 {
+            if !isPluggedIn {
+                return "Calculating..."
+            }
             let capacityNeeded = maxCapacity - currentCapacity
             let hoursLeft = capacityNeeded / amperage
             let totalMinutes = Int(hoursLeft * 60)

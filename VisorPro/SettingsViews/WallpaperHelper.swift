@@ -81,21 +81,23 @@ struct WallpaperHelper {
         return nil
     }
     
-    static func loadThumbnail(from url: URL, targetSize: CGFloat = 800) -> NSImage? {
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceThumbnailMaxPixelSize: targetSize
-        ]
-        
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-            return nil
-        }
-        
-        let size = NSSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height))
-        return NSImage(cgImage: cgImage, size: size)
+    static func loadThumbnail(from url: URL, targetSize: CGFloat = 800) async -> NSImage? {
+        return await Task.detached(priority: .background) {
+            let options: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceShouldCacheImmediately: true,
+                kCGImageSourceThumbnailMaxPixelSize: targetSize
+            ]
+            
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                  let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+                return nil
+            }
+            
+            let size = NSSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height))
+            return NSImage(cgImage: cgImage, size: size)
+        }.value
     }
     
     static func generateImageFromVideoWallpaper(videoURL: URL, targetSize: CGFloat = 800) async -> NSImage? {
@@ -114,7 +116,6 @@ struct WallpaperHelper {
             let size = NSSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height))
             return NSImage(cgImage: cgImage, size: size)
         } catch {
-            print("Błąd generowania obrazu z wideo: \(error)")
             return nil
         }
     }

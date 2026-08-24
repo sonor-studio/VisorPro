@@ -130,12 +130,9 @@ class MediaObserver {
         let appName = json["appName"] as? String ?? ""
         let bundleId = json["bundleId"] as? String ?? ""
         
-        // --- Całkowite wykluczenie Szybkiego Podglądu (Quick Look) ---
-        // Zwracamy wczesniej (early return), aby Quick Look w ogóle nie nadpisał
-        // wewnętrznego stanu lastTitle i lastIsPlaying dla odtwarzacza działającego w tle.
         let qlBundle = bundleId.lowercased()
         let qlApp = appName.lowercased()
-        if qlBundle.contains("quicklook") || qlBundle.contains("finder") || qlApp.contains("quick look") || qlApp.contains("szybki podgląd") || qlApp == "finder" {
+        if qlBundle.contains("quicklook") || qlBundle.contains("finder") || qlApp.contains("quick look") || qlApp.contains("quick look") || qlApp == "finder" {
             return
         }
         
@@ -170,14 +167,12 @@ class MediaObserver {
         } else if self.lastIsPlaying != isPlaying {
             shouldTrigger = true
             if isPlaying {
-                // Jeśli wznowienie jest na samym początku utworu (elapsedTime < 1.0s) to traktuj jako start
                 if elapsedTime < 1.0 {
                     mediaAction = "start"
                 } else {
                     mediaAction = "resume"
                 }
             } else {
-                // Jeśli pauza jest na samym końcu (elapsedTime >= duration - 2.0s) to traktuj jako koniec
                 if duration > 0 && elapsedTime >= (duration - 2.0) {
                     mediaAction = "end"
                 } else {
@@ -188,20 +183,17 @@ class MediaObserver {
             mediaAction = isPlaying ? "resume" : "pause"
         }
         
-        // --- Ukrywanie nakładki, gdy użytkownik jest w aplikacji odtwarzającej ---
         if shouldTrigger && !bundleId.isEmpty {
             if let activeApp = NSWorkspace.shared.frontmostApplication {
                 if activeApp.bundleIdentifier == bundleId {
                     let browserBundles = ["com.apple.Safari", "com.google.Chrome", "com.brave.Browser", "company.thebrowser.Browser", "com.microsoft.edgemac", "org.mozilla.firefox"]
                     if browserBundles.contains(bundleId) {
-                        // Sprawdzamy tytuły (skupionego okna oraz głównego okna, bo na pełnym ekranie skupione okno może nie mieć tytułu)
                         let winTitles = getActiveWindowTitles(pid: activeApp.processIdentifier)
                         let cleanMediaTitle = title.lowercased().trimmingCharacters(in: .whitespaces)
                         
                         for winTitle in winTitles {
                             let cleanWinTitle = winTitle.lowercased().trimmingCharacters(in: .whitespaces)
                             
-                            // Wykluczenie dla stron z krótkimi filmikami (YouTube, TikTok, Instagram)
                             if cleanWinTitle.contains("youtube") || cleanWinTitle.contains("tiktok") || cleanWinTitle.contains("instagram") || cleanWinTitle.contains("shorts") || cleanWinTitle.contains("reels") {
                                 shouldTrigger = false
                                 break
@@ -209,14 +201,12 @@ class MediaObserver {
                             
                             let cleanWinTitleStripped = cleanWinTitle.replacingOccurrences(of: " - youtube", with: "")
                             
-                            // Jeśli tytuł karty zawiera tytuł filmu (lub na odwrót), jesteśmy na karcie z odtwarzaczem
                             if !cleanWinTitleStripped.isEmpty && !cleanMediaTitle.isEmpty && (cleanWinTitleStripped.contains(cleanMediaTitle) || cleanMediaTitle.contains(cleanWinTitleStripped)) {
                                 shouldTrigger = false
                                 break
                             }
                         }
                     } else {
-                        // Aplikacja natywna (np. Spotify) na pierwszym planie - ukrywamy nakładkę
                         shouldTrigger = false
                     }
                 }
@@ -259,7 +249,6 @@ class MediaObserver {
             }
         }
         
-        // Fallback: main window (bardzo ważne w trybie pełnoekranowym, gdzie focusedWindow to warstwa wideo bez tytułu)
         var mainWindow: CFTypeRef?
         if AXUIElementCopyAttributeValue(axApp, kAXMainWindowAttribute as CFString, &mainWindow) == .success {
             let window = mainWindow as! AXUIElement

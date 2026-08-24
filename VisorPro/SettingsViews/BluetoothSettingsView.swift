@@ -3,6 +3,7 @@ import SwiftUI
 struct BluetoothSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("bluetoothOverlayPosition") private var bluetoothOverlayPosition: String = "bottom"
+    @AppStorage("bluetoothAllowExpansion") private var bluetoothAllowExpansion: Bool = true
     @State private var isHistoryExpanded: Bool = false
     
     var body: some View {
@@ -31,10 +32,10 @@ struct BluetoothSettingsView: View {
                         PreviewBackgroundView()
                         
                         HStack(spacing: -10) {
-                            BluetoothOverlayView(isPreview: true, previewIsConnected: true, previewDeviceName: "AirPods Pro")
+                            BluetoothOverlayView(isPreview: true, previewIsConnected: true, previewDeviceName: "AirPods Pro").applyTheme(mediaKeyManager.overlayTheme)
                                 .scaleEffect(0.85)
                             
-                            BluetoothOverlayView(isPreview: true, previewIsConnected: false, previewDeviceName: "Magic Mouse")
+                            BluetoothOverlayView(isPreview: true, previewIsConnected: false, previewDeviceName: "Magic Mouse").applyTheme(mediaKeyManager.overlayTheme)
                                 .scaleEffect(0.85)
                         }
                     }
@@ -45,10 +46,10 @@ struct BluetoothSettingsView: View {
                 
                 Divider()
                 
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Overlay Triggers")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
+                        .font(.headline)
+                        .foregroundColor(.secondary)
                         .padding(.bottom, 4)
                         .padding(.leading, 4)
                     
@@ -79,8 +80,8 @@ struct BluetoothSettingsView: View {
                         let displayedHistory = isHistoryExpanded ? mediaKeyManager.bluetoothHistory : Array(mediaKeyManager.bluetoothHistory.prefix(3))
                         
                         Text("Remembered Devices (\(mediaKeyManager.bluetoothHistory.count))")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
+                            .font(.headline)
+                            .foregroundColor(.secondary)
                             .padding(.top, 10)
                             .padding(.bottom, 4)
                             .padding(.leading, 4)
@@ -99,18 +100,35 @@ struct BluetoothSettingsView: View {
                                 }()
                                 
                                 CustomSettingsRow(icon: icon, iconColor: .indigo, title: device, subtitle: "Show notifications for this device") {
-                                    Toggle("", isOn: Binding(
-                                        get: { !mediaKeyManager.bluetoothBlocklist.contains(device) },
-                                        set: { isEnabled in
-                                            if isEnabled {
-                                                mediaKeyManager.bluetoothBlocklist.removeAll { $0 == device }
-                                            } else {
-                                                if !mediaKeyManager.bluetoothBlocklist.contains(device) {
-                                                    mediaKeyManager.bluetoothBlocklist.append(device)
+                                    HStack(spacing: 12) {
+                                        Toggle("", isOn: Binding(
+                                            get: { !mediaKeyManager.bluetoothBlocklist.contains(device) },
+                                            set: { isEnabled in
+                                                if isEnabled {
+                                                    mediaKeyManager.bluetoothBlocklist.removeAll { $0 == device }
+                                                } else {
+                                                    if !mediaKeyManager.bluetoothBlocklist.contains(device) {
+                                                        mediaKeyManager.bluetoothBlocklist.append(device)
+                                                    }
                                                 }
                                             }
+                                        )).labelsHidden()
+                                        
+                                        Button(action: {
+                                            withAnimation {
+                                                mediaKeyManager.bluetoothHistory.removeAll { $0 == device }
+                                                mediaKeyManager.bluetoothBlocklist.removeAll { $0 == device }
+                                            }
+                                        }) {
+                                            Image(systemName: "trash")
+                                                .foregroundColor(.red.opacity(0.7))
+                                                .font(.system(size: 14))
                                         }
-                                    )).labelsHidden()
+                                        .buttonStyle(.plain)
+                                        .onHover { hovering in
+                                            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                                        }
+                                    }
                                 }
                                 if device != displayedHistory.last || (mediaKeyManager.bluetoothHistory.count > 3) {
                                     Divider().padding(.leading, 40)
@@ -147,6 +165,26 @@ struct BluetoothSettingsView: View {
                                 .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                         )
                     }
+                    
+                    Text("Behavior")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 10)
+                        .padding(.bottom, 4)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .indigo, title: "Allow Expansion", subtitle: "Allow overlay to expand and show device details") {
+                            Toggle("", isOn: $bluetoothAllowExpansion).labelsHidden()
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
                     
                     Text("Overlay Position")
                         .font(.headline)

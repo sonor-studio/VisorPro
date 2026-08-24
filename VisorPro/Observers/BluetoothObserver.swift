@@ -35,7 +35,7 @@ class BluetoothObserver: NSObject {
     @objc func deviceDidConnect(_ notification: IOBluetoothUserNotification, fromDevice device: IOBluetoothDevice) {
         if isInitialLoad { return }
         if !shouldShowNotification(for: device) { return }
-        guard let rawName = device.name else { return } // Ignoruj urządzenia bez nazwy
+        guard let rawName = device.name else { return }
         
         let name = rawName.replacingOccurrences(of: "’", with: "'")
         

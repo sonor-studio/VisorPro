@@ -26,7 +26,6 @@ class FanObserver: ObservableObject {
         if status == NOTIFY_STATUS_OK {
             checkThermalLevel()
         } else {
-            print("Failed to register for thermal notifications")
         }
     }
     
@@ -35,13 +34,11 @@ class FanObserver: ObservableObject {
         notify_get_state(token, &state)
         
         // Stan 0 to Nominal (Totalny Spoczynek)
-        // Stan 1 (Moderate) lub 2 (Heavy) z reguły wywołuje fizyczny start wentylatorów na Apple Silicon zanim ProcessInfo podbije swój status z .nominal
         let currentlyRunning = state >= 1
         
         if currentlyRunning != self.isFanRunning {
             DispatchQueue.main.async {
                 self.isFanRunning = currentlyRunning
-                // Zgłoszenie zdarzenia wiatraka do UI VisorPro:
                 MediaKeyManager.shared.triggerFanOverlay(isRunning: currentlyRunning)
             }
         }

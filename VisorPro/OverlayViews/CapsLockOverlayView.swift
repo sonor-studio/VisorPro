@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct CapsLockOverlayView: View {
-    @State private var isHovering: Bool = false
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @AppStorage("capsLockAllowExpansion") private var capsLockAllowExpansion: Bool = true
+    @AppStorage("capsLockAllowInteractivity") private var capsLockAllowInteractivity: Bool = true
     var isPreview: Bool = false
     var previewIsOn: Bool = true
     @State private var localPreviewIsOn: Bool = true
@@ -12,7 +13,7 @@ struct CapsLockOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsOn ? .green : .secondary
+        actualIsOn ? .mint : .secondary
     }
     
     private var actionTitle: String {
@@ -21,31 +22,31 @@ struct CapsLockOverlayView: View {
     
     var body: some View {
         let actionTitle = actualIsOn ? "Caps Lock ON" : "Caps Lock OFF"
-        let actionColor: Color = actualIsOn ? .green : .secondary
+        let actionColor: Color = actualIsOn ? .mint : .secondary
         let trackWidth: CGFloat = 230 - 8
         
         return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: .constant(false),
             showProgressBar: true,
-            progress: 1.0,
-            customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering || mediaKeyManager.globalHoveredTypes.contains("capsLock"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
-                    .id(mediaKeyManager.capsLockEventId)
-            ),
+            hasTimeoutProgress: true,
+            timeoutEventId: mediaKeyManager.capsLockEventId,
             barColor: actionColor,
-            fillCenter: false, // It was using strokeBorder
+            fillCenter: false,
             isMuted: false,
-            listHeight: 0,
             customWidth: 230,
             supportDragGesture: false,
             onSimpleTap: {
-                if isPreview {
-                    withAnimation { localPreviewIsOn.toggle() }
-                } else {
-                    mediaKeyManager.toggleCapsLock()
+                if capsLockAllowInteractivity {
+                    if isPreview {
+                        withAnimation { localPreviewIsOn.toggle() }
+                    } else {
+                        mediaKeyManager.toggleCapsLock()
+                    }
                 }
             },
+            isExpandable: capsLockAllowExpansion,
+            keepAliveId: "capsLock",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsOn ? "capslock.fill" : "capslock")
@@ -69,16 +70,8 @@ struct CapsLockOverlayView: View {
             }
         )
         .frame(width: 230, height: 56, alignment: .top)
-
-        .onHoverExact { hovering in
-            if !isPreview {
-                self.isHovering = hovering
-                mediaKeyManager.keepAlive(for: "capsLock", isHovering: hovering)
-            }
-        }
-                .onAppear {
+        .onAppear {
             localPreviewIsOn = previewIsOn
         }
-        .applyTheme(mediaKeyManager.overlayTheme)
     }
 }

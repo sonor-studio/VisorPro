@@ -40,7 +40,6 @@ class BluetoothBatteryPoller {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             parseBluetoothXML(data)
         } catch {
-            print("Bluetooth Poller task error: \(error)")
         }
     }
     
@@ -53,7 +52,6 @@ class BluetoothBatteryPoller {
                 return
             }
             
-            // Urządzenia podłączone
             if let connectedDevices = bluetoothItem["device_connected"] as? [[String: Any]] {
                 for deviceDict in connectedDevices {
                     for (rawName, detailsRaw) in deviceDict {
@@ -72,10 +70,8 @@ class BluetoothBatteryPoller {
                         if let type = details["device_minorType"] as? String { extractedDetails["Typ"] = type }
                         if let fw = details["device_firmwareVersion"] as? String { extractedDetails["Firmware"] = fw }
                         
-                        // Zapisz rozszerzone statystyki do menedżera używając niezawodnego MAC adresu jako klucza
                         self.manager?.updateBluetoothDetails(deviceName: address, details: extractedDetails)
                         
-                        // Parsowanie baterii w sposób dynamiczny
                         var currentBatteries: [String: Int] = [:]
                         for (k, v) in details {
                             guard let valStr = v as? String else { continue }
@@ -104,7 +100,6 @@ class BluetoothBatteryPoller {
                 }
             }
         } catch {
-            print("Błąd parsowania XML Bluetooth: \(error)")
         }
     }
     

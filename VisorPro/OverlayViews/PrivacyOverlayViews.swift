@@ -52,6 +52,8 @@ struct MicWaveformView: View {
 
 struct MicOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @AppStorage("micAllowExpansion") private var micAllowExpansion: Bool = true
+    @AppStorage("micShowVisualizer") private var micShowVisualizer: Bool = false
     @State private var isExpanded: Bool = false
     @State private var currentVolume: Float = 50.0
     @State private var availableDevices: [(id: UInt32, name: String)] = []
@@ -65,11 +67,11 @@ struct MicOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsActive ? .green : .secondary
+        actualIsActive ? Color(red: 1.0, green: 0.65, blue: 0.0) : .secondary
     }
     
     private var actionTitle: String {
-        actualIsActive ? "Microphone On" : "Microphone Off"
+        actualIsActive ? "Microphone in Use" : "Microphone Off"
     }
     
     private func loadInitialVolume() {
@@ -85,7 +87,6 @@ struct MicOverlayView: View {
         let currentDevices = isPreview ? [(id: UInt32(1), name: "MacBook Pro Microphone"), (id: UInt32(2), name: "External Mic")] : availableDevices
         let maxListHeight: CGFloat = 160
         let listHeight = currentDevices.isEmpty ? 0 : min(CGFloat(currentDevices.count * 40 + 10), maxListHeight)
-        let expandedHeight: CGFloat = 100 + listHeight + (currentDevices.isEmpty ? 0 : 16)
         let displayedMicName = actualIsActive && !mediaKeyManager.activeMicName.isEmpty ? mediaKeyManager.activeMicName : mediaKeyManager.currentMicDeviceName
         let micPos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
         
@@ -98,7 +99,6 @@ struct MicOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: currentVolume == 0,
-            listHeight: expandedHeight,
             customWidth: 260,
             customHeight: 56,
             supportDragGesture: false,
@@ -107,7 +107,7 @@ struct MicOverlayView: View {
                     availableDevices = VolumeManager.shared.getAvailableInputDevices()
                 }
             },
-            isExpandable: actualIsActive,
+            isExpandable: actualIsActive && micAllowExpansion,
             expandUpwards: micPos == "bottom",
             keepAliveId: "mic",
             baseContent: {
@@ -132,6 +132,42 @@ struct MicOverlayView: View {
             expandedContent: {
                 if isExpanded {
                     VStack(spacing: 0) {
+                        if !mediaKeyManager.activeMicClientName.isEmpty {
+                            VStack(spacing: 12) {
+                                Divider()
+                                    .padding(.horizontal, 16)
+                                
+                                HStack(spacing: 12) {
+                                    // App Icon
+                                    let path = mediaKeyManager.activeMicClientBundleID
+                                    if !path.isEmpty {
+                                        Image(nsImage: NSWorkspace.shared.icon(forFile: path))
+                                            .resizable()
+                                            .frame(width: 32, height: 32)
+                                    } else {
+                                        Image(systemName: "app.fill")
+                                            .resizable()
+                                            .frame(width: 32, height: 32)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Used by:")
+                                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                        Text(mediaKeyManager.activeMicClientName)
+                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                    }
+                                    
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                            .padding(.top, 4)
+                            .padding(.bottom, 12)
+                        }
                         if !currentDevices.isEmpty {
                             ScrollView(showsIndicators: false) {
                                 VStack(alignment: .leading, spacing: 4) {
@@ -156,7 +192,7 @@ struct MicOverlayView: View {
                                     }
                                 }
                                 .padding(.top, 2)
-                                .padding(.bottom, 8)
+                                
                                 .padding(.horizontal, 4 + 3 + 4)
                             }
                             .frame(height: listHeight)
@@ -166,7 +202,9 @@ struct MicOverlayView: View {
                         }
 
                         VStack(spacing: 12) {
-                            MicWaveformView(color: actionColor, isMuted: currentVolume == 0, isPreview: isPreview, previewVolume: currentVolume)
+                            if micShowVisualizer {
+                                MicWaveformView(color: actionColor, isMuted: currentVolume == 0, isPreview: isPreview, previewVolume: currentVolume)
+                            }
                             
                             HStack(spacing: 12) {
                                 Image(systemName: currentVolume == 0 ? "mic.slash.fill" : "mic.fill")
@@ -189,7 +227,7 @@ struct MicOverlayView: View {
                             .padding(.horizontal, 8)
                         }
                         .padding(.top, currentDevices.isEmpty ? 4 : 12)
-                        .padding(.bottom, 12)
+                        
                         .padding(.horizontal, 16)
                         .onAppear {
                             if !isPreview {
@@ -203,7 +241,7 @@ struct MicOverlayView: View {
             }
         )
         .onAppear {
-            if isExpanded && actualIsActive && !isPreview {
+            if isExpanded && actualIsActive && !isPreview && micShowVisualizer {
                 MicLevelMonitor.shared.startMonitoring()
             }
         }
@@ -212,7 +250,9 @@ struct MicOverlayView: View {
                 mediaKeyManager.isMicExpanded = expanded
                 if expanded {
                     availableDevices = VolumeManager.shared.getAvailableInputDevices()
-                    MicLevelMonitor.shared.startMonitoring()
+                    if micShowVisualizer {
+                        MicLevelMonitor.shared.startMonitoring()
+                    }
                     loadInitialVolume()
                 } else {
                     MicLevelMonitor.shared.stopMonitoring(immediately: false)
@@ -221,11 +261,20 @@ struct MicOverlayView: View {
         }
         .onChange(of: actualIsActive) { _, isActive in
             if mediaKeyManager.isSwitchingMic { return }
-            if isActive && isExpanded && !isPreview {
+            if isActive && isExpanded && !isPreview && micShowVisualizer {
                 MicLevelMonitor.shared.startMonitoring()
             } else if !isActive && isExpanded {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                     isExpanded = false
+                }
+            }
+        }
+        .onChange(of: micShowVisualizer) { _, show in
+            if !isPreview && isExpanded && actualIsActive {
+                if show {
+                    MicLevelMonitor.shared.startMonitoring()
+                } else {
+                    MicLevelMonitor.shared.stopMonitoring(immediately: true)
                 }
             }
         }
@@ -244,7 +293,6 @@ struct MicOverlayView: View {
             }
         }
 
-                .applyTheme(mediaKeyManager.overlayTheme)
     }
 }
 
@@ -296,8 +344,8 @@ struct CameraEffectButton: View {
 
 struct CameraOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @AppStorage("cameraAllowExpansion") private var cameraAllowExpansion: Bool = true
     @State private var isExpanded: Bool = false
-    
     @AppStorage("cam_portrait") private var isPortraitEnabled = false
     @AppStorage("cam_studio") private var isStudioLightEnabled = false
     @AppStorage("cam_reactions") private var isReactionsEnabled = false
@@ -310,16 +358,15 @@ struct CameraOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsActive ? .blue : .secondary
+        actualIsActive ? .green : .secondary
     }
     
     private var actionTitle: String {
-        actualIsActive ? "Camera in Use" : "Camera Idle"
+        actualIsActive ? "Camera in Use" : "Camera Off"
     }
     
     var body: some View {
         
-        let listHeight: CGFloat = isExpanded ? 116 : 0
         
         let camPos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
         
@@ -332,11 +379,10 @@ struct CameraOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: false,
-            listHeight: listHeight,
             customWidth: 260,
             customHeight: 56,
             supportDragGesture: false,
-            isExpandable: actualIsActive,
+            isExpandable: actualIsActive && cameraAllowExpansion,
             expandUpwards: camPos == "bottom",
             keepAliveId: "camera",
             baseContent: {
@@ -360,14 +406,73 @@ struct CameraOverlayView: View {
             },
             expandedContent: {
                 if isExpanded {
-                    VStack(spacing: 0) {
-                        HStack(spacing: 8) {
-                            CameraEffectButton(title: "Portrait", systemImage: "person.fill", isOn: $isPortraitEnabled, activeColor: actionColor)
-                            CameraEffectButton(title: "Studio Light", systemImage: "lightbulb.fill", isOn: $isStudioLightEnabled, activeColor: actionColor)
-                            CameraEffectButton(title: "Reactions", systemImage: "hand.thumbsup.fill", isOn: $isReactionsEnabled, activeColor: actionColor)
+                    VStack(spacing: 12) {
+                        if isPreview || !mediaKeyManager.activeCameraClientName.isEmpty {
+                            VStack(spacing: 12) {
+                                Divider()
+                                    .padding(.horizontal, 16)
+                                
+                                HStack(spacing: 12) {
+                                    // App Icon
+                                    let path = isPreview ? "/System/Applications/FaceTime.app" : mediaKeyManager.activeCameraClientBundleID
+                                    if !path.isEmpty {
+                                        Image(nsImage: NSWorkspace.shared.icon(forFile: path))
+                                            .resizable()
+                                            .frame(width: 32, height: 32)
+                                    } else {
+                                        Image(systemName: isPreview ? "video.fill" : "app.fill")
+                                            .resizable()
+                                            .frame(width: 32, height: 32)
+                                            .foregroundColor(isPreview ? .green : .secondary)
+                                    }
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Used by:")
+                                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                        Text(isPreview ? "FaceTime" : mediaKeyManager.activeCameraClientName)
+                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            .foregroundColor(.primary)
+                                            .lineLimit(1)
+                                    }
+                                    
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 20)
+                                
+                                if isPreview || mediaKeyManager.activeCameraClientPID != nil {
+                                    Button(action: {
+                                        if !isPreview, let pid = mediaKeyManager.activeCameraClientPID {
+                                            let process = Process()
+                                            process.launchPath = "/bin/kill"
+                                            process.arguments = ["-9", "\(pid)"]
+                                            try? process.run()
+                                            
+                                            withAnimation {
+                                                isExpanded = false
+                                            }
+                                        }
+                                    }) {
+                                        Text("Kill process")
+                                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                                            .foregroundColor(.primary)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 8)
+                                            .background(Color.primary.opacity(0.1))
+                                            .clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 20)
+                                }
+                            }
+                            .padding(.top, 4)
+                        } else {
+                            Text("No application information")
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .foregroundColor(.secondary)
+                                .padding(.top, 16)
+                                .padding(.bottom, 8)
                         }
-                        .padding(.top, 16)
-                        .padding(.bottom, 16)
                     }
                 } else {
                     EmptyView()
@@ -391,7 +496,6 @@ struct CameraOverlayView: View {
             }
             mediaKeyManager.keepAlive(for: "camera", isHovering: false)
         }
-        .applyTheme(mediaKeyManager.overlayTheme)
     }
 }
 
@@ -407,11 +511,11 @@ struct LocationOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsActive ? .blue : .secondary
+        actualIsActive ? Color(red: 0.0, green: 0.45, blue: 0.9) : .secondary
     }
     
     private var actionTitle: String {
-        actualIsActive ? "Location in Use" : "Location Idle"
+        actualIsActive ? "Location in Use" : "Location Off"
     }
     
     var body: some View {
@@ -427,7 +531,6 @@ struct LocationOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: false,
-            listHeight: 0,
             customWidth: 260,
             customHeight: 56,
             supportDragGesture: false,
@@ -461,6 +564,5 @@ struct LocationOverlayView: View {
                 .onDisappear {
             mediaKeyManager.keepAlive(for: "location", isHovering: false)
         }
-        .applyTheme(mediaKeyManager.overlayTheme)
     }
 }

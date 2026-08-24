@@ -4,6 +4,7 @@ struct CopyOverlayView: View {
     @State private var isHovering: Bool = false
     @State private var isExpanded: Bool = false
     @State private var expandedKeepAliveTimer: Timer? = nil
+    @AppStorage("copyAllowExpansion") private var copyAllowExpansion: Bool = true
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     var isPreview: Bool = false
@@ -15,10 +16,10 @@ struct CopyOverlayView: View {
     
     private var actionColor: Color {
         switch actualAction {
-        case "copy": return .blue
-        case "cut": return .orange
+        case "copy": return Color(red: 0.25, green: 0.5, blue: 0.95)
+        case "cut": return .red
         case "paste": return .green
-        default: return .blue
+        default: return Color(red: 0.25, green: 0.5, blue: 0.95)
         }
     }
     
@@ -52,7 +53,7 @@ struct CopyOverlayView: View {
     private func calculatedTextHeight(for text: String) -> CGFloat {
         let font = NSFont.systemFont(ofSize: 14, weight: .semibold)
         let rect = (text as NSString).boundingRect(
-            with: CGSize(width: 174, height: CGFloat.greatestFiniteMagnitude),
+            with: CGSize(width: 228, height: CGFloat.greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: [.font: font],
             context: nil
@@ -63,8 +64,8 @@ struct CopyOverlayView: View {
     var body: some View {
         let displayedText = isPreview ? "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg" : (mediaKeyManager.copiedText.isEmpty ? actionFallbackText : mediaKeyManager.copiedText)
         let reqHeight = calculatedTextHeight(for: displayedText)
-        let canExpand = reqHeight > 22
-        let listHeight = min(reqHeight, 250)
+        let textNeedsExpansion = reqHeight > 22
+        let canExpand = true
         let trackWidth: CGFloat = 260 - 8
         let copyPos = UserDefaults.standard.string(forKey: "copyOverlayPosition") ?? "bottom"
         
@@ -81,7 +82,6 @@ struct CopyOverlayView: View {
             barColor: actionColor,
             fillCenter: false, // The original uses strokeBorder
             isMuted: false,
-            listHeight: listHeight,
             supportDragGesture: false,
             onSimpleTap: {
                 if canExpand {
@@ -93,7 +93,7 @@ struct CopyOverlayView: View {
                     mediaKeyManager.keepAlive(for: "copy", isHovering: true)
                 }
             },
-            isExpandable: canExpand,
+            isExpandable: canExpand && copyAllowExpansion,
             expandUpwards: copyPos == "bottom",
             baseContent: {
                 HStack(alignment: .top, spacing: 0) {
@@ -111,7 +111,7 @@ struct CopyOverlayView: View {
                             .padding(.leading, 14)
                             .padding(.trailing, 16)
                         
-                        if !(isExpanded && canExpand) {
+                        if !(isExpanded && textNeedsExpansion) {
                             Text(displayedText)
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                                 .foregroundColor(.primary)
@@ -130,22 +130,95 @@ struct CopyOverlayView: View {
             },
             expandedContent: {
                 if canExpand {
-                    ScrollView(showsIndicators: true) {
-                        Text(displayedText)
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.leading, 16 + 26 + 14) // icon padding + icon width + text padding
-                            .padding(.trailing, 16)
-                            .padding(.bottom, 6)
+                    VStack(spacing: 12) {
+                        if textNeedsExpansion {
+                            ScrollView(showsIndicators: true) {
+                                Text(displayedText)
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    .foregroundColor(.primary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.leading, 16) // Shifted to left edge, under the icon
+                                    .padding(.trailing, 16)
+                                    .padding(.top, 12)
+                            }
+                            
+                            Divider()
+                                .padding(.horizontal, 20)
+                        }
+                        
+                        HStack(spacing: 8) {
+                            if mediaKeyManager.clipboardSourceFolder == nil {
+                                // Text Mode
+                                VStack(alignment: .center, spacing: 4) {
+                                    Text("App")
+                                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                    Text(mediaKeyManager.clipboardSourceApp.isEmpty ? "Unknown" : mediaKeyManager.clipboardSourceApp)
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                
+                                Divider()
+                                    .frame(height: 24)
+                                
+                                VStack(alignment: .center, spacing: 4) {
+                                    Text("Characters")
+                                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                    Text(mediaKeyManager.clipboardMetadataSize.isEmpty ? "Unknown" : mediaKeyManager.clipboardMetadataSize)
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                            } else {
+                                // File Mode
+                                VStack(alignment: .center, spacing: 4) {
+                                    Text("Folder")
+                                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                    Text(URL(fileURLWithPath: mediaKeyManager.clipboardSourceFolder!).lastPathComponent)
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                
+                                Divider()
+                                    .frame(height: 24)
+                                
+                                VStack(alignment: .center, spacing: 4) {
+                                    Text("Size")
+                                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                    Text(mediaKeyManager.clipboardMetadataSize.isEmpty ? "Unknown" : mediaKeyManager.clipboardMetadataSize)
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        
+                        .padding(.top, textNeedsExpansion ? 0 : 12)
                     }
-                    .padding(.top, -16)
+                    .padding(.top, textNeedsExpansion ? -16 : 0)
                 } else {
                     EmptyView()
                 }
             }
         )
-        .frame(width: 260, height: (isExpanded && canExpand) ? 56 + listHeight : 56, alignment: .top)
 
         .onHoverExact { hovering in
             isHovering = hovering
@@ -176,6 +249,5 @@ struct CopyOverlayView: View {
                 mediaKeyManager.keepAlive(for: "copy", isHovering: false)
             }
         }
-        .applyTheme(mediaKeyManager.overlayTheme)
     }
 }
