@@ -55,7 +55,7 @@ struct UniversalBatteryOverlayView: View {
     }
 
     var body: some View {
-        let batPos = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
+        let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
         
         return UniversalOverlayView(
             isPreview: isPreview,

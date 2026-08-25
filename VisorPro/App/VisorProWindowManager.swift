@@ -85,7 +85,7 @@ class VisorProWindowManager: ObservableObject {
         
         let w: CGFloat = 260
         let s: CGFloat = 24
-        let m: CGFloat = 40
+        let marginVal = UserDefaults.standard.object(forKey: "overlayMargin"); let m: CGFloat = marginVal != nil ? CGFloat(marginVal as! Double) : 30.0
         
         let countLeft = lefts.count
         let countCenter = centers.count
@@ -161,12 +161,12 @@ class VisorProWindowManager: ObservableObject {
         let manager = MediaKeyManager.shared
         var active: [ActiveOverlay] = []
         
-        let volumeOverlayPosition = UserDefaults.standard.string(forKey: "volumeOverlayPosition") ?? "bottom"
-        let batteryOverlayPosition = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
-        let brightnessOverlayPosition = UserDefaults.standard.string(forKey: "brightnessOverlayPosition") ?? "top"
-        let keyboardBrightnessOverlayPosition = UserDefaults.standard.string(forKey: "keyboardBrightnessOverlayPosition") ?? "top"
-        let copyOverlayPosition = UserDefaults.standard.string(forKey: "copyOverlayPosition") ?? "bottom"
-        let capsLockOverlayPosition = UserDefaults.standard.string(forKey: "capsLockOverlayPosition") ?? "bottom"
+        let volumeOverlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "volumeOverlayPosition")
+        let batteryOverlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
+        let brightnessOverlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "brightnessOverlayPosition")
+        let keyboardBrightnessOverlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "keyboardBrightnessOverlayPosition")
+        let copyOverlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "copyOverlayPosition")
+        let capsLockOverlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "capsLockOverlayPosition")
         
         let showBattery = manager.showChargingStatus || manager.showLowBatteryWarning || manager.showUnpluggedStatus
         
@@ -180,46 +180,46 @@ class VisorProWindowManager: ObservableObject {
         if manager.showCopyIndicator { active.append(ActiveOverlay(id: "copy", type: .copy, position: copyOverlayPosition, notification: nil)) }
         if manager.showCapsLockIndicator { active.append(ActiveOverlay(id: "capsLock", type: .capsLock, position: capsLockOverlayPosition, notification: nil)) }
         
-        let btPos = UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom"
+        let btPos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")
         for notif in manager.activeBluetoothNotifications {
             active.append(ActiveOverlay(id: "bluetooth_\(notif.id)", type: .bluetooth, position: btPos, notification: notif))
         }
         
-        let langPos = UserDefaults.standard.string(forKey: "languageOverlayPosition") ?? "bottom"
+        let langPos = MediaKeyManager.shared.getOverlayPosition(for: "languageOverlayPosition")
         if manager.showLanguageIndicator { active.append(ActiveOverlay(id: "language", type: .language, position: langPos, notification: nil)) }
         
-        let mediaPos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
+        let mediaPos = MediaKeyManager.shared.getOverlayPosition(for: "mediaOverlayPosition")
         if manager.showMediaIndicator { active.append(ActiveOverlay(id: "media", type: .media, position: mediaPos, notification: nil)) }
         
-        let themePos = UserDefaults.standard.string(forKey: "themeOverlayPosition") ?? "bottom"
+        let themePos = MediaKeyManager.shared.getOverlayPosition(for: "themeOverlayPosition")
         if manager.showThemeIndicator { active.append(ActiveOverlay(id: "theme", type: .theme, position: themePos, notification: nil)) }
         
-        let micPos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
+        let micPos = MediaKeyManager.shared.getOverlayPosition(for: "micOverlayPosition")
         if manager.showMicIndicator { active.append(ActiveOverlay(id: "mic", type: .mic, position: micPos, notification: nil)) }
         
-        let camPos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
+        let camPos = MediaKeyManager.shared.getOverlayPosition(for: "cameraOverlayPosition")
         if manager.showCameraIndicator { active.append(ActiveOverlay(id: "camera", type: .camera, position: camPos, notification: nil)) }
         
-        let locPos = UserDefaults.standard.string(forKey: "locationOverlayPosition") ?? "top"
+        let locPos = MediaKeyManager.shared.getOverlayPosition(for: "locationOverlayPosition")
         if manager.showLocationIndicator { active.append(ActiveOverlay(id: "location", type: .location, position: locPos, notification: nil)) }
         
-        let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
+        let wifiPos = MediaKeyManager.shared.getOverlayPosition(for: "wifiOverlayPosition")
         if manager.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi", type: .wifi, position: wifiPos, notification: nil)) }
         
-        let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
+        let periPos = MediaKeyManager.shared.getOverlayPosition(for: "peripheralOverlayPosition")
         for notif in manager.activePeripheralNotifications {
             active.append(ActiveOverlay(id: "peripheral_\(notif.id)", type: .peripheral, position: periPos, notification: notif))
         }
         
-        let displayPos = UserDefaults.standard.string(forKey: "displayOverlayPosition") ?? "bottom"
+        let displayPos = MediaKeyManager.shared.getOverlayPosition(for: "displayOverlayPosition")
         for notif in manager.activeDisplayNotifications {
             active.append(ActiveOverlay(id: "display_\(notif.id)", type: .display, position: displayPos, notification: notif))
         }
         
-        let fanPos = UserDefaults.standard.string(forKey: "fanOverlayPosition") ?? "bottom"
+        let fanPos = MediaKeyManager.shared.getOverlayPosition(for: "fanOverlayPosition")
         if manager.showFanIndicator { active.append(ActiveOverlay(id: "fan", type: .fan, position: fanPos, notification: nil)) }
         
-        let ramPos = UserDefaults.standard.string(forKey: "ramOverlayPosition") ?? "bottom"
+        let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if manager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
         
         let limit = max(1, manager.maxSimultaneousNotifications)
@@ -379,6 +379,15 @@ class VisorProWindowManager: ObservableObject {
                     windows[windowId] = panel
                 }
                 
+                let theme = MediaKeyManager.shared.overlayTheme
+                if theme == "dark" {
+                    panel.appearance = NSAppearance(named: .darkAqua)
+                } else if theme == "light" {
+                    panel.appearance = NSAppearance(named: .aqua)
+                } else {
+                    panel.appearance = nil
+                }
+                
                 let x = (allPositions[overlay.id] ?? (screenSize.width / 2)) + screenOrigin.x
                 let yCenter = yPos(for: overlay.position, in: screenSize) + screenOrigin.y
                 
@@ -396,13 +405,15 @@ class VisorProWindowManager: ObservableObject {
                 } else { baseH = 56 }
                 
                 let originY: CGFloat
+                let verticalPadding = (currentHeight - baseH) / 2
+                let downwardShift: CGFloat = 4.0 // Slight correction to lower the overlays
                 if overlay.position.hasPrefix("top") {
                     let topEdge = yCenter + (baseH / 2)
-                    originY = topEdge - currentHeight
+                    originY = topEdge - currentHeight + verticalPadding - downwardShift
                 } else if overlay.position.hasPrefix("bottom") {
-                    originY = yCenter - (baseH / 2)
+                    originY = yCenter - (baseH / 2) - verticalPadding - downwardShift
                 } else {
-                    originY = yCenter - (currentHeight / 2)
+                    originY = yCenter - (currentHeight / 2) - downwardShift
                 }
                 
                 let swipeOffset = MediaKeyManager.shared.swipeOffsets[overlay.id] ?? 0.0
@@ -479,7 +490,7 @@ class VisorProWindowManager: ObservableObject {
         }
         
         let panel = VisorProOverlayPanel(
-            contentRect: NSRect(x: 0, y: 0, width: w + 24, height: h + 25),
+            contentRect: NSRect(x: 0, y: 0, width: w + 40, height: h + 60),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
@@ -510,8 +521,9 @@ class VisorProWindowManager: ObservableObject {
     }
     
     private func yPos(for position: String, in size: CGSize) -> CGFloat {
-        let bottomPadding: CGFloat = 40
-        let topPadding: CGFloat = 40
+        let marginVal = UserDefaults.standard.object(forKey: "overlayMargin"); let margin = marginVal != nil ? CGFloat(marginVal as! Double) : 30.0
+        let bottomPadding: CGFloat = margin
+        let topPadding: CGFloat = margin
         let pillHeight: CGFloat = 56
         if position.hasPrefix("top") { return size.height - topPadding - (pillHeight / 2) } 
         if position == "center" { return size.height / 2 }
@@ -549,6 +561,11 @@ class VisorProOverlayPanel: NSPanel {
         var newFrame = frameRect
         let oldFrame = self.frame
         
+        if oldFrame.size.width > 0 && oldFrame.size.width != newFrame.size.width {
+            let oldCenterX = oldFrame.midX
+            newFrame.origin.x = oldCenterX - (newFrame.width / 2)
+        }
+        
         if oldFrame.size.height > 0 && oldFrame.size.height != newFrame.size.height {
             switch anchorMode {
             case .bottom:
@@ -567,6 +584,11 @@ class VisorProOverlayPanel: NSPanel {
     override func setFrame(_ frameRect: NSRect, display flag: Bool, animate: Bool) {
         var newFrame = frameRect
         let oldFrame = self.frame
+        
+        if oldFrame.size.width > 0 && oldFrame.size.width != newFrame.size.width {
+            let oldCenterX = oldFrame.midX
+            newFrame.origin.x = oldCenterX - (newFrame.width / 2)
+        }
         
         if oldFrame.size.height > 0 && oldFrame.size.height != newFrame.size.height {
             switch anchorMode {
@@ -600,16 +622,14 @@ struct SingleOverlayContainer: View {
     }
     
     var body: some View {
-        let transitionAnchor: UnitPoint = (overlay.position.hasPrefix("top")) ? .top : .bottom
-        
         ZStack {
             if hasAppeared && isOverlayActive, let current = currentOverlay {
                 overlayView(for: current)
                     .applyTheme(mediaKeyManager.overlayTheme)
                     .swipeToDismiss(overlayId: current.id, isTopPosition: current.position.hasPrefix("top"))
                     .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .offset(y: overlay.position.hasPrefix("top") ? -40 : 40)).combined(with: .scale(scale: 0.9, anchor: transitionAnchor)),
-                        removal: .opacity.combined(with: .offset(y: overlay.position.hasPrefix("top") ? -40 : 40)).combined(with: .scale(scale: 0.9, anchor: transitionAnchor))
+                        insertion: .opacity.combined(with: .offset(y: current.position.hasPrefix("top") ? -15 : 15)),
+                        removal: .opacity.combined(with: .offset(y: current.position.hasPrefix("top") ? -25 : 25))
                     ))
             } else {
                 let w: CGFloat = (overlay.type == .capsLock || overlay.type == .theme) ? 230 : 260

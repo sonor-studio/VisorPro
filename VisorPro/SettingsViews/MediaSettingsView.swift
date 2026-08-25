@@ -2,7 +2,8 @@ import SwiftUI
 
 struct MediaSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("mediaOverlayPosition") private var mediaOverlayPosition: String = "bottom"
+    @AppStorage("mediaOverlayPosition") private var mediaOverlayPosition: String = "top"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("mediaAllowExpansion") private var mediaAllowExpansion: Bool = true
     @AppStorage("mediaAllowInteractivity") private var mediaAllowInteractivity: Bool = true
     
@@ -48,32 +49,28 @@ struct MediaSettingsView: View {
                         
                     VStack(spacing: 0) {
                         CustomSettingsRow(icon: "music.note", iconColor: .red, title: "Start Notification", subtitle: "Shows an overlay when a new track or media starts playing") {
-                            Toggle("", isOn: $mediaKeyManager.notifyMediaStart).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyMediaStart {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundMediaStart)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyMediaStart { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaStart) }
+Toggle("", isOn: $mediaKeyManager.notifyMediaStart).labelsHidden() }
+                       
+                            }
                         Divider().padding(.leading, 40)
                         CustomSettingsRow(icon: "pause.fill", iconColor: .red, title: "Pause Notification", subtitle: "Shows an overlay when you pause the current media") {
-                            Toggle("", isOn: $mediaKeyManager.notifyMediaPause).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyMediaPause {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundMediaPause)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyMediaPause { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaPause) }
+Toggle("", isOn: $mediaKeyManager.notifyMediaPause).labelsHidden() }
+                       
+                            }
                         Divider().padding(.leading, 40)
                         CustomSettingsRow(icon: "play.fill", iconColor: .red, title: "Resume Notification", subtitle: "Shows an overlay when you resume paused media") {
-                            Toggle("", isOn: $mediaKeyManager.notifyMediaResume).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyMediaResume {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundMediaResume)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyMediaResume { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaResume) }
+Toggle("", isOn: $mediaKeyManager.notifyMediaResume).labelsHidden() }
+                       
+                            }
                         Divider().padding(.leading, 40)
                         CustomSettingsRow(icon: "stop.fill", iconColor: .red, title: "End Notification", subtitle: "Shows an overlay when the track or media ends") {
-                            Toggle("", isOn: $mediaKeyManager.notifyMediaEnd).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyMediaEnd {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundMediaEnd)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyMediaEnd { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaEnd) }
+Toggle("", isOn: $mediaKeyManager.notifyMediaEnd).labelsHidden() }
+                       
+                            }
                     }
                     .toggleStyle(.switch)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -118,12 +115,16 @@ struct MediaSettingsView: View {
                 Divider()
                 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Overlay Position")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 10)
-                    
-                    PositionPickerGroup(selection: $mediaOverlayPosition)
+                    Group {
+                        if overlayPositionMode == "custom" {
+                        Text("Overlay Position")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                        
+                        PositionPickerGroup(selection: $mediaOverlayPosition)
+                        }
+                    }
                 }
                 .padding(.horizontal)
                 

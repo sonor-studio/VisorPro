@@ -36,6 +36,14 @@ struct DeviceNotification: Identifiable, Equatable {
 }
 
 class MediaKeyManager: ObservableObject {
+    func getOverlayPosition(for key: String) -> String {
+        let mode = UserDefaults.standard.string(forKey: "overlayPositionMode") ?? "custom"
+        if mode == "fixed" {
+            return UserDefaults.standard.string(forKey: "globalOverlayPosition") ?? "top"
+        }
+        return UserDefaults.standard.string(forKey: key) ?? "top"
+    }
+
     static let shared = MediaKeyManager()
     static var notificationDuration: TimeInterval {
         let val = UserDefaults.standard.double(forKey: "notificationDuration")
@@ -159,7 +167,7 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(soundOn100Percent, forKey: "soundOn100Percent") }
     }
     
-    @Published var notifyOnFanStart: Bool = UserDefaults.standard.object(forKey: "notifyOnFanStart") as? Bool ?? true {
+    @Published var notifyOnFanStart: Bool = UserDefaults.standard.object(forKey: "notifyOnFanStart") as? Bool ?? false {
         didSet { UserDefaults.standard.set(notifyOnFanStart, forKey: "notifyOnFanStart") }
     }
 
@@ -167,7 +175,7 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(soundOnFanStart, forKey: "soundOnFanStart") }
     }
     
-    @Published var notifyOnHighRam: Bool = UserDefaults.standard.object(forKey: "notifyOnHighRam") as? Bool ?? true {
+    @Published var notifyOnHighRam: Bool = UserDefaults.standard.object(forKey: "notifyOnHighRam") as? Bool ?? false {
         didSet { UserDefaults.standard.set(notifyOnHighRam, forKey: "notifyOnHighRam") }
     }
     
@@ -186,7 +194,7 @@ class MediaKeyManager: ObservableObject {
     }
 
     
-    @Published var notifyOnFanStop: Bool = UserDefaults.standard.object(forKey: "notifyOnFanStop") as? Bool ?? true {
+    @Published var notifyOnFanStop: Bool = UserDefaults.standard.object(forKey: "notifyOnFanStop") as? Bool ?? false {
         didSet { UserDefaults.standard.set(notifyOnFanStop, forKey: "notifyOnFanStop") }
     }
 
@@ -194,21 +202,21 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(soundOnFanStop, forKey: "soundOnFanStop") }
     }
     
-    @Published var notifyOnCopy: Bool = UserDefaults.standard.object(forKey: "notifyOnCopy") as? Bool ?? true {
+    @Published var notifyOnCopy: Bool = UserDefaults.standard.object(forKey: "notifyOnCopy") as? Bool ?? false {
         didSet { UserDefaults.standard.set(notifyOnCopy, forKey: "notifyOnCopy") }
     }
 
     @Published var soundOnCopy: String = UserDefaults.standard.string(forKey: "soundOnCopy") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnCopy, forKey: "soundOnCopy") }
     }
-    @Published var notifyOnCut: Bool = UserDefaults.standard.object(forKey: "notifyOnCut") as? Bool ?? true {
+    @Published var notifyOnCut: Bool = UserDefaults.standard.object(forKey: "notifyOnCut") as? Bool ?? false {
         didSet { UserDefaults.standard.set(notifyOnCut, forKey: "notifyOnCut") }
     }
 
     @Published var soundOnCut: String = UserDefaults.standard.string(forKey: "soundOnCut") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnCut, forKey: "soundOnCut") }
     }
-    @Published var notifyOnPaste: Bool = UserDefaults.standard.object(forKey: "notifyOnPaste") as? Bool ?? true {
+    @Published var notifyOnPaste: Bool = UserDefaults.standard.object(forKey: "notifyOnPaste") as? Bool ?? false {
         didSet { UserDefaults.standard.set(notifyOnPaste, forKey: "notifyOnPaste") }
     }
 
@@ -481,7 +489,7 @@ class MediaKeyManager: ObservableObject {
     private var mediaObserver: MediaObserver?
     
     // Theme
-    @Published var enableTheme: Bool = UserDefaults.standard.object(forKey: "enableTheme") as? Bool ?? true {
+    @Published var enableTheme: Bool = UserDefaults.standard.object(forKey: "enableTheme") as? Bool ?? false {
         didSet { 
             UserDefaults.standard.set(enableTheme, forKey: "enableTheme")
             if !enableTheme { withAnimation { self.showThemeIndicator = false } }
@@ -633,7 +641,7 @@ class MediaKeyManager: ObservableObject {
     }
     
     // Displays
-    @Published var enableDisplay: Bool = UserDefaults.standard.object(forKey: "enableDisplay") as? Bool ?? true {
+    @Published var enableDisplay: Bool = UserDefaults.standard.object(forKey: "enableDisplay") as? Bool ?? false {
         didSet { UserDefaults.standard.set(enableDisplay, forKey: "enableDisplay") }
     }
     @Published var notifyOnDisplayConnect: Bool = UserDefaults.standard.object(forKey: "notifyOnDisplayConnect") as? Bool ?? true {
@@ -758,7 +766,7 @@ class MediaKeyManager: ObservableObject {
             guard let self = self else { return }
             self.themeTimer?.invalidate()
             
-            let pos = UserDefaults.standard.string(forKey: "themeOverlayPosition") ?? "top"
+            let pos = self.getOverlayPosition(for: "themeOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "theme")
             
             self.isDarkMode = isDark
@@ -816,7 +824,7 @@ class MediaKeyManager: ObservableObject {
         playNotificationSound(named: soundOnLanguageChange)
         
         languageTimer?.invalidate()
-        let pos = UserDefaults.standard.string(forKey: "languageOverlayPosition") ?? "bottom"
+        let pos = self.getOverlayPosition(for: "languageOverlayPosition")
         dismissCollidingIndicators(newPosition: pos, source: "language")
         
         self.currentKeyboardLanguage = language
@@ -1020,7 +1028,7 @@ class MediaKeyManager: ObservableObject {
             self.playNotificationSound(named: self.soundOnMicOff)
             
             self.micTimer?.invalidate()
-            let pos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
+            let pos = self.getOverlayPosition(for: "micOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "mic")
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.micEventId = UUID()
@@ -1121,7 +1129,7 @@ class MediaKeyManager: ObservableObject {
             self.playNotificationSound(named: self.soundOnCameraOff)
             
             self.cameraTimer?.invalidate()
-            let pos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
+            let pos = self.getOverlayPosition(for: "cameraOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "camera")
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.cameraEventId = UUID()
@@ -1156,7 +1164,7 @@ class MediaKeyManager: ObservableObject {
             self.playNotificationSound(named: self.soundOnLocationOn)
             
             self.locationTimer?.invalidate()
-            let pos = UserDefaults.standard.string(forKey: "locationOverlayPosition") ?? "top"
+            let pos = self.getOverlayPosition(for: "locationOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "location")
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.locationEventId = UUID()
@@ -1277,7 +1285,7 @@ class MediaKeyManager: ObservableObject {
         startFetchingTopBatteryConsumers()
         let currentLevel = currentBatteryPercentage
         playNotificationSound(named: currentLevel <= 10 ? soundOn10Percent : soundOn20Percent)
-        let battPos = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
+        let battPos = self.getOverlayPosition(for: "batteryOverlayPosition")
         dismissCollidingIndicators(newPosition: battPos, source: "battery")
         
         let wasActive = showChargingStatus || showLowBatteryWarning || showUnpluggedStatus
@@ -1312,7 +1320,7 @@ class MediaKeyManager: ObservableObject {
         }
         chargingTimer?.invalidate()
         batteryTimer?.invalidate()
-        let battPos = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
+        let battPos = self.getOverlayPosition(for: "batteryOverlayPosition")
         dismissCollidingIndicators(newPosition: battPos, source: "battery")
         
         let wasActive = showChargingStatus || showLowBatteryWarning || showUnpluggedStatus
@@ -1344,7 +1352,7 @@ class MediaKeyManager: ObservableObject {
         
         chargingTimer?.invalidate()
         batteryTimer?.invalidate()
-        let battPos = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
+        let battPos = self.getOverlayPosition(for: "batteryOverlayPosition")
         dismissCollidingIndicators(newPosition: battPos, source: "battery")
         
         let wasActive = showChargingStatus || showLowBatteryWarning || showUnpluggedStatus
@@ -1414,7 +1422,7 @@ class MediaKeyManager: ObservableObject {
         if self.peripheralBlocklist.contains(deviceName) { return }
         self.playNotificationSound(named: isConnected ? self.soundOnPeripheralConnect : self.soundOnPeripheralDisconnect)
         
-        let pos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "top"
+        let pos = self.getOverlayPosition(for: "peripheralOverlayPosition")
         self.dismissCollidingIndicators(newPosition: pos, source: "peripheral")
         
         let newNotif = DeviceNotification(id: notifId, deviceName: deviceName, type: type, icon: typeIcon, isConnected: isConnected, timestamp: Date(), details: details)
@@ -1455,7 +1463,7 @@ class MediaKeyManager: ObservableObject {
                 self.playNotificationSound(named: sound)
             }
             
-            let pos = UserDefaults.standard.string(forKey: "displayOverlayPosition") ?? "bottom"
+            let pos = self.getOverlayPosition(for: "displayOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "display")
             
             let newNotif = DeviceNotification(
@@ -1666,7 +1674,7 @@ class MediaKeyManager: ObservableObject {
             self.accessoryBatteryIsWarning = isWarning
             
             self.accessoryBatteryTimer?.invalidate()
-            let pos = UserDefaults.standard.string(forKey: "batteryOverlayPosition") ?? "top"
+            let pos = self.getOverlayPosition(for: "batteryOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "accessoryBattery")
             withAnimation(.easeInOut(duration: 0.15)) {
 
@@ -1723,7 +1731,7 @@ class MediaKeyManager: ObservableObject {
 
         cancelOverlayHide(for: "volume")
         volumeTimer?.invalidate()
-        let volPos = UserDefaults.standard.string(forKey: "volumeOverlayPosition") ?? "top"
+        let volPos = self.getOverlayPosition(for: "volumeOverlayPosition")
         dismissCollidingIndicators(newPosition: volPos, source: "volume")
         
         withAnimation(.easeInOut(duration: 0.25)) {
@@ -1744,7 +1752,7 @@ class MediaKeyManager: ObservableObject {
         }
         cancelOverlayHide(for: "brightness")
         brightnessTimer?.invalidate()
-        let brightPos = UserDefaults.standard.string(forKey: "brightnessOverlayPosition") ?? "top"
+        let brightPos = self.getOverlayPosition(for: "brightnessOverlayPosition")
         dismissCollidingIndicators(newPosition: brightPos, source: "brightness")
         
         withAnimation(.easeInOut(duration: 0.25)) {
@@ -1765,7 +1773,7 @@ class MediaKeyManager: ObservableObject {
         }
         cancelOverlayHide(for: "keyboardBrightness")
         keyboardBrightnessTimer?.invalidate()
-        let kbPos = UserDefaults.standard.string(forKey: "keyboardBrightnessOverlayPosition") ?? "top"
+        let kbPos = self.getOverlayPosition(for: "keyboardBrightnessOverlayPosition")
         dismissCollidingIndicators(newPosition: kbPos, source: "keyboardBrightness")
         
         withAnimation(.easeInOut(duration: 0.25)) {
@@ -1792,7 +1800,7 @@ class MediaKeyManager: ObservableObject {
         copyTimer?.invalidate()
         pendingClipboardShowTask?.cancel()
         
-        let copyPos = UserDefaults.standard.string(forKey: "copyOverlayPosition") ?? "bottom"
+        let copyPos = self.getOverlayPosition(for: "copyOverlayPosition")
         dismissCollidingIndicators(newPosition: copyPos, source: "copy")
         
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1840,7 +1848,7 @@ class MediaKeyManager: ObservableObject {
         playNotificationSound(named: actualIsRunning ? soundOnFanStart : soundOnFanStop)
         
         self.hideFanIndicatorTask?.cancel()
-        let pos = UserDefaults.standard.string(forKey: "fanOverlayPosition") ?? "bottom"
+        let pos = self.getOverlayPosition(for: "fanOverlayPosition")
         dismissCollidingIndicators(newPosition: pos, source: "fan")
         
         let executeShow = { [weak self] in
@@ -1872,19 +1880,17 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerRamOverlay() {
-        print("[MediaKeyManager] triggerRamOverlay called. notifyOnHighRam: \(notifyOnHighRam)")
         if !notifyOnHighRam { return }
         
         playNotificationSound(named: self.soundOnHighRam)
         
         self.hideRamIndicatorTask?.cancel()
-        let pos = UserDefaults.standard.string(forKey: "ramOverlayPosition") ?? "bottom"
+        let pos = self.getOverlayPosition(for: "ramOverlayPosition")
         dismissCollidingIndicators(newPosition: pos, source: "ram")
         
         let executeShow = { [weak self] in
             guard let self = self else { return }
             self.ramEventId = UUID()
-            print("[MediaKeyManager] executeShow for RAM. Setting showRamIndicator = true")
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.showRamIndicator = true
                 self.overlayTriggerTimes["ram"] = Date()
@@ -1919,7 +1925,7 @@ class MediaKeyManager: ObservableObject {
         playNotificationSound(named: soundOnCapsLock)
         
         capsLockTimer?.invalidate()
-        let pos = UserDefaults.standard.string(forKey: "capsLockOverlayPosition") ?? "bottom"
+        let pos = self.getOverlayPosition(for: "capsLockOverlayPosition")
         dismissCollidingIndicators(newPosition: pos, source: "capsLock")
         
         self.isCapsLockOn = isOn
@@ -1979,7 +1985,7 @@ class MediaKeyManager: ObservableObject {
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            let pos = UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom"
+            let pos = self.getOverlayPosition(for: "bluetoothOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "bluetooth")
             
             let newNotif = DeviceNotification(id: deviceAddress, deviceName: deviceName, type: "bluetooth", icon: "bluetooth", isConnected: isConnected, timestamp: Date())
@@ -2025,7 +2031,7 @@ class MediaKeyManager: ObservableObject {
             guard let self = self else { return }
             self.wiFiTimer?.invalidate()
             
-            let pos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
+            let pos = self.getOverlayPosition(for: "wifiOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "wifi")
             
             self.wiFiSSID = ssid
@@ -2347,7 +2353,7 @@ class MediaKeyManager: ObservableObject {
             guard let self = self else { return }
             self.mediaTimer?.invalidate()
             
-            let pos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
+            let pos = self.getOverlayPosition(for: "mediaOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "media")
             let executeShow = { [weak self] in
                 guard let self = self else { return }
@@ -2837,7 +2843,7 @@ class MediaKeyManager: ObservableObject {
     private func startHardwareKeyPolling() {
         hardwareKeyPollingTimer?.invalidate()
         hardwareKeyPollingTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            guard let self = self, self.enableKeyboard else { return }
+            guard let self = self, self.enableKeyboard, self.isTrusted else { return }
             
             // Cmd (lewy lub prawy)
             let cmdPressed = CGEventSource.keyState(.hidSystemState, key: 55) || CGEventSource.keyState(.hidSystemState, key: 54)

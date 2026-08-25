@@ -2,9 +2,10 @@ import SwiftUI
 
 struct KeyboardSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("copyOverlayPosition") private var copyOverlayPosition: String = "bottom"
-    @AppStorage("capsLockOverlayPosition") private var capsLockOverlayPosition: String = "bottom"
-    @AppStorage("languageOverlayPosition") private var languageOverlayPosition: String = "bottom"
+    @AppStorage("copyOverlayPosition") private var copyOverlayPosition: String = "top"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
+    @AppStorage("capsLockOverlayPosition") private var capsLockOverlayPosition: String = "top"
+    @AppStorage("languageOverlayPosition") private var languageOverlayPosition: String = "top"
     @AppStorage("copyAllowExpansion") private var copyAllowExpansion: Bool = true
     @AppStorage("capsLockAllowExpansion") private var capsLockAllowExpansion: Bool = true
     @AppStorage("capsLockAllowInteractivity") private var capsLockAllowInteractivity: Bool = true
@@ -72,29 +73,26 @@ struct KeyboardSettingsView: View {
                             
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "doc.on.clipboard.fill", iconColor: .orange, title: "Notify on Copy", subtitle: "Show an overlay when you copy an item") {
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnCopy).labelsHidden()
-                                }
-                                if mediaKeyManager.notifyOnCopy {
-                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnCopy)
-                                }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnCopy { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCopy) }
+Toggle("", isOn: $mediaKeyManager.notifyOnCopy).labelsHidden() }
+                               
+                            }
                                 
                                 Divider().padding(.leading, 40)
                                 
                                 CustomSettingsRow(icon: "scissors", iconColor: .orange, title: "Notify on Cut", subtitle: "Show an overlay when you cut an item") {
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnCut).labelsHidden()
-                                }
-                                if mediaKeyManager.notifyOnCut {
-                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnCut)
-                                }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnCut { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCut) }
+Toggle("", isOn: $mediaKeyManager.notifyOnCut).labelsHidden() }
+                               
+                            }
                                 
                                 Divider().padding(.leading, 40)
                                 
                                 CustomSettingsRow(icon: "list.clipboard.fill", iconColor: .orange, title: "Notify on Paste", subtitle: "Show an overlay when you paste an item") {
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnPaste).labelsHidden()
-                                }
-                                if mediaKeyManager.notifyOnPaste {
-                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnPaste)
-                                }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnPaste { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnPaste) }
+Toggle("", isOn: $mediaKeyManager.notifyOnPaste).labelsHidden() }
+                               
+                            }
                                 
                                 Divider().padding(.leading, 40)
                                 
@@ -110,13 +108,17 @@ struct KeyboardSettingsView: View {
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                             
-                            Text("Overlay Position")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.leading, 4)
-                            
-                            PositionPickerGroup(selection: $copyOverlayPosition)
+                            Group {
+                                if overlayPositionMode == "custom" {
+                                Text("Overlay Position")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 10)
+                                    .padding(.leading, 4)
+                                
+                                PositionPickerGroup(selection: $copyOverlayPosition)
+                                }
+                            }
                                 .padding(.bottom, 12)
                         }
                         .padding(.horizontal)
@@ -143,11 +145,10 @@ struct KeyboardSettingsView: View {
                             
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "capslock.fill", iconColor: .orange, title: "Notify on Caps Lock", subtitle: "Show an overlay when Caps Lock is toggled") {
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnCapsLock).labelsHidden()
-                                }
-                                if mediaKeyManager.notifyOnCapsLock {
-                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnCapsLock)
-                                }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnCapsLock { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCapsLock) }
+Toggle("", isOn: $mediaKeyManager.notifyOnCapsLock).labelsHidden() }
+                               
+                            }
                                 
                                 Divider().padding(.leading, 40)
                                 
@@ -169,13 +170,17 @@ struct KeyboardSettingsView: View {
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                             
-                            Text("Overlay Position")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.leading, 4)
-                            
-                            PositionPickerGroup(selection: $capsLockOverlayPosition)
+                            Group {
+                                if overlayPositionMode == "custom" {
+                                Text("Overlay Position")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 10)
+                                    .padding(.leading, 4)
+                                
+                                PositionPickerGroup(selection: $capsLockOverlayPosition)
+                                }
+                            }
                                 .padding(.bottom, 12)
                         }
                         .padding(.horizontal)
@@ -202,11 +207,10 @@ struct KeyboardSettingsView: View {
                             
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "globe", iconColor: .orange, title: "Notify on Language Change", subtitle: "Show an overlay when keyboard layout changes") {
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnLanguageChange).labelsHidden()
-                                }
-                                if mediaKeyManager.notifyOnLanguageChange {
-                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnLanguageChange)
-                                }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnLanguageChange { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnLanguageChange) }
+Toggle("", isOn: $mediaKeyManager.notifyOnLanguageChange).labelsHidden() }
+                               
+                            }
                                 
                                 Divider().padding(.leading, 40)
                                 
@@ -222,13 +226,17 @@ struct KeyboardSettingsView: View {
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                             
-                            Text("Overlay Position")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.leading, 4)
-                            
-                            PositionPickerGroup(selection: $languageOverlayPosition)
+                            Group {
+                                if overlayPositionMode == "custom" {
+                                Text("Overlay Position")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 10)
+                                    .padding(.leading, 4)
+                                
+                                PositionPickerGroup(selection: $languageOverlayPosition)
+                                }
+                            }
                                 .padding(.bottom, 12)
                         }
                         .padding(.horizontal)

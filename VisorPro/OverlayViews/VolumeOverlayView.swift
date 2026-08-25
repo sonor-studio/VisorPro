@@ -39,7 +39,7 @@ struct VolumeOverlayView: View {
 
     var body: some View {
         let currentDevices = isPreview ? [(id: UInt32(1), name: "MacBook Pro Speakers"), (id: UInt32(2), name: "AirPods Pro")] : availableDevices
-        let volPos = UserDefaults.standard.string(forKey: "volumeOverlayPosition") ?? "bottom"
+        let volPos = MediaKeyManager.shared.getOverlayPosition(for: "volumeOverlayPosition")
         
         return UniversalOverlayView(
             isPreview: isPreview,

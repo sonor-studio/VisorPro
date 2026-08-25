@@ -3,7 +3,8 @@ import SwiftUI
 struct VolumeSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("volumeOverlayPosition") private var volumeOverlayPosition: String = "top"
-    @AppStorage("volumeFillCenter") private var volumeFillCenter: Bool = true
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
+    @AppStorage("volumeFillCenter") private var volumeFillCenter: Bool = false
     @AppStorage("volumeAllowExpansion") private var volumeAllowExpansion: Bool = true
     @AppStorage("volumeAllowInteractivity") private var volumeAllowInteractivity: Bool = true
     
@@ -134,12 +135,16 @@ struct VolumeSettingsView: View {
                             .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                     )
                     
-                    Text("Overlay Position")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 10)
-                    
-                    PositionPickerGroup(selection: $volumeOverlayPosition)
+                    Group {
+                        if overlayPositionMode == "custom" {
+                        Text("Overlay Position")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                        
+                        PositionPickerGroup(selection: $volumeOverlayPosition)
+                        }
+                    }
                 }
                 .padding(.horizontal)
                 

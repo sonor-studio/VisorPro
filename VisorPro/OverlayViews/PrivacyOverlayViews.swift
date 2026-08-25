@@ -88,7 +88,7 @@ struct MicOverlayView: View {
         let maxListHeight: CGFloat = 160
         let listHeight = currentDevices.isEmpty ? 0 : min(CGFloat(currentDevices.count * 40 + 10), maxListHeight)
         let displayedMicName = actualIsActive && !mediaKeyManager.activeMicName.isEmpty ? mediaKeyManager.activeMicName : mediaKeyManager.currentMicDeviceName
-        let micPos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
+        let micPos = MediaKeyManager.shared.getOverlayPosition(for: "micOverlayPosition")
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -368,7 +368,7 @@ struct CameraOverlayView: View {
     var body: some View {
         
         
-        let camPos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
+        let camPos = MediaKeyManager.shared.getOverlayPosition(for: "cameraOverlayPosition")
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -520,7 +520,7 @@ struct LocationOverlayView: View {
     
     var body: some View {
         
-        let locPos = UserDefaults.standard.string(forKey: "locationOverlayPosition") ?? "top"
+        let locPos = MediaKeyManager.shared.getOverlayPosition(for: "locationOverlayPosition")
         
         return UniversalOverlayView(
             isPreview: isPreview,

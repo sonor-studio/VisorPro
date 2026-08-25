@@ -57,7 +57,6 @@ class RamObserver: ObservableObject {
             let used = total - free - cached
             let percent = (used / total) * 100.0
             
-            print("[RamObserver] updateRamUsage. Used: \(used / (1024*1024*1024)) GB, Total: \(total / (1024*1024*1024)) GB, Percent: \(percent)%")
             
             DispatchQueue.main.async {
                 self.usedRamGB = used / (1024 * 1024 * 1024)
@@ -78,20 +77,16 @@ class RamObserver: ObservableObject {
                 }
                 
                 let threshold = MediaKeyManager.shared.highRamThreshold
-                print("[RamObserver] Current threshold: \(threshold)%. Current percent: \(percent)%")
                 
                 // Allow triggering if rounded percent is at least threshold
                 if percent >= threshold || abs(percent - threshold) < 0.5 {
                     if !self.hasTriggeredAlert {
-                        print("[RamObserver] Triggering RAM overlay! percent: \(percent) >= threshold: \(threshold)")
                         self.hasTriggeredAlert = true
                         MediaKeyManager.shared.triggerRamOverlay()
                     } else {
-                        print("[RamObserver] RAM still high, but alert already triggered.")
                     }
                 } else if percent <= (threshold - 5.0) {
                     if self.hasTriggeredAlert {
-                        print("[RamObserver] Resetting alert flag. percent: \(percent) <= \(threshold - 5.0)")
                         self.hasTriggeredAlert = false
                     }
                 }
@@ -104,7 +99,6 @@ class RamObserver: ObservableObject {
     func resetAlertFlag() {
         DispatchQueue.main.async {
             self.hasTriggeredAlert = false
-            print("[RamObserver] Alert flag manually reset")
         }
     }
     
@@ -176,7 +170,6 @@ class RamObserver: ObservableObject {
                     }
                 }
             } catch {
-                print("[RamObserver] Failed to run ps: \(error)")
             }
         }
     }

@@ -3,6 +3,7 @@ import SwiftUI
 struct PrivacySettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("micOverlayPosition") private var micOverlayPosition: String = "top"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("cameraOverlayPosition") private var cameraOverlayPosition: String = "top"
     @AppStorage("locationOverlayPosition") private var locationOverlayPosition: String = "top"
     @State private var isMicHistoryExpanded: Bool = false
@@ -73,18 +74,16 @@ struct PrivacySettingsView: View {
                             
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "mic.fill", iconColor: .blue, title: "Notify when Microphone is ON", subtitle: "Show an overlay when the microphone starts being used") {
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnMicOn).labelsHidden()
-                                }
-                                if mediaKeyManager.notifyOnMicOn {
-                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnMicOn)
-                                }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnMicOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnMicOn) }
+Toggle("", isOn: $mediaKeyManager.notifyOnMicOn).labelsHidden() }
+                               
+                            }
                                 Divider().padding(.leading, 48)
                                 CustomSettingsRow(icon: "mic.slash.fill", iconColor: .blue, title: "Notify when Microphone is OFF", subtitle: "Show an overlay when the microphone stops being used") {
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnMicOff).labelsHidden()
-                                }
-                                if mediaKeyManager.notifyOnMicOff {
-                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnMicOff)
-                                }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnMicOff { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnMicOff) }
+Toggle("", isOn: $mediaKeyManager.notifyOnMicOff).labelsHidden() }
+                               
+                            }
                             }
                             .toggleStyle(.switch)
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -94,14 +93,18 @@ struct PrivacySettingsView: View {
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                             
-                            Text("Overlay Position")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.bottom, 4)
-                                .padding(.leading, 4)
-                            
-                            PositionPickerGroup(selection: $micOverlayPosition)
+                            Group {
+                                if overlayPositionMode == "custom" {
+                                Text("Overlay Position")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 10)
+                                    .padding(.bottom, 4)
+                                    .padding(.leading, 4)
+                                
+                                PositionPickerGroup(selection: $micOverlayPosition)
+                                }
+                            }
                                 .padding(.bottom, 12)
                             
                             if !mediaKeyManager.micHistory.isEmpty {
@@ -185,18 +188,16 @@ struct PrivacySettingsView: View {
                             
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "video.fill", iconColor: .blue, title: "Notify when Camera is ON", subtitle: "Show an overlay when the camera starts being used") {
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnCameraOn).labelsHidden()
-                                }
-                                if mediaKeyManager.notifyOnCameraOn {
-                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnCameraOn)
-                                }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnCameraOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCameraOn) }
+Toggle("", isOn: $mediaKeyManager.notifyOnCameraOn).labelsHidden() }
+                               
+                            }
                                 Divider().padding(.leading, 48)
                                 CustomSettingsRow(icon: "video.slash.fill", iconColor: .blue, title: "Notify when Camera is OFF", subtitle: "Show an overlay when the camera stops being used") {
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden()
-                                }
-                                if mediaKeyManager.notifyOnCameraOff {
-                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnCameraOff)
-                                }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnCameraOff { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCameraOff) }
+Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
+                               
+                            }
                             }
                             .toggleStyle(.switch)
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -206,14 +207,18 @@ struct PrivacySettingsView: View {
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                             
-                            Text("Overlay Position")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.bottom, 4)
-                                .padding(.leading, 4)
-                            
-                            PositionPickerGroup(selection: $cameraOverlayPosition)
+                            Group {
+                                if overlayPositionMode == "custom" {
+                                Text("Overlay Position")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 10)
+                                    .padding(.bottom, 4)
+                                    .padding(.leading, 4)
+                                
+                                PositionPickerGroup(selection: $cameraOverlayPosition)
+                                }
+                            }
                                 .padding(.bottom, 12)
                             
                             if !mediaKeyManager.cameraHistory.isEmpty {
@@ -297,11 +302,10 @@ struct PrivacySettingsView: View {
                             
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "location.fill", iconColor: .blue, title: "Notify on Location Request", subtitle: "Show an overlay when location services are requested") {
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnLocationOn).labelsHidden()
-                                }
-                                if mediaKeyManager.notifyOnLocationOn {
-                                    SoundPickerRow(selectedSound: $mediaKeyManager.soundOnLocationOn)
-                                }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnLocationOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnLocationOn) }
+Toggle("", isOn: $mediaKeyManager.notifyOnLocationOn).labelsHidden() }
+                               
+                            }
                             }
                             .toggleStyle(.switch)
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -311,14 +315,18 @@ struct PrivacySettingsView: View {
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                             
-                            Text("Overlay Position")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.bottom, 4)
-                                .padding(.leading, 4)
-                            
-                            PositionPickerGroup(selection: $locationOverlayPosition)
+                            Group {
+                                if overlayPositionMode == "custom" {
+                                Text("Overlay Position")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 10)
+                                    .padding(.bottom, 4)
+                                    .padding(.leading, 4)
+                                
+                                PositionPickerGroup(selection: $locationOverlayPosition)
+                                }
+                            }
                                 .padding(.bottom, 12)
                             
                             Text("App Filters")

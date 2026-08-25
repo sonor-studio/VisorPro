@@ -3,6 +3,7 @@ import SwiftUI
 struct WiFiSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("wifiOverlayPosition") private var wifiOverlayPosition: String = "top"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("wifiAllowExpansion") private var wifiAllowExpansion: Bool = true
     @State private var isHistoryExpanded: Bool = false
     
@@ -55,18 +56,16 @@ struct WiFiSettingsView: View {
                     
                     VStack(spacing: 0) {
                         CustomSettingsRow(icon: "link", iconColor: .cyan, title: "On Connect", subtitle: "Show an overlay when connecting to a network") {
-                            Toggle("", isOn: $mediaKeyManager.notifyOnWiFiConnect).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyOnWiFiConnect {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnWiFiConnect)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyOnWiFiConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnWiFiConnect) }
+Toggle("", isOn: $mediaKeyManager.notifyOnWiFiConnect).labelsHidden() }
+                       
+                            }
                         Divider().padding(.leading, 40)
                         CustomSettingsRow(icon: "link.badge.plus", iconColor: .cyan, title: "On Disconnect", subtitle: "Show an overlay when disconnecting from a network") {
-                            Toggle("", isOn: $mediaKeyManager.notifyOnWiFiDisconnect).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyOnWiFiDisconnect {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnWiFiDisconnect)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyOnWiFiDisconnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnWiFiDisconnect) }
+Toggle("", isOn: $mediaKeyManager.notifyOnWiFiDisconnect).labelsHidden() }
+                       
+                            }
                     }
                     .toggleStyle(.switch)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -175,12 +174,16 @@ struct WiFiSettingsView: View {
                             .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                     )
                     
-                    Text("Overlay Position")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 10)
-                    
-                    PositionPickerGroup(selection: $wifiOverlayPosition)
+                    Group {
+                        if overlayPositionMode == "custom" {
+                        Text("Overlay Position")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                        
+                        PositionPickerGroup(selection: $wifiOverlayPosition)
+                        }
+                    }
                 }
                 .padding(.horizontal)
                 

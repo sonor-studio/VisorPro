@@ -3,6 +3,7 @@ import SwiftUI
 struct ThemeSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("themeOverlayPosition") private var themeOverlayPosition: String = "top"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("themeAllowInteractivity") private var themeAllowInteractivity: Bool = true
     
     var body: some View {
@@ -53,18 +54,16 @@ struct ThemeSettingsView: View {
                         
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "moon.fill", iconColor: .purple, title: "Dark Mode", subtitle: "Show overlay when switching to Dark Mode") {
-                                Toggle("", isOn: $mediaKeyManager.notifyOnThemeDark).labelsHidden()
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnThemeDark { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnThemeDark) }
+Toggle("", isOn: $mediaKeyManager.notifyOnThemeDark).labelsHidden() }
+                           
                             }
-                        if mediaKeyManager.notifyOnThemeDark {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnThemeDark)
-                        }
                             Divider().padding(.leading, 48)
                             CustomSettingsRow(icon: "sun.max.fill", iconColor: .purple, title: "Light Mode", subtitle: "Show overlay when switching to Light Mode") {
-                                Toggle("", isOn: $mediaKeyManager.notifyOnThemeLight).labelsHidden()
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnThemeLight { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnThemeLight) }
+Toggle("", isOn: $mediaKeyManager.notifyOnThemeLight).labelsHidden() }
+                           
                             }
-                        if mediaKeyManager.notifyOnThemeLight {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnThemeLight)
-                        }
                         }
                         .toggleStyle(.switch)
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -94,12 +93,16 @@ struct ThemeSettingsView: View {
                                 .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                         )
                         
-                        Text("Overlay Position")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 10)
-                        
-                        PositionPickerGroup(selection: $themeOverlayPosition)
+                        Group {
+                            if overlayPositionMode == "custom" {
+                            Text("Overlay Position")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                            
+                            PositionPickerGroup(selection: $themeOverlayPosition)
+                            }
+                        }
                     }
                     .padding(.horizontal)
                 }

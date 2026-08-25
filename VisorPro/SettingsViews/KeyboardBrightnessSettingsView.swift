@@ -3,7 +3,8 @@ import SwiftUI
 struct KeyboardBrightnessSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("keyboardBrightnessOverlayPosition") private var keyboardBrightnessOverlayPosition: String = "top"
-    @AppStorage("keyboardBrightnessFillCenter") private var keyboardBrightnessFillCenter: Bool = true
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
+    @AppStorage("keyboardBrightnessFillCenter") private var keyboardBrightnessFillCenter: Bool = false
     
     var body: some View {
         ScrollView {
@@ -119,12 +120,16 @@ struct KeyboardBrightnessSettingsView: View {
                             .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                     )
                     
-                    Text("Overlay Position")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 10)
-                    
-                    PositionPickerGroup(selection: $keyboardBrightnessOverlayPosition)
+                    Group {
+                        if overlayPositionMode == "custom" {
+                        Text("Overlay Position")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                        
+                        PositionPickerGroup(selection: $keyboardBrightnessOverlayPosition)
+                        }
+                    }
                 }
                 .padding(.horizontal)
                 

@@ -67,7 +67,7 @@ struct CopyOverlayView: View {
         let textNeedsExpansion = reqHeight > 22
         let canExpand = true
         let trackWidth: CGFloat = 260 - 8
-        let copyPos = UserDefaults.standard.string(forKey: "copyOverlayPosition") ?? "bottom"
+        let copyPos = MediaKeyManager.shared.getOverlayPosition(for: "copyOverlayPosition")
         
 
         return UniversalOverlayView(

@@ -111,7 +111,7 @@ struct PeripheralOverlayView: View {
     
     var body: some View {
         let actionColor: Color = isConnected ? Color(red: 0.85, green: 0.15, blue: 0.55) : .secondary
-        let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
+        let periPos = MediaKeyManager.shared.getOverlayPosition(for: "peripheralOverlayPosition")
         
         let type = actualNotification?.type ?? ""
         let typeIcon = actualNotification?.icon ?? ""

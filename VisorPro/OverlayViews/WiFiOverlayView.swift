@@ -104,7 +104,7 @@ struct WiFiOverlayView: View {
     var body: some View {
         
         let iconName = actualIsConnected ? (actualIsHotspot ? "personalhotspot" : "wifi") : "wifi.slash"
-        let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
+        let wifiPos = MediaKeyManager.shared.getOverlayPosition(for: "wifiOverlayPosition")
         
         return UniversalOverlayView(
             isPreview: isPreview,

@@ -42,46 +42,46 @@ struct ContentView: View {
         if mediaKeyManager.showCopyIndicator { active.append(ActiveOverlay(id: "copy_\(mediaKeyManager.clipboardEventId)", type: .copy, position: copyOverlayPosition, notification: nil)) }
         if mediaKeyManager.showCapsLockIndicator { active.append(ActiveOverlay(id: "capsLock_\(mediaKeyManager.capsLockEventId)", type: .capsLock, position: capsLockOverlayPosition, notification: nil)) }
         
-        let btPos = UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom"
+        let btPos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")
         for notif in mediaKeyManager.activeBluetoothNotifications {
             active.append(ActiveOverlay(id: "bluetooth_\(notif.id)", type: .bluetooth, position: btPos, notification: notif))
         }
         
-        let langPos = UserDefaults.standard.string(forKey: "languageOverlayPosition") ?? "bottom"
+        let langPos = MediaKeyManager.shared.getOverlayPosition(for: "languageOverlayPosition")
         if mediaKeyManager.showLanguageIndicator { active.append(ActiveOverlay(id: "language", type: .language, position: langPos, notification: nil)) }
         
-        let mediaPos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
+        let mediaPos = MediaKeyManager.shared.getOverlayPosition(for: "mediaOverlayPosition")
         if mediaKeyManager.showMediaIndicator { active.append(ActiveOverlay(id: "media", type: .media, position: mediaPos, notification: nil)) }
         
-        let themePos = UserDefaults.standard.string(forKey: "themeOverlayPosition") ?? "bottom"
+        let themePos = MediaKeyManager.shared.getOverlayPosition(for: "themeOverlayPosition")
         if mediaKeyManager.showThemeIndicator { active.append(ActiveOverlay(id: "theme", type: .theme, position: themePos, notification: nil)) }
         
-        let micPos = UserDefaults.standard.string(forKey: "micOverlayPosition") ?? "top"
+        let micPos = MediaKeyManager.shared.getOverlayPosition(for: "micOverlayPosition")
         if mediaKeyManager.showMicIndicator { active.append(ActiveOverlay(id: "mic", type: .mic, position: micPos, notification: nil)) }
         
-        let camPos = UserDefaults.standard.string(forKey: "cameraOverlayPosition") ?? "top"
+        let camPos = MediaKeyManager.shared.getOverlayPosition(for: "cameraOverlayPosition")
         if mediaKeyManager.showCameraIndicator { active.append(ActiveOverlay(id: "camera", type: .camera, position: camPos, notification: nil)) }
         
-        let locPos = UserDefaults.standard.string(forKey: "locationOverlayPosition") ?? "top"
+        let locPos = MediaKeyManager.shared.getOverlayPosition(for: "locationOverlayPosition")
         if mediaKeyManager.showLocationIndicator { active.append(ActiveOverlay(id: "location", type: .location, position: locPos, notification: nil)) }
         
-        let wifiPos = UserDefaults.standard.string(forKey: "wifiOverlayPosition") ?? "bottom"
+        let wifiPos = MediaKeyManager.shared.getOverlayPosition(for: "wifiOverlayPosition")
         if mediaKeyManager.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi", type: .wifi, position: wifiPos, notification: nil)) }
         
-        let periPos = UserDefaults.standard.string(forKey: "peripheralOverlayPosition") ?? "bottom"
+        let periPos = MediaKeyManager.shared.getOverlayPosition(for: "peripheralOverlayPosition")
         for notif in mediaKeyManager.activePeripheralNotifications {
             active.append(ActiveOverlay(id: "peripheral_\(notif.id)", type: .peripheral, position: periPos, notification: notif))
         }
         
-        let displayPos = UserDefaults.standard.string(forKey: "displayOverlayPosition") ?? "bottom"
+        let displayPos = MediaKeyManager.shared.getOverlayPosition(for: "displayOverlayPosition")
         for notif in mediaKeyManager.activeDisplayNotifications {
             active.append(ActiveOverlay(id: "display_\(notif.id)", type: .display, position: displayPos, notification: notif))
         }
         
-        let fanPos = UserDefaults.standard.string(forKey: "fanOverlayPosition") ?? "bottom"
+        let fanPos = MediaKeyManager.shared.getOverlayPosition(for: "fanOverlayPosition")
         if mediaKeyManager.showFanIndicator { active.append(ActiveOverlay(id: "fan", type: .fan, position: fanPos, notification: nil)) }
         
-        let ramPos = UserDefaults.standard.string(forKey: "ramOverlayPosition") ?? "bottom"
+        let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if mediaKeyManager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
         
         let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)

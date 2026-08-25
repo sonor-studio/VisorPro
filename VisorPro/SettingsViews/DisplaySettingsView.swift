@@ -2,7 +2,8 @@ import SwiftUI
 
 struct DisplaySettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("displayOverlayPosition") private var displayOverlayPosition: String = "bottom"
+    @AppStorage("displayOverlayPosition") private var displayOverlayPosition: String = "top"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("displayAllowExpansion") private var displayAllowExpansion: Bool = true
     
     var body: some View {
@@ -53,24 +54,21 @@ struct DisplaySettingsView: View {
                         
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "display.2", iconColor: .blue, title: "Monitor Connected", subtitle: "Show overlay when a new screen is plugged in") {
-                                Toggle("", isOn: $mediaKeyManager.notifyOnDisplayConnect).labelsHidden()
-                            }
-                            if mediaKeyManager.notifyOnDisplayConnect {
-                                SoundPickerRow(selectedSound: $mediaKeyManager.soundOnDisplayConnect)
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnDisplayConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayConnect) }
+Toggle("", isOn: $mediaKeyManager.notifyOnDisplayConnect).labelsHidden() }
+                           
                             }
                             Divider().padding(.leading, 48)
                             CustomSettingsRow(icon: "macwindow.badge.plus", iconColor: .blue, title: "Mode Change", subtitle: "Show overlay when switching between extend and mirror") {
-                                Toggle("", isOn: $mediaKeyManager.notifyOnDisplayModeChange).labelsHidden()
-                            }
-                            if mediaKeyManager.notifyOnDisplayModeChange {
-                                SoundPickerRow(selectedSound: $mediaKeyManager.soundOnDisplayModeChange)
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnDisplayModeChange { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayModeChange) }
+Toggle("", isOn: $mediaKeyManager.notifyOnDisplayModeChange).labelsHidden() }
+                           
                             }
                             Divider().padding(.leading, 48)
                             CustomSettingsRow(icon: "display", iconColor: .blue, title: "Monitor Disconnected", subtitle: "Show overlay when a screen is unplugged") {
-                                Toggle("", isOn: $mediaKeyManager.notifyOnDisplayDisconnect).labelsHidden()
-                            }
-                            if mediaKeyManager.notifyOnDisplayDisconnect {
-                                SoundPickerRow(selectedSound: $mediaKeyManager.soundOnDisplayDisconnect)
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnDisplayDisconnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayDisconnect) }
+Toggle("", isOn: $mediaKeyManager.notifyOnDisplayDisconnect).labelsHidden() }
+                           
                             }
                         }
                         .toggleStyle(.switch)
@@ -101,12 +99,16 @@ struct DisplaySettingsView: View {
                                 .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                         )
                         
-                        Text("Overlay Position")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 10)
-                        
-                        PositionPickerGroup(selection: $displayOverlayPosition)
+                        Group {
+                            if overlayPositionMode == "custom" {
+                            Text("Overlay Position")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                            
+                            PositionPickerGroup(selection: $displayOverlayPosition)
+                            }
+                        }
                     }
                     .padding(.horizontal)
                 }

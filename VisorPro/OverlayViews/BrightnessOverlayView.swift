@@ -24,7 +24,7 @@ struct BrightnessOverlayView: View {
     }
     
     var body: some View {
-        let bPos = UserDefaults.standard.string(forKey: "brightnessOverlayPosition") ?? "top"
+        let bPos = MediaKeyManager.shared.getOverlayPosition(for: "brightnessOverlayPosition")
         
         UniversalOverlayView(
             isPreview: isPreview,

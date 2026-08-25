@@ -106,7 +106,7 @@ struct BluetoothOverlayView: View {
             return "point.3.connected.trianglepath.dotted"
         }()
         
-        let btPos = UserDefaults.standard.string(forKey: "bluetoothOverlayPosition") ?? "bottom"
+        let btPos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")
         let keepAliveType = notification != nil ? "bluetooth_\(notification!.id)" : "bluetooth"
         
         return UniversalOverlayView(

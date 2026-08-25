@@ -23,7 +23,7 @@ class MediaObserver {
     }
     
     private func startHelperScript() {
-        let scriptPath = "/tmp/visor_media_helper.swift"
+        let scriptPath = FileManager.default.temporaryDirectory.appendingPathComponent("visor_media_helper.swift").path
         let scriptContent = """
         import Foundation
         import Cocoa

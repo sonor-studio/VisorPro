@@ -3,7 +3,8 @@ import SwiftUI
 struct BrightnessSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("brightnessOverlayPosition") private var brightnessOverlayPosition: String = "top"
-    @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = true
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
+    @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = false
     
     var body: some View {
         ScrollView {
@@ -103,12 +104,16 @@ struct BrightnessSettingsView: View {
                             .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                     )
                     
-                    Text("Overlay Position")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 10)
-                    
-                    PositionPickerGroup(selection: $brightnessOverlayPosition)
+                    Group {
+                        if overlayPositionMode == "custom" {
+                        Text("Overlay Position")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                        
+                        PositionPickerGroup(selection: $brightnessOverlayPosition)
+                        }
+                    }
                 }
                 .padding(.horizontal)
                 

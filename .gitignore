@@ -31,3 +31,6 @@ DerivedData
 build/
 build/
 *.rb
+
+# Environment variables
+.env

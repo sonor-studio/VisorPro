@@ -3,8 +3,9 @@ import SwiftUI
 struct SystemSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("showFanOverlay") private var showFanOverlay = true
-    @AppStorage("fanOverlayPosition") private var fanOverlayPosition: String = "bottom"
-    @AppStorage("ramOverlayPosition") private var ramOverlayPosition: String = "bottom"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
+    @AppStorage("fanOverlayPosition") private var fanOverlayPosition: String = "top"
+    @AppStorage("ramOverlayPosition") private var ramOverlayPosition: String = "top"
     
     var body: some View {
         ScrollView {
@@ -67,17 +68,15 @@ struct SystemSettingsView: View {
                         
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "fanblades", iconColor: .cyan, title: "Fan Started", subtitle: "Show overlay when fan starts running") {
-                                Toggle("", isOn: $mediaKeyManager.notifyOnFanStart).labelsHidden()
-                            }
-                            if mediaKeyManager.notifyOnFanStart {
-                                SoundPickerRow(selectedSound: $mediaKeyManager.soundOnFanStart)
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnFanStart { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnFanStart) }
+Toggle("", isOn: $mediaKeyManager.notifyOnFanStart).labelsHidden() }
+                           
                             }
                             Divider().padding(.leading, 48)
                             CustomSettingsRow(icon: "fanblades", iconColor: .gray, title: "Fan Stopped", subtitle: "Show overlay when fan stops running") {
-                                Toggle("", isOn: $mediaKeyManager.notifyOnFanStop).labelsHidden()
-                            }
-                            if mediaKeyManager.notifyOnFanStop {
-                                SoundPickerRow(selectedSound: $mediaKeyManager.soundOnFanStop)
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnFanStop { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnFanStop) }
+Toggle("", isOn: $mediaKeyManager.notifyOnFanStop).labelsHidden() }
+                           
                             }
                         }
                         .toggleStyle(.switch)
@@ -89,14 +88,18 @@ struct SystemSettingsView: View {
                         )
                         .padding(.horizontal)
                         
-                        Text("Overlay Position")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 10)
-                            .padding(.bottom, 4)
-                            .padding(.leading, 20)
-                        
-                        PositionPickerGroup(selection: $fanOverlayPosition)
+                        Group {
+                            if overlayPositionMode == "custom" {
+                            Text("Overlay Position")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                                .padding(.bottom, 4)
+                                .padding(.leading, 20)
+                            
+                            PositionPickerGroup(selection: $fanOverlayPosition)
+                            }
+                        }
                         .padding(.horizontal)
                         Divider()
                         
@@ -150,14 +153,18 @@ struct SystemSettingsView: View {
                         )
                         .padding(.horizontal)
                         
-                        Text("RAM Overlay Position")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 10)
-                            .padding(.bottom, 4)
-                            .padding(.leading, 20)
-                        
-                        PositionPickerGroup(selection: $ramOverlayPosition)
+                        Group {
+                            if overlayPositionMode == "custom" {
+                            Text("RAM Overlay Position")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                                .padding(.bottom, 4)
+                                .padding(.leading, 20)
+                            
+                            PositionPickerGroup(selection: $ramOverlayPosition)
+                            }
+                        }
                         .padding(.horizontal)
                     }
                 }

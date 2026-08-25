@@ -28,23 +28,16 @@ struct VisorProApp: App {
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     
     var body: some Scene {
-
         Settings {
-            SettingsView()
+            RootView()
                 .environmentObject(mediaKeyManager)
         }
         .windowResizability(.contentSize)
         
         MenuBarExtra("VisorPro", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
-            if #available(macOS 14.0, *) {
-                SettingsLink {
-                    Text("Dashboard...")
-                }
-            } else {
-                Button("Dashboard...") {
-                    NSApp.activate(ignoringOtherApps: true)
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                }
+            Button("Dashboard") {
+                NSApp.activate(ignoringOtherApps: true)
+                let _ = appDelegate.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
             }
             
             Divider()
@@ -52,6 +45,18 @@ struct VisorProApp: App {
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
+        }
+    }
+}
+
+struct RootView: View {
+    @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
+    
+    var body: some View {
+        if hasCompletedWelcome && AXIsProcessTrusted() {
+            SettingsView()
+        } else {
+            WelcomeScreen()
         }
     }
 }
@@ -76,6 +81,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         MediaKeyManager.shared.start()
         PowerChimeManager.disableChargingSound()
+        
+        let hasCompletedWelcome = UserDefaults.standard.bool(forKey: "hasCompletedWelcome")
+        let isTrusted = AXIsProcessTrusted()
+        if !hasCompletedWelcome || !isTrusted {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                let _ = self.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+            }
+        }
     }
     
     func applicationWillTerminate(_ notification: Notification) {
@@ -89,14 +102,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             let hasVisibleSettings = NSApp.windows.contains { $0.isVisible && ($0.title == "General" || $0.title == "Settings" || $0.title == "VisorPro") }
             if !hasVisibleSettings {
+                let isWelcome = !UserDefaults.standard.bool(forKey: "hasCompletedWelcome") || !AXIsProcessTrusted()
+                let initialWidth: CGFloat = isWelcome ? 500 : 700
+                let initialHeight: CGFloat = isWelcome ? 420 : 500
+                
                 let settingsWindow = NSWindow(
-                    contentRect: NSRect(x: 0, y: 0, width: 700, height: 500),
+                    contentRect: NSRect(x: 0, y: 0, width: initialWidth, height: initialHeight),
                     styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                     backing: .buffered, defer: false)
-                settingsWindow.title = "Settings"
-                settingsWindow.center()
-                settingsWindow.contentView = NSHostingView(rootView: SettingsView().environmentObject(MediaKeyManager.shared))
-                settingsWindow.minSize = NSSize(width: 700, height: 500)
+                settingsWindow.title = "VisorPro"
+                settingsWindow.contentView = NSHostingView(rootView: RootView().environmentObject(MediaKeyManager.shared))
+                settingsWindow.minSize = NSSize(width: initialWidth, height: initialHeight)
+                settingsWindow.setFrameAutosaveName("VisorProDashboardWindow")
+                if !settingsWindow.setFrameUsingName("VisorProDashboardWindow") {
+                    settingsWindow.center()
+                }
                 settingsWindow.makeKeyAndOrderFront(nil)
             }
         }

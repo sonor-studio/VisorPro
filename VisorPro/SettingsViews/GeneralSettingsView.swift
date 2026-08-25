@@ -9,6 +9,9 @@ struct GeneralSettingsView: View {
     @AppStorage("previewBackgroundStyle") private var previewBackgroundStyle = "gradient"
     @AppStorage("enableSwipeToDismiss") private var enableSwipeToDismiss = true
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
+    @AppStorage("globalOverlayPosition") private var globalOverlayPosition: String = "top"
+    @AppStorage("overlayMargin") private var overlayMargin: Double = 30.0
     @State private var autoUpdate = true
     
     var body: some View {
@@ -83,50 +86,141 @@ struct GeneralSettingsView: View {
             Section {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Overlays limit")
-                            Text("Maximum number of tiles displayed at once.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
                         HStack {
-                            Text("1")
-                            Slider(value: Binding(
-                                get: { Double(mediaKeyManager.maxSimultaneousNotifications) },
-                                set: { mediaKeyManager.maxSimultaneousNotifications = Int($0) }
-                            ), in: 1...5, step: 1)
-                            .labelsHidden()
-                            .frame(width: 140)
-                            Text("5")
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Overlays limit")
+                                Text("Maximum number of tiles displayed at once.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            HStack {
+                                Slider(value: Binding(
+                                    get: { Double(mediaKeyManager.maxSimultaneousNotifications) },
+                                    set: { mediaKeyManager.maxSimultaneousNotifications = Int($0) }
+                                ), in: 1...5, step: 1)
+                                .labelsHidden()
+                                .frame(width: 220)
+                                
+                                Text("\(mediaKeyManager.maxSimultaneousNotifications)")
+                                    .frame(width: 30, alignment: .trailing)
+                            }
                         }
                     }
                     
                     Divider()
                     
                     HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Display duration")
-                            Text("How long an overlay remains visible.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Spacer()
-                        
                         HStack {
-                            Text("1s")
-                            Slider(value: $notificationDuration, in: 1...10, step: 1)
-                            .labelsHidden()
-                            .frame(width: 140)
-                            Text("10s")
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Display duration")
+                                Text("How long an overlay remains visible.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            HStack {
+                                Slider(value: $notificationDuration, in: 1...10, step: 1)
+                                .labelsHidden()
+                                .frame(width: 220)
+                                
+                                Text("\(Int(notificationDuration))s")
+                                    .frame(width: 30, alignment: .trailing)
+                            }
                         }
                     }
                 }
             } header: {
                 Text("Overlays")
+            }
+            
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    Picker("Overlay Position Mode", selection: $overlayPositionMode) {
+                        Text("Custom (Individual per module)").tag("custom")
+                        Text("Fixed (Same for all modules)").tag("fixed")
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    
+                    if overlayPositionMode == "fixed" {
+                        Divider().padding(.vertical, 8)
+                        Text("Global Position")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        PositionPickerGroup(selection: $globalOverlayPosition)
+                    }
+                    Divider().padding(.vertical, 8)
+                    
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Screen Edge Margin")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                Text("Distance from the edges of the screen")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            HStack {
+                                Slider(value: $overlayMargin, in: 0...150, step: 5)
+                                    .labelsHidden()
+                                    .frame(width: 320)
+                                
+                                Text("\(Int(overlayMargin)) px")
+                                    .frame(width: 50, alignment: .trailing)
+                            }
+                        }
+                        VStack {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                                    .frame(width: 180, height: 110)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                                    )
+                                
+                                // Top-centered pill
+                                Capsule()
+                                    .fill(Color.accentColor.opacity(0.8))
+                                    .frame(width: 40, height: 10)
+                                    .offset(y: -55 + 5 + (overlayMargin * 0.1))
+                                    
+                                // Bottom-centered pill
+                                Capsule()
+                                    .fill(Color.secondary.opacity(0.5))
+                                    .frame(width: 40, height: 10)
+                                    .offset(y: 55 - 5 - (overlayMargin * 0.1))
+                                    
+                                // Left pill
+                                Capsule()
+                                    .fill(Color.secondary.opacity(0.5))
+                                    .frame(width: 10, height: 40)
+                                    .offset(x: -90 + 5 + (overlayMargin * 0.1))
+                                    
+                                // Right pill
+                                Capsule()
+                                    .fill(Color.secondary.opacity(0.5))
+                                    .frame(width: 10, height: 40)
+                                    .offset(x: 90 - 5 - (overlayMargin * 0.1))
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+
+                    }
+
+                }
+            } header: {
+                Text("Overlay Position")
             }
             
             Section {

@@ -97,7 +97,7 @@ struct MediaOverlayView: View {
     var body: some View {
         let width: CGFloat = 260
         let height: CGFloat = 72
-        let mediaPos = UserDefaults.standard.string(forKey: "mediaOverlayPosition") ?? "bottom"
+        let mediaPos = MediaKeyManager.shared.getOverlayPosition(for: "mediaOverlayPosition")
         
         return UniversalOverlayView(
             isPreview: isPreview,

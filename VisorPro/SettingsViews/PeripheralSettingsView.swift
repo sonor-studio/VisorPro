@@ -3,6 +3,7 @@ import SwiftUI
 struct PeripheralSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("peripheralOverlayPosition") private var peripheralOverlayPosition: String = "top"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("peripheralAllowExpansion") private var peripheralAllowExpansion: Bool = true
     @State private var isHistoryExpanded: Bool = false
     
@@ -54,18 +55,16 @@ struct PeripheralSettingsView: View {
                         
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "cable.connector", iconColor: .teal, title: "Device Connected", subtitle: "Show overlay when a new peripheral is plugged in") {
-                                Toggle("", isOn: $mediaKeyManager.notifyOnPeripheralConnect).labelsHidden()
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnPeripheralConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnPeripheralConnect) }
+Toggle("", isOn: $mediaKeyManager.notifyOnPeripheralConnect).labelsHidden() }
+                           
                             }
-                        if mediaKeyManager.notifyOnPeripheralConnect {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnPeripheralConnect)
-                        }
                             Divider().padding(.leading, 48)
                             CustomSettingsRow(icon: "cable.connector.slash", iconColor: .teal, title: "Device Disconnected", subtitle: "Show overlay when a peripheral is unplugged") {
-                                Toggle("", isOn: $mediaKeyManager.notifyOnPeripheralDisconnect).labelsHidden()
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnPeripheralDisconnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnPeripheralDisconnect) }
+Toggle("", isOn: $mediaKeyManager.notifyOnPeripheralDisconnect).labelsHidden() }
+                           
                             }
-                        if mediaKeyManager.notifyOnPeripheralDisconnect {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnPeripheralDisconnect)
-                        }
                         }
                         .toggleStyle(.switch)
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -171,12 +170,16 @@ struct PeripheralSettingsView: View {
                                 .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                         )
                         
-                        Text("Overlay Position")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 10)
-                        
-                        PositionPickerGroup(selection: $peripheralOverlayPosition)
+                        Group {
+                            if overlayPositionMode == "custom" {
+                            Text("Overlay Position")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                            
+                            PositionPickerGroup(selection: $peripheralOverlayPosition)
+                            }
+                        }
                     }
                     .padding(.horizontal)
                 }

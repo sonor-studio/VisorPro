@@ -20,7 +20,7 @@ struct LanguageOverlayView: View {
         
         let maxListHeight: CGFloat = 160
         let calculatedListHeight = CGFloat(availableLanguages.count) * 36 + 10
-        let langPos = UserDefaults.standard.string(forKey: "languageOverlayPosition") ?? "bottom"
+        let langPos = MediaKeyManager.shared.getOverlayPosition(for: "languageOverlayPosition")
         
         return UniversalOverlayView(
             isPreview: isPreview,

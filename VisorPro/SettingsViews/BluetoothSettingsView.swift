@@ -2,7 +2,8 @@ import SwiftUI
 
 struct BluetoothSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("bluetoothOverlayPosition") private var bluetoothOverlayPosition: String = "bottom"
+    @AppStorage("bluetoothOverlayPosition") private var bluetoothOverlayPosition: String = "top"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("bluetoothAllowExpansion") private var bluetoothAllowExpansion: Bool = true
     @State private var isHistoryExpanded: Bool = false
     
@@ -55,18 +56,16 @@ struct BluetoothSettingsView: View {
                     
                     VStack(spacing: 0) {
                         CustomSettingsRow(icon: "link", iconColor: .indigo, title: "On Connect", subtitle: "Show an overlay when a Bluetooth device connects") {
-                            Toggle("", isOn: $mediaKeyManager.notifyOnBluetoothConnect).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyOnBluetoothConnect {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnBluetoothConnect)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyOnBluetoothConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnBluetoothConnect) }
+Toggle("", isOn: $mediaKeyManager.notifyOnBluetoothConnect).labelsHidden() }
+                       
+                            }
                         Divider().padding(.leading, 40)
                         CustomSettingsRow(icon: "link.badge.plus", iconColor: .indigo, title: "On Disconnect", subtitle: "Show an overlay when a Bluetooth device disconnects") {
-                            Toggle("", isOn: $mediaKeyManager.notifyOnBluetoothDisconnect).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyOnBluetoothDisconnect {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnBluetoothDisconnect)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyOnBluetoothDisconnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnBluetoothDisconnect) }
+Toggle("", isOn: $mediaKeyManager.notifyOnBluetoothDisconnect).labelsHidden() }
+                       
+                            }
                     }
                     .toggleStyle(.switch)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -186,12 +185,16 @@ struct BluetoothSettingsView: View {
                             .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                     )
                     
-                    Text("Overlay Position")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 10)
-                    
-                    PositionPickerGroup(selection: $bluetoothOverlayPosition)
+                    Group {
+                        if overlayPositionMode == "custom" {
+                        Text("Overlay Position")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                        
+                        PositionPickerGroup(selection: $bluetoothOverlayPosition)
+                        }
+                    }
                 }
                 .padding(.horizontal)
                 

@@ -4,8 +4,9 @@ struct BatterySettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @Environment(\.openWindow) private var openWindow
     @AppStorage("batteryOverlayPosition") private var batteryOverlayPosition: String = "top"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("batteryUseUniversalStyle") private var batteryUseUniversalStyle: Bool = true
-    @AppStorage("batteryFillCenter") private var batteryFillCenter: Bool = true
+    @AppStorage("batteryFillCenter") private var batteryFillCenter: Bool = false
     @AppStorage("batteryAllowExpansion") private var batteryAllowExpansion: Bool = true
     @State private var isAccessoryHistoryExpanded: Bool = false
     
@@ -136,39 +137,34 @@ struct BatterySettingsView: View {
                     
                     VStack(spacing: 0) {
                         CustomSettingsRow(icon: "powerplug.fill", iconColor: .green, title: "Plugged into power", subtitle: "Show when connecting the charger") {
-                            Toggle("", isOn: $mediaKeyManager.notifyOnPlug).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyOnPlug {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnPlug)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyOnPlug { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnPlug) }
+Toggle("", isOn: $mediaKeyManager.notifyOnPlug).labelsHidden() }
+                       
+                            }
                         Divider().padding(.leading, 48)
                         CustomSettingsRow(icon: "powercord", iconColor: .green, title: "Unplugged from power", subtitle: "Show when disconnecting the charger") {
-                            Toggle("", isOn: $mediaKeyManager.notifyOnUnplug).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyOnUnplug {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOnUnplug)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyOnUnplug { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnUnplug) }
+Toggle("", isOn: $mediaKeyManager.notifyOnUnplug).labelsHidden() }
+                       
+                            }
                         Divider().padding(.leading, 48)
                         CustomSettingsRow(icon: "battery.25", iconColor: .green, title: "Battery drops to 20%", subtitle: "Show low battery warning") {
-                            Toggle("", isOn: $mediaKeyManager.notifyOn20Percent).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyOn20Percent {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOn20Percent)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyOn20Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn20Percent) }
+Toggle("", isOn: $mediaKeyManager.notifyOn20Percent).labelsHidden() }
+                       
+                            }
                         Divider().padding(.leading, 48)
                         CustomSettingsRow(icon: "battery.0", iconColor: .green, title: "Battery drops to 10%", subtitle: "Show critical battery warning") {
-                            Toggle("", isOn: $mediaKeyManager.notifyOn10Percent).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyOn10Percent {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOn10Percent)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyOn10Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn10Percent) }
+Toggle("", isOn: $mediaKeyManager.notifyOn10Percent).labelsHidden() }
+                       
+                            }
                         Divider().padding(.leading, 48)
                         CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged to 100%", subtitle: "Show when reaching full charge") {
-                            Toggle("", isOn: $mediaKeyManager.notifyOn100Percent).labelsHidden()
-                        }
-                        if mediaKeyManager.notifyOn100Percent {
-                            SoundPickerRow(selectedSound: $mediaKeyManager.soundOn100Percent)
-                        }
+                            HStack(spacing: 8) { if mediaKeyManager.notifyOn100Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn100Percent) }
+Toggle("", isOn: $mediaKeyManager.notifyOn100Percent).labelsHidden() }
+                       
+                            }
                     }
                     .toggleStyle(.switch)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -224,13 +220,17 @@ struct BatterySettingsView: View {
                             .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                     )
                     
-                    Text("Overlay Position")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 10)
-                        .padding(.leading, 4)
-                    
-                    PositionPickerGroup(selection: $batteryOverlayPosition)
+                    Group {
+                        if overlayPositionMode == "custom" {
+                        Text("Overlay Position")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                            .padding(.leading, 4)
+                        
+                        PositionPickerGroup(selection: $batteryOverlayPosition)
+                        }
+                    }
                 }
                 .padding(.horizontal)
                 

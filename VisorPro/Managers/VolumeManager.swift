@@ -699,8 +699,6 @@ class VolumeManager {
         }
     }
     private func setupVolumeListener() {
-        NSLog("[Volume Observer] =======================================")
-        NSLog("[Volume Observer] setupVolumeListener is executing!")
         
         if currentOutputDeviceID != 0 {
             if let volBlock = volumeListenerBlock {
@@ -741,12 +739,10 @@ class VolumeManager {
         )
         AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &defaultOutputDeviceID)
         
-        NSLog("[Volume Observer] Default Output Device ID: \(defaultOutputDeviceID)")
         currentOutputDeviceID = defaultOutputDeviceID
         
         if defaultOutputDeviceID != 0 {
             let volBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
-                NSLog("[Volume Observer] VOL BLOCK FIRED!")
                 self?.handleExternalVolumeChange()
             }
             volumeListenerBlock = volBlock
@@ -757,7 +753,6 @@ class VolumeManager {
                 mElement: kAudioObjectPropertyElementMain
             )
             var st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &virtualAddress, DispatchQueue.main, volBlock)
-            NSLog("[Volume Observer] Add VirtualMainVolume Listener status: \(st)")
             
             var volAddress = AudioObjectPropertyAddress(
                 mSelector: kAudioDevicePropertyVolumeScalar,
@@ -765,18 +760,14 @@ class VolumeManager {
                 mElement: kAudioObjectPropertyElementMain
             )
             st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
-            NSLog("[Volume Observer] Add Volume Listener (Main) status: \(st)")
             
             volAddress.mElement = 1
             st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
-            NSLog("[Volume Observer] Add Volume Listener (Left) status: \(st)")
             
             volAddress.mElement = 2
             st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
-            NSLog("[Volume Observer] Add Volume Listener (Right) status: \(st)")
             
             let mBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
-                NSLog("[Volume Observer] MUTE BLOCK FIRED!")
                 self?.handleExternalVolumeChange()
             }
             muteListenerBlock = mBlock
@@ -787,21 +778,17 @@ class VolumeManager {
                 mElement: kAudioObjectPropertyElementMain
             )
             st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &muteAddress, DispatchQueue.main, mBlock)
-            NSLog("[Volume Observer] Add Mute Listener (Main) status: \(st)")
         }
     }
     
     private func handleExternalVolumeChange() {
-        NSLog("[Volume Observer] handleExternalVolumeChange called")
         if Date().timeIntervalSince(lastProgrammaticChangeTime) < 0.5 {
-            NSLog("[Volume Observer] Ignored due to programmatic change")
             return
         }
         
         queue.async {
             let (volFloat, isMuted) = self.getSystemVolume()
             let volInt = Int(volFloat * 100)
-            NSLog("[Volume Observer] Detected new volume: \(volInt), muted: \(isMuted)")
             
             DispatchQueue.main.async {
                 self.cachedVolume = volInt
