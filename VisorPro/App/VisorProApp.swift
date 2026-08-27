@@ -73,6 +73,8 @@ struct RootView: View {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    var customDashboardWindow: NSWindow?
+    
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         
@@ -88,6 +90,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let _ = VisorProWindowManager.shared
         let _ = FanObserver.shared
         let _ = RamObserver.shared
+        
+        UpdateManager.shared.checkForUpdates()
         
         MediaKeyManager.shared.start()
         PowerChimeManager.disableChargingSound()
@@ -116,6 +120,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             let hasVisibleSettings = NSApp.windows.contains { $0.isVisible && ($0.title == "General" || $0.title == "Settings" || $0.title == "VisorPro") }
             if !hasVisibleSettings {
+                if let existingWindow = self.customDashboardWindow {
+                    existingWindow.makeKeyAndOrderFront(nil)
+                    return
+                }
+                
                 let initialWidth: CGFloat = 850
                 let initialHeight: CGFloat = 500
                 
@@ -130,6 +139,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if !settingsWindow.setFrameUsingName("VisorProDashboardWindow_v7") {
                     settingsWindow.center()
                 }
+                settingsWindow.isReleasedWhenClosed = false
+                self.customDashboardWindow = settingsWindow
                 settingsWindow.makeKeyAndOrderFront(nil)
             }
         }

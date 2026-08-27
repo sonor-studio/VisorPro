@@ -7,7 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		05F24FF7A97038D88A40B3CB /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F934EA99F3ACB94E426B340 /* UpdateManager.swift */; };
 		13E64220B7AAFCB6369F8022 /* WelcomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15B41649AA49436C7E5A324 /* WelcomeScreen.swift */; };
+		75A94815B318B13BEFC12AAC /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F934EA99F3ACB94E426B340 /* UpdateManager.swift */; };
+		9A114704AA249C59A62FA981 /* .env in Resources */ = {isa = PBXBuildFile; fileRef = 51294009854375D8FCB585EC /* .env */; };
+		9B0E4A2E83D017C796DBF62A /* .env in Resources */ = {isa = PBXBuildFile; fileRef = 51294009854375D8FCB585EC /* .env */; };
+		AD54453D8F42FFD522A83219 /* .env in Resources */ = {isa = PBXBuildFile; fileRef = 51294009854375D8FCB585EC /* .env */; };
+		C84B46918B72B65515AF5D3D /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F934EA99F3ACB94E426B340 /* UpdateManager.swift */; };
 		F0B9442FA6EA01F169A80835 /* WelcomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15B41649AA49436C7E5A324 /* WelcomeScreen.swift */; };
 		F75D4ADE853B6C7CBDE2F782 /* WelcomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15B41649AA49436C7E5A324 /* WelcomeScreen.swift */; };
 /* End PBXBuildFile section */
@@ -30,6 +36,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		51294009854375D8FCB585EC /* .env */ = {isa = PBXFileReference; lastKnownFileType = text; name = .env; path = VisorPro/.env; sourceTree = SOURCE_ROOT; };
+		7F934EA99F3ACB94E426B340 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UpdateManager.swift; path = VisorPro/Managers/UpdateManager.swift; sourceTree = SOURCE_ROOT; };
 		A15B41649AA49436C7E5A324 /* WelcomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WelcomeScreen.swift; path = VisorPro/App/WelcomeScreen.swift; sourceTree = SOURCE_ROOT; };
 		FA01FF83300BB56700235EBF /* VisorPro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VisorPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FA01FF90300BB56900235EBF /* VisorProTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VisorProTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -79,6 +87,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3F5E4CA3A9F978AA0D94AB3B /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				7F934EA99F3ACB94E426B340 /* UpdateManager.swift */,
+			);
+			name = Managers;
+			sourceTree = "<group>";
+		};
+		CD924805BD9B6661AD782CC5 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				51294009854375D8FCB585EC /* .env */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
 		FA01FF7A300BB56700235EBF = {
 			isa = PBXGroup;
 			children = (
@@ -87,6 +111,8 @@
 				FA01FF9D300BB56900235EBF /* VisorProUITests */,
 				FA01FF84300BB56700235EBF /* Products */,
 				A15B41649AA49436C7E5A324 /* WelcomeScreen.swift */,
+				3F5E4CA3A9F978AA0D94AB3B /* Managers */,
+				CD924805BD9B6661AD782CC5 /* Resources */,
 			);
 			sourceTree = "<group>";
 		};
@@ -214,6 +240,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9A114704AA249C59A62FA981 /* .env in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,6 +248,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AD54453D8F42FFD522A83219 /* .env in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -228,6 +256,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9B0E4A2E83D017C796DBF62A /* .env in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -239,6 +268,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				13E64220B7AAFCB6369F8022 /* WelcomeScreen.swift in Sources */,
+				05F24FF7A97038D88A40B3CB /* UpdateManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -247,6 +277,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F0B9442FA6EA01F169A80835 /* WelcomeScreen.swift in Sources */,
+				75A94815B318B13BEFC12AAC /* UpdateManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -255,6 +286,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F75D4ADE853B6C7CBDE2F782 /* WelcomeScreen.swift in Sources */,
+				C84B46918B72B65515AF5D3D /* UpdateManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -429,7 +461,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.VisorPro;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -483,7 +515,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = dev.VisorPro;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
