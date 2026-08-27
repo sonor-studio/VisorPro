@@ -68,7 +68,7 @@ struct DisplayOverlayView: View {
             customWidth: 260,
             supportDragGesture: false,
             isExpandable: displayAllowExpansion,
-            expandUpwards: pos == "bottom",
+            expandUpwards: pos.hasPrefix("bottom"),
             keepAliveId: "display_\(notification?.id ?? deviceName)",
             baseContent: {
                 HStack(alignment: .top, spacing: 0) {

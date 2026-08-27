@@ -48,7 +48,7 @@ struct BrightnessSettingsView: View {
                     ZStack {
                         PreviewBackgroundView()
                         
-                        BrightnessOverlayView(isPreview: true)
+                        BrightnessOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
                             .scaleEffect(0.85)
                     }
                     .padding(.horizontal)

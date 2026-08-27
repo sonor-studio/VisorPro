@@ -108,7 +108,7 @@ struct MicOverlayView: View {
                 }
             },
             isExpandable: actualIsActive && micAllowExpansion,
-            expandUpwards: micPos == "bottom",
+            expandUpwards: micPos.hasPrefix("bottom"),
             keepAliveId: "mic",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
@@ -383,7 +383,7 @@ struct CameraOverlayView: View {
             customHeight: 56,
             supportDragGesture: false,
             isExpandable: actualIsActive && cameraAllowExpansion,
-            expandUpwards: camPos == "bottom",
+            expandUpwards: camPos.hasPrefix("bottom"),
             keepAliveId: "camera",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
@@ -535,7 +535,7 @@ struct LocationOverlayView: View {
             customHeight: 56,
             supportDragGesture: false,
             isExpandable: false,
-            expandUpwards: locPos == "bottom",
+            expandUpwards: locPos.hasPrefix("bottom"),
             keepAliveId: "location",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {

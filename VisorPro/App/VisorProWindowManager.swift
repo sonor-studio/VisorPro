@@ -330,7 +330,7 @@ class VisorProWindowManager: ObservableObject {
                         })
                     } else {
                         let isTop = window.frame.origin.y > (NSScreen.screens.first?.frame.height ?? 800) / 2
-                        let offsetAmount: CGFloat = isTop ? 60 : -60 
+                        let offsetAmount: CGFloat = isTop ? 20 : -20 
                         
                         NSAnimationContext.runAnimationGroup({ ctx in
                             ctx.duration = 0.2
@@ -405,13 +405,13 @@ class VisorProWindowManager: ObservableObject {
                 } else { baseH = 56 }
                 
                 let originY: CGFloat
-                let verticalPadding = (currentHeight - baseH) / 2
                 let downwardShift: CGFloat = 4.0 // Slight correction to lower the overlays
                 if overlay.position.hasPrefix("top") {
                     let topEdge = yCenter + (baseH / 2)
-                    originY = topEdge - currentHeight + verticalPadding - downwardShift
+                    originY = topEdge - currentHeight - downwardShift
                 } else if overlay.position.hasPrefix("bottom") {
-                    originY = yCenter - (baseH / 2) - verticalPadding - downwardShift
+                    let bottomEdge = yCenter - (baseH / 2)
+                    originY = bottomEdge - downwardShift
                 } else {
                     originY = yCenter - (currentHeight / 2) - downwardShift
                 }
@@ -436,12 +436,15 @@ class VisorProWindowManager: ObservableObject {
                     targetOrigins[windowId] = targetOrigin
                     
                     let isTop = targetOrigin.y > (screenSize.height / 2)
-                    let offsetAmount: CGFloat = isTop ? 60 : -60
+                    let offsetAmount: CGFloat = isTop ? 20 : -20
                     let startOrigin = NSPoint(x: targetOrigin.x, y: targetOrigin.y + offsetAmount)
                     
                     panel.alphaValue = 0.0
                     panel.setFrame(NSRect(origin: startOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                     panel.orderFront(nil)
+                    
+                    panel.contentView?.layoutSubtreeIfNeeded()
+                    panel.displayIfNeeded()
                     
                     NSAnimationContext.runAnimationGroup({ ctx in
                         ctx.duration = 0.2
@@ -464,7 +467,7 @@ class VisorProWindowManager: ObservableObject {
                             panel.alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
                         } else {
                             NSAnimationContext.runAnimationGroup { ctx in
-                                ctx.duration = 0.35
+                                ctx.duration = 0.2
                                 ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                                 panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                                 panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
@@ -532,11 +535,23 @@ class VisorProWindowManager: ObservableObject {
 
     func isWindowUnderMouse(for overlayId: String) -> Bool {
         let mouseLoc = NSEvent.mouseLocation
+        
+        var hitPanels: [(key: String, panel: NSWindow)] = []
         for (key, panel) in windows {
-            if key.hasPrefix(overlayId) {
-                if panel.frame.contains(mouseLoc) { return true }
+            if panel.frame.contains(mouseLoc) {
+                hitPanels.append((key, panel))
             }
         }
+        
+        if hitPanels.isEmpty { return false }
+        
+        // NSApp.orderedWindows is ordered from front to back
+        for window in NSApp.orderedWindows {
+            if let match = hitPanels.first(where: { $0.panel === window }) {
+                return match.key.hasPrefix(overlayId)
+            }
+        }
+        
         return false
     }
 }
@@ -550,6 +565,11 @@ enum WindowAnchorMode {
 class VisorProOverlayPanel: NSPanel {
     var anchorMode: WindowAnchorMode = .center
     
+    private var stableMaxY: CGFloat?
+    private var stableMinY: CGFloat?
+    private var stableMidY: CGFloat?
+    private var stableMidX: CGFloat?
+    
     override var canBecomeKey: Bool { return false }
     override var canBecomeMain: Bool { return false }
     
@@ -557,51 +577,52 @@ class VisorProOverlayPanel: NSPanel {
         return frameRect
     }
     
-    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+    private func adjustFrame(_ frameRect: NSRect) -> NSRect {
         var newFrame = frameRect
         let oldFrame = self.frame
         
-        if oldFrame.size.width > 0 && oldFrame.size.width != newFrame.size.width {
-            let oldCenterX = oldFrame.midX
-            newFrame.origin.x = oldCenterX - (newFrame.width / 2)
+        let isResize = oldFrame.size.height > 0 && abs(oldFrame.size.height - newFrame.size.height) > 0.1
+        let isWidthResize = oldFrame.size.width > 0 && abs(oldFrame.size.width - newFrame.size.width) > 0.1
+        
+        if isWidthResize {
+            let centerX = stableMidX ?? oldFrame.midX
+            newFrame.origin.x = centerX - (newFrame.width / 2)
+            stableMidX = centerX
+        } else {
+            stableMidX = newFrame.midX
         }
         
-        if oldFrame.size.height > 0 && oldFrame.size.height != newFrame.size.height {
+        if isResize {
             switch anchorMode {
             case .bottom:
-                newFrame.origin.y = oldFrame.minY
+                let minY = stableMinY ?? oldFrame.minY
+                newFrame.origin.y = minY
+                stableMinY = minY
             case .top:
-                newFrame.origin.y = oldFrame.maxY - newFrame.height
+                let maxY = stableMaxY ?? oldFrame.maxY
+                newFrame.origin.y = maxY - newFrame.height
+                stableMaxY = maxY
             case .center:
-                let oldCenterY = oldFrame.midY
-                newFrame.origin.y = oldCenterY - (newFrame.height / 2)
+                let midY = stableMidY ?? oldFrame.midY
+                newFrame.origin.y = midY - (newFrame.height / 2)
+                stableMidY = midY
             }
+        } else {
+            stableMinY = newFrame.minY
+            stableMaxY = newFrame.maxY
+            stableMidY = newFrame.midY
         }
         
+        return newFrame
+    }
+    
+    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        let newFrame = adjustFrame(frameRect)
         super.setFrame(newFrame, display: flag)
     }
     
     override func setFrame(_ frameRect: NSRect, display flag: Bool, animate: Bool) {
-        var newFrame = frameRect
-        let oldFrame = self.frame
-        
-        if oldFrame.size.width > 0 && oldFrame.size.width != newFrame.size.width {
-            let oldCenterX = oldFrame.midX
-            newFrame.origin.x = oldCenterX - (newFrame.width / 2)
-        }
-        
-        if oldFrame.size.height > 0 && oldFrame.size.height != newFrame.size.height {
-            switch anchorMode {
-            case .bottom:
-                newFrame.origin.y = oldFrame.minY
-            case .top:
-                newFrame.origin.y = oldFrame.maxY - newFrame.height
-            case .center:
-                let oldCenterY = oldFrame.midY
-                newFrame.origin.y = oldCenterY - (newFrame.height / 2)
-            }
-        }
-        
+        let newFrame = adjustFrame(frameRect)
         super.setFrame(newFrame, display: flag, animate: animate)
     }
 }
@@ -612,7 +633,6 @@ class VisorProOverlayPanel: NSPanel {
 struct SingleOverlayContainer: View {
     let overlay: VisorProWindowManager.ActiveOverlay
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @State private var hasAppeared = false
     
     private var currentOverlay: VisorProWindowManager.ActiveOverlay? {
         VisorProWindowManager.shared.allActiveOverlays.first(where: { $0.id == overlay.id })
@@ -621,33 +641,34 @@ struct SingleOverlayContainer: View {
         currentOverlay != nil
     }
     
+    private var placeholderWidth: CGFloat {
+        (overlay.type == .capsLock || overlay.type == .theme) ? 230 : 260
+    }
+    
+    private var placeholderHeight: CGFloat {
+        if overlay.type == .media {
+            return 72
+        } else if overlay.type == .battery {
+            let isFullyCharged = mediaKeyManager.currentBatteryPercentage == 100 || mediaKeyManager.isEffectivelyFullyCharged
+            return isFullyCharged ? 56 : 72
+        } else {
+            return 56
+        }
+    }
+    
     var body: some View {
         ZStack {
-            if hasAppeared && isOverlayActive, let current = currentOverlay {
+            if isOverlayActive, let current = currentOverlay {
                 overlayView(for: current)
                     .applyTheme(mediaKeyManager.overlayTheme)
                     .swipeToDismiss(overlayId: current.id, isTopPosition: current.position.hasPrefix("top"))
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .offset(y: current.position.hasPrefix("top") ? -15 : 15)),
-                        removal: .opacity.combined(with: .offset(y: current.position.hasPrefix("top") ? -25 : 25))
-                    ))
             } else {
-                let w: CGFloat = (overlay.type == .capsLock || overlay.type == .theme) ? 230 : 260
-                let h: CGFloat = (overlay.type == .media) ? 72 : 56
-                Color.clear.frame(width: w, height: h)
+                Color.clear.frame(width: placeholderWidth, height: placeholderHeight)
             }
         }
         .padding(.top, 10)
         .padding(.bottom, 15)
         .padding(.horizontal, 12)
-        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: hasAppeared && isOverlayActive)
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                    hasAppeared = true
-                }
-            }
-        }
     }
     
     @ViewBuilder

@@ -14,7 +14,7 @@ struct FeedbackSettingsView: View {
     private var isEmailValid: Bool {
         let trimmed = emailAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return true }
-        let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailRegEx = "[A-Z0-9a-z._%+-] +@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
         let emailPred = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
         return emailPred.evaluate(with: trimmed)
     }
@@ -154,12 +154,15 @@ struct FeedbackSettingsView: View {
                             Image(systemName: "paperplane.fill")
                             Text("Send Feedback")
                         }
-                        .font(.system(size: 15, weight: .semibold))
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 8)
+                        .font(.system(size: 16, weight: .semibold))
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 12)
+                        .frame(minWidth: 200)
+                        .background(isValidToSubmit ? Color.blue : Color.gray.opacity(0.3))
+                        .foregroundColor(isValidToSubmit ? .white : .secondary)
+                        .cornerRadius(14)
                     }
-                    .buttonStyle(BorderedProminentButtonStyle())
-                    .tint(.blue)
+                    .buttonStyle(.plain)
                     .disabled(!isValidToSubmit)
                     
                     // Status Message below button

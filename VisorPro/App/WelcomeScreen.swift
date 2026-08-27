@@ -163,14 +163,7 @@ struct WelcomeScreen: View {
                 .controlSize(.large)
                 
                 Button(action: {
-                    if hasCompletedWelcome {
-                        hasCompletedWelcome = false
-                        DispatchQueue.main.async {
-                            hasCompletedWelcome = true
-                        }
-                    } else {
-                        hasCompletedWelcome = true
-                    }
+                    hasCompletedWelcome = true
                 }) {
                     Text("Finish")
                         .font(.headline)

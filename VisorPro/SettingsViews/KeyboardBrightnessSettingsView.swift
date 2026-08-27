@@ -43,7 +43,7 @@ struct KeyboardBrightnessSettingsView: View {
                     ZStack {
                         PreviewBackgroundView()
                         
-                        KeyboardBrightnessOverlayView(isPreview: true)
+                        KeyboardBrightnessOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
                             .scaleEffect(0.85)
                     }
                     .padding(.horizontal)

@@ -41,10 +41,10 @@ struct PrivacySettingsView: View {
                             VStack {
                                 Spacer()
                                 HStack(spacing: -10) {
-                                    MicOverlayView(isPreview: true, previewIsActive: true)
+                                    MicOverlayView(isPreview: true, previewIsActive: true).applyTheme(mediaKeyManager.overlayTheme)
                                         .scaleEffect(0.85)
                                     
-                                    CameraOverlayView(isPreview: true, previewIsActive: true)
+                                    CameraOverlayView(isPreview: true, previewIsActive: true).applyTheme(mediaKeyManager.overlayTheme)
                                         .scaleEffect(0.85)
                                 }
                                 Spacer()

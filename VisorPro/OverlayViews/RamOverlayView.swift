@@ -45,7 +45,7 @@ struct RamOverlayView: View {
                 }
             },
             isExpandable: true,
-            expandUpwards: ramOverlayPosition == "bottom",
+            expandUpwards: ramOverlayPosition.hasPrefix("bottom"),
             keepAliveId: "ram",
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {

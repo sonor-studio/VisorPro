@@ -40,7 +40,7 @@ struct BrightnessOverlayView: View {
                 mediaKeyManager.setBrightness(to: Int(v * 100))
             },
             isExpandable: false,
-            expandUpwards: bPos == "bottom",
+            expandUpwards: bPos.hasPrefix("bottom"),
             keepAliveId: "brightness",
             disableTimeoutMode: true,
             baseContent: {

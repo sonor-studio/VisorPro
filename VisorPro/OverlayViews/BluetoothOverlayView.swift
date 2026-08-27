@@ -129,7 +129,7 @@ struct BluetoothOverlayView: View {
                 }
             },
             isExpandable: bluetoothAllowExpansion,
-            expandUpwards: btPos == "bottom",
+            expandUpwards: btPos.hasPrefix("bottom"),
             keepAliveId: keepAliveType,
             baseContent: {
                 HStack(alignment: .top, spacing: 0) {

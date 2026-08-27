@@ -126,7 +126,7 @@ struct WiFiOverlayView: View {
                 }
             },
             isExpandable: wifiAllowExpansion,
-            expandUpwards: wifiPos == "bottom",
+            expandUpwards: wifiPos.hasPrefix("bottom"),
             keepAliveId: "wifi",
             baseContent: {
                 HStack(alignment: .top, spacing: 0) {

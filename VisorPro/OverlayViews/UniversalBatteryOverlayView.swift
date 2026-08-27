@@ -6,8 +6,6 @@ struct UniversalBatteryOverlayView: View {
     @AppStorage("batteryAllowExpansion") private var batteryAllowExpansion: Bool = true
     @State private var animatedBatteryProgress: CGFloat = 0.0
     @State private var isExpanded: Bool = false
-    @State private var isHovering: Bool = false
-    @State private var expandedKeepAliveTimer: Timer? = nil
     @State private var hasFinishedChargeAnimation: Bool = false
     
     var isWarningMode: Bool = false
@@ -56,6 +54,7 @@ struct UniversalBatteryOverlayView: View {
 
     var body: some View {
         let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
+        let isFullyCharged = actualPercentage == 100 || (mediaKeyManager.isEffectivelyFullyCharged && !isPreview)
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -69,7 +68,7 @@ struct UniversalBatteryOverlayView: View {
             customHeight: isFullyCharged ? 56 : 72,
             supportDragGesture: false,
             isExpandable: batteryAllowExpansion,
-            expandUpwards: batPos == "bottom",
+            expandUpwards: batPos.hasPrefix("bottom"),
             keepAliveId: "battery",
             disableTimeoutMode: true,
             baseContent: {
@@ -213,13 +212,6 @@ struct UniversalBatteryOverlayView: View {
                 }
             }
         )
-
-        .onHoverExact { hovering in
-            isHovering = hovering
-            if !isPreview {
-                mediaKeyManager.keepAlive(for: "battery", isHovering: hovering || isExpanded)
-            }
-        }
         .onAppear {
             let targetProgress = CGFloat(actualPercentage) / 100.0
             animatedBatteryProgress = isWarningMode ? 1.0 : 0.0
@@ -252,31 +244,6 @@ struct UniversalBatteryOverlayView: View {
         .onChange(of: actualPercentage) { _, newValue in
             withAnimation(.easeInOut(duration: 0.8)) {
                 animatedBatteryProgress = CGFloat(newValue) / 100.0
-            }
-        }
-
-        .onChange(of: isExpanded) { _, expanded in
-            if expanded {
-                expandedKeepAliveTimer?.invalidate()
-                expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                    DispatchQueue.main.async {
-                        if !isPreview {
-                            mediaKeyManager.keepAlive(for: "battery", isHovering: true)
-                        }
-                    }
-                }
-            } else {
-                expandedKeepAliveTimer?.invalidate()
-                if !isPreview {
-                    mediaKeyManager.keepAlive(for: "battery", isHovering: isHovering)
-                }
-            }
-        }
-        .onDisappear {
-            expandedKeepAliveTimer?.invalidate()
-            expandedKeepAliveTimer = nil
-            if !isPreview {
-                mediaKeyManager.keepAlive(for: "battery", isHovering: false)
             }
         }
     }

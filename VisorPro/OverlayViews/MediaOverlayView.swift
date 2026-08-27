@@ -115,7 +115,7 @@ struct MediaOverlayView: View {
                 mediaKeyManager.simulateSeek(to: newTime)
             },
             isExpandable: mediaAllowExpansion,
-            expandUpwards: mediaPos == "bottom",
+            expandUpwards: mediaPos.hasPrefix("bottom"),
             keepAliveId: "media",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {

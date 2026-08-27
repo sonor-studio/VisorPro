@@ -10,9 +10,6 @@ import Combine
 import ApplicationServices
 import Carbon
 
-import SwiftUI
-import Combine
-
 @main
 struct VisorProApp: App {
     @StateObject private var mediaKeyManager = MediaKeyManager.shared
@@ -32,7 +29,9 @@ struct VisorProApp: App {
             RootView()
                 .environmentObject(mediaKeyManager)
         }
-        .windowResizability(.contentSize)
+        // Removed .windowResizability(.contentSize) from Settings so it remembers size
+        
+
         
         MenuBarExtra("VisorPro", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
             Button("Dashboard") {
@@ -51,13 +50,25 @@ struct VisorProApp: App {
 
 struct RootView: View {
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
+    @State private var showWelcome = false
     
     var body: some View {
-        if hasCompletedWelcome && AXIsProcessTrusted() {
-            SettingsView()
-        } else {
-            WelcomeScreen()
-        }
+        SettingsView()
+            .sheet(isPresented: $showWelcome) {
+                WelcomeScreen()
+            }
+            .onAppear {
+                if !hasCompletedWelcome || !AXIsProcessTrusted() {
+                    showWelcome = true
+                }
+            }
+            .onChange(of: hasCompletedWelcome) { _, newValue in
+                if !newValue {
+                    showWelcome = true
+                } else if AXIsProcessTrusted() {
+                    showWelcome = false
+                }
+            }
     }
 }
 
@@ -65,7 +76,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         
-        // Ensure we have a main menu so showSettingsWindow: can find a responder even if MenuBarExtra is hidden
         let mainMenu = NSMenu()
         let appMenuItem = NSMenuItem()
         mainMenu.addItem(appMenuItem)
@@ -91,6 +101,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return false
+    }
+    
     func applicationWillTerminate(_ notification: Notification) {
         MediaKeyManager.shared.stopEventTaps()
     }
@@ -102,9 +116,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             let hasVisibleSettings = NSApp.windows.contains { $0.isVisible && ($0.title == "General" || $0.title == "Settings" || $0.title == "VisorPro") }
             if !hasVisibleSettings {
-                let isWelcome = !UserDefaults.standard.bool(forKey: "hasCompletedWelcome") || !AXIsProcessTrusted()
-                let initialWidth: CGFloat = isWelcome ? 500 : 700
-                let initialHeight: CGFloat = isWelcome ? 420 : 500
+                let initialWidth: CGFloat = 850
+                let initialHeight: CGFloat = 500
                 
                 let settingsWindow = NSWindow(
                     contentRect: NSRect(x: 0, y: 0, width: initialWidth, height: initialHeight),
@@ -113,8 +126,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 settingsWindow.title = "VisorPro"
                 settingsWindow.contentView = NSHostingView(rootView: RootView().environmentObject(MediaKeyManager.shared))
                 settingsWindow.minSize = NSSize(width: initialWidth, height: initialHeight)
-                settingsWindow.setFrameAutosaveName("VisorProDashboardWindow")
-                if !settingsWindow.setFrameUsingName("VisorProDashboardWindow") {
+                settingsWindow.setFrameAutosaveName("VisorProDashboardWindow_v7")
+                if !settingsWindow.setFrameUsingName("VisorProDashboardWindow_v7") {
                     settingsWindow.center()
                 }
                 settingsWindow.makeKeyAndOrderFront(nil)
@@ -123,9 +136,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         return true
     }
+    
+    // Helper to call from SwiftUI
+    func openDashboard() {
+        let _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+    }
 }
 
-// Custom String and Data extensions
 extension String {
     func appendLineToURL(fileURL: URL) throws {
         try (self + "\n").appendToURL(fileURL: fileURL)

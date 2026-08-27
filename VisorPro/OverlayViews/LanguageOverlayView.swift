@@ -39,7 +39,7 @@ struct LanguageOverlayView: View {
                 }
             },
             isExpandable: languageAllowExpansion,
-            expandUpwards: langPos == "bottom",
+            expandUpwards: langPos.hasPrefix("bottom"),
             keepAliveId: "language",
             baseContent: {
                 HStack(spacing: 16) {

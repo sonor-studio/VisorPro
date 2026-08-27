@@ -144,7 +144,7 @@ struct LegacyBatteryOverlayView: View {
                     .onEnded { value in
                         let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
                         if !moved {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                            withAnimation(.linear(duration: 0.15)) {
                                 isExpanded.toggle()
                             }
                         }

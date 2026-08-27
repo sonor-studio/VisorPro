@@ -1,9 +1,7 @@
 import SwiftUI
 
 struct CopyOverlayView: View {
-    @State private var isHovering: Bool = false
     @State private var isExpanded: Bool = false
-    @State private var expandedKeepAliveTimer: Timer? = nil
     @AppStorage("copyAllowExpansion") private var copyAllowExpansion: Bool = true
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
@@ -76,7 +74,7 @@ struct CopyOverlayView: View {
             showProgressBar: true,
             progress: 1.0,
             customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering || isExpanded || mediaKeyManager.globalHoveredTypes.contains("copy"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || mediaKeyManager.globalHoveredTypes.contains("copy"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
                     .id(mediaKeyManager.clipboardEventId)
             ),
             barColor: actionColor,
@@ -94,7 +92,8 @@ struct CopyOverlayView: View {
                 }
             },
             isExpandable: canExpand && copyAllowExpansion,
-            expandUpwards: copyPos == "bottom",
+            expandUpwards: copyPos.hasPrefix("bottom"),
+            keepAliveId: "copy",
             baseContent: {
                 HStack(alignment: .top, spacing: 0) {
                     Image(systemName: actionIcon)
@@ -219,35 +218,5 @@ struct CopyOverlayView: View {
                 }
             }
         )
-
-        .onHoverExact { hovering in
-            isHovering = hovering
-            if !isPreview {
-                mediaKeyManager.keepAlive(for: "copy", isHovering: hovering || isExpanded)
-            }
-        }
-                .onChange(of: isExpanded) { _, expanded in
-            if expanded {
-                expandedKeepAliveTimer?.invalidate()
-                expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                    DispatchQueue.main.async {
-                        if !isPreview { mediaKeyManager.keepAlive(for: "copy", isHovering: true) }
-                    }
-                }
-            } else {
-                expandedKeepAliveTimer?.invalidate()
-                expandedKeepAliveTimer = nil
-                if !isPreview {
-                    mediaKeyManager.keepAlive(for: "copy", isHovering: isHovering)
-                }
-            }
-        }
-        .onDisappear {
-            expandedKeepAliveTimer?.invalidate()
-            expandedKeepAliveTimer = nil
-            if !isPreview {
-                mediaKeyManager.keepAlive(for: "copy", isHovering: false)
-            }
-        }
     }
 }

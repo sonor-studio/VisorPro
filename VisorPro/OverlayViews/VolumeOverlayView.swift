@@ -31,11 +31,7 @@ struct VolumeOverlayView: View {
         }
     }
     @State private var isExpanded: Bool = false
-    @State private var isHovering: Bool = false
     @State private var availableDevices: [(id: UInt32, name: String)] = []
-    
-
-    @State private var expandedKeepAliveTimer: Timer? = nil
 
     var body: some View {
         let currentDevices = isPreview ? [(id: UInt32(1), name: "MacBook Pro Speakers"), (id: UInt32(2), name: "AirPods Pro")] : availableDevices
@@ -67,7 +63,8 @@ struct VolumeOverlayView: View {
                 }
             },
             isExpandable: volumeAllowExpansion,
-            expandUpwards: volPos == "bottom",
+            expandUpwards: volPos.hasPrefix("bottom"),
+            keepAliveId: "volume",
             disableTimeoutMode: true,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
@@ -109,28 +106,7 @@ struct VolumeOverlayView: View {
             }
         )
 
-        .onHoverExact { hovering in
-            isHovering = hovering
-            if !isPreview {
-                mediaKeyManager.keepAlive(for: "volume", isHovering: hovering || isExpanded)
-            }
-        }
-                .onChange(of: isExpanded) { _, expanded in
-            if expanded {
-                expandedKeepAliveTimer?.invalidate()
-                expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-                    DispatchQueue.main.async {
-                        if !isPreview { mediaKeyManager.keepAlive(for: "volume", isHovering: true) }
-                    }
-                }
-            } else {
-                expandedKeepAliveTimer?.invalidate()
-                expandedKeepAliveTimer = nil
-                if !isPreview {
-                    mediaKeyManager.keepAlive(for: "volume", isHovering: isHovering)
-                }
-            }
-        }
+
         .onAppear {
             if isPreview {
                 _animatedVolumeProgress = 0.2
@@ -157,11 +133,6 @@ struct VolumeOverlayView: View {
             if isExpanded {
                 availableDevices = VolumeManager.shared.getAvailableOutputDevices()
             }
-        }
-        .onDisappear {
-            expandedKeepAliveTimer?.invalidate()
-            expandedKeepAliveTimer = nil
-            mediaKeyManager.keepAlive(for: "volume", isHovering: false)
         }
     }
 }

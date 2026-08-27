@@ -17,6 +17,24 @@ struct GeneralSettingsView: View {
     var body: some View {
         Form {
             Section {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Welcome Screen")
+                            .font(.body)
+                        Text("Replay the initial setup guide and greeting.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Button("Open") {
+                        UserDefaults.standard.set(false, forKey: "hasCompletedWelcome")
+                    }
+                }
+            } header: {
+                Text("Setup")
+            }
+            
+            Section {
                 Toggle("Launch at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, newValue in
                         do {
@@ -139,6 +157,22 @@ struct GeneralSettingsView: View {
             }
             
             Section {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Swipe to dismiss")
+                            .font(.body)
+                        Text("Swipe an active overlay tile towards the nearest screen edge to quickly dismiss it.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    Toggle("", isOn: $enableSwipeToDismiss).labelsHidden()
+                }
+            } header: {
+                Text("Gestures")
+            }
+            
+            Section {
                 VStack(alignment: .leading, spacing: 10) {
                     Picker("Overlay Position Mode", selection: $overlayPositionMode) {
                         Text("Custom (Individual per module)").tag("custom")
@@ -223,11 +257,7 @@ struct GeneralSettingsView: View {
                 Text("Overlay Position")
             }
             
-            Section {
-                Toggle("Swipe down on overlays to dismiss", isOn: $enableSwipeToDismiss)
-            } header: {
-                Text("Gestures")
-            }
+
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)

@@ -137,7 +137,7 @@ struct PeripheralOverlayView: View {
             customWidth: 260,
             supportDragGesture: false,
             isExpandable: isExpandable && peripheralAllowExpansion,
-            expandUpwards: periPos == "bottom",
+            expandUpwards: periPos.hasPrefix("bottom"),
             keepAliveId: keepAliveId,
             baseContent: {
                 HStack(alignment: .top, spacing: 0) {

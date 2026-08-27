@@ -58,19 +58,31 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         let trackWidth: CGFloat = width - (trackPadding * 2)
         
         VStack(spacing: 0) {
+            if expandUpwards {
+                expandedContent()
+                    .padding(.top, 16)
+                    .frame(width: width)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(height: isExpanded ? nil : 0, alignment: .bottom)
+                    .clipped()
+                    .opacity(isExpanded ? 1 : 0)
+            }
+            
             baseContent()
                 .frame(width: width, height: baseHeight)
                 .allowsHitTesting(false)
             
-            expandedContent()
-                .padding(.bottom, 16)
-                .frame(width: width)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(height: isExpanded ? nil : 0, alignment: .top)
-                .clipped()
-                .opacity(isExpanded ? 1 : 0)
+            if !expandUpwards {
+                expandedContent()
+                    .padding(.bottom, 16)
+                    .frame(width: width)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(height: isExpanded ? nil : 0, alignment: .top)
+                    .clipped()
+                    .opacity(isExpanded ? 1 : 0)
+            }
         }
-        .frame(width: width, alignment: .top)
+        .frame(width: width, alignment: expandUpwards ? .bottom : .top)
         .background(
             ZStack(alignment: .leading) {
                 ZStack {
@@ -198,7 +210,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 } else {
                                     onRightTap?()
                                     if isExpandable {
-                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                        withAnimation(.linear(duration: 0.15)) {
                                             isExpanded.toggle()
                                         }
                                     }
@@ -206,7 +218,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                             } else {
                                 onSimpleTap?()
                                 if isExpandable {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                    withAnimation(.linear(duration: 0.15)) {
                                         isExpanded.toggle()
                                     }
                                 }
@@ -243,7 +255,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         }
         .onChange(of: isExpandable) { _, newValue in
             if !newValue && isExpanded {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                withAnimation(.linear(duration: 0.15)) {
                     isExpanded = false
                 }
             }
