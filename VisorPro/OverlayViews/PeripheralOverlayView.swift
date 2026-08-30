@@ -118,11 +118,9 @@ struct PeripheralOverlayView: View {
         
         let hasBattery = (batteryLevel != nil) && isConnected
         let hasDetails = (actualNotification?.details?.isEmpty == false) || (driveTotalSpace != nil)
-        let isDriveType = typeIcon.contains("externaldrive") || typeIcon.contains("opticaldisc") || type == "USB Drive"
         let isDrive = driveTotalSpace != nil
         let isExpandable = (hasDetails || isDrive || hasBattery) && isConnected
         
-        let trackWidth: CGFloat = 260 - 8
         let keepAliveId = actualNotification != nil ? "peripheral_\(actualNotification!.id)" : "peripheral"
         
         return UniversalOverlayView(
@@ -446,6 +444,7 @@ struct PeripheralOverlayView: View {
                 }
             }
         )
+        .id(actualNotification?.timestamp ?? Date(timeIntervalSince1970: 0))
         .onChange(of: isExpanded) { _, expanded in
             if !isPreview {
                 let currentType = actualNotification?.type ?? ""

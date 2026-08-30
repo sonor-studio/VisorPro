@@ -18,8 +18,6 @@ struct LanguageOverlayView: View {
         
         let displayLanguage = isPreview ? (previewLanguage ?? "Polski") : mediaKeyManager.currentKeyboardLanguage
         
-        let maxListHeight: CGFloat = 160
-        let calculatedListHeight = CGFloat(availableLanguages.count) * 36 + 10
         let langPos = MediaKeyManager.shared.getOverlayPosition(for: "languageOverlayPosition")
         
         return UniversalOverlayView(
@@ -42,19 +40,23 @@ struct LanguageOverlayView: View {
             expandUpwards: langPos.hasPrefix("bottom"),
             keepAliveId: "language",
             baseContent: {
-                HStack(spacing: 16) {
+                HStack(alignment: .center, spacing: 14) {
                     Image(systemName: "globe")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.primary)
-                        .frame(width: 24, height: 24)
+                        .frame(width: 26, height: 24)
                     
-                    Text(displayLanguage)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Language")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(.secondary)
+                            
+                        MarqueeText(text: displayLanguage, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                    }
                     
-                    Spacer()
+                    Spacer(minLength: 8)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 16 + 4 + 3)
             },
             expandedContent: {
                 ScrollView(showsIndicators: false) {
@@ -81,7 +83,7 @@ struct LanguageOverlayView: View {
                 }
             }
         )
-
+        .id(mediaKeyManager.languageEventId)
     }
 }
 

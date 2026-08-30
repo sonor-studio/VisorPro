@@ -379,7 +379,7 @@ class CameraClientObserver {
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 task.waitUntilExit()
                 
-                guard let self = self, let output = String(data: data, encoding: .utf8) else { return }
+                guard let self = self else { return }
                 
                 let logs = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
                 if logs == nil || logs?.isEmpty == true {

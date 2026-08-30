@@ -80,7 +80,7 @@ struct RamOverlayView: View {
             },
             expandedContent: {
                 VStack(spacing: 8) {
-                    // Wykres historii użycia RAMu
+                    // RAM usage history chart
                     RamChartView(history: history, color: chartColor)
                         .frame(height: 35)
                         .padding(.horizontal, 16)

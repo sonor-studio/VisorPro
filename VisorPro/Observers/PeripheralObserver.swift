@@ -348,7 +348,7 @@ class PeripheralObserver {
         var child = IOIteratorNext(iterator)
         while child != 0 {
             if let bsdRef = IORegistryEntryCreateCFProperty(child, "BSD Name" as CFString, kCFAllocatorDefault, 0),
-               let bsdName = bsdRef as? String, bsdName.hasPrefix("disk") {
+               let bsdName = bsdRef.takeRetainedValue() as? String, bsdName.hasPrefix("disk") {
                 IOObjectRelease(child)
                 return bsdName
             }

@@ -101,6 +101,18 @@ Toggle("", isOn: $mediaKeyManager.notifyMediaEnd).labelsHidden() }
                         CustomSettingsRow(icon: "hand.tap.fill", iconColor: .red, title: "Allow Interactivity", subtitle: "Allow dragging to seek and tapping to play/pause") {
                             Toggle("", isOn: $mediaAllowInteractivity).labelsHidden()
                         }
+                        Divider().padding(.leading, 40)
+                        
+                        CustomSettingsRow(icon: "goforward.10", iconColor: .red, title: "Skip Duration", subtitle: "Seconds to skip forward/backward") {
+                            HStack {
+                                Slider(value: $mediaKeyManager.mediaSkipDuration, in: 5...20, step: 5)
+                                .labelsHidden()
+                                .frame(width: 150)
+                                
+                                Text("\(Int(mediaKeyManager.mediaSkipDuration))s")
+                                    .frame(width: 30, alignment: .trailing)
+                            }
+                        }
                     }
                     .toggleStyle(.switch)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))

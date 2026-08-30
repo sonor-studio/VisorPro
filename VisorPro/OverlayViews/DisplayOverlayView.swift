@@ -186,6 +186,7 @@ struct DisplayOverlayView: View {
                 .padding(.top, 4)
             }
         )
+        .id(notification?.timestamp ?? Date(timeIntervalSince1970: 0))
         .onChange(of: notification?.id) { _, _ in
             if !isConnected {
                 isExpanded = false

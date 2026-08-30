@@ -13,6 +13,7 @@ class MediaObserver {
     private var lastDuration = 0.0
     private var lastElapsedTime = 0.0
     private var lastIsPlaying = false
+    private var isFirstRun = true
     
     init(manager: MediaKeyManager) {
         self.manager = manager
@@ -160,27 +161,32 @@ class MediaObserver {
         var shouldTrigger = triggerNotification
         var mediaAction = "pause"
         
-        // Wykrywanie konkretnej akcji
-        if self.lastTitle != title && !title.isEmpty {
-            mediaAction = "start"
-            shouldTrigger = true
-        } else if self.lastIsPlaying != isPlaying {
-            shouldTrigger = true
-            if isPlaying {
-                if elapsedTime < 1.0 {
-                    mediaAction = "start"
+        if self.isFirstRun {
+            self.isFirstRun = false
+            mediaAction = isPlaying ? "resume" : "pause"
+        } else {
+            // Wykrywanie konkretnej akcji
+            if self.lastTitle != title && !title.isEmpty {
+                mediaAction = "start"
+                shouldTrigger = true
+            } else if self.lastIsPlaying != isPlaying {
+                shouldTrigger = true
+                if isPlaying {
+                    if elapsedTime < 1.0 {
+                        mediaAction = "start"
+                    } else {
+                        mediaAction = "resume"
+                    }
                 } else {
-                    mediaAction = "resume"
+                    if duration > 0 && elapsedTime >= (duration - 2.0) {
+                        mediaAction = "end"
+                    } else {
+                        mediaAction = "pause"
+                    }
                 }
             } else {
-                if duration > 0 && elapsedTime >= (duration - 2.0) {
-                    mediaAction = "end"
-                } else {
-                    mediaAction = "pause"
-                }
+                mediaAction = isPlaying ? "resume" : "pause"
             }
-        } else {
-            mediaAction = isPlaying ? "resume" : "pause"
         }
         
         if shouldTrigger && !bundleId.isEmpty {

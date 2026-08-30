@@ -301,7 +301,7 @@ struct BluetoothOverlayView: View {
                 }
             }
         )
-
+        .id(notification?.timestamp ?? Date(timeIntervalSince1970: 0))
                 .onChange(of: isExpanded) { _, expanded in
             if expanded && actualIsConnected {
                 refreshTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in

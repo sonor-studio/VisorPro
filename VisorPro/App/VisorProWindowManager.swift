@@ -321,12 +321,14 @@ class VisorProWindowManager: ObservableObject {
                             ctx.duration = 0.1
                             window.animator().alphaValue = 0.0
                         }, completionHandler: {
-                            window.close()
-                            MediaKeyManager.shared.swipeOffsets[overlayId] = 0
-                            self.windows.removeValue(forKey: id)
-                            self.targetOrigins.removeValue(forKey: id)
-                            self.shownPanels.remove(id)
-                            self.exitingPanels.remove(id)
+                            Task { @MainActor in
+                                window.close()
+                                MediaKeyManager.shared.swipeOffsets[overlayId] = 0
+                                self.windows.removeValue(forKey: id)
+                                self.targetOrigins.removeValue(forKey: id)
+                                self.shownPanels.remove(id)
+                                self.exitingPanels.remove(id)
+                            }
                         })
                     } else {
                         let isTop = window.frame.origin.y > (NSScreen.screens.first?.frame.height ?? 800) / 2
@@ -337,14 +339,18 @@ class VisorProWindowManager: ObservableObject {
                             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                             var finalFrame = window.frame
                             finalFrame.origin.y += offsetAmount
-                            window.animator().setFrame(finalFrame, display: true)
+                            window.animator().setFrame(finalFrame, display: false)
                             window.animator().alphaValue = 0.0
                         }, completionHandler: {
-                            window.close()
-                            self.windows.removeValue(forKey: id)
-                            self.targetOrigins.removeValue(forKey: id)
-                            self.shownPanels.remove(id)
-                            self.exitingPanels.remove(id)
+                            Task { @MainActor in
+                                if self.exitingPanels.contains(id) {
+                                    window.close()
+                                    self.windows.removeValue(forKey: id)
+                                    self.targetOrigins.removeValue(forKey: id)
+                                    self.shownPanels.remove(id)
+                                    self.exitingPanels.remove(id)
+                                }
+                            }
                         })
                     }
                 }
@@ -449,11 +455,13 @@ class VisorProWindowManager: ObservableObject {
                     NSAnimationContext.runAnimationGroup({ ctx in
                         ctx.duration = 0.2
                         ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                        panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
+                        panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
                         panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
                     }, completionHandler: {
-                        if self.isWindowUnderMouse(for: overlay.id) {
-                            MediaKeyManager.shared.keepAlive(for: overlay.id, isHovering: true)
+                        Task { @MainActor in
+                            if self.isWindowUnderMouse(for: overlay.id) {
+                                MediaKeyManager.shared.keepAlive(for: overlay.id, isHovering: true)
+                            }
                         }
                     })
                 } else if !MediaKeyManager.shared.isDisplayTransitioning {
@@ -463,13 +471,13 @@ class VisorProWindowManager: ObservableObject {
                         let isDragging = MediaKeyManager.shared.activeSwipeIds.contains(overlay.id)
                         
                         if isDragging {
-                            panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
+                            panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
                             panel.alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
                         } else {
                             NSAnimationContext.runAnimationGroup { ctx in
                                 ctx.duration = 0.2
                                 ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                                panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
+                                panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
                                 panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
                             }
                         }
@@ -806,7 +814,7 @@ struct ScrollSwipeModifier: ViewModifier {
             mediaKeyManager.activeSwipeIds.remove(overlayId)
         }
         
-        // Zawsze i konsekwentnie przypisujemy bieżącą deltę (która rośnie od palca lub z pędu inercyjnego).
+        // Always and consistently assign the current delta (which grows from the finger or from inertial momentum).
         mediaKeyManager.swipeOffsets[overlayId] = dragOffset
         
         if !isDismissing {

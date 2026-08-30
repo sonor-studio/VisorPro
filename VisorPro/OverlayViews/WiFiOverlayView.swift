@@ -219,7 +219,7 @@ struct WiFiOverlayView: View {
                 }
             }
         )
-
+        .id(mediaKeyManager.wiFiEventId)
         .onChange(of: isExpanded) { _, expanded in
             if expanded {
                 refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in

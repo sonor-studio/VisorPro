@@ -125,8 +125,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                         trackWidth: trackWidth,
                                         isHovering: isGloballyHovered || isExpanded,
                                         initialDuration: timeoutDuration,
-                                        hoverOutDuration: timeoutDuration,
-                                        eventId: timeoutEventId
+                                        hoverOutDuration: timeoutDuration
                                     )
                                     Spacer(minLength: 0)
                                 }
@@ -146,6 +145,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                             }
                         }
                     )
+                    .id(timeoutEventId)
                 }
                 
                 ZStack {
@@ -259,6 +259,12 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     isExpanded = false
                 }
             }
+        }
+        .onDisappear {
+            expandedKeepAliveTimer?.invalidate()
+            expandedKeepAliveTimer = nil
+            holdTimer?.invalidate()
+            holdTimer = nil
         }
         .onChange(of: isExpanded) { _, expanded in
             if expanded {

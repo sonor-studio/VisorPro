@@ -132,30 +132,30 @@ struct MicOverlayView: View {
             expandedContent: {
                 if isExpanded {
                     VStack(spacing: 0) {
-                        if !mediaKeyManager.activeMicClientName.isEmpty {
+                        if isPreview || !mediaKeyManager.activeMicClientName.isEmpty {
                             VStack(spacing: 12) {
                                 Divider()
                                     .padding(.horizontal, 16)
                                 
                                 HStack(spacing: 12) {
                                     // App Icon
-                                    let path = mediaKeyManager.activeMicClientBundleID
+                                    let path = isPreview ? "/System/Applications/VoiceMemos.app" : mediaKeyManager.activeMicClientBundleID
                                     if !path.isEmpty {
                                         Image(nsImage: NSWorkspace.shared.icon(forFile: path))
                                             .resizable()
                                             .frame(width: 32, height: 32)
                                     } else {
-                                        Image(systemName: "app.fill")
+                                        Image(systemName: isPreview ? "mic.fill" : "app.fill")
                                             .resizable()
                                             .frame(width: 32, height: 32)
-                                            .foregroundColor(.secondary)
+                                            .foregroundColor(isPreview ? .orange : .secondary)
                                     }
                                     
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Used by:")
                                             .font(.system(size: 11, weight: .semibold, design: .rounded))
                                             .foregroundColor(.secondary)
-                                        Text(mediaKeyManager.activeMicClientName)
+                                        Text(isPreview ? "Voice Memos" : mediaKeyManager.activeMicClientName)
                                             .font(.system(size: 14, weight: .bold, design: .rounded))
                                             .foregroundColor(.primary)
                                             .lineLimit(1)
@@ -240,6 +240,7 @@ struct MicOverlayView: View {
                 }
             }
         )
+        .id(mediaKeyManager.micEventId)
         .onAppear {
             if isExpanded && actualIsActive && !isPreview && micShowVisualizer {
                 MicLevelMonitor.shared.startMonitoring()
@@ -479,7 +480,7 @@ struct CameraOverlayView: View {
                 }
             }
         )
-
+        .id(mediaKeyManager.cameraEventId)
                 .onChange(of: isExpanded) { _, expanded in
             mediaKeyManager.isCameraExpanded = expanded
         }
@@ -561,6 +562,7 @@ struct LocationOverlayView: View {
                 EmptyView()
             }
         )
+        .id(mediaKeyManager.locationEventId)
                 .onDisappear {
             mediaKeyManager.keepAlive(for: "location", isHovering: false)
         }

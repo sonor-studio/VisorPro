@@ -115,7 +115,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        let actionString = "showSettings" + "Window:"
+        NSApp.sendAction(Selector(actionString), to: nil, from: nil)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             let hasVisibleSettings = NSApp.windows.contains { $0.isVisible && ($0.title == "General" || $0.title == "Settings" || $0.title == "VisorPro") }

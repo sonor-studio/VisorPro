@@ -65,6 +65,7 @@ class MediaKeyManager: ObservableObject {
     var lastDisplayConnectionTime: Date? = nil
     
     @AppStorage("maxSimultaneousNotifications") var maxSimultaneousNotifications: Int = 5
+    @AppStorage("mediaSkipDuration") var mediaSkipDuration: Double = 10.0
     @AppStorage("overlayTheme") var overlayTheme: String = "dark"
     @Published var globalHoveredTypes: Set<String> = []
     
@@ -298,7 +299,7 @@ class MediaKeyManager: ObservableObject {
     @Published var batteryCondition: String = "Normal"
     @Published var batteryPowerDraw: String = "0.0 W"
     @Published var chargeLimit: Int = 100
-    @Published var topBatteryConsumers: [(name: String, power: String)] = []
+    @Published var topBatteryConsumers: [(name: String, power: String, icon: NSImage?)] = []
     @Published var isEffectivelyFullyCharged: Bool = false {
         didSet {
             if !isBatteryInitialized { return }
@@ -1297,11 +1298,11 @@ class MediaKeyManager: ObservableObject {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery"] = Date()
+                    self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery_warning"] = Date()
                 }
             }
         } else {
-            withAnimation(.easeInOut(duration: 0.25)) { self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery"] = Date() }
+            withAnimation(.easeInOut(duration: 0.25)) { self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery_warning"] = Date() }
         }
         
         chargingTimer?.invalidate()
@@ -1332,12 +1333,12 @@ class MediaKeyManager: ObservableObject {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showChargingStatus = true; self.overlayTriggerTimes["battery"] = Date()
+                    self.showChargingStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
                 }
             }
         } else {
             withAnimation(.easeInOut(duration: 0.25)) {
-                self.showChargingStatus = true; self.overlayTriggerTimes["battery"] = Date()
+                self.showChargingStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
             }
         }
         
@@ -1364,12 +1365,12 @@ class MediaKeyManager: ObservableObject {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showUnpluggedStatus = true; self.overlayTriggerTimes["battery"] = Date()
+                    self.showUnpluggedStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
                 }
             }
         } else {
             withAnimation(.easeInOut(duration: 0.25)) {
-                self.showUnpluggedStatus = true; self.overlayTriggerTimes["battery"] = Date()
+                self.showUnpluggedStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
             }
         }
         
@@ -2231,6 +2232,14 @@ class MediaKeyManager: ObservableObject {
             if mediaAction == "resume" && !notifyMediaResume { finalTrigger = false }
             if mediaAction == "end" && !notifyMediaEnd { finalTrigger = false }
         }
+        
+        if finalTrigger {
+            if let frontmostId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier, !frontmostId.isEmpty, frontmostId == bundleId {
+                finalTrigger = false
+            } else if isAnyAppInFullScreen() {
+                finalTrigger = false
+            }
+        }
         if finalTrigger {
             if mediaAction == "start" { playNotificationSound(named: soundMediaStart) }
             else if mediaAction == "pause" { playNotificationSound(named: soundMediaPause) }
@@ -2249,9 +2258,11 @@ class MediaKeyManager: ObservableObject {
             withAnimation {
                 self.showMediaIndicator = true; self.overlayTriggerTimes["media"] = Date()
                 self.mediaHideTimer?.invalidate()
-                self.mediaHideTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
-                    withAnimation {
-                        self.showMediaIndicator = false
+                if !self.globalHoveredTypes.contains("media") {
+                    self.mediaHideTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
+                        withAnimation {
+                            self.showMediaIndicator = false
+                        }
                     }
                 }
             }
@@ -2292,7 +2303,9 @@ class MediaKeyManager: ObservableObject {
         case "location": locationTimer?.invalidate(); locationTimer = nil
         case "bluetooth": bluetoothTimer?.invalidate(); bluetoothTimer = nil
         case "wifi": wiFiTimer?.invalidate(); wiFiTimer = nil
-        case "media": mediaHideTimer?.invalidate(); mediaHideTimer = nil
+        case "media":
+            mediaHideTimer?.invalidate(); mediaHideTimer = nil
+            mediaTimer?.invalidate(); mediaTimer = nil
         case "ram": hideRamIndicatorTask?.cancel(); hideRamIndicatorTask = nil
         case "fan": hideFanIndicatorTask?.cancel(); hideFanIndicatorTask = nil
         case "theme": themeTimer?.invalidate(); themeTimer = nil
@@ -2366,14 +2379,12 @@ class MediaKeyManager: ObservableObject {
 
                 }
 
-                self.mediaTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-
-                    withAnimation(.easeInOut(duration: 0.25)) {
-
-                        self?.showMediaIndicator = false
-
+                if !self.globalHoveredTypes.contains("media") {
+                    self.mediaTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            self?.showMediaIndicator = false
+                        }
                     }
-
                 }
 
             }
@@ -2401,16 +2412,31 @@ class MediaKeyManager: ObservableObject {
             }
         }
     }
+    private var initialPercentageWhenPluggedIn: Int? = nil
+    private var hasChargedSincePluggedIn: Bool = false
     
     func updateBatteryState(percentage: Int, pluggedIn: Bool, timeRemaining: String, cycleCount: Int = 0, healthPercentage: Int = 100, condition: String = "Normal", powerDraw: String = "0.0 W", isCharging: Bool = false) {
         if !enableBattery || isTestingBattery { return }
         let wasInitialized = self.isBatteryInitialized
         
-        // Robust limit detection (User's logic):
-        // We only assume a limit is reached if the battery physically stopped charging
-        // AND it stopped precisely on one of the macOS limit thresholds.
-        let limitThresholds = [80, 85, 90, 95]
-        let isLimitReached = pluggedIn && !isCharging && limitThresholds.contains(percentage)
+        if pluggedIn && !self.isPluggedIn {
+            self.initialPercentageWhenPluggedIn = percentage
+            self.hasChargedSincePluggedIn = false
+        } else if !pluggedIn {
+            self.initialPercentageWhenPluggedIn = nil
+            self.hasChargedSincePluggedIn = false
+        }
+        
+        if pluggedIn, let initial = self.initialPercentageWhenPluggedIn, percentage > initial {
+            self.hasChargedSincePluggedIn = true
+        }
+        
+        if !wasInitialized && pluggedIn {
+            self.hasChargedSincePluggedIn = true
+        }
+        
+        let systemPriorLimit = self.readChargeLimit(currentCapacity: percentage)
+        let isLimitReached = pluggedIn && !isCharging && percentage == systemPriorLimit && self.hasChargedSincePluggedIn
         
         var newLimit = 100
         if isLimitReached {
@@ -2503,7 +2529,7 @@ class MediaKeyManager: ObservableObject {
         guard let lastBlock = blocks.last else { return }
         
         let lines = lastBlock.components(separatedBy: .newlines)
-        var results: [(String, String)] = []
+        var results: [(String, String, NSImage?)] = []
         
         for line in lines.dropFirst() {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2514,7 +2540,8 @@ class MediaKeyManager: ObservableObject {
                 if let power = words.last, let doublePower = Double(power), doublePower > 0.0 {
                     let name = words.dropLast().joined(separator: " ")
                     if name != "top" && name != "kernel_task" && name != "WindowServer" && name != "coreaudiod" && name != "VisorPro" {
-                        results.append((name, power))
+                        let icon = self.getIconForProcess(name: name)
+                        results.append((name, power, icon))
                         if results.count == 4 { break }
                     }
                 }

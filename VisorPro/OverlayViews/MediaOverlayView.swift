@@ -61,7 +61,7 @@ struct MediaOverlayView: View {
         let bundle = mediaKeyManager.mediaBundleId.lowercased()
         
         if bundle.contains("spotify") {
-            return "headphones"
+            return "music.note"
         } else if bundle.contains("music") {
             return "music.note"
         } else if bundle.contains("podcasts") {
@@ -70,12 +70,10 @@ struct MediaOverlayView: View {
             return "safari.fill"
         } else if bundle.contains("chrome") || bundle.contains("arc") || bundle.contains("edge") || bundle.contains("brave") {
             return "network"
-        } else if bundle.contains("tv") {
-            return "tv.fill"
-        } else if mediaKeyManager.mediaDuration > 900.0 {
-            return "earbuds"
+        } else if bundle.contains("tv") || bundle.contains("vlc") || bundle.contains("iina") || bundle.contains("quicktime") || bundle.contains("mpv") {
+            return "play.tv.fill"
         } else {
-            return "music.note.list"
+            return "play.circle.fill"
         }
     }
     
@@ -85,14 +83,6 @@ struct MediaOverlayView: View {
     @State private var dragStartX: CGFloat = 0.0
     @State private var holdTimer: Timer? = nil
     
-    private var isPodcastOrBrowser: Bool {
-        if !mediaKeyManager.mediaAlbum.isEmpty {
-            return false
-        }
-        let bundleId = mediaKeyManager.mediaBundleId.lowercased()
-        let browsers = ["safari", "chrome", "edge", "brave", "arc", "podcasts", "company.thebrowser"]
-        return browsers.contains { bundleId.contains($0) }
-    }
 
     var body: some View {
         let width: CGFloat = 260
@@ -160,58 +150,87 @@ struct MediaOverlayView: View {
                 .padding(.horizontal, 16)
             },
             expandedContent: {
-                HStack(spacing: 32) {
-                    Button(action: {
-                        if isPreview { return }
-                        if isPodcastOrBrowser {
-                            let newTime = max(0, localElapsed - 10)
+                HStack(spacing: 20) {
+                    let skipStr = Int(mediaKeyManager.mediaSkipDuration)
+                    Image(systemName: "backward.end.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0).onEnded { _ in
+                                if isPreview { return }
+                                mediaKeyManager.simulatePrevious()
+                            }
+                        )
+
+                    ZStack {
+                        Image(systemName: "gobackward")
+                            .font(.system(size: 18, weight: .semibold))
+                        Text("\(skipStr)")
+                            .font(.system(size: 8, weight: .bold, design: .rounded))
+                            .offset(x: 0.4, y: 1.0)
+                    }
+                    .foregroundColor(.primary)
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0).onEnded { _ in
+                            if isPreview { return }
+                            let skip = mediaKeyManager.mediaSkipDuration
+                            let newTime = max(0, localElapsed - skip)
                             localElapsed = newTime
                             mediaKeyManager.simulateSeek(to: newTime)
-                        } else {
-                            mediaKeyManager.simulatePrevious()
                         }
-                    }) {
-                        Image(systemName: isPodcastOrBrowser ? "gobackward.10" : "backward.fill")
+                    )
+                    
+                    Image(systemName: actualIsPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundColor(.primary)
+                        .frame(width: 34, height: 34)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0).onEnded { _ in
+                                if isPreview { return }
+                                mediaKeyManager.simulatePlayPause()
+                            }
+                        )
+                    
+                    ZStack {
+                        Image(systemName: "goforward")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.primary)
-                            .frame(width: 30, height: 30)
-                            .contentShape(Rectangle())
+                        Text("\(skipStr)")
+                            .font(.system(size: 8, weight: .bold, design: .rounded))
+                            .offset(x: 0.1, y: 1.0)
                     }
-                    .buttonStyle(.plain)
-                    
-                    Button(action: {
-                        if isPreview { return }
-                        mediaKeyManager.simulatePlayPause()
-                    }) {
-                        Image(systemName: actualIsPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(.primary)
-                            .frame(width: 30, height: 30)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Button(action: {
-                        if isPreview { return }
-                        if isPodcastOrBrowser {
-                            let newTime = min(mediaKeyManager.mediaDuration, localElapsed + 10)
+                    .foregroundColor(.primary)
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0).onEnded { _ in
+                            if isPreview { return }
+                            let skip = mediaKeyManager.mediaSkipDuration
+                            let newTime = min(mediaKeyManager.mediaDuration, localElapsed + skip)
                             localElapsed = newTime
                             mediaKeyManager.simulateSeek(to: newTime)
-                        } else {
-                            mediaKeyManager.simulateNext()
                         }
-                    }) {
-                        Image(systemName: isPodcastOrBrowser ? "goforward.10" : "forward.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.primary)
-                            .frame(width: 30, height: 30)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                    )
+                    
+                    Image(systemName: "forward.end.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0).onEnded { _ in
+                                if isPreview { return }
+                                mediaKeyManager.simulateNext()
+                            }
+                        )
                 }
             }
         )
-
+        .id(mediaKeyManager.mediaEventId)
         .onAppear {
             localElapsed = mediaKeyManager.mediaElapsedTime
         }

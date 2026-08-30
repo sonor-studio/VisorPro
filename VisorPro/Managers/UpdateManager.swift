@@ -122,7 +122,7 @@ class UpdateManager: ObservableObject {
                 NSWorkspace.shared.open(updateURL)
             }
         } else {
-            // Otwórz okno po kliknięciu "Later", żeby użytkownik widział, że aplikacja go "przepuściła"
+            // Open the window after clicking "Later" so the user sees that the application "let them through"
             DispatchQueue.main.async {
                 if let appDelegate = NSApp.delegate as? AppDelegate {
                     appDelegate.openDashboard()

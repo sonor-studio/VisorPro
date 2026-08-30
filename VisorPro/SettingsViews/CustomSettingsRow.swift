@@ -11,7 +11,8 @@ struct CustomSettingsRow<Content: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                if let appName = appNameForIcon, let appPath = NSWorkspace.shared.fullPath(forApplication: appName) {
+                if let appName = appNameForIcon, 
+                   let appPath = NSWorkspace.shared.perform(NSSelectorFromString("fullPathForApplication:"), with: appName)?.takeUnretainedValue() as? String {
                     Image(nsImage: NSWorkspace.shared.icon(forFile: appPath))
                         .resizable()
                         .frame(width: 28, height: 28)

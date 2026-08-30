@@ -352,7 +352,7 @@ class VolumeManager {
         )
         
         var tempVolume: Float = 0.0
-        if AudioHardwareServiceGetPropertyData(defaultOutputDeviceID, &virtualVolAddress, 0, nil, &volSize, &tempVolume) == noErr {
+        if AudioObjectGetPropertyData(defaultOutputDeviceID, &virtualVolAddress, 0, nil, &volSize, &tempVolume) == noErr {
             volume = tempVolume
         } else {
             var volAddress = AudioObjectPropertyAddress(
@@ -361,14 +361,14 @@ class VolumeManager {
                 mElement: kAudioObjectPropertyElementMain
             )
             
-            if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &volAddress) {
+            if AudioObjectHasProperty(defaultOutputDeviceID, &volAddress) {
                 if AudioObjectGetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, &volSize, &tempVolume) == noErr {
                     volume = tempVolume
                 }
             } else {
                 volAddress.mElement = 1
                 var leftVolume: Float = -1.0
-                if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &volAddress) {
+                if AudioObjectHasProperty(defaultOutputDeviceID, &volAddress) {
                     if AudioObjectGetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, &volSize, &tempVolume) == noErr {
                         leftVolume = tempVolume
                     }
@@ -376,7 +376,7 @@ class VolumeManager {
                 
                 volAddress.mElement = 2
                 var rightVolume: Float = -1.0
-                if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &volAddress) {
+                if AudioObjectHasProperty(defaultOutputDeviceID, &volAddress) {
                     if AudioObjectGetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, &volSize, &tempVolume) == noErr {
                         rightVolume = tempVolume
                     }
@@ -399,15 +399,15 @@ class VolumeManager {
         )
         var muteSize = UInt32(MemoryLayout<UInt32>.size)
         
-        if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &muteAddress) {
+        if AudioObjectHasProperty(defaultOutputDeviceID, &muteAddress) {
             AudioObjectGetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, &muteSize, &isMuted)
         } else {
             muteAddress.mElement = 1
-            if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &muteAddress) {
+            if AudioObjectHasProperty(defaultOutputDeviceID, &muteAddress) {
                 AudioObjectGetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, &muteSize, &isMuted)
             } else {
                 muteAddress.mElement = 2
-                if AudioHardwareServiceHasProperty(defaultOutputDeviceID, &muteAddress) {
+                if AudioObjectHasProperty(defaultOutputDeviceID, &muteAddress) {
                     AudioObjectGetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, &muteSize, &isMuted)
                 }
             }
@@ -752,20 +752,20 @@ class VolumeManager {
                 mScope: kAudioDevicePropertyScopeOutput,
                 mElement: kAudioObjectPropertyElementMain
             )
-            var st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &virtualAddress, DispatchQueue.main, volBlock)
+            _ = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &virtualAddress, DispatchQueue.main, volBlock)
             
             var volAddress = AudioObjectPropertyAddress(
                 mSelector: kAudioDevicePropertyVolumeScalar,
                 mScope: kAudioDevicePropertyScopeOutput,
                 mElement: kAudioObjectPropertyElementMain
             )
-            st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
+            _ = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
             
             volAddress.mElement = 1
-            st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
+            _ = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
             
             volAddress.mElement = 2
-            st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
+            _ = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &volAddress, DispatchQueue.main, volBlock)
             
             let mBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
                 self?.handleExternalVolumeChange()
@@ -777,7 +777,7 @@ class VolumeManager {
                 mScope: kAudioDevicePropertyScopeOutput,
                 mElement: kAudioObjectPropertyElementMain
             )
-            st = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &muteAddress, DispatchQueue.main, mBlock)
+            _ = AudioObjectAddPropertyListenerBlock(defaultOutputDeviceID, &muteAddress, DispatchQueue.main, mBlock)
         }
     }
     

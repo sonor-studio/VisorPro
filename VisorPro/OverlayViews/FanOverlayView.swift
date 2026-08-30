@@ -48,5 +48,6 @@ struct FanOverlayView: View {
                 EmptyView()
             }
         )
+        .id(mediaKeyManager.fanEventId)
     }
 }

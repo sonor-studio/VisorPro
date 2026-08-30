@@ -197,10 +197,10 @@ struct FeedbackSettingsView: View {
         .navigationTitle("Feedback")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
-        .onChange(of: feedbackType) { _ in resetMessages() }
-        .onChange(of: otherTypeDetails) { _ in resetMessages() }
-        .onChange(of: emailAddress) { _ in resetMessages() }
-        .onChange(of: description) { _ in resetMessages() }
+        .onChange(of: feedbackType) { resetMessages() }
+        .onChange(of: otherTypeDetails) { resetMessages() }
+        .onChange(of: emailAddress) { resetMessages() }
+        .onChange(of: description) { resetMessages() }
     }
     
     private func resetMessages() {

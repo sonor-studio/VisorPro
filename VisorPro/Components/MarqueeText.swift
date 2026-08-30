@@ -58,6 +58,10 @@ struct MarqueeText: View {
                 offsetX = 0
                 restartAnimation()
             }
+            .onDisappear {
+                animationTask?.cancel()
+                animationTask = nil
+            }
     }
     
     private func restartAnimation() {

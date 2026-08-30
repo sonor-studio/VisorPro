@@ -34,7 +34,6 @@ struct ThemeOverlayView: View {
                 iconColor = Color(red: 1.0, green: 0.72, blue: 0.0)
             }
         }
-        let trackWidth: CGFloat = 230 - 8
         
 
         return UniversalOverlayView(
@@ -77,6 +76,7 @@ struct ThemeOverlayView: View {
                 EmptyView()
             }
         )
+        .id(mediaKeyManager.themeEventId)
         .frame(width: 230, height: 56, alignment: .top)
     }
     
@@ -92,7 +92,7 @@ struct ThemeOverlayView: View {
             if let script = NSAppleScript(source: scriptSource) {
                 var error: NSDictionary?
                 script.executeAndReturnError(&error)
-                if let error = error {
+                if error != nil {
                 }
             }
         }

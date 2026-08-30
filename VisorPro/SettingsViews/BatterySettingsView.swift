@@ -5,10 +5,10 @@ struct BatterySettingsView: View {
     @Environment(\.openWindow) private var openWindow
     @AppStorage("batteryOverlayPosition") private var batteryOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
-    @AppStorage("batteryUseUniversalStyle") private var batteryUseUniversalStyle: Bool = true
     @AppStorage("batteryFillCenter") private var batteryFillCenter: Bool = false
     @AppStorage("batteryAllowExpansion") private var batteryAllowExpansion: Bool = true
     @State private var isAccessoryHistoryExpanded: Bool = false
+    @State private var previewType: String = "plugged"
     
     var body: some View {
         ScrollView {
@@ -35,7 +35,7 @@ struct BatterySettingsView: View {
                     ZStack {
                         PreviewBackgroundView()
                         
-                        BatteryOverlayView(isWarningMode: false, isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
+                        BatteryOverlayView(isWarningMode: previewType.hasPrefix("low"), isPreview: true, previewType: previewType).applyTheme(mediaKeyManager.overlayTheme)
                             .scaleEffect(0.85)
                     }
                     .padding(.horizontal)
@@ -45,7 +45,7 @@ struct BatterySettingsView: View {
                 Divider()
                 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Test Overlays")
+                    Text("Interactive Preview")
                         .font(.headline)
                         .foregroundColor(.secondary)
                         .padding(.bottom, 4)
@@ -53,61 +53,66 @@ struct BatterySettingsView: View {
                     
                     HStack(spacing: 12) {
                         Button(action: {
-                            mediaKeyManager.triggerTestBatteryOverlay(type: "plugged")
+                            withAnimation { previewType = "plugged" }
                         }) {
                             Text("Charging")
                                 .font(.system(size: 12, weight: .medium))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(Color.primary.opacity(0.1))
+                                .background(previewType == "plugged" ? Color.blue.opacity(0.2) : Color.primary.opacity(0.1))
+                                .foregroundColor(previewType == "plugged" ? .blue : .primary)
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(PlainButtonStyle())
 
                         Button(action: {
-                            mediaKeyManager.triggerTestBatteryOverlay(type: "unplugged")
+                            withAnimation { previewType = "unplugged" }
                         }) {
                             Text("Unplugged")
                                 .font(.system(size: 12, weight: .medium))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(Color.primary.opacity(0.1))
+                                .background(previewType == "unplugged" ? Color.blue.opacity(0.2) : Color.primary.opacity(0.1))
+                                .foregroundColor(previewType == "unplugged" ? .blue : .primary)
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(PlainButtonStyle())
                         
                         Button(action: {
-                            mediaKeyManager.triggerTestBatteryOverlay(type: "full")
+                            withAnimation { previewType = "full" }
                         }) {
-                            Text("100%")
+                            Text("Fully Charged")
                                 .font(.system(size: 12, weight: .medium))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(Color.primary.opacity(0.1))
+                                .background(previewType == "full" ? Color.blue.opacity(0.2) : Color.primary.opacity(0.1))
+                                .foregroundColor(previewType == "full" ? .blue : .primary)
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(PlainButtonStyle())
                         
                         Button(action: {
-                            mediaKeyManager.triggerTestBatteryOverlay(type: "low20")
+                            withAnimation { previewType = "low20" }
                         }) {
-                            Text("20%")
+                            Text("20% Warning")
                                 .font(.system(size: 12, weight: .medium))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(Color.primary.opacity(0.1))
+                                .background(previewType == "low20" ? Color.red.opacity(0.2) : Color.primary.opacity(0.1))
+                                .foregroundColor(previewType == "low20" ? .red : .primary)
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(PlainButtonStyle())
                         
                         Button(action: {
-                            mediaKeyManager.triggerTestBatteryOverlay(type: "low10")
+                            withAnimation { previewType = "low10" }
                         }) {
-                            Text("10%")
+                            Text("10% Warning")
                                 .font(.system(size: 12, weight: .medium))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
-                                .background(Color.primary.opacity(0.1))
+                                .background(previewType == "low10" ? Color.red.opacity(0.2) : Color.primary.opacity(0.1))
+                                .foregroundColor(previewType == "low10" ? .red : .primary)
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -202,14 +207,8 @@ Toggle("", isOn: $mediaKeyManager.notifyOn100Percent).labelsHidden() }
                         .padding(.leading, 4)
                     
                     VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "paintpalette.fill", iconColor: .green, title: "Universal Template", subtitle: "Use the universal template for battery notifications instead of the custom plug animation") {
-                            Toggle("", isOn: $batteryUseUniversalStyle).labelsHidden()
-                        }
-                        if batteryUseUniversalStyle {
-                            Divider().padding(.leading, 48)
-                            CustomSettingsRow(icon: "circle.circle.fill", iconColor: .green, title: "Fill Center", subtitle: "Fills the inside of the overlay with color instead of just the border") {
-                                Toggle("", isOn: $batteryFillCenter).labelsHidden()
-                            }
+                        CustomSettingsRow(icon: "circle.circle.fill", iconColor: .green, title: "Fill Center", subtitle: "Fills the inside of the overlay with color instead of just the border") {
+                            Toggle("", isOn: $batteryFillCenter).labelsHidden()
                         }
                     }
                     .toggleStyle(.switch)

@@ -66,7 +66,10 @@ class BatteryObserver {
             var powerDrawStr = self.manager?.batteryPowerDraw ?? "0.0 W"
             
             if let battery = self.getBatteryDescriptionFast() {
-                let voltage = battery["Voltage"] as? Double ?? (battery["AppleRawBatteryVoltage"] as? Double ?? 0.0)
+                var voltage = 0.0
+                if let volNumber = battery["Voltage"] as? NSNumber ?? battery["AppleRawBatteryVoltage"] as? NSNumber {
+                    voltage = volNumber.doubleValue
+                }
                 var amperage = 0.0
                 if let ampNumber = battery["Amperage"] as? NSNumber {
                     amperage = Double(Int64(bitPattern: ampNumber.uint64Value))
@@ -154,13 +157,22 @@ class BatteryObserver {
                             if let cond = battery["BatteryHealth"] as? String {
                                 condition = cond
                             }
-                            let nominal = (battery["BatteryData"] as? [String: Any])?["NominalChargeCapacity"] as? Double ?? 0
-                            let design = (battery["BatteryData"] as? [String: Any])?["DesignCapacity"] as? Double ?? 0
+                            var nominal = 0.0
+                            if let nomNumber = (battery["BatteryData"] as? [String: Any])?["NominalChargeCapacity"] as? NSNumber {
+                                nominal = nomNumber.doubleValue
+                            }
+                            var design = 0.0
+                            if let desNumber = (battery["BatteryData"] as? [String: Any])?["DesignCapacity"] as? NSNumber {
+                                design = desNumber.doubleValue
+                            }
                             if design > 0 {
                                 health = Int((nominal / design) * 100)
                             }
                             
-                            let voltage = battery["Voltage"] as? Double ?? (battery["AppleRawBatteryVoltage"] as? Double ?? 0.0)
+                            var voltage = 0.0
+                            if let volNumber = battery["Voltage"] as? NSNumber ?? battery["AppleRawBatteryVoltage"] as? NSNumber {
+                                voltage = volNumber.doubleValue
+                            }
                             var amperage = 0.0
                             if let ampNumber = battery["Amperage"] as? NSNumber {
                                 amperage = Double(Int64(bitPattern: ampNumber.uint64Value))
@@ -178,16 +190,8 @@ class BatteryObserver {
                             }
                         }
                         
-                        // Robust limit detection (User's logic):
-                        // We only assume a limit is reached if the battery physically stopped charging
-                        // AND it stopped precisely on one of the macOS limit thresholds.
-                        let limitThresholds = [80, 85, 90, 95]
-                        let isLimitReached = isPluggedIn && !isChargingSys && limitThresholds.contains(capacity)
-                        
                         if isPluggedIn {
-                            if isLimitReached {
-                                timeStr = "Charge limit (\(capacity)%)"
-                            } else if sysTimeToFull > 0 && sysTimeToFull < 10000 {
+                            if sysTimeToFull > 0 && sysTimeToFull < 10000 {
                                 let hours = sysTimeToFull / 60
                                 let minutes = sysTimeToFull % 60
                                 timeStr = hours > 0 ? "\(hours)h \(minutes)m until full" : "\(minutes)m until full"
@@ -270,8 +274,13 @@ class BatteryObserver {
     
     private func calculateFallbackTime(isPluggedIn: Bool) -> String {
         guard let battery = self.getBatteryDescriptionFast() else { return "Calculating..." }
-        let amperageRaw = (battery["BatteryData"] as? [String: Any])?["Amperage"] as? Double ?? battery["Amperage"] as? Double ?? 0
-        
+        var amperageRaw = 0.0
+        if let ampNumber = battery["Amperage"] as? NSNumber {
+            amperageRaw = Double(Int64(bitPattern: ampNumber.uint64Value))
+        }
+        if amperageRaw == 0.0, let instAmpNumber = battery["InstantAmperage"] as? NSNumber {
+            amperageRaw = Double(Int64(bitPattern: instAmpNumber.uint64Value))
+        }
         if self.smoothedAmperage != nil {
             self.smoothedAmperage = (self.smoothedAmperage! * 0.8) + (amperageRaw * 0.2)
         } else {
@@ -280,46 +289,125 @@ class BatteryObserver {
         
         let amperage = self.smoothedAmperage ?? amperageRaw
         
-        let currentCapacity = (battery["BatteryData"] as? [String: Any])?["RemainingCapacity"] as? Double ?? battery["CurrentCapacity"] as? Double ?? 0
-        let maxCapacity = (battery["BatteryData"] as? [String: Any])?["FullChargeCapacity"] as? Double ?? battery["MaxCapacity"] as? Double ?? 0
+        var currentCapacity = 0.0
+        if let capNumber = (battery["BatteryData"] as? [String: Any])?["RemainingCapacity"] as? NSNumber ?? battery["CurrentCapacity"] as? NSNumber {
+            currentCapacity = capNumber.doubleValue
+        }
+        var maxCapacity = 0.0
+        if let maxNumber = (battery["BatteryData"] as? [String: Any])?["FullChargeCapacity"] as? NSNumber ?? battery["MaxCapacity"] as? NSNumber {
+            maxCapacity = maxNumber.doubleValue
+        }
         
-        if amperage == 0 || maxCapacity == 0 {
+        var timeStr = "Calculating..."
+        
+        if maxCapacity == 0 {
             return "Calculating..."
         }
         
         if amperage > 0 {
-            if !isPluggedIn {
-                return "Calculating..."
-            }
-            let capacityNeeded = maxCapacity - currentCapacity
-            let hoursLeft = capacityNeeded / amperage
-            let totalMinutes = Int(hoursLeft * 60)
-            
-            if totalMinutes <= 0 || totalMinutes > 10000 { return "Calculating..." }
-            
-            let hours = totalMinutes / 60
-            let minutes = totalMinutes % 60
-            let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
-            return "\(timeString) until full"
-            
-        } else if amperage < 0 {
             if isPluggedIn {
-                return "Calculating..."
+                let capacityNeeded = maxCapacity - currentCapacity
+                let hoursLeft = capacityNeeded / amperage
+                let totalMinutes = Int(hoursLeft * 60)
+                if totalMinutes > 0 && totalMinutes <= 10000 {
+                    let hours = totalMinutes / 60
+                    let minutes = totalMinutes % 60
+                    let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
+                    timeStr = "\(timeString) until full"
+                }
             }
-            
-            let capacityAvailable = currentCapacity
-            let hoursLeft = capacityAvailable / abs(amperage)
-            let totalMinutes = Int(hoursLeft * 60)
-            
-            if totalMinutes <= 0 || totalMinutes > 10000 { return "Calculating..." }
-            
-            let hours = totalMinutes / 60
-            let minutes = totalMinutes % 60
-            let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
-            return "\(timeString) remaining"
+        } else if amperage < 0 {
+            if !isPluggedIn {
+                let capacityAvailable = currentCapacity
+                let hoursLeft = capacityAvailable / abs(amperage)
+                let totalMinutes = Int(hoursLeft * 60)
+                if totalMinutes > 0 && totalMinutes <= 10000 {
+                    let hours = totalMinutes / 60
+                    let minutes = totalMinutes % 60
+                    let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
+                    timeStr = "\(timeString) remaining"
+                }
+            }
         } else {
-            return isPluggedIn ? "Not charging" : "Calculating..."
+            if isPluggedIn {
+                timeStr = "Not charging"
+            }
         }
+        
+        if isPluggedIn && (timeStr == "Calculating..." || timeStr == "Not charging") {
+            let hybrid = calculateHybridTime(battery: battery, currentCapacity: currentCapacity, maxCapacity: maxCapacity)
+            if hybrid != "Calculating..." {
+                return hybrid
+            }
+        } else if !isPluggedIn && timeStr == "Calculating..." {
+            let hybrid = calculateHybridDischargeTime(battery: battery, currentCapacity: currentCapacity)
+            if hybrid != "Calculating..." {
+                return hybrid
+            }
+        }
+        
+        return timeStr
+    }
+    
+    private func calculateHybridDischargeTime(battery: [String: Any], currentCapacity: Double) -> String {
+        guard currentCapacity > 0 else { return "Calculating..." }
+        
+        var voltage = 0.0
+        if let volNumber = battery["Voltage"] as? NSNumber ?? battery["AppleRawBatteryVoltage"] as? NSNumber {
+            voltage = volNumber.doubleValue
+        }
+        
+        var systemPowerW = 0.0
+        if let powerData = battery["PowerTelemetryData"] as? [String: Any], let sysLoad = powerData["SystemLoad"] as? NSNumber {
+            systemPowerW = abs(sysLoad.doubleValue / 1000.0)
+        }
+        
+        if voltage <= 0 || systemPowerW == 0 {
+            return "Calculating..."
+        }
+        
+        let current_Wh = (currentCapacity * voltage) / 1_000_000.0
+        let hoursLeft = current_Wh / systemPowerW
+        let totalMinutes = Int(hoursLeft * 60)
+        
+        if totalMinutes <= 0 || totalMinutes > 10000 { return "Calculating..." }
+        
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
+        return "\(timeString) remaining"
+    }
+    
+    private func calculateHybridTime(battery: [String: Any], currentCapacity: Double, maxCapacity: Double) -> String {
+        guard currentCapacity > 0, maxCapacity > currentCapacity else { return "Calculating..." }
+        
+        var voltage = 0.0
+        if let volNumber = battery["Voltage"] as? NSNumber ?? battery["AppleRawBatteryVoltage"] as? NSNumber {
+            voltage = volNumber.doubleValue
+        }
+        
+        var adapterWatts = 0.0
+        if let adapterDetails = battery["AdapterDetails"] as? [String: Any], let watts = adapterDetails["Watts"] as? NSNumber {
+            adapterWatts = watts.doubleValue
+        } else if let appleRaw = battery["AppleRawAdapterDetails"] as? [[String: Any]], let first = appleRaw.first, let watts = first["Watts"] as? NSNumber {
+            adapterWatts = watts.doubleValue
+        }
+        
+        if voltage <= 0 || adapterWatts <= 0 {
+            return "Calculating..."
+        }
+        
+        let missing_mAh = maxCapacity - currentCapacity
+        let missing_Wh = (missing_mAh * voltage) / 1_000_000.0
+        let hoursLeft = missing_Wh / (adapterWatts * 0.8)
+        let totalMinutes = Int(hoursLeft * 60)
+        
+        if totalMinutes <= 0 || totalMinutes > 10000 { return "Calculating..." }
+        
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
+        return "\(timeString) until full"
     }
     
     deinit {

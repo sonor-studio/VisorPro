@@ -23,7 +23,6 @@ struct CapsLockOverlayView: View {
     var body: some View {
         let actionTitle = actualIsOn ? "Caps Lock ON" : "Caps Lock OFF"
         let actionColor: Color = actualIsOn ? .mint : .secondary
-        let trackWidth: CGFloat = 230 - 8
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -69,6 +68,7 @@ struct CapsLockOverlayView: View {
                 EmptyView()
             }
         )
+        .id(mediaKeyManager.capsLockEventId)
         .frame(width: 230, height: 56, alignment: .top)
         .onAppear {
             localPreviewIsOn = previewIsOn
