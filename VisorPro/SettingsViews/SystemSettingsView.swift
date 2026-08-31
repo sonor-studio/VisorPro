@@ -2,9 +2,8 @@ import SwiftUI
 
 struct SystemSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("showFanOverlay") private var showFanOverlay = true
+    @AppStorage("showSystemModule") private var showSystemModule = true
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
-    @AppStorage("fanOverlayPosition") private var fanOverlayPosition: String = "top"
     @AppStorage("ramOverlayPosition") private var ramOverlayPosition: String = "top"
     @AppStorage("cpuOverlayPosition") private var cpuOverlayPosition: String = "top"
     
@@ -12,8 +11,8 @@ struct SystemSettingsView: View {
         ScrollView {
             VStack(spacing: 24) {
                 VStack(spacing: 0) {
-                    CustomSettingsRow(icon: "cpu", iconColor: .purple, title: "Enable System Module", subtitle: "When disabled, VisorPro will not show system and fan overlays") {
-                        Toggle("", isOn: $showFanOverlay).labelsHidden()
+                    CustomSettingsRow(icon: "cpu", iconColor: .purple, title: "Enable System Module", subtitle: "When disabled, VisorPro will not show system overlays") {
+                        Toggle("", isOn: $showSystemModule).labelsHidden()
                     }
                 }
                 .toggleStyle(.switch)
@@ -25,7 +24,7 @@ struct SystemSettingsView: View {
                 )
                 .padding(.horizontal)
                 
-                if showFanOverlay {
+                if showSystemModule {
                     VStack(alignment: .center) {
                         Text("Preview")
                             .font(.headline)
@@ -50,66 +49,6 @@ struct SystemSettingsView: View {
                     Divider()
                     
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Fan")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.bottom, 4)
-                            
-                        
-                        Text("Overlay Triggers")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.bottom, 4)
-                            .padding(.leading, 20)
-                        
-                        VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "fanblades", iconColor: .cyan, title: "Fan Started", subtitle: "Show overlay when fan starts running") {
-                                HStack(spacing: 8) {
-                                    if mediaKeyManager.notifyOnFanStart {
-                                        SoundPickerControl(selectedSound: $mediaKeyManager.soundOnFanStart)
-                                    }
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnFanStart).labelsHidden()
-                                }
-                            }
-                            Divider().padding(.leading, 48)
-                            CustomSettingsRow(icon: "fanblades", iconColor: .gray, title: "Fan Stopped", subtitle: "Show overlay when fan stops running") {
-                                HStack(spacing: 8) {
-                                    if mediaKeyManager.notifyOnFanStop {
-                                        SoundPickerControl(selectedSound: $mediaKeyManager.soundOnFanStop)
-                                    }
-                                    Toggle("", isOn: $mediaKeyManager.notifyOnFanStop).labelsHidden()
-                                }
-                            }
-                        }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
-                        .padding(.horizontal)
-                        
-                        Group {
-                            if overlayPositionMode == "custom" {
-                            Text("Overlay Position")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.bottom, 4)
-                                .padding(.leading, 20)
-                            
-                            PositionPickerGroup(selection: $fanOverlayPosition)
-                            }
-                        }
-                        .padding(.horizontal)
-                        Divider()
-                        
                         Text("CPU Alert")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.primary)

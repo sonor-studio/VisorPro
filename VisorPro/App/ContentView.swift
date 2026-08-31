@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
-        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, location, wifi, peripheral, display, fan, ram, accessoryBattery, cpu
+        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery, cpu
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -78,8 +78,6 @@ struct ContentView: View {
             active.append(ActiveOverlay(id: "display_\(notif.id)", type: .display, position: displayPos, notification: notif))
         }
         
-        let fanPos = MediaKeyManager.shared.getOverlayPosition(for: "fanOverlayPosition")
-        if mediaKeyManager.showFanIndicator { active.append(ActiveOverlay(id: "fan", type: .fan, position: fanPos, notification: nil)) }
         
         let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if mediaKeyManager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
@@ -254,7 +252,6 @@ struct ContentView: View {
         case .wifi: WiFiOverlayView()
         case .peripheral: PeripheralOverlayView(notification: overlay.notification)
         case .display: DisplayOverlayView(notification: overlay.notification)
-        case .fan: FanOverlayView()
         case .ram: RamOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
         case .cpu: CpuTemperatureOverlayView()
@@ -278,10 +275,9 @@ struct ContentView: View {
         let showWiFi = mediaKeyManager.showWiFiIndicator
         let showPeripheral = !mediaKeyManager.activePeripheralNotifications.isEmpty
         let showDisplay = !mediaKeyManager.activeDisplayNotifications.isEmpty
-        let showFan = mediaKeyManager.showFanIndicator
         let showRam = mediaKeyManager.showRamIndicator
         
-        let isVisible = showBattery || showVolume || showBrightness || showKeyboardBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showLocation || showWiFi || showPeripheral || showDisplay || showFan || showRam
+        let isVisible = showBattery || showVolume || showBrightness || showKeyboardBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showLocation || showWiFi || showPeripheral || showDisplay || showRam
         
         
         ZStack {

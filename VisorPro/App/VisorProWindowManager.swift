@@ -216,8 +216,6 @@ class VisorProWindowManager: ObservableObject {
             active.append(ActiveOverlay(id: "display_\(notif.id)", type: .display, position: displayPos, notification: notif))
         }
         
-        let fanPos = MediaKeyManager.shared.getOverlayPosition(for: "fanOverlayPosition")
-        if manager.showFanIndicator { active.append(ActiveOverlay(id: "fan", type: .fan, position: fanPos, notification: nil)) }
         
         let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if manager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
@@ -710,7 +708,6 @@ struct SingleOverlayContainer: View {
         case .wifi: WiFiOverlayView()
         case .peripheral: PeripheralOverlayView(notification: overlay.notification)
         case .display: DisplayOverlayView(notification: overlay.notification)
-        case .fan: FanOverlayView()
         case .ram: RamOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
         case .cpu: CpuTemperatureOverlayView(isPreview: false)
@@ -754,7 +751,6 @@ struct ScrollSwipeModifier: ViewModifier {
         
         var isHovered = mediaKeyManager.actualHoveredTypes.contains(overlayId) ||
                         (overlayId.hasPrefix("ram") && mediaKeyManager.actualHoveredTypes.contains("ram")) ||
-                        (overlayId.hasPrefix("fan") && mediaKeyManager.actualHoveredTypes.contains("fan")) ||
                         (overlayId.hasPrefix("bluetooth") && mediaKeyManager.actualHoveredTypes.contains("bluetooth")) ||
                         (overlayId.hasPrefix("peripheral") && mediaKeyManager.actualHoveredTypes.contains("peripheral")) ||
                         (overlayId.hasPrefix("display") && mediaKeyManager.actualHoveredTypes.contains("display"))

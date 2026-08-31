@@ -88,7 +88,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         let _ = MediaKeyManager.shared
         let _ = VisorProWindowManager.shared
-        let _ = FanObserver.shared
         let _ = CpuObserver.shared
         let _ = RamObserver.shared
         

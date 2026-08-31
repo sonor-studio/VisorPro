@@ -169,13 +169,7 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(soundOn100Percent, forKey: "soundOn100Percent") }
     }
     
-    @Published var notifyOnFanStart: Bool = UserDefaults.standard.object(forKey: "notifyOnFanStart") as? Bool ?? false {
-        didSet { UserDefaults.standard.set(notifyOnFanStart, forKey: "notifyOnFanStart") }
-    }
 
-    @Published var soundOnFanStart: String = UserDefaults.standard.string(forKey: "soundOnFanStart") ?? "None" {
-        didSet { UserDefaults.standard.set(soundOnFanStart, forKey: "soundOnFanStart") }
-    }
     
     
     @Published var notifyOnHighCpuTemp: Bool = UserDefaults.standard.object(forKey: "notifyOnHighCpuTemp") as? Bool ?? false {
@@ -210,13 +204,7 @@ class MediaKeyManager: ObservableObject {
     }
 
     
-    @Published var notifyOnFanStop: Bool = UserDefaults.standard.object(forKey: "notifyOnFanStop") as? Bool ?? false {
-        didSet { UserDefaults.standard.set(notifyOnFanStop, forKey: "notifyOnFanStop") }
-    }
 
-    @Published var soundOnFanStop: String = UserDefaults.standard.string(forKey: "soundOnFanStop") ?? "None" {
-        didSet { UserDefaults.standard.set(soundOnFanStop, forKey: "soundOnFanStop") }
-    }
     
     @Published var notifyOnCopy: Bool = UserDefaults.standard.object(forKey: "notifyOnCopy") as? Bool ?? false {
         didSet { UserDefaults.standard.set(notifyOnCopy, forKey: "notifyOnCopy") }
@@ -350,10 +338,6 @@ class MediaKeyManager: ObservableObject {
     public var lastChangeCount: Int = 0
     @Published var showCopyIndicator: Bool = false
     
-    // Fan System Monitoring
-    @Published var showFanIndicator: Bool = false
-    @Published var fanEventId = UUID()
-    private var hideFanIndicatorTask: DispatchWorkItem?
     
     // RAM Monitoring
     
@@ -1228,7 +1212,7 @@ class MediaKeyManager: ObservableObject {
             else if overlayId == "wifi" { showWiFiIndicator = false }
             else if overlayId.hasPrefix("peripheral") { activePeripheralNotifications.removeAll(where: { "peripheral_\($0.id)" == overlayId }) }
             else if overlayId.hasPrefix("display") { activeDisplayNotifications.removeAll(where: { "display_\($0.id)" == overlayId }) }
-            else if overlayId.hasPrefix("fan") { showFanIndicator = false }
+            
             else if overlayId.hasPrefix("ram") { showRamIndicator = false }
             else if overlayId.hasPrefix("cpu") { showCpuIndicator = false }
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
@@ -1864,50 +1848,7 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func triggerFanOverlay(isRunning: Bool? = nil) {
-        let actualIsRunning = isRunning ?? true
-        if actualIsRunning && !notifyOnFanStart { return }
-        if !actualIsRunning && !notifyOnFanStop { return }
-        
-        playNotificationSound(named: actualIsRunning ? soundOnFanStart : soundOnFanStop)
-        
-        self.hideFanIndicatorTask?.cancel()
-        let pos = self.getOverlayPosition(for: "fanOverlayPosition")
-        dismissCollidingIndicators(newPosition: pos, source: "fan")
-        
-        let executeShow = { [weak self] in
-                guard let self = self else { return }
-            self.fanEventId = UUID()
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.showFanIndicator = true; self.overlayTriggerTimes["fan"] = Date()
-            }
-            
-            let task = DispatchWorkItem { [weak self] in
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self?.showFanIndicator = false
-                }
-            }
-            self.hideFanIndicatorTask = task
-            DispatchQueue.main.asyncAfter(deadline: .now() + MediaKeyManager.notificationDuration, execute: task)
-        }
-        
-        if self.showFanIndicator {
-            withAnimation(.easeInOut(duration: 0.1)) {
-                self.showFanIndicator = false
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                executeShow()
-            }
-        } else {
-            executeShow()
-        }
-    }
-    
-    
-    
-
-    
-    func triggerCpuTempOverlay(temp: Double) {
+func triggerCpuTempOverlay(temp: Double) {
         DispatchQueue.main.async {
             self.cpuTemperature = temp
             self.cpuTempHistory.removeFirst()
@@ -2387,7 +2328,7 @@ class MediaKeyManager: ObservableObject {
             mediaTimer?.invalidate(); mediaTimer = nil
         case "ram": hideRamIndicatorTask?.cancel(); hideRamIndicatorTask = nil
         case "cpu": hideCpuIndicatorTask?.cancel(); hideCpuIndicatorTask = nil
-        case "fan": hideFanIndicatorTask?.cancel(); hideFanIndicatorTask = nil
+        
         case "theme": themeTimer?.invalidate(); themeTimer = nil
         case "accessoryBattery": accessoryBatteryTimer?.invalidate(); accessoryBatteryTimer = nil
         default: break
