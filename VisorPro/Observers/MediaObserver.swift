@@ -93,6 +93,7 @@ class MediaObserver {
         do {
             try scriptContent.write(toFile: scriptPath, atomically: true, encoding: .utf8)
         } catch {
+            LogManager.shared.log("Error in MediaObserver.swift: \(error)", level: "ERROR")
             return
         }
         
@@ -118,6 +119,7 @@ class MediaObserver {
         do {
             try helperProcess?.run()
         } catch {
+            LogManager.shared.log("Error in MediaObserver.swift: \(error)", level: "ERROR")
         }
     }
     

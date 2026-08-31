@@ -18,6 +18,7 @@ struct VisorProApp: App {
     
     init() {
         NSSetUncaughtExceptionHandler { exception in
+            LogManager.shared.log("Uncaught Exception: \(exception.name.rawValue) - \(exception.reason ?? "No reason")", level: "FATAL")
             fflush(stdout)
         }
     }
@@ -78,6 +79,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        LogManager.shared.log("VisorPro initialization started", level: "INFO")
         
         let configuration = TelemetryManagerConfiguration(appID: "F983579F-8CAB-4235-B6FE-B6CE1CE3119A")
         TelemetryDeck.initialize(config: configuration)
@@ -120,7 +122,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationWillTerminate(_ notification: Notification) {
+        LogManager.shared.log("VisorPro will terminate", level: "INFO")
         MediaKeyManager.shared.stopEventTaps()
+    }
+    
+    func applicationDidBecomeActive(_ notification: Notification) {
+        // When the user double-clicks the app in Finder/Spotlight while it's running, it becomes active.
+        // If there are no visible windows, we should open the dashboard.
+        let hasVisibleSettings = NSApp.windows.contains { $0.isVisible && ($0.title == "General" || $0.title == "Settings" || $0.title == "VisorPro") }
+        if !hasVisibleSettings {
+            let _ = self.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+        }
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

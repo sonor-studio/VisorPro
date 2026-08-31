@@ -137,6 +137,7 @@ class MicLevelMonitor: ObservableObject {
                     self.audioEngine = nil
                 }
             } catch {
+                LogManager.shared.log("Error in MicLevelMonitor.swift: \(error)", level: "ERROR")
                 // Fast retry every 100ms up to 5 times (helps instantly catch Bluetooth device readiness)
                 if retryCount < 6 {
                     engine.inputNode.removeTap(onBus: 0)

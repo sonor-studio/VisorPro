@@ -121,7 +121,9 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
                                 }
                             }
                         }
-                    } catch {}
+                    } catch {
+                        LogManager.shared.log("Error in WiFiObserver.swift: \(error)", level: "ERROR")
+                    }
                     
                     DispatchQueue.main.async {
                         guard let self = self else { return }

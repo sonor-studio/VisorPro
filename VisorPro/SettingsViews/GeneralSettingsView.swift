@@ -44,6 +44,7 @@ struct GeneralSettingsView: View {
                                 try SMAppService.mainApp.unregister()
                             }
                         } catch {
+                            LogManager.shared.log("Error in GeneralSettingsView.swift: \(error)", level: "ERROR")
                         }
                     }
                 Toggle("Show menu bar icon", isOn: $showMenuBarIcon)

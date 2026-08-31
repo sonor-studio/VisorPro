@@ -149,9 +149,7 @@ struct SettingsView: View {
                 case .general:
                     GeneralSettingsView()
                 case .recentChanges:
-                    Text("Ostatnie zmiany (puste)")
-                        .font(.title)
-                        .foregroundColor(.secondary)
+                    ChangelogSettingsView()
                 case .volume:
                     VolumeSettingsView()
                 case .brightness:

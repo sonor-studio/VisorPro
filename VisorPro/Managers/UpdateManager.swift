@@ -47,6 +47,7 @@ class UpdateManager: ObservableObject {
                 }
             }
         } catch {
+            LogManager.shared.log("Error in UpdateManager.swift: \(error)", level: "ERROR")
             // Silently fail on network error so app can still start
         }
     }

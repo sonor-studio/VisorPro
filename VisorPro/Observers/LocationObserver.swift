@@ -98,6 +98,7 @@ class LocationObserver {
         do {
             try process?.run()
         } catch {
+            LogManager.shared.log("Error in LocationObserver.swift: \(error)", level: "ERROR")
         }
     }
     

@@ -60,12 +60,14 @@ class CpuObserver: ObservableObject {
                                 break
                             }
                         } catch {
+                            LogManager.shared.log("Error in CpuObserver.swift: \(error)", level: "ERROR")
                             // Ten czujnik nie istnieje na tym Macu, próbujemy następny
                             continue
                         }
                     }
                 }
             } catch {
+                LogManager.shared.log("Error in CpuObserver.swift: \(error)", level: "ERROR")
                 workingSensorKey = nil // W razie awarii resetujemy klucz, by poszukał go ponownie
             }
             
@@ -148,6 +150,7 @@ class CpuObserver: ObservableObject {
                     }
                 }
             } catch {
+                LogManager.shared.log("Error in CpuObserver.swift: \(error)", level: "ERROR")
                 print("Błąd top w CPU: \(error)")
             }
         }

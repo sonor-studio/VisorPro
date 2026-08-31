@@ -1663,6 +1663,7 @@ class MediaKeyManager: ObservableObject {
                 task.waitUntilExit()
                 DispatchQueue.main.async { completion(task.terminationStatus == 0, deviceNode) }
             } catch {
+                LogManager.shared.log("Error in MediaKeyManager.swift: \(error)", level: "ERROR")
                 DispatchQueue.main.async { completion(false, nil) }
             }
         }
@@ -1678,6 +1679,7 @@ class MediaKeyManager: ObservableObject {
                 task.waitUntilExit()
                 DispatchQueue.main.async { completion(task.terminationStatus == 0) }
             } catch {
+                LogManager.shared.log("Error in MediaKeyManager.swift: \(error)", level: "ERROR")
                 DispatchQueue.main.async { completion(false) }
             }
         }
@@ -1895,17 +1897,16 @@ func triggerCpuTempOverlay(temp: Double) {
                         let pos = self.getOverlayPosition(for: "cpuOverlayPosition")
                         self.dismissCollidingIndicators(newPosition: pos, source: "cpu")
                         
-                        let executeShow = { [weak self] in
-                            guard let self = self else { return }
+                        let executeShow = {
                             self.cpuEventId = UUID()
                             withAnimation(.easeInOut(duration: 0.15)) {
                                 self.showCpuIndicator = true
                                 self.overlayTriggerTimes["cpu"] = Date()
                             }
                             
-                            let task = DispatchWorkItem { [weak self] in
+                            let task = DispatchWorkItem {
                                 withAnimation(.easeInOut(duration: 0.15)) {
-                                    self?.showCpuIndicator = false
+                                    self.showCpuIndicator = false
                                 }
                             }
                             self.hideCpuIndicatorTask = task
@@ -2578,6 +2579,7 @@ func triggerCpuTempOverlay(temp: Double) {
                     self.parseTopOutput(output)
                 }
             } catch {
+                LogManager.shared.log("Error in MediaKeyManager.swift: \(error)", level: "ERROR")
             }
         }
     }

@@ -165,15 +165,7 @@ struct BatteryOverlayView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
                     
-                    let getIcon = { (name: String) -> NSImage? in
-                        if let path = NSWorkspace.shared.perform(NSSelectorFromString("fullPathForApplication:"), with: name)?.takeUnretainedValue() as? String {
-                            return NSWorkspace.shared.icon(forFile: path)
-                        }
-                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: name) {
-                            return NSWorkspace.shared.icon(forFile: url.path)
-                        }
-                        return nil
-                    }
+
                     let consumers: [(name: String, power: String, icon: NSImage?)] = isPreview ? [
                         ("Final Cut Pro", "45.2", NSImage(named: "PreviewFinalCut")),
                         ("Xcode", "32.5", NSImage(named: "PreviewXcode")),

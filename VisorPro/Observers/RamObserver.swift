@@ -187,6 +187,7 @@ class RamObserver: ObservableObject {
                     }
                 }
             } catch {
+                LogManager.shared.log("Error in RamObserver.swift: \(error)", level: "ERROR")
             }
         }
     }

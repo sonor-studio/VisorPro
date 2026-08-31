@@ -30,6 +30,7 @@ class PowerChimeManager {
             try task.run()
             task.waitUntilExit()
         } catch {
+            LogManager.shared.log("Error in PowerChimeManager.swift: \(error)", level: "ERROR")
         }
     }
 }

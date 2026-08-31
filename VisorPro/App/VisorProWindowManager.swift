@@ -749,7 +749,7 @@ struct ScrollSwipeModifier: ViewModifier {
         guard enableSwipeToDismiss else { return }
         guard !isDismissing else { return }
         
-        var isHovered = mediaKeyManager.actualHoveredTypes.contains(overlayId) ||
+        let isHovered = mediaKeyManager.actualHoveredTypes.contains(overlayId) ||
                         (overlayId.hasPrefix("ram") && mediaKeyManager.actualHoveredTypes.contains("ram")) ||
                         (overlayId.hasPrefix("bluetooth") && mediaKeyManager.actualHoveredTypes.contains("bluetooth")) ||
                         (overlayId.hasPrefix("peripheral") && mediaKeyManager.actualHoveredTypes.contains("peripheral")) ||

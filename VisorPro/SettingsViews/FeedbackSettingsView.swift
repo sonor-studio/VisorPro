@@ -5,6 +5,7 @@ struct FeedbackSettingsView: View {
     @State private var otherTypeDetails: String = ""
     @State private var emailAddress: String = ""
     @State private var description: String = ""
+    @State private var attachLogs: Bool = false
     @State private var isSubmitting: Bool = false
     @State private var showSuccessMessage: Bool = false
     @State private var errorMessage: String = ""
@@ -145,6 +146,25 @@ struct FeedbackSettingsView: View {
                     )
                 }
                 
+                // Attach Logs Option
+                HStack {
+                    Toggle(isOn: $attachLogs) {
+                        Text("Attach application logs to help diagnose issues")
+                            .font(.system(size: 13))
+                            .foregroundColor(.primary)
+                    }
+                    .toggleStyle(.checkbox)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        LogManager.shared.openLogFile()
+                    }) {
+                        Text("Open Logs")
+                    }
+                }
+                .padding(.horizontal, 4)
+                
                 // Submit Button
                 VStack(spacing: 12) {
                     Button(action: {
@@ -229,11 +249,18 @@ struct FeedbackSettingsView: View {
         
         let finalType = feedbackType == "Other" ? (otherTypeDetails.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Other" : otherTypeDetails) : feedbackType
         
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "type": finalType,
             "description": description,
             "email": emailAddress
         ]
+        
+        if attachLogs {
+            let logs = LogManager.shared.getLogs()
+            // Reverse lines so newest logs are at the top in the database
+            let reversedLogs = logs.components(separatedBy: .newlines).reversed().joined(separator: "\n")
+            payload["logs"] = reversedLogs
+        }
         
         guard let body = try? JSONSerialization.data(withJSONObject: payload) else {
             isSubmitting = false
@@ -246,7 +273,7 @@ struct FeedbackSettingsView: View {
             DispatchQueue.main.async {
                 isSubmitting = false
                 if let error = error {
-                    print("Feedback Error: \(error)")
+                    LogManager.shared.log("Feedback Error: \(error)", level: "ERROR")
                     errorMessage = "An error occurred. Please try again."
                 } else if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
                     // Success
@@ -255,6 +282,7 @@ struct FeedbackSettingsView: View {
                     otherTypeDetails = ""
                     emailAddress = ""
                     feedbackType = "Idea"
+                    attachLogs = false
                     
                     DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
                         withAnimation {

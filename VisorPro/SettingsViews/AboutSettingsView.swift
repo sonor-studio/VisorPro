@@ -54,6 +54,36 @@ struct AboutSettingsView: View {
                 LinkRow(icon: "checkmark.shield.fill", title: "Security Policy", url: "https://github.com/sonor-studio/VisorPro/blob/main/SECURITY.md")
             }
             
+            Section(header: Text("Technical Information").font(.system(size: 12, weight: .semibold))) {
+                HStack {
+                    Text("App Version")
+                    Spacer()
+                    Text(appVersion)
+                        .foregroundColor(.secondary)
+                }
+                .font(.system(size: 13, weight: .medium))
+                
+                HStack {
+                    Text("Build Number")
+                    Spacer()
+                    Text(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown")
+                        .foregroundColor(.secondary)
+                }
+                .font(.system(size: 13, weight: .medium))
+                
+                HStack {
+                    Text("macOS Version")
+                    Spacer()
+                    Text(ProcessInfo.processInfo.operatingSystemVersionString)
+                        .foregroundColor(.secondary)
+                }
+                .font(.system(size: 13, weight: .medium))
+                
+                ActionRow(icon: "doc.text.magnifyingglass", title: "Open Application Logs") {
+                    LogManager.shared.openLogFile()
+                }
+            }
+            
             Section {
                 Text("© 2026 Sonor Studio. All rights reserved.")
                     .font(.system(size: 11))
@@ -91,6 +121,30 @@ struct LinkRow: View {
                 Image(systemName: "arrow.up.right")
                     .foregroundColor(.secondary)
                     .font(.system(size: 10))
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct ActionRow: View {
+    let icon: String
+    let title: String
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundColor(.secondary)
+                    .frame(width: 16)
+                    .font(.system(size: 14))
+                Text(title)
+                    .foregroundColor(.primary)
+                    .font(.system(size: 13, weight: .medium))
+                Spacer()
             }
             .padding(.vertical, 4)
             .contentShape(Rectangle())

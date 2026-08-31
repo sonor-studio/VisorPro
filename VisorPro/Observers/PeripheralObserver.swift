@@ -329,6 +329,7 @@ class PeripheralObserver {
                         }
                     }
                 } catch {
+                    LogManager.shared.log("Error in PeripheralObserver.swift: \(error)", level: "ERROR")
                 }
             }
             
