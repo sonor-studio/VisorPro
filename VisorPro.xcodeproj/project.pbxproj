@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FA8D16FA3045E22A0040670D /* SMCKit in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D16F93045E22A0040670D /* SMCKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		FA01FF91300BB56900235EBF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FA8D16FA3045E22A0040670D /* SMCKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -205,6 +210,9 @@
 			);
 			mainGroup = FA01FF7A300BB56700235EBF;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FA8D16F83045E22A0040670D /* XCRemoteSwiftPackageReference "SMCKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FA01FF84300BB56700235EBF /* Products */;
 			projectDirPath = "";
@@ -627,6 +635,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FA8D16F83045E22A0040670D /* XCRemoteSwiftPackageReference "SMCKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/srimanachanta/SMCKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FA8D16F93045E22A0040670D /* SMCKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FA8D16F83045E22A0040670D /* XCRemoteSwiftPackageReference "SMCKit" */;
+			productName = SMCKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = FA01FF7B300BB56700235EBF /* Project object */;
 }

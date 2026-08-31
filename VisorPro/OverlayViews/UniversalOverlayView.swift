@@ -279,9 +279,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             } else {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = nil
-                if !isPreview, let keepAliveId = keepAliveId {
-                    mediaKeyManager.keepAlive(for: keepAliveId, isHovering: isHovering)
-                }
+                triggerKeepAlive(expandedOverride: false)
             }
         }
     }
@@ -291,6 +289,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             let currentHover = hoveringOverride ?? isHovering
             let currentExpanded = expandedOverride ?? isExpanded
             mediaKeyManager.keepAlive(for: keepAliveId, isHovering: currentHover || currentExpanded)
+            mediaKeyManager.setActualHover(for: keepAliveId, isHovering: currentHover)
         }
     }
 }

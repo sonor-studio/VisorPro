@@ -9,7 +9,7 @@ class RamObserver: ObservableObject {
     @Published var totalRamGB: Double = 0.0
     @Published var usedRamGB: Double = 0.0
     @Published var ramUsagePercent: Double = 0.0
-    @Published var topProcesses: [(name: String, ramGB: Double)] = []
+    @Published var topProcesses: [(name: String, ramGB: Double, icon: NSImage?)] = []
     
     private var timer: Timer?
     private var hasTriggeredAlert = false
@@ -116,7 +116,7 @@ class RamObserver: ObservableObject {
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 if let output = String(data: data, encoding: .utf8) {
                     let lines = output.components(separatedBy: .newlines).dropFirst()
-                    var processes: [(name: String, ramGB: Double)] = []
+                    var processes: [(name: String, ramGB: Double, icon: NSImage?)] = []
                     
                     for line in lines {
                         let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -145,18 +145,35 @@ class RamObserver: ObservableObject {
                                 var name = parts[2...].joined(separator: " ")
                                 
                                 // Try to get a friendly name
+                                var icon: NSImage? = nil
+                                
                                 if let app = NSRunningApplication(processIdentifier: pid), let localized = app.localizedName, !localized.isEmpty {
                                     name = localized
+                                    icon = app.icon
+                                    if name.contains("Safari") && (icon == nil || name == "Safari Web Content") {
+                                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+                                            icon = NSWorkspace.shared.icon(forFile: url.path)
+                                        }
+                                    }
                                 } else {
                                     // Fallback text replacements for common technical names
                                     if name.hasPrefix("com.apple.WebKit.") {
                                         name = name.replacingOccurrences(of: "com.apple.WebKit.", with: "Safari ")
+                                        // Spróbujmy znaleźć Safari
+                                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+                                            icon = NSWorkspace.shared.icon(forFile: url.path)
+                                        }
                                     } else if name.hasPrefix("com.apple.") {
                                         name = name.replacingOccurrences(of: "com.apple.", with: "Apple ")
+                                        icon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
+                                    } else if name == "kernel_task" || name == "WindowServer" || name == "launchd" {
+                                        icon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
+                                    } else {
+                                        icon = NSImage(systemSymbolName: "terminal.fill", accessibilityDescription: nil)
                                     }
                                 }
                                 
-                                processes.append((name: name, ramGB: gb))
+                                processes.append((name: name, ramGB: gb, icon: icon))
                             }
                         }
                     }

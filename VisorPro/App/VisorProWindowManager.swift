@@ -221,6 +221,8 @@ class VisorProWindowManager: ObservableObject {
         
         let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if manager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
+        let cpuPos = MediaKeyManager.shared.getOverlayPosition(for: "cpuOverlayPosition")
+        if manager.showCpuIndicator { active.append(ActiveOverlay(id: "cpu", type: .cpu, position: cpuPos, notification: nil)) }
         
         let accBatPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
         if manager.showAccessoryBatteryIndicator {
@@ -463,11 +465,8 @@ class VisorProWindowManager: ObservableObject {
                         panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
                         panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
                     }, completionHandler: {
-                        Task { @MainActor in
-                            if self.isWindowUnderMouse(for: overlay.id) {
-                                MediaKeyManager.shared.keepAlive(for: overlay.id, isHovering: true)
-                            }
-                        }
+                        // Usunięto manualne isWindowUnderMouse. 
+                        // TrackingNSView (onHoverExact) automatycznie sprawdzi pozycję myszy po animacji.
                     })
                 } else if !MediaKeyManager.shared.isDisplayTransitioning {
                     let isRescued = rescuedPanels.contains(windowId)
@@ -714,6 +713,7 @@ struct SingleOverlayContainer: View {
         case .fan: FanOverlayView()
         case .ram: RamOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
+        case .cpu: CpuTemperatureOverlayView(isPreview: false)
         }
     }
 }
@@ -752,16 +752,15 @@ struct ScrollSwipeModifier: ViewModifier {
         guard enableSwipeToDismiss else { return }
         guard !isDismissing else { return }
         
-        var isHovered = mediaKeyManager.globalHoveredTypes.contains(overlayId) ||
-                        (overlayId.hasPrefix("ram") && mediaKeyManager.globalHoveredTypes.contains("ram")) ||
-                        (overlayId.hasPrefix("fan") && mediaKeyManager.globalHoveredTypes.contains("fan")) ||
-                        (overlayId.hasPrefix("bluetooth") && mediaKeyManager.globalHoveredTypes.contains("bluetooth")) ||
-                        (overlayId.hasPrefix("peripheral") && mediaKeyManager.globalHoveredTypes.contains("peripheral")) ||
-                        (overlayId.hasPrefix("display") && mediaKeyManager.globalHoveredTypes.contains("display"))
+        var isHovered = mediaKeyManager.actualHoveredTypes.contains(overlayId) ||
+                        (overlayId.hasPrefix("ram") && mediaKeyManager.actualHoveredTypes.contains("ram")) ||
+                        (overlayId.hasPrefix("fan") && mediaKeyManager.actualHoveredTypes.contains("fan")) ||
+                        (overlayId.hasPrefix("bluetooth") && mediaKeyManager.actualHoveredTypes.contains("bluetooth")) ||
+                        (overlayId.hasPrefix("peripheral") && mediaKeyManager.actualHoveredTypes.contains("peripheral")) ||
+                        (overlayId.hasPrefix("display") && mediaKeyManager.actualHoveredTypes.contains("display"))
         
-        if !isHovered {
-            isHovered = VisorProWindowManager.shared.isWindowUnderMouse(for: overlayId)
-        }
+        // Polegamy wyłącznie na precyzyjnym systemie onHoverExact z UniversalOverlayView
+        // który śledzi idealnie krawędzie interfejsu (globalHoveredTypes), ignorując ukryte pole NSWindow.
         var isCurrentlySwiping = mediaKeyManager.activeSwipeIds.contains(overlayId)
         
         let phase = event.phase
@@ -772,6 +771,7 @@ struct ScrollSwipeModifier: ViewModifier {
             isCurrentlySwiping = false
         }
         
+
         guard isHovered || isCurrentlySwiping else { return }
         
         let rawDelta = event.scrollingDeltaY

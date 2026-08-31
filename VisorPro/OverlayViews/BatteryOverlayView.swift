@@ -165,7 +165,22 @@ struct BatteryOverlayView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
                     
-                    if isWarningMode && !mediaKeyManager.topBatteryConsumers.isEmpty {
+                    let getIcon = { (name: String) -> NSImage? in
+                        if let path = NSWorkspace.shared.perform(NSSelectorFromString("fullPathForApplication:"), with: name)?.takeUnretainedValue() as? String {
+                            return NSWorkspace.shared.icon(forFile: path)
+                        }
+                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: name) {
+                            return NSWorkspace.shared.icon(forFile: url.path)
+                        }
+                        return nil
+                    }
+                    let consumers: [(name: String, power: String, icon: NSImage?)] = isPreview ? [
+                        ("Final Cut Pro", "45.2", NSImage(named: "PreviewFinalCut")),
+                        ("Xcode", "32.5", NSImage(named: "PreviewXcode")),
+                        ("WindowServer", "18.1", NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil))
+                    ] : mediaKeyManager.topBatteryConsumers
+
+                    if (isWarningMode || isPreview) && !consumers.isEmpty {
                         Divider()
                             .padding(.horizontal, 20)
                         
@@ -174,8 +189,8 @@ struct BatteryOverlayView: View {
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
                             
-                            ForEach(0..<mediaKeyManager.topBatteryConsumers.count, id: \.self) { i in
-                                let consumer = mediaKeyManager.topBatteryConsumers[i]
+                            ForEach(0..<consumers.count, id: \.self) { i in
+                                let consumer = consumers[i]
                                 HStack {
                                     HStack(spacing: 8) {
                                         if let nsImage = consumer.icon {

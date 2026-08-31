@@ -63,8 +63,8 @@ class TrackingNSView: NSView {
         
         let options: NSTrackingArea.Options = [
             .mouseEnteredAndExited,
-            .activeAlways,
-            .inVisibleRect
+            .activeAlways
+            // removed .inVisibleRect to avoid SwiftUI layer-backed bugs
         ]
         
         let area = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)

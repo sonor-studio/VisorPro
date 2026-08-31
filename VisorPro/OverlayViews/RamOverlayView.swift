@@ -1,24 +1,31 @@
 import SwiftUI
 
 struct RamOverlayView: View {
-    @State private var isHovering: Bool = false
     @State private var isExpanded: Bool = false
-    @AppStorage("ramOverlayPosition") private var ramOverlayPosition: String = "bottom"
-    
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     var isPreview: Bool = false
     
     var body: some View {
+        let ramOverlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         let percent = isPreview ? 95.0 : mediaKeyManager.ramUsagePercent
         let used = isPreview ? 15.2 : mediaKeyManager.usedRamGB
         let total = isPreview ? 16.0 : mediaKeyManager.totalRamGB
         let history = isPreview ? [62.0, 65.0, 68.0, 72.0, 70.0, 75.0, 78.0, 82.0, 80.0, 85.0, 88.0, 91.0, 89.0, 93.0, 95.0, 95.0] : mediaKeyManager.ramUsageHistory
-        let processes = isPreview ? [
-            ("Google Chrome", 2.5),
-            ("Xcode", 1.8),
-            ("WindowServer", 0.9),
-            ("Docker", 0.5),
-            ("Terminal", 0.2)
+        let getIcon = { (name: String) -> NSImage? in
+            if let path = NSWorkspace.shared.perform(NSSelectorFromString("fullPathForApplication:"), with: name)?.takeUnretainedValue() as? String {
+                return NSWorkspace.shared.icon(forFile: path)
+            }
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: name) {
+                return NSWorkspace.shared.icon(forFile: url.path)
+            }
+            return nil
+        }
+        let processes: [(name: String, ramGB: Double, icon: NSImage?)] = isPreview ? [
+            ("DaVinci Resolve", 2.5, NSImage(named: "PreviewResolve")),
+            ("Adobe Photoshop", 1.8, NSImage(named: "PreviewPhotoshop")),
+            ("Safari", 0.9, getIcon("com.apple.Safari")),
+            ("Microsoft Word", 0.5, NSImage(named: "PreviewWord")),
+            ("Terminal", 0.2, getIcon("com.apple.Terminal"))
         ] : mediaKeyManager.ramTopProcesses
         
         let trackWidth: CGFloat = 260 - 8
@@ -32,7 +39,7 @@ struct RamOverlayView: View {
             showProgressBar: true,
             progress: percent / 100.0,
             customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering || isExpanded || mediaKeyManager.globalHoveredTypes.contains("ram"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
+                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || mediaKeyManager.globalHoveredTypes.contains("ram"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
                     .id(mediaKeyManager.ramEventId)
             ),
             barColor: barColor,
@@ -81,8 +88,8 @@ struct RamOverlayView: View {
             expandedContent: {
                 VStack(spacing: 8) {
                     // RAM usage history chart
-                    RamChartView(history: history, color: chartColor)
-                        .frame(height: 35)
+                    RamChartView(history: history, color: chartColor, unit: "%", timeLabel: "-1m")
+                        .frame(height: 55)
                         .padding(.horizontal, 16)
                         .padding(.top, 4)
                         .padding(.bottom, 4)
@@ -93,6 +100,12 @@ struct RamOverlayView: View {
                         
                     ForEach(Array(processes.enumerated()), id: \.offset) { index, process in
                         HStack {
+                            if let icon = process.2 {
+                                Image(nsImage: icon)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 14, height: 14)
+                            }
                             Text(process.0)
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(.primary)
@@ -109,11 +122,5 @@ struct RamOverlayView: View {
                 .padding(.vertical, 8)
             }
         )
-        .onHover { hover in
-            isHovering = hover
-            if !isPreview {
-                mediaKeyManager.keepAlive(for: "ram", isHovering: hover)
-            }
-        }
     }
 }

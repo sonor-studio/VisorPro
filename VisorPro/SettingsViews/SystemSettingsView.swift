@@ -6,6 +6,7 @@ struct SystemSettingsView: View {
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("fanOverlayPosition") private var fanOverlayPosition: String = "top"
     @AppStorage("ramOverlayPosition") private var ramOverlayPosition: String = "top"
+    @AppStorage("cpuOverlayPosition") private var cpuOverlayPosition: String = "top"
     
     var body: some View {
         ScrollView {
@@ -35,7 +36,7 @@ struct SystemSettingsView: View {
                             
                             VStack(spacing: 20) {
                                 HStack(spacing: 20) {
-                                    FanOverlayView(isPreview: true, previewIsRunning: true).applyTheme(mediaKeyManager.overlayTheme)
+                                    CpuTemperatureOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
                                         .scaleEffect(0.85)
                                     RamOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
                                         .scaleEffect(0.85)
@@ -68,15 +69,21 @@ struct SystemSettingsView: View {
                         
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "fanblades", iconColor: .cyan, title: "Fan Started", subtitle: "Show overlay when fan starts running") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyOnFanStart { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnFanStart) }
-Toggle("", isOn: $mediaKeyManager.notifyOnFanStart).labelsHidden() }
-                           
+                                HStack(spacing: 8) {
+                                    if mediaKeyManager.notifyOnFanStart {
+                                        SoundPickerControl(selectedSound: $mediaKeyManager.soundOnFanStart)
+                                    }
+                                    Toggle("", isOn: $mediaKeyManager.notifyOnFanStart).labelsHidden()
+                                }
                             }
                             Divider().padding(.leading, 48)
                             CustomSettingsRow(icon: "fanblades", iconColor: .gray, title: "Fan Stopped", subtitle: "Show overlay when fan stops running") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyOnFanStop { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnFanStop) }
-Toggle("", isOn: $mediaKeyManager.notifyOnFanStop).labelsHidden() }
-                           
+                                HStack(spacing: 8) {
+                                    if mediaKeyManager.notifyOnFanStop {
+                                        SoundPickerControl(selectedSound: $mediaKeyManager.soundOnFanStop)
+                                    }
+                                    Toggle("", isOn: $mediaKeyManager.notifyOnFanStop).labelsHidden()
+                                }
                             }
                         }
                         .toggleStyle(.switch)
@@ -103,6 +110,70 @@ Toggle("", isOn: $mediaKeyManager.notifyOnFanStop).labelsHidden() }
                         .padding(.horizontal)
                         Divider()
                         
+                        Text("CPU Alert")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 10)
+                            .padding(.bottom, 4)
+                            
+                        Text("Overlay Triggers")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 20)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "thermometer", iconColor: .orange, title: "High CPU Temp", subtitle: "Show overlay when CPU temperature is high") {
+                                HStack(spacing: 8) {
+                                    if mediaKeyManager.notifyOnHighCpuTemp {
+                                        SoundPickerControl(selectedSound: $mediaKeyManager.soundOnHighCpuTemp)
+                                    }
+                                    Toggle("", isOn: $mediaKeyManager.notifyOnHighCpuTemp).labelsHidden()
+                                }
+                            }
+                            if mediaKeyManager.notifyOnHighCpuTemp {
+                                Divider().padding(.leading, 48)
+                                HStack {
+                                    Text("Threshold")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Slider(value: $mediaKeyManager.highCpuTempThreshold, in: 60...100, step: 5)
+                                        .frame(width: 150)
+                                    Text("\(Int(mediaKeyManager.highCpuTempThreshold))°C")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 45, alignment: .trailing)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                        .padding(.horizontal)
+                        
+                        Group {
+                            if overlayPositionMode == "custom" {
+                            Text("CPU Overlay Position")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                                .padding(.bottom, 4)
+                                .padding(.leading, 20)
+                            
+                            PositionPickerGroup(selection: $cpuOverlayPosition)
+                            }
+                        }
+                        .padding(.horizontal)
+                        Divider()
+                        
                         Text("RAM Alert")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.primary)
@@ -123,10 +194,14 @@ Toggle("", isOn: $mediaKeyManager.notifyOnFanStop).labelsHidden() }
                         
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "memorychip", iconColor: .red, title: "High RAM Usage", subtitle: "Show overlay when RAM usage is high") {
-                                Toggle("", isOn: $mediaKeyManager.notifyOnHighRam).labelsHidden()
+                                HStack(spacing: 8) {
+                                    if mediaKeyManager.notifyOnHighRam {
+                                        SoundPickerControl(selectedSound: $mediaKeyManager.soundOnHighRam)
+                                    }
+                                    Toggle("", isOn: $mediaKeyManager.notifyOnHighRam).labelsHidden()
+                                }
                             }
                             if mediaKeyManager.notifyOnHighRam {
-                                SoundPickerRow(selectedSound: $mediaKeyManager.soundOnHighRam)
                                 Divider().padding(.leading, 48)
                                 HStack {
                                     Text("Threshold")
