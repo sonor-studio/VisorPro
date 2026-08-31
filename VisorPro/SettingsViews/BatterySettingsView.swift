@@ -266,6 +266,39 @@ Toggle("", isOn: $mediaKeyManager.notifyOn100Percent).labelsHidden() }
                             .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                     )
                     
+                    if mediaKeyManager.enableAccessoryBattery {
+                        Text("Triggers")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "battery.25", iconColor: .green, title: "Battery drops to 20%", subtitle: "Show low battery warning") {
+                                HStack(spacing: 8) { if mediaKeyManager.accessoryNotifyOn20Percent { SoundPickerControl(selectedSound: $mediaKeyManager.accessorySoundOn20Percent) }
+                                    Toggle("", isOn: $mediaKeyManager.accessoryNotifyOn20Percent).labelsHidden() }
+                            }
+                            Divider().padding(.leading, 48)
+                            CustomSettingsRow(icon: "battery.0", iconColor: .green, title: "Battery drops to 10%", subtitle: "Show critical battery warning") {
+                                HStack(spacing: 8) { if mediaKeyManager.accessoryNotifyOn10Percent { SoundPickerControl(selectedSound: $mediaKeyManager.accessorySoundOn10Percent) }
+                                    Toggle("", isOn: $mediaKeyManager.accessoryNotifyOn10Percent).labelsHidden() }
+                            }
+                            Divider().padding(.leading, 48)
+                            CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged to 100%", subtitle: "Show when reaching full charge") {
+                                HStack(spacing: 8) { if mediaKeyManager.accessoryNotifyOn100Percent { SoundPickerControl(selectedSound: $mediaKeyManager.accessorySoundOn100Percent) }
+                                    Toggle("", isOn: $mediaKeyManager.accessoryNotifyOn100Percent).labelsHidden() }
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    
                     if !mediaKeyManager.accessoryBatteryHistory.isEmpty && mediaKeyManager.enableAccessoryBattery {
                         let allGroups = groupAccessoryDevices(mediaKeyManager.accessoryBatteryHistory)
                         let displayedGroups = isAccessoryHistoryExpanded ? allGroups : Array(allGroups.prefix(3))

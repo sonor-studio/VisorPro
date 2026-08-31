@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		FA8D16FA3045E22A0040670D /* SMCKit in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D16F93045E22A0040670D /* SMCKit */; };
+		FA8D1711304634CE0040670D /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D1710304634CE0040670D /* TelemetryDeck */; };
+		FA8D18263046353E0040670D /* TelemetryClient in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D18253046353E0040670D /* TelemetryClient */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +59,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				FA8D16FA3045E22A0040670D /* SMCKit in Frameworks */,
+				FA8D18263046353E0040670D /* TelemetryClient in Frameworks */,
+				FA8D1711304634CE0040670D /* TelemetryDeck in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -100,6 +104,7 @@
 				FA01FF84300BB56700235EBF /* Products */,
 				3F5E4CA3A9F978AA0D94AB3B /* Managers */,
 				CD924805BD9B6661AD782CC5 /* Resources */,
+				FA8D18243046353E0040670D /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -111,6 +116,13 @@
 				FA01FF9A300BB56900235EBF /* VisorProUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		FA8D18243046353E0040670D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -212,6 +224,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				FA8D16F83045E22A0040670D /* XCRemoteSwiftPackageReference "SMCKit" */,
+				FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FA01FF84300BB56700235EBF /* Products */;
@@ -414,10 +427,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = NO;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B8R3X8NN3X;
+				DEVELOPMENT_TEAM = 6F78X5RA6P;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -468,10 +482,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = NO;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B8R3X8NN3X;
+				DEVELOPMENT_TEAM = 6F78X5RA6P;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
@@ -645,6 +660,14 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TelemetryDeck/SwiftClient";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.14.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -652,6 +675,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = FA8D16F83045E22A0040670D /* XCRemoteSwiftPackageReference "SMCKit" */;
 			productName = SMCKit;
+		};
+		FA8D1710304634CE0040670D /* TelemetryDeck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */;
+			productName = TelemetryDeck;
+		};
+		FA8D18253046353E0040670D /* TelemetryClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */;
+			productName = TelemetryClient;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

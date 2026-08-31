@@ -40,7 +40,7 @@ struct PrivacySettingsView: View {
                             
                             VStack {
                                 Spacer()
-                                HStack(spacing: -10) {
+                                HStack(spacing: 20) {
                                     MicOverlayView(isPreview: true, previewIsActive: true).applyTheme(mediaKeyManager.overlayTheme)
                                         .scaleEffect(0.85)
                                     

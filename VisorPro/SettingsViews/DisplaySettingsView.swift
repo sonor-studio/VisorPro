@@ -32,7 +32,7 @@ struct DisplaySettingsView: View {
                         ZStack {
                             PreviewBackgroundView()
                             
-                            HStack(spacing: -10) {
+                            HStack(spacing: 20) {
                                 DisplayOverlayView(isPreview: true, previewIsConnected: true).applyTheme(mediaKeyManager.overlayTheme)
                                     .scaleEffect(0.85)
                                 DisplayOverlayView(isPreview: true, previewIsConnected: false).applyTheme(mediaKeyManager.overlayTheme)

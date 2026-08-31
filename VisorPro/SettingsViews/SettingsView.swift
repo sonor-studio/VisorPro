@@ -21,6 +21,7 @@ struct SettingsView: View {
         case display
         case feedback
         case macSystem
+        case about
     }
     
     @State private var selection: SidebarItem? = .general
@@ -130,6 +131,15 @@ struct SettingsView: View {
                         }
                     .tag(SidebarItem.macSystem)
                 }
+                
+                Section("Information") {
+                    Label {
+                        Text("About")
+                    } icon: {
+                        SidebarIcon(systemName: "info.circle.fill", color: .gray)
+                    }
+                    .tag(SidebarItem.about)
+                }
             }
             .listStyle(.sidebar)
             .frame(minWidth: 150, idealWidth: 180, maxWidth: 210)
@@ -170,6 +180,8 @@ struct SettingsView: View {
                     FeedbackSettingsView()
                 case .macSystem:
                     SystemSettingsView()
+                case .about:
+                    AboutSettingsView()
                 case .none:
                     Text("Select an item")
                         .font(.title)

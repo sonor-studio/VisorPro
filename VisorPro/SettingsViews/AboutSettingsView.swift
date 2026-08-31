@@ -1,0 +1,100 @@
+import SwiftUI
+import AppKit
+
+struct AboutSettingsView: View {
+    @Environment(\.colorScheme) var colorScheme
+    
+    let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    
+    var body: some View {
+        Form {
+            Section {
+                VStack(spacing: 12) {
+                    if let appIcon = NSImage(named: NSImage.applicationIconName) {
+                        Image(nsImage: appIcon)
+                            .resizable()
+                            .frame(width: 64, height: 64)
+                            .cornerRadius(14)
+                            .shadow(color: Color.black.opacity(0.1), radius: 3, y: 1)
+                    } else {
+                        Image(systemName: "app.fill")
+                            .resizable()
+                            .frame(width: 64, height: 64)
+                            .foregroundColor(.blue)
+                    }
+                    
+                    VStack(spacing: 4) {
+                        Text("VisorPro")
+                            .font(.system(size: 20, weight: .bold))
+                        
+                        Text("Version \(appVersion) • By Sonor Studio")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Text("VisorPro is an innovative tool for managing trackers and the system on macOS. Quick access, convenience, and full control over your device in one place.")
+                        .font(.system(size: 13))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 4)
+                        .foregroundColor(.primary.opacity(0.8))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            }
+            
+            Section {
+                LinkRow(icon: "cup.and.saucer.fill", title: "Buy Coffee", url: "https://buymeacoffee.com/sonorstudio")
+                LinkRow(icon: "chevron.left.forwardslash.chevron.right", title: "Open GitHub", url: "https://github.com/sonor-studio/VisorPro")
+            }
+            
+            Section {
+                LinkRow(icon: "lock.shield.fill", title: "Privacy Policy", url: "https://github.com/sonor-studio/VisorPro/blob/main/PRIVACY_POLICY.md")
+                LinkRow(icon: "doc.text.fill", title: "License", url: "https://github.com/sonor-studio/VisorPro/blob/main/LICENSE.txt")
+                LinkRow(icon: "checkmark.shield.fill", title: "Security Policy", url: "https://github.com/sonor-studio/VisorPro/blob/main/SECURITY.md")
+            }
+            
+            Section {
+                Text("© 2026 Sonor Studio. All rights reserved.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .listRowBackground(Color.clear)
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .navigationTitle("About")
+    }
+}
+
+struct LinkRow: View {
+    let icon: String
+    let title: String
+    let url: String
+    
+    var body: some View {
+        Button(action: {
+            if let parsedUrl = URL(string: url) {
+                NSWorkspace.shared.open(parsedUrl)
+            }
+        }) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundColor(.secondary)
+                    .frame(width: 16)
+                    .font(.system(size: 14))
+                Text(title)
+                    .foregroundColor(.primary)
+                    .font(.system(size: 13, weight: .medium))
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 10))
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}

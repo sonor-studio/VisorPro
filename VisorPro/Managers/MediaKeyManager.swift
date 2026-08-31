@@ -681,6 +681,27 @@ class MediaKeyManager: ObservableObject {
     @Published var accessoryBatteryBlocklist: [String] = (UserDefaults.standard.array(forKey: "accessoryBatteryBlocklist") as? [String]) ?? [] {
         didSet { UserDefaults.standard.set(accessoryBatteryBlocklist, forKey: "accessoryBatteryBlocklist") }
     }
+    
+    // Accessory Triggers
+    @Published var accessoryNotifyOn100Percent: Bool = UserDefaults.standard.object(forKey: "accessoryNotifyOn100Percent") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(accessoryNotifyOn100Percent, forKey: "accessoryNotifyOn100Percent") }
+    }
+    @Published var accessorySoundOn100Percent: String = UserDefaults.standard.string(forKey: "accessorySoundOn100Percent") ?? "None" {
+        didSet { UserDefaults.standard.set(accessorySoundOn100Percent, forKey: "accessorySoundOn100Percent") }
+    }
+    @Published var accessoryNotifyOn20Percent: Bool = UserDefaults.standard.object(forKey: "accessoryNotifyOn20Percent") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(accessoryNotifyOn20Percent, forKey: "accessoryNotifyOn20Percent") }
+    }
+    @Published var accessorySoundOn20Percent: String = UserDefaults.standard.string(forKey: "accessorySoundOn20Percent") ?? "None" {
+        didSet { UserDefaults.standard.set(accessorySoundOn20Percent, forKey: "accessorySoundOn20Percent") }
+    }
+    @Published var accessoryNotifyOn10Percent: Bool = UserDefaults.standard.object(forKey: "accessoryNotifyOn10Percent") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(accessoryNotifyOn10Percent, forKey: "accessoryNotifyOn10Percent") }
+    }
+    @Published var accessorySoundOn10Percent: String = UserDefaults.standard.string(forKey: "accessorySoundOn10Percent") ?? "None" {
+        didSet { UserDefaults.standard.set(accessorySoundOn10Percent, forKey: "accessorySoundOn10Percent") }
+    }
+    
     @Published var showAccessoryBatteryIndicator: Bool = false
     @Published var accessoryBatteryDeviceName: String = ""
     @Published var accessoryBatteryPercentage: Int = 100
@@ -1681,14 +1702,21 @@ class MediaKeyManager: ObservableObject {
             self.accessoryBatteryIsPluggedIn = isPluggedIn
             self.accessoryBatteryIsWarning = isWarning
             
+            if percentage == 100 {
+                self.playNotificationSound(named: self.accessorySoundOn100Percent)
+            } else if percentage <= 10 {
+                self.playNotificationSound(named: self.accessorySoundOn10Percent)
+            } else if percentage <= 20 {
+                self.playNotificationSound(named: self.accessorySoundOn20Percent)
+            }
+            
             self.accessoryBatteryTimer?.invalidate()
             let pos = self.getOverlayPosition(for: "batteryOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "accessoryBattery")
             withAnimation(.easeInOut(duration: 0.15)) {
-
-            
-            self.accessoryBatteryEventId = UUID()
-                self.showAccessoryBatteryIndicator = true; self.overlayTriggerTimes["accessoryBattery"] = Date()
+                self.accessoryBatteryEventId = UUID()
+                self.showAccessoryBatteryIndicator = true
+                self.overlayTriggerTimes["accessoryBattery"] = Date()
             }
             
             let displayTime: TimeInterval = isWarning ? 4.5 : 3.5

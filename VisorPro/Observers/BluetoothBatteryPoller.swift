@@ -185,9 +185,9 @@ class BluetoothBatteryPoller {
                 if justDroppedTo20 || justDroppedTo10 || justHit100 {
                     let isWarning = justDroppedTo20 || justDroppedTo10
                     
-                    if (justDroppedTo20 && self.manager?.notifyOn20Percent == true) ||
-                       (justDroppedTo10 && self.manager?.notifyOn10Percent == true) ||
-                       (justHit100 && self.manager?.notifyOn100Percent == true) {
+                    if (justDroppedTo20 && self.manager?.accessoryNotifyOn20Percent == true) ||
+                       (justDroppedTo10 && self.manager?.accessoryNotifyOn10Percent == true) ||
+                       (justHit100 && self.manager?.accessoryNotifyOn100Percent == true) {
                         
                         self.manager?.triggerAccessoryBatteryIndicator(deviceName: name, percentage: battery, isPluggedIn: isPluggedIn, isWarning: isWarning)
                     }

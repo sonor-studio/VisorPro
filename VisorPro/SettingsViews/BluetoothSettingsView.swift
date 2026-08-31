@@ -32,7 +32,7 @@ struct BluetoothSettingsView: View {
                     ZStack {
                         PreviewBackgroundView()
                         
-                        HStack(spacing: -10) {
+                        HStack(spacing: 20) {
                             BluetoothOverlayView(isPreview: true, previewIsConnected: true, previewDeviceName: "AirPods Pro").applyTheme(mediaKeyManager.overlayTheme)
                                 .scaleEffect(0.85)
                             

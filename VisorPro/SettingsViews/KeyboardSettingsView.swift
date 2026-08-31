@@ -37,7 +37,7 @@ struct KeyboardSettingsView: View {
                         ZStack {
                             PreviewBackgroundView()
                             
-                            HStack(spacing: -10) {
+                            HStack(spacing: 20) {
                             CopyOverlayView(isPreview: true, previewAction: "copy").applyTheme(mediaKeyManager.overlayTheme)
                                 .scaleEffect(0.85)
                             

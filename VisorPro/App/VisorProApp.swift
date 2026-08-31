@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 import ApplicationServices
 import Carbon
+import TelemetryClient
 
 @main
 struct VisorProApp: App {
@@ -78,12 +79,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         
+        let configuration = TelemetryManagerConfiguration(appID: "F983579F-8CAB-4235-B6FE-B6CE1CE3119A")
+        TelemetryDeck.initialize(config: configuration)
+        TelemetryDeck.signal("appLaunched")
+        
+        
         let mainMenu = NSMenu()
         let appMenuItem = NSMenuItem()
         mainMenu.addItem(appMenuItem)
         let appMenu = NSMenu()
         appMenuItem.submenu = appMenu
         appMenu.addItem(withTitle: "Settings...", action: Selector(("showSettingsWindow:")), keyEquivalent: ",")
+        appMenu.addItem(NSMenuItem.separator())
+        appMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        appMenu.addItem(NSMenuItem.separator())
+        appMenu.addItem(withTitle: "Quit VisorPro", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         NSApp.mainMenu = mainMenu
         
         let _ = MediaKeyManager.shared

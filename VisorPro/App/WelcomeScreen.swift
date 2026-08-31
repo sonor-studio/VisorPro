@@ -7,6 +7,7 @@ struct WelcomeScreen: View {
     @State private var currentTab = UserDefaults.standard.bool(forKey: "hasCompletedWelcome") ? 4 : 0
     @State private var isTrusted = AXIsProcessTrusted()
     @State private var goForward: Bool = true
+    @Environment(\.dismiss) private var dismiss
     
     let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
 
@@ -400,6 +401,7 @@ struct WelcomeScreen: View {
                 
                 Button(action: {
                     hasCompletedWelcome = true
+                    dismiss()
                 }) {
                     Text("Finish")
                         .font(.headline)
