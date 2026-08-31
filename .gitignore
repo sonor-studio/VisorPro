@@ -23,6 +23,7 @@ DerivedData
 # Skrypty i logi pomocnicze
 *.py
 *.txt
+!LICENSE.txt
 *.patch
 
 # Skrypty testowe w głównym katalogu
