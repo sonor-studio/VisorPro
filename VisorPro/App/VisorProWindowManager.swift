@@ -222,6 +222,11 @@ class VisorProWindowManager: ObservableObject {
         let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if manager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
         
+        let accBatPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
+        if manager.showAccessoryBatteryIndicator {
+            active.append(ActiveOverlay(id: "accessoryBattery", type: .accessoryBattery, position: accBatPos, notification: nil))
+        }
+        
         let limit = max(1, manager.maxSimultaneousNotifications)
         
         let now = Date()
@@ -546,7 +551,15 @@ class VisorProWindowManager: ObservableObject {
         
         var hitPanels: [(key: String, panel: NSWindow)] = []
         for (key, panel) in windows {
-            if panel.frame.contains(mouseLoc) {
+            // Inset by container padding (.top 10, .bottom 15, .horizontal 12) so hit area matches the visible overlay
+            let insetFrame = panel.frame.insetBy(dx: 12, dy: 0)
+            let visibleFrame = NSRect(
+                x: insetFrame.origin.x,
+                y: insetFrame.origin.y + 15,
+                width: insetFrame.width,
+                height: insetFrame.height - 25  // 10 top + 15 bottom
+            )
+            if visibleFrame.contains(mouseLoc) {
                 hitPanels.append((key, panel))
             }
         }
@@ -700,6 +713,7 @@ struct SingleOverlayContainer: View {
         case .display: DisplayOverlayView(notification: overlay.notification)
         case .fan: FanOverlayView()
         case .ram: RamOverlayView()
+        case .accessoryBattery: AccessoryBatteryOverlayView()
         }
     }
 }

@@ -5,6 +5,7 @@ struct TimeoutProgressBar: View {
     let isHovering: Bool
     let initialDuration: Double
     let hoverOutDuration: Double
+    var isPreview: Bool = false
     
     @State private var animatedProgress: CGFloat = 1.0
     @State private var currentHoveringState: Bool = false
@@ -13,6 +14,7 @@ struct TimeoutProgressBar: View {
         Rectangle()
             .modifier(TimeoutProgressBarModifier(progress: animatedProgress, trackWidth: trackWidth))
             .onChange(of: isHovering) { _, hovering in
+                if isPreview { return }
                 currentHoveringState = hovering
                 let outDuration = max(0.1, hoverOutDuration - 0.2)
                 withAnimation(hovering ? .easeOut(duration: 0.2) : .linear(duration: outDuration)) {
@@ -27,6 +29,8 @@ struct TimeoutProgressBar: View {
                 withTransaction(transaction) {
                     animatedProgress = 1.0
                 }
+                
+                if isPreview { return }
                 
                 if !isHovering {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {

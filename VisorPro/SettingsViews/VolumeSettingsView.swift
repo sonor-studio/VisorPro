@@ -7,6 +7,7 @@ struct VolumeSettingsView: View {
     @AppStorage("volumeFillCenter") private var volumeFillCenter: Bool = false
     @AppStorage("volumeAllowExpansion") private var volumeAllowExpansion: Bool = true
     @AppStorage("volumeAllowInteractivity") private var volumeAllowInteractivity: Bool = true
+    @AppStorage("volumeStep") private var volumeStep: Double = 6.0
     
     var body: some View {
         ScrollView {
@@ -101,6 +102,19 @@ struct VolumeSettingsView: View {
                         
                         CustomSettingsRow(icon: "hand.tap.fill", iconColor: .blue, title: "Allow Interactivity", subtitle: "Allow dragging to change volume and tapping to mute") {
                             Toggle("", isOn: $volumeAllowInteractivity).labelsHidden()
+                        }
+                        
+                        Divider().padding(.leading, 40)
+                        
+                        CustomSettingsRow(icon: "plus.forwardslash.minus", iconColor: .blue, title: "Step Size", subtitle: "Percentage to change when pressing keys") {
+                            HStack {
+                                Slider(value: $volumeStep, in: 1...25, step: 1)
+                                .labelsHidden()
+                                .frame(width: 150)
+                                
+                                Text(String(format: "%.1f%%", volumeStep))
+                                    .frame(width: 50, alignment: .trailing)
+                            }
                         }
                     }
                     .toggleStyle(.switch)

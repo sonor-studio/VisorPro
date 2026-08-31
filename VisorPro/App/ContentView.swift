@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
-        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, location, wifi, peripheral, display, fan, ram
+        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, location, wifi, peripheral, display, fan, ram, accessoryBattery
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -83,6 +83,10 @@ struct ContentView: View {
         
         let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if mediaKeyManager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
+        
+        if mediaKeyManager.showAccessoryBatteryIndicator {
+            active.append(ActiveOverlay(id: "accessoryBattery", type: .accessoryBattery, position: batteryOverlayPosition, notification: nil))
+        }
         
         let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)
         
@@ -252,6 +256,7 @@ struct ContentView: View {
         case .display: DisplayOverlayView(notification: overlay.notification)
         case .fan: FanOverlayView()
         case .ram: RamOverlayView()
+        case .accessoryBattery: AccessoryBatteryOverlayView()
         }
     }
     

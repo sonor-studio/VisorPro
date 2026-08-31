@@ -5,6 +5,7 @@ struct BrightnessSettingsView: View {
     @AppStorage("brightnessOverlayPosition") private var brightnessOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = false
+    @AppStorage("brightnessStep") private var brightnessStep: Double = 6.0
     
     var body: some View {
         ScrollView {
@@ -81,6 +82,34 @@ struct BrightnessSettingsView: View {
                     
                     Divider()
                 }
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Behavior")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 4)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        CustomSettingsRow(icon: "plus.forwardslash.minus", iconColor: .yellow, title: "Step Size", subtitle: "Percentage to change when pressing keys") {
+                            HStack {
+                                Slider(value: $brightnessStep, in: 1...25, step: 1)
+                                .labelsHidden()
+                                .frame(width: 150)
+                                
+                                Text(String(format: "%.1f%%", brightnessStep))
+                                    .frame(width: 50, alignment: .trailing)
+                            }
+                        }
+                    }
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
                 
                 Divider()
                 

@@ -74,7 +74,7 @@ struct CopyOverlayView: View {
             showProgressBar: true,
             progress: 1.0,
             customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || mediaKeyManager.globalHoveredTypes.contains("copy"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || mediaKeyManager.globalHoveredTypes.contains("copy"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
                     .id(mediaKeyManager.clipboardEventId)
             ),
             barColor: actionColor,

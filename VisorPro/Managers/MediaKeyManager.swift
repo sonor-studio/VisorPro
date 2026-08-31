@@ -1209,6 +1209,7 @@ class MediaKeyManager: ObservableObject {
             else if overlayId.hasPrefix("display") { activeDisplayNotifications.removeAll(where: { "display_\($0.id)" == overlayId }) }
             else if overlayId.hasPrefix("fan") { showFanIndicator = false }
             else if overlayId.hasPrefix("ram") { showRamIndicator = false }
+            else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
         }
     }
     
@@ -1681,7 +1682,7 @@ class MediaKeyManager: ObservableObject {
 
             
             self.accessoryBatteryEventId = UUID()
-                self.showAccessoryBatteryIndicator = true
+                self.showAccessoryBatteryIndicator = true; self.overlayTriggerTimes["accessoryBattery"] = Date()
             }
             
             let displayTime: TimeInterval = isWarning ? 4.5 : 3.5
@@ -2309,6 +2310,7 @@ class MediaKeyManager: ObservableObject {
         case "ram": hideRamIndicatorTask?.cancel(); hideRamIndicatorTask = nil
         case "fan": hideFanIndicatorTask?.cancel(); hideFanIndicatorTask = nil
         case "theme": themeTimer?.invalidate(); themeTimer = nil
+        case "accessoryBattery": accessoryBatteryTimer?.invalidate(); accessoryBatteryTimer = nil
         default: break
         }
     }

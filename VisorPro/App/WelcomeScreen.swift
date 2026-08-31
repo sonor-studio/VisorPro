@@ -4,27 +4,42 @@ import Combine
 
 struct WelcomeScreen: View {
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
-    @State private var currentTab = UserDefaults.standard.bool(forKey: "hasCompletedWelcome") ? 1 : 0
+    @State private var currentTab = UserDefaults.standard.bool(forKey: "hasCompletedWelcome") ? 4 : 0
     @State private var isTrusted = AXIsProcessTrusted()
+    @State private var goForward: Bool = true
     
     let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
 
     var body: some View {
+        let activeTransition = AnyTransition.asymmetric(
+            insertion: .move(edge: goForward ? .trailing : .leading).combined(with: .opacity),
+            removal: .move(edge: goForward ? .leading : .trailing).combined(with: .opacity)
+        )
+        
         ZStack {
             VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
                 .ignoresSafeArea()
             
             if currentTab == 0 {
                 firstScreen
-                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
+                    .transition(activeTransition)
+            } else if currentTab == 1 {
+                tutorialScreenOne
+                    .transition(activeTransition)
+            } else if currentTab == 2 {
+                tutorialScreenTwo
+                    .transition(activeTransition)
+            } else if currentTab == 3 {
+                tutorialScreenThree
+                    .transition(activeTransition)
             } else {
-                secondScreen
-                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .move(edge: .leading).combined(with: .opacity)))
+                permissionsScreen
+                    .transition(activeTransition)
             }
         }
-        .frame(width: 500, height: 420)
+        .frame(width: 500, height: 500)
         .onReceive(timer) { _ in
-            if currentTab == 1 && !isTrusted {
+            if currentTab == 4 && !isTrusted {
                 withAnimation(.spring()) {
                     isTrusted = AXIsProcessTrusted()
                 }
@@ -33,16 +48,18 @@ struct WelcomeScreen: View {
     }
     
     var firstScreen: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 12) {
+            Spacer(minLength: 0)
+            
             Image(nsImage: NSApplication.shared.applicationIconImage)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 80, height: 80)
+                .frame(width: 70, height: 70)
                 .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
             
-            VStack(spacing: 6) {
+            VStack(spacing: 4) {
                 Text("Welcome to VisorPro")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
                 
                 Text("A new dimension of OSD notifications for macOS.")
                     .font(.body)
@@ -51,15 +68,22 @@ struct WelcomeScreen: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 FeatureRow(icon: "bell.badge.fill", color: .blue, title: "Modern OSD", description: "Elegant notifications for volume, brightness, or battery status changes.")
                 FeatureRow(icon: "slider.horizontal.3", color: .purple, title: "Full Customization", description: "Enable and disable features in Settings according to your needs.")
+                FeatureRow(icon: "sparkles", color: .orange, title: "Native Experience", description: "Seamlessly integrates with macOS for a frictionless experience.")
             }
-            .padding(.horizontal, 40)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.secondary.opacity(0.1))
+            )
+            .padding(.horizontal, 10)
             
             Spacer(minLength: 16)
             
             Button(action: {
+                goForward = true
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                     currentTab = 1
                 }
@@ -76,16 +100,226 @@ struct WelcomeScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    var secondScreen: some View {
+    var tutorialScreenOne: some View {
         VStack(spacing: 12) {
+            Spacer(minLength: 0)
+            
             ZStack {
-                Circle()
-                    .fill(Color.orange.opacity(0.15))
-                    .frame(width: 70, height: 70)
-                Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 30))
-                    .foregroundColor(.orange)
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.blue)
+                    .frame(width: 56, height: 56)
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 26))
+                    .foregroundColor(.white)
             }
+            .padding(.bottom, 4)
+            
+            VStack(spacing: 6) {
+                Text("Expandable Overlays")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                
+                Text("Click on the overlay to expand it or perform an action. For example, clicking the speaker icon mutes the sound, while clicking the rest of the overlay expands it to show more options.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.bottom, 8)
+            
+            AnimatedTutorialOne()
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.secondary.opacity(0.1))
+                )
+            
+            Spacer(minLength: 16)
+            
+            HStack(spacing: 16) {
+                Button(action: {
+                    goForward = false
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 0
+                    }
+                }) {
+                    Text("Back")
+                        .font(.headline)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                
+                Button(action: {
+                    goForward = true
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 2
+                    }
+                }) {
+                    Text("Continue")
+                        .font(.headline)
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+        }
+        .padding(30)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    var tutorialScreenTwo: some View {
+        VStack(spacing: 12) {
+            Spacer(minLength: 0)
+            
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.purple)
+                    .frame(width: 56, height: 56)
+                Image(systemName: "arrow.left.and.right")
+                    .font(.system(size: 26))
+                    .foregroundColor(.white)
+            }
+            .padding(.bottom, 4)
+            
+            VStack(spacing: 6) {
+                Text("Smooth Control")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                
+                Text("Hold and drag anywhere on the overlay to smoothly adjust values, such as volume or brightness. It's an intuitive way to control your Mac directly from the notification.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.bottom, 8)
+            
+            AnimatedTutorialTwo()
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.secondary.opacity(0.1))
+                )
+            
+            Spacer(minLength: 16)
+            
+            HStack(spacing: 16) {
+                Button(action: {
+                    goForward = false
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 1
+                    }
+                }) {
+                    Text("Back")
+                        .font(.headline)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                
+                Button(action: {
+                    goForward = true
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 3
+                    }
+                }) {
+                    Text("Continue")
+                        .font(.headline)
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+        }
+        .padding(30)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    var tutorialScreenThree: some View {
+        VStack(spacing: 12) {
+            Spacer(minLength: 0)
+            
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.pink)
+                    .frame(width: 56, height: 56)
+                Image(systemName: "timer")
+                    .font(.system(size: 26))
+                    .foregroundColor(.white)
+            }
+            .padding(.bottom, 4)
+            
+            VStack(spacing: 6) {
+                Text("Timeout Indicators")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                
+                Text("Some overlays use their border as a timer to show when they will disappear. You can still interact with them before they vanish! Hovering over the overlay or expanding it will pause the timer.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.bottom, 8)
+            
+            AnimatedTutorialThree()
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.secondary.opacity(0.1))
+                )
+            
+            Spacer(minLength: 16)
+            
+            HStack(spacing: 16) {
+                Button(action: {
+                    goForward = false
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 2
+                    }
+                }) {
+                    Text("Back")
+                        .font(.headline)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                
+                Button(action: {
+                    goForward = true
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 4
+                    }
+                }) {
+                    Text("Continue")
+                        .font(.headline)
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+        }
+        .padding(30)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    var permissionsScreen: some View {
+        VStack(spacing: 12) {
+            Spacer(minLength: 0)
+            
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.orange)
+                    .frame(width: 56, height: 56)
+                Image(systemName: "hand.raised.fill")
+                    .font(.system(size: 26))
+                    .foregroundColor(.white)
+            }
+            .padding(.bottom, 4)
             
             VStack(spacing: 6) {
                 Text("Permissions Required")
@@ -105,6 +339,7 @@ struct WelcomeScreen: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 40)
             }
+            .padding(.bottom, 8)
             
             VStack(spacing: 10) {
                 if isTrusted {
@@ -150,8 +385,9 @@ struct WelcomeScreen: View {
             
             HStack(spacing: 16) {
                 Button(action: {
+                    goForward = false
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                        currentTab = 0
+                        currentTab = 3
                     }
                 }) {
                     Text("Back")
@@ -201,6 +437,294 @@ struct FeatureRow: View {
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+}
+
+struct MockDeviceRowView: View {
+    let name: String
+    let isCurrent: Bool
+    
+    var body: some View {
+        HStack {
+            Text(name)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.primary)
+                .lineLimit(1)
+            Spacer()
+            if isCurrent {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.blue)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.clear)
+        .contentShape(Rectangle())
+    }
+}
+
+struct AnimatedTutorialOne: View {
+    @State private var isExpanded = false
+    @State private var cursorOffset = CGSize(width: 50, height: 100)
+    @State private var cursorScale: CGFloat = 1.0
+
+    var body: some View {
+        ZStack {
+            UniversalOverlayView(
+                isPreview: true,
+                isExpanded: $isExpanded,
+                showProgressBar: true,
+                progress: 0.65,
+                barColor: .blue,
+                fillCenter: false,
+                isMuted: false,
+                supportDragGesture: false,
+                isExpandable: true,
+                expandUpwards: false,
+                disableTimeoutMode: true,
+                baseContent: {
+                    HStack(alignment: .center, spacing: 14) {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .frame(width: 26, height: 24)
+                        MarqueeText(text: "MacBook Pro Speakers", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                        Spacer(minLength: 8)
+                        AnimatablePercentageText(progress: 0.65, isTopTitle: true, color: .primary, isPluggedIn: false, customText: "%d%")
+                    }
+                    .padding(.horizontal, 23)
+                },
+                expandedContent: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        MockDeviceRowView(name: "MacBook Pro Speakers", isCurrent: true)
+                        MockDeviceRowView(name: "AirPods Pro", isCurrent: false)
+                    }
+                    .padding(.top, 2)
+                    .padding(.horizontal, 11)
+                }
+            )
+            .environmentObject(MediaKeyManager.shared)
+            .frame(width: 260)
+            .allowsHitTesting(false)
+
+            Image(nsImage: NSCursor.arrow.image)
+                .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
+                .scaleEffect(cursorScale, anchor: .topLeading)
+                .offset(cursorOffset)
+        }
+        .frame(maxWidth: .infinity, minHeight: 160)
+        .onAppear {
+            runAnimation()
+        }
+    }
+    
+    func runAnimation() {
+        isExpanded = false
+        cursorOffset = CGSize(width: 0, height: 80)
+        
+        // Move to overlay
+        withAnimation(.easeInOut(duration: 1.0).delay(0.5)) {
+            cursorOffset = CGSize(width: 40, height: 10)
+        }
+        
+        // First click (expand)
+        withAnimation(.easeOut(duration: 0.1).delay(1.5)) {
+            cursorScale = 0.8
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            withAnimation(.spring()) {
+                isExpanded = true
+            }
+            withAnimation(.easeOut(duration: 0.1)) {
+                cursorScale = 1.0
+            }
+        }
+        
+        // Second click (collapse)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation(.easeOut(duration: 0.1)) {
+                cursorScale = 0.8
+            }
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.1) {
+            withAnimation(.spring()) {
+                isExpanded = false
+            }
+            withAnimation(.easeOut(duration: 0.1)) {
+                cursorScale = 1.0
+            }
+        }
+        
+        // Move away
+        withAnimation(.easeInOut(duration: 1.0).delay(4.0)) {
+            cursorOffset = CGSize(width: 120, height: 100)
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.5) {
+            runAnimation()
+        }
+    }
+}
+
+struct AnimatedTutorialTwo: View {
+    @State private var progress: CGFloat = 0.65
+    @State private var cursorOffset = CGSize(width: 0, height: 80)
+    @State private var cursorScale: CGFloat = 1.0
+
+    var body: some View {
+        ZStack {
+            UniversalOverlayView(
+                isPreview: true,
+                isExpanded: .constant(false),
+                showProgressBar: true,
+                progress: progress,
+                barColor: .blue,
+                fillCenter: false,
+                isMuted: false,
+                supportDragGesture: false,
+                isExpandable: false,
+                expandUpwards: false,
+                disableTimeoutMode: true,
+                baseContent: {
+                    HStack(alignment: .center, spacing: 14) {
+                        Image(systemName: progress > 0.33 ? "speaker.wave.2.fill" : "speaker.wave.1.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .frame(width: 26, height: 24)
+                            .animation(nil, value: progress > 0.33)
+                        MarqueeText(text: "MacBook Pro Speakers", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                        Spacer(minLength: 8)
+                        AnimatablePercentageText(progress: progress, isTopTitle: true, color: .primary, isPluggedIn: false, customText: "%d%")
+                    }
+                    .padding(.horizontal, 23)
+                },
+                expandedContent: { EmptyView() }
+            )
+            .environmentObject(MediaKeyManager.shared)
+            .frame(width: 260)
+            .allowsHitTesting(false)
+
+            Image(nsImage: NSCursor.arrow.image)
+                .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
+                .scaleEffect(cursorScale, anchor: .topLeading)
+                .offset(cursorOffset)
+        }
+        .frame(maxWidth: .infinity, minHeight: 120)
+        .onAppear {
+            runAnimation()
+        }
+    }
+    
+    func runAnimation() {
+        withAnimation(nil) {
+            progress = 0.65
+        }
+        cursorOffset = CGSize(width: 40, height: 80)
+        
+        withAnimation(.easeInOut(duration: 1.0).delay(0.5)) {
+            cursorOffset = CGSize(width: 40, height: 10)
+        }
+        
+        withAnimation(.easeOut(duration: 0.1).delay(1.5)) {
+            cursorScale = 0.8
+        }
+        
+        withAnimation(.easeInOut(duration: 1.0).delay(1.6)) {
+            cursorOffset = CGSize(width: -60, height: 10)
+            progress = 0.25
+        }
+        
+        withAnimation(.easeOut(duration: 0.1).delay(2.6)) {
+            cursorScale = 1.0
+        }
+        
+        withAnimation(.easeInOut(duration: 1.0).delay(3.0)) {
+            cursorOffset = CGSize(width: 60, height: 80)
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+            runAnimation()
+        }
+    }
+}
+
+struct AnimatedTutorialThree: View {
+    @State private var progress: CGFloat = 1.0
+    @State private var opacity: Double = 0.0
+    @State private var scale: CGFloat = 0.9
+
+    var body: some View {
+        ZStack {
+            UniversalOverlayView(
+                isPreview: true,
+                isExpanded: .constant(false),
+                showProgressBar: true,
+                progress: progress,
+                barColor: .mint,
+                fillCenter: false,
+                isMuted: false,
+                customWidth: 230,
+                supportDragGesture: false,
+                isExpandable: false,
+                expandUpwards: false,
+                disableTimeoutMode: true,
+                baseContent: {
+                    HStack(alignment: .center, spacing: 14) {
+                        Image(systemName: "capslock.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.primary)
+                            .frame(width: 26, height: 24)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Keyboard")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundColor(.secondary)
+                                
+                            MarqueeText(text: "Caps Lock ON", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                        }
+                        Spacer(minLength: 8)
+                    }
+                    .padding(.horizontal, 23)
+                },
+                expandedContent: { EmptyView() }
+            )
+            .environmentObject(MediaKeyManager.shared)
+            .frame(width: 230)
+            .allowsHitTesting(false)
+            .opacity(opacity)
+            .scaleEffect(scale)
+        }
+        .frame(maxWidth: .infinity, minHeight: 120)
+        .onAppear {
+            runAnimation()
+        }
+    }
+    
+    func runAnimation() {
+        withAnimation(nil) {
+            progress = 1.0
+            opacity = 0.0
+            scale = 0.9
+        }
+        
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7).delay(0.5)) {
+            opacity = 1.0
+            scale = 1.0
+        }
+        
+        withAnimation(.linear(duration: 2.0).delay(1.5)) {
+            progress = 0.0
+        }
+        
+        withAnimation(.easeIn(duration: 0.2).delay(3.6)) {
+            opacity = 0.0
+            scale = 0.9
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+            runAnimation()
         }
     }
 }

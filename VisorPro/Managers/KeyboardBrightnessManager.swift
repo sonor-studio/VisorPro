@@ -104,7 +104,8 @@ class KeyboardBrightnessManager {
     
     func changeBrightness(increase: Bool, completion: @escaping (Int) -> Void) {
         queue.async {
-            let step: Float = 1.0 / 16.0
+            let defaultKbbStep = UserDefaults.standard.object(forKey: "keyboardBrightnessStep") != nil ? UserDefaults.standard.double(forKey: "keyboardBrightnessStep") : 15.0
+            let step: Float = Float(defaultKbbStep) / 100.0
             var newBrightness = increase ? self.currentBrightness + step : self.currentBrightness - step
             newBrightness = max(0.0, min(1.0, newBrightness))
             

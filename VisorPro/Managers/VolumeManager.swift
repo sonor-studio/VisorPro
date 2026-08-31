@@ -604,7 +604,8 @@ class VolumeManager {
                 self.isInitialized = true
             }
             
-            let step = 6.25
+            let defaultVolumeStep = UserDefaults.standard.object(forKey: "volumeStep") != nil ? UserDefaults.standard.double(forKey: "volumeStep") : 6.0
+            let step = defaultVolumeStep
             var newVol = Double(self.cachedVolume) + (increase ? step : -step)
             if newVol < 0 { newVol = 0 }
             if newVol > 100 { newVol = 100 }
@@ -860,7 +861,8 @@ class BrightnessManager {
                 self.isInitialized = true
             }
             
-            let step: Float = 1.0 / 16.0
+            let defaultBrightnessStep = UserDefaults.standard.object(forKey: "brightnessStep") != nil ? UserDefaults.standard.double(forKey: "brightnessStep") : 6.0
+            let step: Float = Float(defaultBrightnessStep) / 100.0
             var newBrightness = increase ? self.cachedBrightness + step : self.cachedBrightness - step
             newBrightness = max(0.0, min(1.0, newBrightness))
             

@@ -32,7 +32,7 @@ struct RamOverlayView: View {
             showProgressBar: true,
             progress: percent / 100.0,
             customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering || isExpanded || mediaKeyManager.globalHoveredTypes.contains("ram"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration)
+                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isHovering || isExpanded || mediaKeyManager.globalHoveredTypes.contains("ram"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
                     .id(mediaKeyManager.ramEventId)
             ),
             barColor: barColor,

@@ -52,25 +52,43 @@ class BluetoothBatteryPoller {
                 return
             }
             
-            if let connectedDevices = bluetoothItem["device_connected"] as? [[String: Any]] {
-                for deviceDict in connectedDevices {
+            var allDevices: [[String: Any]] = []
+            if let connected = bluetoothItem["device_connected"] as? [[String: Any]] {
+                allDevices.append(contentsOf: connected)
+            }
+            if let notConnected = bluetoothItem["device_not_connected"] as? [[String: Any]] {
+                allDevices.append(contentsOf: notConnected)
+            }
+            
+            if !allDevices.isEmpty {
+                var seenMACs = Set<String>()
+                var currentPollNames = Set<String>()
+                
+                for deviceDict in allDevices {
                     for (rawName, detailsRaw) in deviceDict {
-                        let name = rawName.replacingOccurrences(of: "’", with: "'")
+                        let name = rawName.replacingOccurrences(of: "\u{2019}", with: "'")
                         guard let details = detailsRaw as? [String: Any] else { continue }
+                        
+                        // Deduplicate by MAC address — system_profiler sometimes returns the same
+                        // device twice under different names (e.g. "AirPods Pro" and "User's AirPods Pro")
+                        let rawAddress = (details["device_address"] as? String) ?? ""
+                        let address = rawAddress.replacingOccurrences(of: "-", with: ":").uppercased()
+                        if !address.isEmpty {
+                            if seenMACs.contains(address) { continue }
+                            seenMACs.insert(address)
+                        }
                         
                         var extractedDetails: [String: String] = [:]
                         extractedDetails["SystemName"] = name
                         
-                        let rawAddress = (details["device_address"] as? String) ?? name
-                        let address = rawAddress.replacingOccurrences(of: "-", with: ":").uppercased()
-                        if let addr = details["device_address"] as? String {
-                            extractedDetails["MAC"] = addr.replacingOccurrences(of: "-", with: ":").uppercased()
+                        if !address.isEmpty {
+                            extractedDetails["MAC"] = address
                         }
                         if let rssi = details["device_rssi"] as? String { extractedDetails["RSSI"] = rssi + " dBm" }
                         if let type = details["device_minorType"] as? String { extractedDetails["Typ"] = type }
                         if let fw = details["device_firmwareVersion"] as? String { extractedDetails["Firmware"] = fw }
                         
-                        self.manager?.updateBluetoothDetails(deviceName: address, details: extractedDetails)
+                        self.manager?.updateBluetoothDetails(deviceName: address.isEmpty ? name : address, details: extractedDetails)
                         
                         var currentBatteries: [String: Int] = [:]
                         for (k, v) in details {
@@ -91,10 +109,33 @@ class BluetoothBatteryPoller {
                             }
                         }
                         
+                        // If we have component-specific batteries (Left/Right/Case), drop the generic
+                        // entry to avoid a standalone "AirPods Pro" alongside the component entries
+                        let hasComponents = currentBatteries.keys.contains(where: { !$0.isEmpty })
+                        if hasComponents {
+                            currentBatteries.removeValue(forKey: "")
+                        }
+                        
                         if !currentBatteries.isEmpty {
                             for (component, bat) in currentBatteries {
-                                processDevice(name: "\(name)\(component)", battery: bat)
+                                let fullName = "\(name)\(component)"
+                                currentPollNames.insert(fullName)
+                                processDevice(name: fullName, battery: bat)
                             }
+                        }
+                    }
+                }
+                
+                // Clean up stale duplicates from history: if a baseName has entries in the
+                // current poll, remove any history entries with the same baseName that
+                // weren't seen in this poll (e.g. old "AirPods Pro" when only components exist now)
+                if !currentPollNames.isEmpty {
+                    let currentBaseNames = Set(currentPollNames.map { Self.baseName(for: $0) })
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self = self else { return }
+                        self.manager?.accessoryBatteryHistory.removeAll { entry in
+                            let entryBase = Self.baseName(for: entry)
+                            return currentBaseNames.contains(entryBase) && !currentPollNames.contains(entry)
                         }
                     }
                 }
@@ -110,23 +151,23 @@ class BluetoothBatteryPoller {
             
             // Dopasowanie ikon
             let icon: String
-            if name.hasSuffix("(Lewa)") {
+            if name.hasSuffix("(Left)") {
                 icon = "airpodpro.left"
-            } else if name.hasSuffix("(Prawa)") {
+            } else if name.hasSuffix("(Right)") {
                 icon = "airpodpro.right"
-            } else if name.hasSuffix("(Etui)") {
+            } else if name.hasSuffix("(Case)") {
                 icon = "airpodspro.chargingcase.wireless.fill"
             } else if name.lowercased().contains("mouse") || name.lowercased().contains("mysz") {
                 icon = "magicmouse.fill"
             } else if name.lowercased().contains("keyboard") || name.lowercased().contains("klawiatura") {
                 icon = "keyboard.fill"
+            } else if name.lowercased().contains("trackpad") {
+                icon = "magicmouse.fill"
             } else {
                 icon = "headphones"
             }
             
-            if self.manager?.peripheralIcons[name] == nil || self.manager?.peripheralIcons[name] == "bolt.batteryblock.fill" {
-                self.manager?.peripheralIcons[name] = icon
-            }
+            self.manager?.peripheralIcons[name] = icon
             
             // Note: system_profiler doesn't easily tell us if it's currently plugged in/charging
             // so we assume isPluggedIn = false for simple wireless accessories.
@@ -155,5 +196,12 @@ class BluetoothBatteryPoller {
             
             self.lastLevels[name] = battery
         }
+    }
+    
+    private static func baseName(for deviceName: String) -> String {
+        if deviceName.hasSuffix(" (Left)") { return String(deviceName.dropLast(7)) }
+        if deviceName.hasSuffix(" (Right)") { return String(deviceName.dropLast(8)) }
+        if deviceName.hasSuffix(" (Case)") { return String(deviceName.dropLast(7)) }
+        return deviceName
     }
 }

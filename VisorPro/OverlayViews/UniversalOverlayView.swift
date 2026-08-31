@@ -125,7 +125,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                         trackWidth: trackWidth,
                                         isHovering: isGloballyHovered || isExpanded,
                                         initialDuration: timeoutDuration,
-                                        hoverOutDuration: timeoutDuration
+                                        hoverOutDuration: timeoutDuration,
+                                        isPreview: isPreview
                                     )
                                     Spacer(minLength: 0)
                                 }

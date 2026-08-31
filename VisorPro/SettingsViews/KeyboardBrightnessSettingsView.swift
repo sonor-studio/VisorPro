@@ -5,6 +5,7 @@ struct KeyboardBrightnessSettingsView: View {
     @AppStorage("keyboardBrightnessOverlayPosition") private var keyboardBrightnessOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("keyboardBrightnessFillCenter") private var keyboardBrightnessFillCenter: Bool = false
+    @AppStorage("keyboardBrightnessStep") private var keyboardBrightnessStep: Double = 15.0
     
     var body: some View {
         ScrollView {
@@ -97,6 +98,34 @@ struct KeyboardBrightnessSettingsView: View {
                     }
                     .padding(.horizontal)
                 }
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Behavior")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 4)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        CustomSettingsRow(icon: "plus.forwardslash.minus", iconColor: .orange, title: "Step Size", subtitle: "Percentage to change when pressing keys") {
+                            HStack {
+                                Slider(value: $keyboardBrightnessStep, in: 1...25, step: 1)
+                                .labelsHidden()
+                                .frame(width: 150)
+                                
+                                Text(String(format: "%.1f%%", keyboardBrightnessStep))
+                                    .frame(width: 50, alignment: .trailing)
+                            }
+                        }
+                    }
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
                 
                 Divider()
                 

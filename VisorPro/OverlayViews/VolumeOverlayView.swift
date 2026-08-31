@@ -9,10 +9,11 @@ struct VolumeOverlayView: View {
     private var animatedVolumeProgress: CGFloat {
         _animatedVolumeProgress ?? (CGFloat(actualVolume) / 100.0)
     }
+    @State private var previewVolume: Int = 65
     var isPreview: Bool = false
     
     private var actualVolume: Int {
-        isPreview ? 65 : mediaKeyManager.currentVolume
+        isPreview ? previewVolume : mediaKeyManager.currentVolume
     }
     
     private var actualIsMuted: Bool {
@@ -47,7 +48,11 @@ struct VolumeOverlayView: View {
             isMuted: actualIsMuted,
             supportDragGesture: volumeAllowInteractivity,
             onDrag: { v in
-                mediaKeyManager.setVolume(to: Int(v * 100))
+                if isPreview {
+                    previewVolume = Int(v * 100)
+                } else {
+                    mediaKeyManager.setVolume(to: Int(v * 100))
+                }
             },
             onLeftTap: {
                 if !isPreview { mediaKeyManager.toggleVolumeMute() }
