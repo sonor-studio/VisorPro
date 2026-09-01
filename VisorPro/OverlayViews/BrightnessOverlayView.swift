@@ -2,7 +2,7 @@ import SwiftUI
 
 struct BrightnessOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = true
+    @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = false
     @AppStorage("brightnessAllowInteractivity") private var brightnessAllowInteractivity: Bool = true
     @State private var animatedBrightnessProgress: CGFloat = 0.0
     var isPreview: Bool = false

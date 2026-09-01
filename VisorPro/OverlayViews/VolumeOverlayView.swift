@@ -2,7 +2,7 @@ import SwiftUI
 
 struct VolumeOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("volumeFillCenter") private var volumeFillCenter: Bool = true
+    @AppStorage("volumeFillCenter") private var volumeFillCenter: Bool = false
     @AppStorage("volumeAllowExpansion") private var volumeAllowExpansion: Bool = true
     @AppStorage("volumeAllowInteractivity") private var volumeAllowInteractivity: Bool = true
     @State private var _animatedVolumeProgress: CGFloat? = nil

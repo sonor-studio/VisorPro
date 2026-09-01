@@ -2,7 +2,7 @@ import SwiftUI
 
 struct KeyboardBrightnessOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("keyboardBrightnessFillCenter") private var keyboardBrightnessFillCenter: Bool = true
+    @AppStorage("keyboardBrightnessFillCenter") private var keyboardBrightnessFillCenter: Bool = false
     @AppStorage("keyboardBrightnessAllowInteractivity") private var keyboardBrightnessAllowInteractivity: Bool = true
     @State private var animatedBrightnessProgress: CGFloat = 0.0
     var isPreview: Bool = false

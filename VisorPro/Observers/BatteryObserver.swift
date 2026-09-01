@@ -306,8 +306,18 @@ class BatteryObserver {
         
         if amperage > 0 {
             if isPluggedIn {
-                let capacityNeeded = maxCapacity - currentCapacity
-                let hoursLeft = capacityNeeded / amperage
+                let currentPct = currentCapacity / maxCapacity
+                var hoursLeft = 0.0
+                
+                if currentPct < 0.8 {
+                    let capacityTo80 = (maxCapacity * 0.8) - currentCapacity
+                    let hoursTo80 = capacityTo80 / amperage
+                    hoursLeft = hoursTo80 + (45.0 / 60.0) // Add 45 mins for the 80-100% trickle phase
+                } else {
+                    let capacityNeeded = maxCapacity - currentCapacity
+                    hoursLeft = (capacityNeeded / amperage) * 1.5 // Multiplier for trickle phase
+                }
+                
                 let totalMinutes = Int(hoursLeft * 60)
                 if totalMinutes > 0 && totalMinutes <= 10000 {
                     let hours = totalMinutes / 60
@@ -397,9 +407,22 @@ class BatteryObserver {
             return "Calculating..."
         }
         
-        let missing_mAh = maxCapacity - currentCapacity
-        let missing_Wh = (missing_mAh * voltage) / 1_000_000.0
-        let hoursLeft = missing_Wh / (adapterWatts * 0.8)
+        let currentPct = currentCapacity / maxCapacity
+        var hoursLeft = 0.0
+        
+        if currentPct < 0.8 {
+            let missing_mAh_to_80 = (maxCapacity * 0.8) - currentCapacity
+            let missing_Wh_to_80 = (missing_mAh_to_80 * voltage) / 1_000_000.0
+            let netAdapterWatts = adapterWatts * 0.75 // Assume ~25% overhead and system usage
+            let hoursTo80 = missing_Wh_to_80 / netAdapterWatts
+            hoursLeft = hoursTo80 + (45.0 / 60.0) // Add 45 mins for the 80-100% trickle phase
+        } else {
+            let missing_mAh = maxCapacity - currentCapacity
+            let missing_Wh = (missing_mAh * voltage) / 1_000_000.0
+            let netAdapterWatts = adapterWatts * 0.5 // Heavy throttling during CV phase
+            hoursLeft = missing_Wh / netAdapterWatts
+        }
+        
         let totalMinutes = Int(hoursLeft * 60)
         
         if totalMinutes <= 0 || totalMinutes > 10000 { return "Calculating..." }

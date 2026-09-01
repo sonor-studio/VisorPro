@@ -2,7 +2,7 @@ import SwiftUI
 
 struct BatteryOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("batteryFillCenter") private var batteryFillCenter: Bool = true
+    @AppStorage("batteryFillCenter") private var batteryFillCenter: Bool = false
     @AppStorage("batteryAllowExpansion") private var batteryAllowExpansion: Bool = true
     @State private var animatedBatteryProgress: CGFloat = 0.0
     @State private var isExpanded: Bool = false
