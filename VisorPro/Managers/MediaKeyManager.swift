@@ -1597,6 +1597,25 @@ class MediaKeyManager: ObservableObject {
         return matchingUrls.first
     }
     
+    func hasOpticalMedia() -> Bool? {
+        let task = Process()
+        task.launchPath = "/usr/bin/drutil"
+        task.arguments = ["status"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        try? task.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        if let output = String(data: data, encoding: .utf8) {
+            if output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return nil }
+            let lower = output.lowercased()
+            if lower.contains("no media inserted") || lower.contains("no media") || lower.contains("empty") {
+                return false
+            }
+            return true
+        }
+        return nil
+    }
+
     func getDriveCapacity(for notification: DeviceNotification) -> (total: Int, available: Int)? {
         guard let target = getMountPoint(for: notification) else { return nil }
         

@@ -16,6 +16,7 @@ struct PeripheralOverlayView: View {
     @State private var rawDriveFree: Int64? = nil
     @State private var showMoreDetails: Bool = false
     @State private var refreshTimer: Timer? = nil
+    @State private var isOpticalEmpty: Bool = false
     
     var isPreview: Bool = false
     var previewIsConnected: Bool = false
@@ -117,8 +118,9 @@ struct PeripheralOverlayView: View {
         let typeIcon = actualNotification?.icon ?? ""
         
         let hasBattery = (batteryLevel != nil) && isConnected
-        let hasDetails = (actualNotification?.details?.isEmpty == false) || (driveTotalSpace != nil)
-        let isDrive = driveTotalSpace != nil
+        let isDriveType = (type == "USB Drive" || typeIcon == "externaldrive" || type == "CD/DVD Drive")
+        let isDrive = driveTotalSpace != nil || isDriveType
+        let hasDetails = (actualNotification?.details?.isEmpty == false) || isDrive
         let isExpandable = (hasDetails || isDrive || hasBattery) && isConnected
         
         let keepAliveId = actualNotification != nil ? "peripheral_\(actualNotification!.id)" : "peripheral"
@@ -242,13 +244,39 @@ struct PeripheralOverlayView: View {
                                     }
                                     .padding(.horizontal, 16)
                                     .padding(.bottom, 4)
+                                } else if isDriveType && isConnected && !isEjected {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack(alignment: .lastTextBaseline) {
+                                            if isOpticalEmpty {
+                                                Text("No Media Inserted")
+                                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                                    .foregroundColor(.secondary)
+                                            } else {
+                                                Text("Calculating size...")
+                                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                                    .foregroundColor(.secondary)
+                                                Spacer()
+                                                ProgressView()
+                                                    .scaleEffect(0.5)
+                                                    .frame(width: 12, height: 12)
+                                            }
+                                        }
+                                        
+                                        Capsule()
+                                            .fill(Color.primary.opacity(0.1))
+                                            .frame(height: 6)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.bottom, 4)
                                 }
                                 
                                 let allKeys = actualNotification?.details?.keys.filter { $0 != "BSD Name" && $0 != "BatteryLevel" && (!hasBattery || ($0 != "Battery" && $0 != "Charging")) }.sorted(by: >) ?? []
                                 let vendorKey = allKeys.contains("Vendor") ? ["Vendor"] : []
                                 let otherKeys = allKeys.filter { $0 != "Vendor" }
                                 
-                                if !otherKeys.isEmpty {
+                                let shouldHideDetailsBehindButton = (hasBattery || isDrive)
+                                
+                                if !otherKeys.isEmpty && shouldHideDetailsBehindButton {
                                     Button(action: {
                                         withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                             showMoreDetails.toggle()
@@ -290,10 +318,12 @@ struct PeripheralOverlayView: View {
                                     }
                                 }
                                 
-                                if showMoreDetails && !otherKeys.isEmpty {
-                                    Divider()
-                                        .padding(.horizontal, 32)
-                                        .opacity(0.3)
+                                if (!shouldHideDetailsBehindButton || showMoreDetails) && !otherKeys.isEmpty {
+                                    if shouldHideDetailsBehindButton {
+                                        Divider()
+                                            .padding(.horizontal, 32)
+                                            .opacity(0.3)
+                                    }
                                         
                                     ForEach(otherKeys, id: \.self) { key in
                                         if let value = actualNotification?.details?[key] {
@@ -318,7 +348,7 @@ struct PeripheralOverlayView: View {
                             }
                         }
                         
-                        if isDrive {
+                        if isDrive && driveTotalSpace != nil {
                             VStack(spacing: 8) {
                                 if !isConnected || isEjected {
                                     Button(action: {
@@ -501,6 +531,17 @@ struct PeripheralOverlayView: View {
     }
     
     private func fetchDriveCapacity(type: String, typeIcon: String) {
+        if type == "CD/DVD Drive" && isConnected {
+            DispatchQueue.global(qos: .userInitiated).async {
+                let empty = mediaKeyManager.hasOpticalMedia() == false
+                DispatchQueue.main.async {
+                    if self.isOpticalEmpty != empty {
+                        self.isOpticalEmpty = empty
+                    }
+                }
+            }
+        }
+        
         if type == "USB Drive" || typeIcon == "externaldrive" || type == "USB Device" || type == "CD/DVD Drive",
            let notif = actualNotification,
            let cap = mediaKeyManager.getDriveCapacity(for: notif) {
