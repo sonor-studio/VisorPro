@@ -50,6 +50,7 @@ struct VisorProApp: App {
 }
 
 struct RootView: View {
+    @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
     @AppStorage("_forceDashboard") private var forceDashboardFlag = false
     @State private var isTrusted = AXIsProcessTrusted()
@@ -82,6 +83,7 @@ struct RootView: View {
             if isTrusted != trusted {
                 isTrusted = trusted
             }
+            mediaKeyManager.syncPermissions()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ResetDashboardForced"))) { _ in
             dashboardForced = false

@@ -6,13 +6,28 @@ struct BluetoothSettingsView: View {
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("bluetoothAllowExpansion") private var bluetoothAllowExpansion: Bool = true
     @State private var isHistoryExpanded: Bool = false
+    @State private var showBluetoothPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
                 VStack(spacing: 0) {
                     CustomSettingsRow(icon: "power", iconColor: .indigo, title: "Enable Bluetooth Module", subtitle: "When disabled, VisorPro completely ignores Bluetooth connections") {
-                        Toggle("", isOn: $mediaKeyManager.enableBluetooth).labelsHidden()
+                        Toggle("", isOn: Binding(
+                            get: { mediaKeyManager.enableBluetooth },
+                            set: { newValue in
+                                if newValue {
+                                    if PermissionHelper.checkBluetoothPermission() {
+                                        mediaKeyManager.enableBluetooth = true
+                                    } else {
+                                        mediaKeyManager.enableBluetooth = false
+                                        showBluetoothPermissionAlert = true
+                                    }
+                                } else {
+                                    mediaKeyManager.enableBluetooth = false
+                                }
+                            }
+                        )).labelsHidden()
                     }
                 }
                 .toggleStyle(.switch)
@@ -204,5 +219,15 @@ Toggle("", isOn: $mediaKeyManager.notifyOnBluetoothDisconnect).labelsHidden() }
         .navigationTitle("Bluetooth")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
+        .alert(isPresented: $showBluetoothPermissionAlert) {
+            Alert(
+                title: Text("Bluetooth Access Required"),
+                message: Text("To monitor Bluetooth devices, VisorPro needs Bluetooth access. Please enable it in System Settings > Privacy & Security > Bluetooth."),
+                primaryButton: .default(Text("Open Settings")) {
+                    PermissionHelper.openPrivacySettings(for: "Bluetooth")
+                },
+                secondaryButton: .cancel()
+            )
+        }
     }
 }

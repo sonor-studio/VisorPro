@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 struct WiFiSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
@@ -6,13 +7,31 @@ struct WiFiSettingsView: View {
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("wifiAllowExpansion") private var wifiAllowExpansion: Bool = true
     @State private var isHistoryExpanded: Bool = false
+    @State private var showLocationPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
                 VStack(spacing: 0) {
                     CustomSettingsRow(icon: "power", iconColor: .cyan, title: "Enable Wi-Fi Module", subtitle: "When disabled, VisorPro completely ignores Wi-Fi network changes") {
-                        Toggle("", isOn: $mediaKeyManager.enableWiFi).labelsHidden()
+                        Toggle("", isOn: Binding(
+                            get: { mediaKeyManager.enableWiFi },
+                            set: { newValue in
+                                if newValue {
+                                    if PermissionHelper.isLocationNotDetermined() {
+                                        PermissionHelper.sharedLocationManager.requestAlwaysAuthorization()
+                                        mediaKeyManager.enableWiFi = true
+                                    } else if PermissionHelper.hasLocationPermission() {
+                                        mediaKeyManager.enableWiFi = true
+                                    } else {
+                                        mediaKeyManager.enableWiFi = false
+                                        showLocationPermissionAlert = true
+                                    }
+                                } else {
+                                    mediaKeyManager.enableWiFi = false
+                                }
+                            }
+                        )).labelsHidden()
                     }
                 }
                 .toggleStyle(.switch)
@@ -193,5 +212,15 @@ Toggle("", isOn: $mediaKeyManager.notifyOnWiFiDisconnect).labelsHidden() }
         .navigationTitle("Wi-Fi")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
+        .alert(isPresented: $showLocationPermissionAlert) {
+            Alert(
+                title: Text("Location Access Required"),
+                message: Text("To read the Wi-Fi network name, VisorPro needs location access. Please enable it in System Settings > Privacy & Security > Location Services."),
+                primaryButton: .default(Text("Open Settings")) {
+                    PermissionHelper.openPrivacySettings(for: "Location")
+                },
+                secondaryButton: .cancel()
+            )
+        }
     }
 }

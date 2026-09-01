@@ -2,13 +2,5 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>VisorPro requires access to Apple Events to toggle the system theme (light/dark).</string>
-	<key>NSFocusStatusUsageDescription</key>
-	<string>Allow access to display Focus mode changes.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>VisorPro uses the microphone to display an audio waveform animation when expanding the microphone overlay.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>VisorPro uses the camera to display a live preview in the camera overlay.</string>
 </dict>
 </plist>

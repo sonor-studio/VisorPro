@@ -1,13 +1,18 @@
 import SwiftUI
+import AVFoundation
+import CoreLocation
 
 struct PrivacySettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("micOverlayPosition") private var micOverlayPosition: String = "top"
+    @AppStorage("micShowVisualizer") private var micShowVisualizer: Bool = false
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("cameraOverlayPosition") private var cameraOverlayPosition: String = "top"
     @AppStorage("locationOverlayPosition") private var locationOverlayPosition: String = "top"
     @State private var isMicHistoryExpanded: Bool = false
     @State private var isCameraHistoryExpanded: Bool = false
+    @State private var showMicPermissionAlert: Bool = false
+    @State private var showLocationPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
@@ -84,6 +89,35 @@ Toggle("", isOn: $mediaKeyManager.notifyOnMicOn).labelsHidden() }
 Toggle("", isOn: $mediaKeyManager.notifyOnMicOff).labelsHidden() }
                                
                             }
+                                Divider().padding(.leading, 48)
+                                CustomSettingsRow(icon: "waveform", iconColor: .blue, title: "Show Audio Waveform", subtitle: "Visualize microphone audio (Requires permission)") {
+                                    Toggle("", isOn: Binding(
+                                        get: { micShowVisualizer },
+                                        set: { newValue in
+                                            if newValue {
+                                                let status = AVCaptureDevice.authorizationStatus(for: .audio)
+                                                if status == .authorized {
+                                                    micShowVisualizer = true
+                                                } else if status == .denied || status == .restricted {
+                                                    micShowVisualizer = false
+                                                    showMicPermissionAlert = true
+                                                } else {
+                                                    micShowVisualizer = true
+                                                    AVCaptureDevice.requestAccess(for: .audio) { granted in
+                                                        DispatchQueue.main.async {
+                                                            micShowVisualizer = granted
+                                                            if !granted {
+                                                                showMicPermissionAlert = true
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                micShowVisualizer = false
+                                            }
+                                        }
+                                    )).labelsHidden()
+                                }
                             }
                             .toggleStyle(.switch)
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -302,10 +336,28 @@ Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
                             
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "location.fill", iconColor: .blue, title: "Notify on Location Request", subtitle: "Show an overlay when location services are requested") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnLocationOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnLocationOn) }
-Toggle("", isOn: $mediaKeyManager.notifyOnLocationOn).labelsHidden() }
-                               
-                            }
+                                    HStack(spacing: 8) { 
+                                        if mediaKeyManager.notifyOnLocationOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnLocationOn) }
+                                        Toggle("", isOn: Binding(
+                                            get: { mediaKeyManager.notifyOnLocationOn },
+                                            set: { newValue in
+                                                if newValue {
+                                                    if PermissionHelper.isLocationNotDetermined() {
+                                                        PermissionHelper.sharedLocationManager.requestAlwaysAuthorization()
+                                                        mediaKeyManager.notifyOnLocationOn = true
+                                                    } else if PermissionHelper.hasLocationPermission() {
+                                                        mediaKeyManager.notifyOnLocationOn = true
+                                                    } else {
+                                                        mediaKeyManager.notifyOnLocationOn = false
+                                                        showLocationPermissionAlert = true
+                                                    }
+                                                } else {
+                                                    mediaKeyManager.notifyOnLocationOn = false
+                                                }
+                                            }
+                                        )).labelsHidden() 
+                                    }
+                                }
                             }
                             .toggleStyle(.switch)
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -369,6 +421,28 @@ Toggle("", isOn: $mediaKeyManager.notifyOnLocationOn).labelsHidden() }
                 }
             }
             .padding()
+        }
+        .alert(isPresented: $showMicPermissionAlert) {
+            Alert(
+                title: Text("Microphone Access Required"),
+                message: Text("To display the audio waveform, VisorPro needs microphone access. Please enable it in System Settings > Privacy & Security > Microphone."),
+                primaryButton: .default(Text("Open Settings")) {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                        NSWorkspace.shared.open(url)
+                    }
+                },
+                secondaryButton: .cancel()
+            )
+        }
+        .alert(isPresented: $showLocationPermissionAlert) {
+            Alert(
+                title: Text("Location Access Required"),
+                message: Text("To monitor location services usage, VisorPro needs location access. Please enable it in System Settings > Privacy & Security > Location Services."),
+                primaryButton: .default(Text("Open Settings")) {
+                    PermissionHelper.openPrivacySettings(for: "Location")
+                },
+                secondaryButton: .cancel()
+            )
         }
     }
 }

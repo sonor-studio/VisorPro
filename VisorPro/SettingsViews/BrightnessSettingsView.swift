@@ -6,6 +6,7 @@ struct BrightnessSettingsView: View {
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = false
     @AppStorage("brightnessStep") private var brightnessStep: Double = 6.0
+    @State private var showAppleEventsPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
@@ -152,5 +153,15 @@ struct BrightnessSettingsView: View {
         .navigationTitle("Brightness")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
+        .alert(isPresented: $showAppleEventsPermissionAlert) {
+            Alert(
+                title: Text("Apple Events Access Required"),
+                message: Text("To control the screen brightness, VisorPro needs Apple Events (Automation) access. Please enable it in System Settings > Privacy & Security > Automation."),
+                primaryButton: .default(Text("Open Settings")) {
+                    PermissionHelper.openPrivacySettings(for: "AppleEvents")
+                },
+                secondaryButton: .cancel()
+            )
+        }
     }
 }

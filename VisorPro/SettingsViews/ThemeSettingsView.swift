@@ -5,6 +5,7 @@ struct ThemeSettingsView: View {
     @AppStorage("themeOverlayPosition") private var themeOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("themeAllowInteractivity") private var themeAllowInteractivity: Bool = true
+    @State private var showAppleEventsPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
@@ -113,5 +114,15 @@ Toggle("", isOn: $mediaKeyManager.notifyOnThemeLight).labelsHidden() }
         .navigationTitle("Theme")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
+        .alert(isPresented: $showAppleEventsPermissionAlert) {
+            Alert(
+                title: Text("Apple Events Access Required"),
+                message: Text("To monitor the system theme, VisorPro needs Apple Events (Automation) access. Please enable it in System Settings > Privacy & Security > Automation."),
+                primaryButton: .default(Text("Open Settings")) {
+                    PermissionHelper.openPrivacySettings(for: "AppleEvents")
+                },
+                secondaryButton: .cancel()
+            )
+        }
     }
 }

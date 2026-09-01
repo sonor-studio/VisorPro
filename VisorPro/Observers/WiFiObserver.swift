@@ -32,16 +32,13 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
         DispatchQueue.main.async {
             self.locationManager = CLLocationManager()
             self.locationManager?.delegate = self
-            if self.locationManager?.authorizationStatus == .notDetermined {
-                self.locationManager?.requestAlwaysAuthorization()
-            }
         }
         
         startObserving()
     }
     
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        if status == .authorizedAlways || status == .authorized {
+        if status != .denied && status != .restricted && status != .notDetermined {
             self.pollWiFi()
         }
     }

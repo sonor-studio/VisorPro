@@ -444,13 +444,12 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "VisorPro requires access to Apple Events to control volume and system theme.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "VisorPro requires Bluetooth access for the on-screen displays.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "VisorPro uses the camera to display a live preview in the camera overlay.";
-				INFOPLIST_KEY_NSFocusStatusUsageDescription = "Allow access to display Focus mode changes.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSLocationUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VisorPro uses the microphone to display an audio waveform animation when expanding the microphone overlay.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -501,13 +500,12 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "VisorPro requires access to Apple Events to control volume and system theme.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "VisorPro requires Bluetooth access for the on-screen displays.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "VisorPro uses the camera to display a live preview in the camera overlay.";
-				INFOPLIST_KEY_NSFocusStatusUsageDescription = "Allow access to display Focus mode changes.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSLocationUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VisorPro uses the microphone to display an audio waveform animation when expanding the microphone overlay.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

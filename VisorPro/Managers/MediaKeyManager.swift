@@ -6,6 +6,7 @@ import IOBluetooth
 import Carbon
 import IOKit
 import Foundation
+import AVFoundation
 import CoreGraphics
 import IOKit.pwr_mgt
 import IOKit.hid
@@ -13,6 +14,60 @@ import IOKit.hidsystem
 import Carbon.HIToolbox
 import CoreWLAN
 import SystemConfiguration
+import CoreBluetooth
+import CoreLocation
+import CoreServices
+
+class PermissionHelperDelegate: NSObject, CLLocationManagerDelegate {
+    static let shared = PermissionHelperDelegate()
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        // Forces the manager to update its internal state
+    }
+}
+
+struct PermissionHelper {
+    static let sharedLocationManager: CLLocationManager = {
+        let manager = CLLocationManager()
+        manager.delegate = PermissionHelperDelegate.shared
+        return manager
+    }()
+    
+    static func hasLocationPermission() -> Bool {
+        let status = sharedLocationManager.authorizationStatus
+        return status != .denied && status != .restricted
+    }
+    
+    static func isLocationNotDetermined() -> Bool {
+        return sharedLocationManager.authorizationStatus == .notDetermined
+    }
+    
+    static func checkBluetoothPermission() -> Bool {
+        if #available(macOS 11.0, *) {
+            let status = CBManager.authorization
+            return status != .denied && status != .restricted
+        }
+        return true
+    }
+    
+    static func openPrivacySettings(for type: String) {
+        var urlString = "x-apple.systempreferences:com.apple.preference.security"
+        switch type {
+        case "Location":
+            urlString += "?Privacy_LocationServices"
+        case "Bluetooth":
+            urlString += "?Privacy_Bluetooth"
+        case "AppleEvents":
+            urlString += "?Privacy_Automation"
+        case "Microphone":
+            urlString += "?Privacy_Microphone"
+        default:
+            break
+        }
+        if let url = URL(string: urlString) {
+            NSWorkspace.shared.open(url)
+        }
+    }
+}
 
 struct KeyboardLayout: Hashable, Identifiable {
     let id: String
@@ -2736,6 +2791,8 @@ func triggerCpuTempOverlay(temp: Double) {
             object: nil,
             suspensionBehavior: .deliverImmediately
         )
+        
+        syncPermissions()
     }
     
     @objc private func handleLanguageChange(_ notification: Notification) {
@@ -2776,6 +2833,25 @@ func triggerCpuTempOverlay(temp: Double) {
     func checkAccessibility() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         self.isTrusted = AXIsProcessTrustedWithOptions(options)
+    }
+    
+    func syncPermissions() {
+        if self.enableBluetooth && !PermissionHelper.checkBluetoothPermission() {
+            self.enableBluetooth = false
+        }
+        
+        let locStatus = PermissionHelper.sharedLocationManager.authorizationStatus
+        if locStatus == .denied || locStatus == .restricted {
+            if self.enableWiFi { self.enableWiFi = false }
+            if self.notifyOnLocationOn { self.notifyOnLocationOn = false }
+        }
+        
+        let micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        if micStatus != .authorized && micStatus != .notDetermined {
+            if UserDefaults.standard.bool(forKey: "micShowVisualizer") {
+                UserDefaults.standard.set(false, forKey: "micShowVisualizer")
+            }
+        }
     }
     
     func start() {

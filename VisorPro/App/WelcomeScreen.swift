@@ -67,6 +67,7 @@ struct WelcomeScreen: View {
                     }
                 }
             }
+            mediaKeyManager.syncPermissions()
         }
     }
     
