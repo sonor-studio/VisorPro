@@ -58,29 +58,17 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         let trackWidth: CGFloat = width - (trackPadding * 2)
         
         VStack(spacing: 0) {
-            if expandUpwards {
-                expandedContent()
-                    .padding(.top, 16)
-                    .frame(width: width)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(height: isExpanded ? nil : 0, alignment: .bottom)
-                    .clipped()
-                    .opacity(isExpanded ? 1 : 0)
-            }
-            
             baseContent()
                 .frame(width: width, height: baseHeight)
                 .allowsHitTesting(false)
             
-            if !expandUpwards {
-                expandedContent()
-                    .padding(.bottom, 16)
-                    .frame(width: width)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(height: isExpanded ? nil : 0, alignment: .top)
-                    .clipped()
-                    .opacity(isExpanded ? 1 : 0)
-            }
+            expandedContent()
+                .padding(.bottom, 16)
+                .frame(width: width)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(height: isExpanded ? nil : 0, alignment: .top)
+                .clipped()
+                .opacity(isExpanded ? 1 : 0)
         }
         .frame(width: width, alignment: expandUpwards ? .bottom : .top)
         .background(
