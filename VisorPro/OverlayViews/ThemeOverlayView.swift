@@ -48,7 +48,7 @@ struct ThemeOverlayView: View {
             customWidth: 230,
             supportDragGesture: false,
             onSimpleTap: {
-                if !isPreview {
+                if !isPreview && themeAllowInteractivity {
                     toggleSystemTheme()
                 }
             },

@@ -785,9 +785,10 @@ class MediaKeyManager: ObservableObject {
     
     func triggerThemeIndicator(isDark: Bool) {
         if !enableTheme { return }
-        playNotificationSound(named: isDark ? soundOnThemeDark : soundOnThemeLight)
         if isDark && !notifyOnThemeDark { return }
         if !isDark && !notifyOnThemeLight { return }
+        
+        playNotificationSound(named: isDark ? soundOnThemeDark : soundOnThemeLight)
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -2076,6 +2077,9 @@ func triggerCpuTempOverlay(temp: Double) {
         if isConnected && !notifyOnWiFiConnect { return }
         if !isConnected && !notifyOnWiFiDisconnect { return }
         if wifiBlocklist.contains(ssid) { return }
+        
+        let soundToPlay = isConnected ? soundOnWiFiConnect : soundOnWiFiDisconnect
+        playNotificationSound(named: soundToPlay)
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
