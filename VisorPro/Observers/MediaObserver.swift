@@ -173,21 +173,17 @@ class MediaObserver {
                 shouldTrigger = true
             } else if self.lastIsPlaying != isPlaying {
                 shouldTrigger = true
-                if isPlaying {
-                    if elapsedTime < 1.0 {
-                        mediaAction = "start"
-                    } else {
-                        mediaAction = "resume"
-                    }
-                } else {
-                    if duration > 0 && elapsedTime >= (duration - 2.0) {
-                        mediaAction = "end"
-                    } else {
-                        mediaAction = "pause"
-                    }
-                }
+                mediaAction = isPlaying ? "resume" : "pause"
             } else {
                 mediaAction = isPlaying ? "resume" : "pause"
+            }
+            
+            if shouldTrigger {
+                if mediaAction == "resume" && elapsedTime <= 0.1 {
+                    mediaAction = "start"
+                } else if mediaAction == "pause" && duration > 0 && elapsedTime >= (duration - 0.5) {
+                    mediaAction = "end"
+                }
             }
         }
         

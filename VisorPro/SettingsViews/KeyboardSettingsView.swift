@@ -7,7 +7,6 @@ struct KeyboardSettingsView: View {
     @AppStorage("capsLockOverlayPosition") private var capsLockOverlayPosition: String = "top"
     @AppStorage("languageOverlayPosition") private var languageOverlayPosition: String = "top"
     @AppStorage("copyAllowExpansion") private var copyAllowExpansion: Bool = true
-    @AppStorage("capsLockAllowExpansion") private var capsLockAllowExpansion: Bool = true
     @AppStorage("capsLockAllowInteractivity") private var capsLockAllowInteractivity: Bool = true
     @AppStorage("languageAllowExpansion") private var languageAllowExpansion: Bool = true
     
@@ -150,11 +149,6 @@ Toggle("", isOn: $mediaKeyManager.notifyOnCapsLock).labelsHidden() }
                                
                             }
                                 
-                                Divider().padding(.leading, 40)
-                                
-                                CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .orange, title: "Allow Expansion", subtitle: "Allow overlay to expand and show full details") {
-                                    Toggle("", isOn: $capsLockAllowExpansion).labelsHidden()
-                                }
                                 
                                 Divider().padding(.leading, 40)
                                 

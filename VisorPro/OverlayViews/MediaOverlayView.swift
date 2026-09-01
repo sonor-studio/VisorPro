@@ -107,6 +107,7 @@ struct MediaOverlayView: View {
             isExpandable: mediaAllowExpansion,
             expandUpwards: mediaPos.hasPrefix("bottom"),
             keepAliveId: "media",
+            disableTimeoutMode: true,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actionIcon)

@@ -238,6 +238,7 @@ struct WiFiOverlayView: View {
             if let ip = isPreview ? "192.168.1.12" : mediaKeyManager.wiFiIPAddress {
                 StatRow(icon: "network", label: "IP Address", value: ip, isCopyable: true, disableCopy: isPreview, onCopy: {
                     if !isPreview {
+                        mediaKeyManager.pendingClipboardAction = "ignore"
                         mediaKeyManager.pendingClipboardActionTimestamp = Date()
                     }
                 })

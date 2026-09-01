@@ -2,7 +2,6 @@ import SwiftUI
 
 struct CapsLockOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("capsLockAllowExpansion") private var capsLockAllowExpansion: Bool = true
     @AppStorage("capsLockAllowInteractivity") private var capsLockAllowInteractivity: Bool = true
     var isPreview: Bool = false
     var previewIsOn: Bool = true
@@ -44,7 +43,7 @@ struct CapsLockOverlayView: View {
                     }
                 }
             },
-            isExpandable: capsLockAllowExpansion,
+            isExpandable: false,
             keepAliveId: "capsLock",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {

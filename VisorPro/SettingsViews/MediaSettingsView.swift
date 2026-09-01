@@ -42,7 +42,7 @@ struct MediaSettingsView: View {
                 Divider()
                 
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Notification Events")
+                    Text("Overlay Triggers")
                         .font(.headline)
                         .foregroundColor(.secondary)
                         .padding(.top, 10)

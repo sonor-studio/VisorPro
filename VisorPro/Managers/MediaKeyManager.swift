@@ -2271,7 +2271,6 @@ func triggerCpuTempOverlay(temp: Double) {
         self.mediaDuration = duration
         self.mediaElapsedTime = elapsedTime
         self.mediaIsPlaying = isPlaying
-        self.mediaAction = mediaAction
         self.mediaBundleId = bundleId
         
         var finalTrigger = triggerNotification
@@ -2289,6 +2288,7 @@ func triggerCpuTempOverlay(temp: Double) {
                 finalTrigger = false
             }
         }
+        
         if finalTrigger {
             if mediaAction == "start" { playNotificationSound(named: soundMediaStart) }
             else if mediaAction == "pause" { playNotificationSound(named: soundMediaPause) }
@@ -2296,9 +2296,10 @@ func triggerCpuTempOverlay(temp: Double) {
             else if mediaAction == "end" { playNotificationSound(named: soundMediaEnd) }
         }
         
-        if finalTrigger || !self.showMediaIndicator {
-            self.mediaTitle = title
-            self.mediaArtist = artist
+        let lastTrigger = self.overlayTriggerTimes["media"] ?? Date.distantPast
+        let overlayIsActive = self.showMediaIndicator && Date().timeIntervalSince(lastTrigger) <= MediaKeyManager.notificationDuration
+
+        if finalTrigger || !overlayIsActive {
             self.mediaAction = mediaAction
         }
         
