@@ -102,6 +102,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let _ = VisorProWindowManager.shared
         let _ = CpuObserver.shared
         let _ = RamObserver.shared
+        let _ = LicenseManager.shared
         
         UpdateManager.shared.checkForUpdates()
         
