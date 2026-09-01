@@ -407,24 +407,13 @@ class VisorProWindowManager: ObservableObject {
                 
                 let originX = x - (currentWidth / 2)
                 
-                let baseH: CGFloat
-                if overlay.type == .media { baseH = 72 }
-                else if overlay.type == .battery {
-                    let manager = MediaKeyManager.shared
-                    let isFullyCharged = manager.currentBatteryPercentage == 100 || manager.isEffectivelyFullyCharged
-                    baseH = isFullyCharged ? 56 : 72
-                } else { baseH = 56 }
-                
                 let originY: CGFloat
-                let downwardShift: CGFloat = 4.0 // Slight correction to lower the overlays
                 if overlay.position.hasPrefix("top") {
-                    let topEdge = yCenter + (baseH / 2)
-                    originY = topEdge - currentHeight - downwardShift
+                    originY = yCenter + 38 - currentHeight
                 } else if overlay.position.hasPrefix("bottom") {
-                    let bottomEdge = yCenter - (baseH / 2)
-                    originY = bottomEdge - downwardShift
+                    originY = yCenter - 43
                 } else {
-                    originY = yCenter - (currentHeight / 2) - downwardShift
+                    originY = yCenter - (currentHeight / 2) - 2.5
                 }
                 
                 let swipeOffset = MediaKeyManager.shared.swipeOffsets[overlay.id] ?? 0.0
