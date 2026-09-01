@@ -103,7 +103,12 @@ class MediaKeyManager: ObservableObject {
     @Published var enableBattery: Bool = UserDefaults.standard.object(forKey: "enableBattery") as? Bool ?? true {
         didSet { 
             UserDefaults.standard.set(enableBattery, forKey: "enableBattery")
-            if !enableBattery { withAnimation { self.showLowBatteryWarning = false; self.showChargingStatus = false } }
+            if !enableBattery {
+                withAnimation { self.showLowBatteryWarning = false; self.showChargingStatus = false }
+                PowerChimeManager.enableChargingSound()
+            } else {
+                PowerChimeManager.disableChargingSound()
+            }
         }
     }
     @Published var enableKeyboard: Bool = UserDefaults.standard.object(forKey: "enableKeyboard") as? Bool ?? true {
@@ -3021,6 +3026,7 @@ func triggerCpuTempOverlay(temp: Double) {
         
         if let tap = mediaKeyTap {
             CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
         }
         if let source = mediaKeyRunLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
@@ -3029,7 +3035,7 @@ func triggerCpuTempOverlay(temp: Double) {
         mediaKeyRunLoopSource = nil
         
         // i nie korzystamy z systemowego OSD
-        guard (enableVolume || enableBrightness || enableMediaNotification) && !useSystemOSD else {
+        guard (enableVolume || enableBrightness || enableKeyboardBrightness || enableMediaNotification) && !useSystemOSD else {
             return
         }
         
@@ -3039,10 +3045,13 @@ func triggerCpuTempOverlay(temp: Double) {
         let mediaCallback: CGEventTapCallBack = { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
             let manager = Unmanaged<MediaKeyManager>.fromOpaque(refcon!).takeUnretainedValue()
             
-            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if type == .tapDisabledByTimeout {
                 if let tap = manager.mediaKeyTap {
                     CGEvent.tapEnable(tap: tap, enable: true)
                 }
+                return Unmanaged.passRetained(event)
+            }
+            if type == .tapDisabledByUserInput {
                 return Unmanaged.passRetained(event)
             }
             
@@ -3070,14 +3079,23 @@ func triggerCpuTempOverlay(temp: Double) {
                 let NX_KEYTYPE_NEXT = 17
                 let NX_KEYTYPE_PREVIOUS = 18
                 
-                if keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE {
-                    if !manager.enableVolume {
-                        return Unmanaged.passRetained(event)
-                    }
+                let isVolumeKey = (keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE)
+                let isBrightnessKey = (keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN)
+                
+                // --- Passthrough: Volume wyłączony ---
+                if isVolumeKey && !manager.enableVolume {
+                    return Unmanaged.passRetained(event)
                 }
                 
-                if keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN {
-                    if !manager.enableBrightness {
+                // --- Passthrough: Brightness wyłączony ---
+                if isBrightnessKey && !manager.enableBrightness {
+                    // Jeśli keyboard brightness jest włączony i modifier jest wciśnięty,
+                    // nie robimy passthrough — niech main handler obsłuży keyboard brightness
+                    let hasModifier = (manager.keyboardBrightnessModifier == "command" && isCommand) ||
+                                      (manager.keyboardBrightnessModifier == "option" && isOption) ||
+                                      (manager.keyboardBrightnessModifier == "control" && isControl)
+                    
+                    if !(manager.enableKeyboardBrightness && hasModifier) {
                         return Unmanaged.passRetained(event)
                     }
                 }
