@@ -66,7 +66,7 @@ class MediaKeyManager: ObservableObject {
     
     @AppStorage("maxSimultaneousNotifications") var maxSimultaneousNotifications: Int = 5
     @AppStorage("mediaSkipDuration") var mediaSkipDuration: Double = 10.0
-    @AppStorage("overlayTheme") var overlayTheme: String = "dark"
+    @AppStorage("overlayTheme") var overlayTheme: String = "system"
     @Published var globalHoveredTypes: Set<String> = []
     @Published var actualHoveredTypes: Set<String> = []
     

@@ -3,8 +3,9 @@ import ApplicationServices
 import Combine
 
 struct WelcomeScreen: View {
+    @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
-    @State private var currentTab = UserDefaults.standard.bool(forKey: "hasCompletedWelcome") ? 4 : 0
+    @State private var currentTab = UserDefaults.standard.bool(forKey: "hasCompletedWelcome") ? 5 : 0
     @State private var isTrusted = AXIsProcessTrusted()
     @State private var goForward: Bool = true
     @State private var window: NSWindow?
@@ -25,12 +26,15 @@ struct WelcomeScreen: View {
                 firstScreen
                     .transition(activeTransition)
             } else if currentTab == 1 {
-                tutorialScreenOne
+                themeScreen
                     .transition(activeTransition)
             } else if currentTab == 2 {
-                tutorialScreenTwo
+                tutorialScreenOne
                     .transition(activeTransition)
             } else if currentTab == 3 {
+                tutorialScreenTwo
+                    .transition(activeTransition)
+            } else if currentTab == 4 {
                 tutorialScreenThree
                     .transition(activeTransition)
             } else {
@@ -38,7 +42,7 @@ struct WelcomeScreen: View {
                     .transition(activeTransition)
             }
         }
-        .frame(width: 500, height: 500)
+        .frame(width: 600, height: 500)
         .background(WindowAccessor(window: $window))
         .onChange(of: window) { _, newWindow in
             if let w = newWindow {
@@ -46,8 +50,8 @@ struct WelcomeScreen: View {
                 w.backgroundColor = .clear
                 w.styleMask.remove(.resizable)
                 w.styleMask.remove(.miniaturizable)
-                w.minSize = NSSize(width: 500, height: 500)
-                w.setContentSize(NSSize(width: 500, height: 500))
+                w.minSize = NSSize(width: 600, height: 500)
+                w.setContentSize(NSSize(width: 600, height: 500))
                 w.center()
             }
         }
@@ -59,7 +63,7 @@ struct WelcomeScreen: View {
                 }
                 if !trusted && hasCompletedWelcome {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                        currentTab = 4
+                        currentTab = 5
                     }
                 }
             }
@@ -119,38 +123,44 @@ struct WelcomeScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    var tutorialScreenOne: some View {
+    var themeScreen: some View {
         VStack(spacing: 12) {
             Spacer(minLength: 0)
             
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.blue)
+                    .fill(Color.indigo)
                     .frame(width: 56, height: 56)
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                Image(systemName: "paintpalette.fill")
                     .font(.system(size: 26))
                     .foregroundColor(.white)
             }
             .padding(.bottom, 4)
             
             VStack(spacing: 6) {
-                Text("Expandable Overlays")
+                Text("Choose a Theme")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                 
-                Text("Click on the overlay to expand it or perform an action. For example, clicking the speaker icon mutes the sound, while clicking the rest of the overlay expands it to show more options.")
+                Text("Select the appearance of the overlays. You can change this later in Settings.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, 16)
             
-            AnimatedTutorialOne()
-                .padding()
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.secondary.opacity(0.1))
-                )
+            HStack(spacing: 20) {
+                ThemeSelectionCard(title: "System", themeValue: "system", isSelected: mediaKeyManager.overlayTheme == "system") {
+                    mediaKeyManager.overlayTheme = "system"
+                }
+                ThemeSelectionCard(title: "Dark", themeValue: "dark", isSelected: mediaKeyManager.overlayTheme == "dark") {
+                    mediaKeyManager.overlayTheme = "dark"
+                }
+                ThemeSelectionCard(title: "Light", themeValue: "light", isSelected: mediaKeyManager.overlayTheme == "light") {
+                    mediaKeyManager.overlayTheme = "light"
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
             
             Spacer(minLength: 16)
             
@@ -188,25 +198,25 @@ struct WelcomeScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    var tutorialScreenTwo: some View {
+    var tutorialScreenOne: some View {
         VStack(spacing: 12) {
             Spacer(minLength: 0)
             
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.purple)
+                    .fill(Color.blue)
                     .frame(width: 56, height: 56)
-                Image(systemName: "arrow.left.and.right")
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 26))
                     .foregroundColor(.white)
             }
             .padding(.bottom, 4)
             
             VStack(spacing: 6) {
-                Text("Smooth Control")
+                Text("Expandable Overlays")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                 
-                Text("Hold and drag anywhere on the overlay to smoothly adjust values, such as volume or brightness. It's an intuitive way to control your Mac directly from the notification.")
+                Text("Click on the overlay to expand it or perform an action. For example, clicking the speaker icon mutes the sound, while clicking the rest of the overlay expands it to show more options.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -214,7 +224,8 @@ struct WelcomeScreen: View {
             }
             .padding(.bottom, 8)
             
-            AnimatedTutorialTwo()
+            AnimatedTutorialOne()
+                .applyTheme(mediaKeyManager.overlayTheme)
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 16)
@@ -257,25 +268,25 @@ struct WelcomeScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    var tutorialScreenThree: some View {
+    var tutorialScreenTwo: some View {
         VStack(spacing: 12) {
             Spacer(minLength: 0)
             
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.pink)
+                    .fill(Color.purple)
                     .frame(width: 56, height: 56)
-                Image(systemName: "timer")
+                Image(systemName: "arrow.left.and.right")
                     .font(.system(size: 26))
                     .foregroundColor(.white)
             }
             .padding(.bottom, 4)
             
             VStack(spacing: 6) {
-                Text("Timeout Indicators")
+                Text("Smooth Control")
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                 
-                Text("Some overlays use their border as a timer to show when they will disappear. You can still interact with them before they vanish! Hovering over the overlay or expanding it will pause the timer.")
+                Text("Hold and drag anywhere on the overlay to smoothly adjust values, such as volume or brightness. It's an intuitive way to control your Mac directly from the notification.")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -283,7 +294,8 @@ struct WelcomeScreen: View {
             }
             .padding(.bottom, 8)
             
-            AnimatedTutorialThree()
+            AnimatedTutorialTwo()
+                .applyTheme(mediaKeyManager.overlayTheme)
                 .padding()
                 .background(
                     RoundedRectangle(cornerRadius: 16)
@@ -311,6 +323,76 @@ struct WelcomeScreen: View {
                     goForward = true
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                         currentTab = 4
+                    }
+                }) {
+                    Text("Continue")
+                        .font(.headline)
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+        }
+        .padding(30)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    var tutorialScreenThree: some View {
+        VStack(spacing: 12) {
+            Spacer(minLength: 0)
+            
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.pink)
+                    .frame(width: 56, height: 56)
+                Image(systemName: "timer")
+                    .font(.system(size: 26))
+                    .foregroundColor(.white)
+            }
+            .padding(.bottom, 4)
+            
+            VStack(spacing: 6) {
+                Text("Timeout Indicators")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                
+                Text("Some overlays use their border as a timer to show when they will disappear. You can still interact with them before they vanish! Hovering over the overlay or expanding it will pause the timer.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.bottom, 8)
+            
+            AnimatedTutorialThree()
+                .applyTheme(mediaKeyManager.overlayTheme)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.secondary.opacity(0.1))
+                )
+            
+            Spacer(minLength: 16)
+            
+            HStack(spacing: 16) {
+                Button(action: {
+                    goForward = false
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 3
+                    }
+                }) {
+                    Text("Back")
+                        .font(.headline)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                
+                Button(action: {
+                    goForward = true
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 5
                     }
                 }) {
                     Text("Continue")
@@ -407,7 +489,7 @@ struct WelcomeScreen: View {
                     Button(action: {
                         goForward = false
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                            currentTab = 3
+                            currentTab = 4
                         }
                     }) {
                         Text("Back")
@@ -735,16 +817,16 @@ struct AnimatedTutorialThree: View {
             scale = 1.0
         }
         
-        withAnimation(.linear(duration: 2.0).delay(1.5)) {
+        withAnimation(.linear(duration: 2.0).delay(0.9)) {
             progress = 0.0
         }
         
-        withAnimation(.easeIn(duration: 0.2).delay(3.6)) {
+        withAnimation(.easeIn(duration: 0.2).delay(3.0)) {
             opacity = 0.0
             scale = 0.9
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.8) {
             runAnimation()
         }
     }
