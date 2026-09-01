@@ -45,3 +45,31 @@ struct CustomSettingsRow<Content: View>: View {
         .padding(.horizontal, 12)
     }
 }
+import SwiftUI
+
+struct DisabledModuleView: View {
+    let icon: String
+    let title: String
+    let description: String
+    
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: icon)
+                .font(.system(size: 48, weight: .regular))
+                .foregroundColor(.secondary.opacity(0.5))
+                .padding(.bottom, 8)
+            
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            Text(description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+        }
+        .frame(maxWidth: .infinity, minHeight: 400)
+        .padding()
+    }
+}

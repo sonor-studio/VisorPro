@@ -17,7 +17,7 @@ struct ThemeOverlayView: View {
             if previewIsDark {
                 titleText = "Dark Theme"
                 iconName = "moon.fill"
-                iconColor = Color(red: 0.2, green: 0.25, blue: 0.65)
+                iconColor = Color(red: 0.45, green: 0.5, blue: 0.9)
             } else {
                 titleText = "Light Theme"
                 iconName = "sun.max.fill"
@@ -27,7 +27,7 @@ struct ThemeOverlayView: View {
             if mediaKeyManager.isDarkMode {
                 titleText = "Dark Mode"
                 iconName = "moon.fill"
-                iconColor = Color(red: 0.2, green: 0.25, blue: 0.65)
+                iconColor = Color(red: 0.45, green: 0.5, blue: 0.9)
             } else {
                 titleText = "Light Mode"
                 iconName = "sun.max.fill"

@@ -11,6 +11,7 @@ struct PrivacySettingsView: View {
     @AppStorage("locationOverlayPosition") private var locationOverlayPosition: String = "top"
     @State private var isMicHistoryExpanded: Bool = false
     @State private var isCameraHistoryExpanded: Bool = false
+    @State private var isLocationHistoryExpanded: Bool = false
     @State private var showMicPermissionAlert: Bool = false
     @State private var showLocationPermissionAlert: Bool = false
     
@@ -18,19 +19,31 @@ struct PrivacySettingsView: View {
         ScrollView {
             VStack(spacing: 24) {
                 
-                // Master Enable Section
-                VStack(spacing: 0) {
-                    CustomSettingsRow(icon: "power", iconColor: .blue, title: "Enable Privacy Module", subtitle: "When disabled, VisorPro completely ignores Camera, Microphone and Location activity") {
-                        Toggle("", isOn: $mediaKeyManager.enablePrivacy).labelsHidden()
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Privacy Module")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    
+                    Text("Module Configuration")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
+                        
+                    VStack(spacing: 0) {
+                        CustomSettingsRow(icon: "power", iconColor: .blue, title: "Enable Privacy Module", subtitle: "When disabled, VisorPro completely ignores Camera, Microphone and Location activity") {
+                            Toggle("", isOn: $mediaKeyManager.enablePrivacy).labelsHidden()
+                        }
                     }
+                    .toggleStyle(.switch)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
                 }
-                .toggleStyle(.switch)
-                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                )
+                .padding(.horizontal)
                 
                 if mediaKeyManager.enablePrivacy {
                     // Previews
@@ -389,24 +402,47 @@ Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
                                 .padding(.leading, 4)
                             
                             VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "gearshape", iconColor: .gray, title: "System Services", subtitle: "Diagnostic tools, background daemons") {
-                                    Toggle("", isOn: $mediaKeyManager.locationShowSystemServices).labelsHidden()
+                                let displayedHistory = isLocationHistoryExpanded ? mediaKeyManager.locationHistory : Array(mediaKeyManager.locationHistory.prefix(3))
+                                
+                                ForEach(displayedHistory, id: \.self) { appName in
+                                    let isBlocked = mediaKeyManager.locationBlocklist.contains(appName)
+                                    let iconName = appName == "System Services" ? "gearshape" : (appName == "Weather" ? "cloud.sun.fill" : (appName == "Maps" ? "map.fill" : (appName == "Safari" ? "safari.fill" : "app.dashed")))
+                                    let iconColor = appName == "System Services" ? Color.gray : (appName == "Maps" ? Color.green : Color.blue)
+                                    let subtitle = appName == "System Services" ? "Diagnostic tools, background daemons" : "Show notifications for this application"
+                                    
+                                    CustomSettingsRow(icon: iconName, iconColor: isBlocked ? .gray : iconColor, title: appName, subtitle: subtitle, appNameForIcon: appName) {
+                                        Toggle("", isOn: Binding(
+                                            get: { !isBlocked },
+                                            set: { isOn in
+                                                if isOn {
+                                                    mediaKeyManager.locationBlocklist.removeAll { $0 == appName }
+                                                } else {
+                                                    if !mediaKeyManager.locationBlocklist.contains(appName) {
+                                                        mediaKeyManager.locationBlocklist.append(appName)
+                                                    }
+                                                }
+                                            }
+                                        )).labelsHidden()
+                                    }
+                                    
+                                    if appName != displayedHistory.last || (mediaKeyManager.locationHistory.count > 3 && !isLocationHistoryExpanded) {
+                                        Divider().padding(.leading, 40)
+                                    }
                                 }
-                                Divider().padding(.leading, 40)
-                                CustomSettingsRow(icon: "cloud.sun.fill", iconColor: .blue, title: "Weather", subtitle: "Apple Weather app & widgets") {
-                                    Toggle("", isOn: $mediaKeyManager.locationShowWeather).labelsHidden()
-                                }
-                                Divider().padding(.leading, 40)
-                                CustomSettingsRow(icon: "map.fill", iconColor: .green, title: "Maps", subtitle: "Apple Maps") {
-                                    Toggle("", isOn: $mediaKeyManager.locationShowMaps).labelsHidden()
-                                }
-                                Divider().padding(.leading, 40)
-                                CustomSettingsRow(icon: "safari.fill", iconColor: .blue, title: "Safari", subtitle: "Websites requesting location") {
-                                    Toggle("", isOn: $mediaKeyManager.locationShowSafari).labelsHidden()
-                                }
-                                Divider().padding(.leading, 40)
-                                CustomSettingsRow(icon: "app.dashed", iconColor: .purple, title: "Other Apps", subtitle: "Any other application") {
-                                    Toggle("", isOn: $mediaKeyManager.locationShowOtherApps).labelsHidden()
+                                
+                                if mediaKeyManager.locationHistory.count > 3 {
+                                    Button(action: {
+                                        withAnimation {
+                                            isLocationHistoryExpanded.toggle()
+                                        }
+                                    }) {
+                                        Text(isLocationHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.locationHistory.count))")
+                                            .font(.system(size: 13, weight: .medium))
+                                            .foregroundColor(.blue)
+                                            .frame(maxWidth: .infinity, alignment: .center)
+                                            .padding(.vertical, 10)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
                                 }
                             }
                             .toggleStyle(.switch)
@@ -418,6 +454,8 @@ Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
                             )
                         }
                     }
+                } else {
+                    DisabledModuleView(icon: "lock.slash.fill", title: "Privacy Module is Disabled", description: "Turn on the module to configure camera, microphone, and location overlays.")
                 }
             }
             .padding()

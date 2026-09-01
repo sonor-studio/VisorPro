@@ -446,10 +446,10 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "VisorPro requires Bluetooth access for the on-screen displays.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
-				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VisorPro uses the microphone to display an audio waveform animation when expanding the microphone overlay.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -502,10 +502,10 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "VisorPro requires Bluetooth access for the on-screen displays.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
+				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
-				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VisorPro uses the microphone to display an audio waveform animation when expanding the microphone overlay.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

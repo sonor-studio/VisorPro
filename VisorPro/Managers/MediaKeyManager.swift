@@ -626,20 +626,11 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(soundOnLocationOn, forKey: "soundOnLocationOn") }
     }
     
-    @Published var locationShowSystemServices: Bool = UserDefaults.standard.object(forKey: "locationShowSystemServices") as? Bool ?? false {
-        didSet { UserDefaults.standard.set(locationShowSystemServices, forKey: "locationShowSystemServices") }
+    @Published var locationHistory: [String] = (UserDefaults.standard.array(forKey: "locationHistory") as? [String]) ?? ["System Services"] {
+        didSet { UserDefaults.standard.set(locationHistory, forKey: "locationHistory") }
     }
-    @Published var locationShowWeather: Bool = UserDefaults.standard.object(forKey: "locationShowWeather") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(locationShowWeather, forKey: "locationShowWeather") }
-    }
-    @Published var locationShowMaps: Bool = UserDefaults.standard.object(forKey: "locationShowMaps") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(locationShowMaps, forKey: "locationShowMaps") }
-    }
-    @Published var locationShowSafari: Bool = UserDefaults.standard.object(forKey: "locationShowSafari") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(locationShowSafari, forKey: "locationShowSafari") }
-    }
-    @Published var locationShowOtherApps: Bool = UserDefaults.standard.object(forKey: "locationShowOtherApps") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(locationShowOtherApps, forKey: "locationShowOtherApps") }
+    @Published var locationBlocklist: [String] = (UserDefaults.standard.array(forKey: "locationBlocklist") as? [String]) ?? ["System Services"] {
+        didSet { UserDefaults.standard.set(locationBlocklist, forKey: "locationBlocklist") }
     }
     
     @Published var showMicIndicator: Bool = false

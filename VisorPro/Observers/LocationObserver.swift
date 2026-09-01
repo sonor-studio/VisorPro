@@ -72,19 +72,13 @@ class LocationObserver {
                 guard let appName = self?.extractAppName(from: output), !appName.isEmpty else { return }
                 guard let manager = self?.manager else { return }
                 
-                var shouldShow = true
-                if appName == "System Services" {
-                    shouldShow = manager.locationShowSystemServices
-                } else if appName == "Weather" || appName == "Pogoda" {
-                    shouldShow = manager.locationShowWeather
-                } else if appName == "Maps" || appName == "Mapy" {
-                    shouldShow = manager.locationShowMaps
-                } else if appName == "Safari" {
-                    shouldShow = manager.locationShowSafari
-                } else {
-                    shouldShow = manager.locationShowOtherApps
+                DispatchQueue.main.async {
+                    if !manager.locationHistory.contains(appName) {
+                        manager.locationHistory.append(appName)
+                    }
                 }
                 
+                let shouldShow = !manager.locationBlocklist.contains(appName)
                 guard shouldShow else { return }
                 
                 let now = Date()

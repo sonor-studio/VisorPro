@@ -15,9 +15,6 @@ struct BrightnessSettingsView: View {
                     Text("Brightness Module")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.primary)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
                         .frame(maxWidth: .infinity, alignment: .center)
                     
                     Text("Module Configuration")
@@ -39,36 +36,93 @@ struct BrightnessSettingsView: View {
                     )
                 }
                 .padding(.horizontal)
+
+                if mediaKeyManager.enableBrightness {
                 
 
                 
-                VStack(alignment: .center) {
-                    Text("Preview")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    
-                    ZStack {
-                        PreviewBackgroundView()
-                        
-                        BrightnessOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-                            .scaleEffect(0.85)
-                    }
-                    .padding(.horizontal)
-                }
-                .padding(.top, 20)
-                
-                Divider()
-                
-                if mediaKeyManager.enableBrightness {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Sound Settings")
+                    VStack(alignment: .center) {
+                        Text("Preview")
                             .font(.headline)
                             .foregroundColor(.secondary)
-                            .padding(.leading, 4)
+                    
+                        ZStack {
+                            PreviewBackgroundView()
+                        
+                            BrightnessOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
+                                .scaleEffect(0.85)
+                        }
+                        .padding(.horizontal)
+                    }
+                    .padding(.top, 20)
+                
+                    Divider()
+                
+                    if mediaKeyManager.enableBrightness {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Sound Settings")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.leading, 4)
                             
+                            VStack(spacing: 0) {
+                                CustomSettingsRow(icon: "speaker.wave.2.fill", iconColor: .yellow, title: "Notification Sound", subtitle: "Select the sound to play when changing brightness") {
+                                    SoundPickerControl(selectedSound: $mediaKeyManager.soundOnBrightness)
+                                }
+                            }
+                            .toggleStyle(.switch)
+                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                        .padding(.horizontal)
+                    
+                        Divider()
+                    }
+                
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Behavior")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                    
                         VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "speaker.wave.2.fill", iconColor: .yellow, title: "Notification Sound", subtitle: "Select the sound to play when changing brightness") {
-                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnBrightness)
+                            CustomSettingsRow(icon: "plus.forwardslash.minus", iconColor: .yellow, title: "Step Size", subtitle: "Percentage to change when pressing keys") {
+                                HStack {
+                                    Slider(value: $brightnessStep, in: 1...25, step: 1)
+                                    .labelsHidden()
+                                    .frame(width: 150)
+                                
+                                    Text(String(format: "%.1f%%", brightnessStep))
+                                        .frame(width: 50, alignment: .trailing)
+                                }
+                            }
+                        }
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
+                
+                    Divider()
+                
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Visual Style")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                    
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "paintpalette.fill", iconColor: .yellow, title: "Fill Center", subtitle: "Fills the inside of the overlay with white color instead of just the border") {
+                                Toggle("", isOn: $brightnessFillCenter).labelsHidden()
                             }
                         }
                         .toggleStyle(.switch)
@@ -78,77 +132,26 @@ struct BrightnessSettingsView: View {
                             RoundedRectangle(cornerRadius: 10)
                                 .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                         )
-                    }
-                    .padding(.horizontal)
                     
-                    Divider()
-                }
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Behavior")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.bottom, 4)
-                        .padding(.leading, 4)
-                    
-                    VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "plus.forwardslash.minus", iconColor: .yellow, title: "Step Size", subtitle: "Percentage to change when pressing keys") {
-                            HStack {
-                                Slider(value: $brightnessStep, in: 1...25, step: 1)
-                                .labelsHidden()
-                                .frame(width: 150)
-                                
-                                Text(String(format: "%.1f%%", brightnessStep))
-                                    .frame(width: 50, alignment: .trailing)
+                        Group {
+                            if overlayPositionMode == "custom" {
+                            Text("Overlay Position")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                        
+                            PositionPickerGroup(selection: $brightnessOverlayPosition)
                             }
                         }
                     }
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
+                    .padding(.horizontal)
+                
+                    Spacer()
+            
+                } else {
+                    DisabledModuleView(icon: "power", title: "Brightness Module is Disabled", description: "Turn on the module to configure brightness overlays.")
                 }
-                .padding(.horizontal)
-                
-                Divider()
-                
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Visual Style")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.bottom, 4)
-                        .padding(.leading, 4)
-                    
-                    VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "paintpalette.fill", iconColor: .yellow, title: "Fill Center", subtitle: "Fills the inside of the overlay with white color instead of just the border") {
-                            Toggle("", isOn: $brightnessFillCenter).labelsHidden()
-                        }
-                    }
-                    .toggleStyle(.switch)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
-                    
-                    Group {
-                        if overlayPositionMode == "custom" {
-                        Text("Overlay Position")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 10)
-                        
-                        PositionPickerGroup(selection: $brightnessOverlayPosition)
-                        }
-                    }
-                }
-                .padding(.horizontal)
-                
-                Spacer()
-            }
+}
         }
         .navigationTitle("Brightness")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
