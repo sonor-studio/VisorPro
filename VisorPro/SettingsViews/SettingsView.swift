@@ -206,6 +206,11 @@ struct SettingsView: View {
                 w.styleMask.insert(.resizable)
                 w.minSize = NSSize(width: 850, height: 500)
                 
+                if w.frame.width < 850 || w.frame.height < 500 {
+                    w.setContentSize(NSSize(width: 850, height: 500))
+                    w.center()
+                }
+                
                 if selection == .none {
                     selection = .general
                 }

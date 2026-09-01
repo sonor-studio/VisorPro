@@ -28,6 +28,7 @@ struct GeneralSettingsView: View {
                     Spacer()
                     Button("Open") {
                         UserDefaults.standard.set(false, forKey: "hasCompletedWelcome")
+                        NotificationCenter.default.post(name: NSNotification.Name("ResetDashboardForced"), object: nil)
                     }
                 }
             } header: {

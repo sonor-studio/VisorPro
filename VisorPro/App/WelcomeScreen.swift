@@ -7,7 +7,7 @@ struct WelcomeScreen: View {
     @State private var currentTab = UserDefaults.standard.bool(forKey: "hasCompletedWelcome") ? 4 : 0
     @State private var isTrusted = AXIsProcessTrusted()
     @State private var goForward: Bool = true
-    @Environment(\.dismiss) private var dismiss
+    @State private var window: NSWindow?
     
     let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
 
@@ -39,10 +39,28 @@ struct WelcomeScreen: View {
             }
         }
         .frame(width: 500, height: 500)
+        .background(WindowAccessor(window: $window))
+        .onChange(of: window) { _, newWindow in
+            if let w = newWindow {
+                w.isOpaque = false
+                w.backgroundColor = .clear
+                w.styleMask.remove(.resizable)
+                w.styleMask.remove(.miniaturizable)
+                w.minSize = NSSize(width: 500, height: 500)
+                w.setContentSize(NSSize(width: 500, height: 500))
+                w.center()
+            }
+        }
         .onReceive(timer) { _ in
-            if currentTab == 4 && !isTrusted {
+            let trusted = AXIsProcessTrusted()
+            if isTrusted != trusted {
                 withAnimation(.spring()) {
-                    isTrusted = AXIsProcessTrusted()
+                    isTrusted = trusted
+                }
+                if !trusted && hasCompletedWelcome {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 4
+                    }
                 }
             }
         }
@@ -385,23 +403,24 @@ struct WelcomeScreen: View {
             Spacer(minLength: 10)
             
             HStack(spacing: 16) {
-                Button(action: {
-                    goForward = false
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                        currentTab = 3
+                if !hasCompletedWelcome {
+                    Button(action: {
+                        goForward = false
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                            currentTab = 3
+                        }
+                    }) {
+                        Text("Back")
+                            .font(.headline)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 4)
                     }
-                }) {
-                    Text("Back")
-                        .font(.headline)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 4)
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
                 
                 Button(action: {
                     hasCompletedWelcome = true
-                    dismiss()
                 }) {
                     Text("Finish")
                         .font(.headline)

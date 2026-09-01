@@ -37,8 +37,7 @@ struct VisorProApp: App {
         
         MenuBarExtra("VisorPro", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
             Button("Dashboard") {
-                NSApp.activate(ignoringOtherApps: true)
-                let _ = appDelegate.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+                appDelegate.openDashboard()
             }
             
             Divider()
@@ -52,25 +51,48 @@ struct VisorProApp: App {
 
 struct RootView: View {
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
-    @State private var showWelcome = false
+    @AppStorage("_forceDashboard") private var forceDashboardFlag = false
+    @State private var isTrusted = AXIsProcessTrusted()
+    @State private var dashboardForced = false
+    
+    var showWelcome: Bool {
+        if !isTrusted { return true }
+        if dashboardForced && hasCompletedWelcome { return false }
+        return !hasCompletedWelcome
+    }
     
     var body: some View {
-        SettingsView()
-            .sheet(isPresented: $showWelcome) {
+        Group {
+            if showWelcome {
                 WelcomeScreen()
+            } else {
+                SettingsView()
             }
-            .onAppear {
-                if !hasCompletedWelcome || !AXIsProcessTrusted() {
-                    showWelcome = true
-                }
+        }
+        .onAppear {
+            consumeForceDashboardFlag()
+        }
+        .onChange(of: forceDashboardFlag) { _, newValue in
+            if newValue {
+                consumeForceDashboardFlag()
             }
-            .onChange(of: hasCompletedWelcome) { _, newValue in
-                if !newValue {
-                    showWelcome = true
-                } else if AXIsProcessTrusted() {
-                    showWelcome = false
-                }
+        }
+        .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
+            let trusted = AXIsProcessTrusted()
+            if isTrusted != trusted {
+                isTrusted = trusted
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ResetDashboardForced"))) { _ in
+            dashboardForced = false
+        }
+    }
+    
+    private func consumeForceDashboardFlag() {
+        if forceDashboardFlag {
+            dashboardForced = true
+            forceDashboardFlag = false
+        }
     }
 }
 
@@ -107,13 +129,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UpdateManager.shared.checkForUpdates()
         
         MediaKeyManager.shared.start()
-        PowerChimeManager.disableChargingSound()
+        if MediaKeyManager.shared.enableBattery {
+            PowerChimeManager.disableChargingSound()
+        } else {
+            PowerChimeManager.enableChargingSound()
+        }
         
         let hasCompletedWelcome = UserDefaults.standard.bool(forKey: "hasCompletedWelcome")
         let isTrusted = AXIsProcessTrusted()
         if !hasCompletedWelcome || !isTrusted {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                let _ = self.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+                let _ = self.handleReopen(forceDashboard: false)
             }
         }
     }
@@ -125,18 +151,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         LogManager.shared.log("VisorPro will terminate", level: "INFO")
         MediaKeyManager.shared.stopEventTaps()
+        PowerChimeManager.enableChargingSound()
     }
     
     func applicationDidBecomeActive(_ notification: Notification) {
-        // When the user double-clicks the app in Finder/Spotlight while it's running, it becomes active.
-        // If there are no visible windows, we should open the dashboard.
         let hasVisibleSettings = NSApp.windows.contains { $0.isVisible && ($0.title == "General" || $0.title == "Settings" || $0.title == "VisorPro") }
         if !hasVisibleSettings {
-            let _ = self.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+            let _ = self.handleReopen(forceDashboard: true)
         }
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        return self.handleReopen(forceDashboard: true)
+    }
+    
+    func handleReopen(forceDashboard: Bool) -> Bool {
+        if forceDashboard {
+            UserDefaults.standard.set(true, forKey: "_forceDashboard")
+        }
+        
         NSApp.activate(ignoringOtherApps: true)
         let actionString = "showSettings" + "Window:"
         NSApp.sendAction(Selector(actionString), to: nil, from: nil)
@@ -174,7 +207,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     // Helper to call from SwiftUI
     func openDashboard() {
-        let _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+        let _ = handleReopen(forceDashboard: true)
     }
 }
 
