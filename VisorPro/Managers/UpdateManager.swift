@@ -47,8 +47,16 @@ class UpdateManager: ObservableObject {
                 }
             }
         } catch {
-            LogManager.shared.log("Error in UpdateManager.swift: \(error)", level: "ERROR")
-            // Silently fail on network error so app can still start
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain && (
+                nsError.code == NSURLErrorNotConnectedToInternet ||
+                nsError.code == NSURLErrorCannotFindHost ||
+                nsError.code == NSURLErrorCannotConnectToHost
+            ) {
+                // Silently fail on network error so app can still start and no unnecessary logs are created
+            } else {
+                LogManager.shared.log("Error in UpdateManager.swift: \(error)", level: "ERROR")
+            }
         }
     }
     

@@ -11,12 +11,20 @@ import ApplicationServices
 import Carbon
 import TelemetryClient
 
+let trustedAtLaunchGlobal = checkAXIsProcessTrustedReliably()
+
+func checkAXIsProcessTrustedReliably() -> Bool {
+    let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false] as CFDictionary
+    return AXIsProcessTrustedWithOptions(options)
+}
+
 @main
 struct VisorProApp: App {
     @StateObject private var mediaKeyManager = MediaKeyManager.shared
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
+        UserDefaultsMigrator.migrate()
         NSSetUncaughtExceptionHandler { exception in
             LogManager.shared.log("Uncaught Exception: \(exception.name.rawValue) - \(exception.reason ?? "No reason")", level: "FATAL")
             fflush(stdout)
@@ -24,9 +32,12 @@ struct VisorProApp: App {
     }
     
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     
     var body: some Scene {
+        let _ = { appDelegate.openSettingsAction = { openSettings() } }()
+        
         Settings {
             RootView()
                 .environmentObject(mediaKeyManager)
@@ -53,12 +64,13 @@ struct RootView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
     @AppStorage("_forceDashboard") private var forceDashboardFlag = false
-    @State private var isTrusted = AXIsProcessTrusted()
+    @State private var isTrusted = checkAXIsProcessTrustedReliably()
     @State private var dashboardForced = false
     
     var showWelcome: Bool {
+        if !trustedAtLaunchGlobal { return true }
         if !isTrusted { return true }
-        if dashboardForced && hasCompletedWelcome { return false }
+        if dashboardForced { return false }
         return !hasCompletedWelcome
     }
     
@@ -79,14 +91,24 @@ struct RootView: View {
             }
         }
         .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
-            let trusted = AXIsProcessTrusted()
+            let trusted = checkAXIsProcessTrustedReliably()
             if isTrusted != trusted {
                 isTrusted = trusted
+                mediaKeyManager.isTrusted = trusted
             }
             mediaKeyManager.syncPermissions()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ResetDashboardForced"))) { _ in
             dashboardForced = false
+        }
+        .onReceive(DistributedNotificationCenter.default().publisher(for: NSNotification.Name("com.apple.accessibility.api"))) { _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                let trusted = checkAXIsProcessTrustedReliably()
+                if isTrusted != trusted {
+                    isTrusted = trusted
+                    mediaKeyManager.isTrusted = trusted
+                }
+            }
         }
     }
     
@@ -94,12 +116,13 @@ struct RootView: View {
         if forceDashboardFlag {
             dashboardForced = true
             forceDashboardFlag = false
+            hasCompletedWelcome = true
         }
     }
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    var customDashboardWindow: NSWindow?
+    var openSettingsAction: (() -> Void)?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -115,7 +138,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(appMenuItem)
         let appMenu = NSMenu()
         appMenuItem.submenu = appMenu
-        appMenu.addItem(withTitle: "Settings...", action: Selector(("showSettingsWindow:")), keyEquivalent: ",")
+        appMenu.addItem(withTitle: "Settings...", action: #selector(showSettingsWindowAction), keyEquivalent: ",")
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         appMenu.addItem(NSMenuItem.separator())
@@ -138,7 +161,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         let hasCompletedWelcome = UserDefaults.standard.bool(forKey: "hasCompletedWelcome")
-        let isTrusted = AXIsProcessTrusted()
+        let isTrusted = checkAXIsProcessTrustedReliably()
         if !hasCompletedWelcome || !isTrusted {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 let _ = self.handleReopen(forceDashboard: false)
@@ -157,13 +180,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationDidBecomeActive(_ notification: Notification) {
-        let hasVisibleSettings = NSApp.windows.contains { $0.isVisible && ($0.title == "General" || $0.title == "Settings" || $0.title == "VisorPro") }
+        let hasVisibleSettings = NSApp.windows.contains { ($0.isVisible || $0.isMiniaturized) && $0.styleMask.contains(.titled) }
         if !hasVisibleSettings {
             let _ = self.handleReopen(forceDashboard: true)
         }
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if let existing = NSApp.windows.first(where: { ($0.isVisible || $0.isMiniaturized) && $0.styleMask.contains(.titled) }) {
+            if existing.isMiniaturized {
+                existing.deminiaturize(nil)
+            }
+        }
         return self.handleReopen(forceDashboard: true)
     }
     
@@ -173,38 +201,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         NSApp.activate(ignoringOtherApps: true)
-        let actionString = "showSettings" + "Window:"
-        NSApp.sendAction(Selector(actionString), to: nil, from: nil)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            let hasVisibleSettings = NSApp.windows.contains { $0.isVisible && ($0.title == "General" || $0.title == "Settings" || $0.title == "VisorPro") }
-            if !hasVisibleSettings {
-                if let existingWindow = self.customDashboardWindow {
-                    existingWindow.makeKeyAndOrderFront(nil)
-                    return
-                }
-                
-                let initialWidth: CGFloat = 850
-                let initialHeight: CGFloat = 500
-                
-                let settingsWindow = NSWindow(
-                    contentRect: NSRect(x: 0, y: 0, width: initialWidth, height: initialHeight),
-                    styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-                    backing: .buffered, defer: false)
-                settingsWindow.title = "VisorPro"
-                settingsWindow.contentView = NSHostingView(rootView: RootView().environmentObject(MediaKeyManager.shared))
-                settingsWindow.minSize = NSSize(width: initialWidth, height: initialHeight)
-                settingsWindow.setFrameAutosaveName("VisorProDashboardWindow_v7")
-                if !settingsWindow.setFrameUsingName("VisorProDashboardWindow_v7") {
-                    settingsWindow.center()
-                }
-                settingsWindow.isReleasedWhenClosed = false
-                self.customDashboardWindow = settingsWindow
-                settingsWindow.makeKeyAndOrderFront(nil)
-            }
-        }
+        openSettingsAction?()
         
         return true
+    }
+    
+    @objc func showSettingsWindowAction() {
+        openSettingsAction?()
     }
     
     // Helper to call from SwiftUI

@@ -24,6 +24,10 @@ class LicenseManager: ObservableObject {
             self.isPremium = true
             self.isEarlyAdopter = existing.key.hasPrefix("EA-")
             LogManager.shared.log("License found in Keychain. Premium: true, Early Adopter: \(self.isEarlyAdopter)", level: "INFO")
+            
+            if !existing.isSynchronized {
+                tryUpgradeToCloudKeychain(key: existing.key)
+            }
         } else {
             // Currently in early adopter phase, so we issue a key to everyone automatically.
             let randomPart = UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16).uppercased()
@@ -48,10 +52,10 @@ class LicenseManager: ObservableObject {
         }
     }
     
-    private func saveToKeychain(_ value: String) -> Bool {
-        guard let data = value.data(using: .utf8) else { return false }
+    private func tryUpgradeToCloudKeychain(key: String) {
+        guard let data = key.data(using: .utf8) else { return }
         
-        let query: [String: Any] = [
+        let cloudQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: licenseAccount,
@@ -59,33 +63,91 @@ class LicenseManager: ObservableObject {
             kSecAttrSynchronizable as String: true
         ]
         
-        // Delete any existing item to ensure we can save a new one (though logically it shouldn't exist here)
+        SecItemDelete(cloudQuery as CFDictionary)
+        let status = SecItemAdd(cloudQuery as CFDictionary, nil)
+        
+        if status == errSecSuccess {
+            let localQuery: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: keychainService,
+                kSecAttrAccount as String: licenseAccount,
+                kSecAttrSynchronizable as String: false
+            ]
+            SecItemDelete(localQuery as CFDictionary)
+            LogManager.shared.log("Upgraded license to iCloud Keychain.", level: "INFO")
+        }
+    }
+    
+    private func saveToKeychain(_ value: String) -> Bool {
+        guard let data = value.data(using: .utf8) else { return false }
+        
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: licenseAccount,
+            kSecValueData as String: data,
+            kSecAttrSynchronizable as String: true
+        ]
+        
+        // Try iCloud first
         SecItemDelete(query as CFDictionary)
-        let status = SecItemAdd(query as CFDictionary, nil)
+        var status = SecItemAdd(query as CFDictionary, nil)
+        
+        if status != errSecSuccess {
+            // Fallback to local keychain if iCloud sync fails
+            query[kSecAttrSynchronizable as String] = false
+            SecItemDelete(query as CFDictionary)
+            status = SecItemAdd(query as CFDictionary, nil)
+            if status == errSecSuccess {
+                LogManager.shared.log("Saved license to local Keychain as fallback.", level: "INFO")
+            }
+        }
+        
         return status == errSecSuccess
     }
     
-    private func readFromKeychain() -> (key: String, date: Date)? {
+    private func readFromKeychain() -> (key: String, date: Date, isSynchronized: Bool)? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: licenseAccount,
             kSecReturnData as String: true,
             kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecAttrSynchronizable as String: true
+            kSecMatchLimit as String: kSecMatchLimitAll,
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
         ]
         
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        var items: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &items)
         
-        if status == errSecSuccess, let dict = item as? [String: Any],
-           let data = dict[kSecValueData as String] as? Data,
-           let keyString = String(data: data, encoding: .utf8) {
-           
-           let creationDate = dict[kSecAttrCreationDate as String] as? Date ?? Date()
-           return (keyString, creationDate)
+        if status == errSecSuccess, let array = items as? [[String: Any]], !array.isEmpty {
+            
+            // Prefer the iCloud synced item if it exists
+            let syncedItem = array.first(where: { ($0[kSecAttrSynchronizable as String] as? Bool) == true })
+            let localItem = array.first(where: { ($0[kSecAttrSynchronizable as String] as? Bool) == false })
+            
+            // If both exist, we should delete the local one to clean up
+            if syncedItem != nil && localItem != nil {
+                let deleteQuery: [String: Any] = [
+                    kSecClass as String: kSecClassGenericPassword,
+                    kSecAttrService as String: keychainService,
+                    kSecAttrAccount as String: licenseAccount,
+                    kSecAttrSynchronizable as String: false
+                ]
+                SecItemDelete(deleteQuery as CFDictionary)
+            }
+            
+            let bestItem = syncedItem ?? array.first!
+            
+            if let data = bestItem[kSecValueData as String] as? Data,
+               let keyString = String(data: data, encoding: .utf8) {
+               
+               let creationDate = bestItem[kSecAttrCreationDate as String] as? Date ?? Date()
+               let isSync = bestItem[kSecAttrSynchronizable as String] as? Bool ?? false
+               return (keyString, creationDate, isSync)
+            }
         }
+        
         return nil
     }
 }

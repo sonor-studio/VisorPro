@@ -85,7 +85,7 @@ class VisorProWindowManager: ObservableObject {
         
         let w: CGFloat = 260
         let s: CGFloat = 24
-        let marginVal = UserDefaults.standard.object(forKey: "overlayMargin"); let m: CGFloat = marginVal != nil ? CGFloat(marginVal as! Double) : 30.0
+        let marginVal = UserDefaults.standard.object(forKey: "overlayMargin"); let m: CGFloat = marginVal != nil ? CGFloat((marginVal as? NSNumber)?.doubleValue ?? 30.0) : 30.0
         
         let countLeft = lefts.count
         let countCenter = centers.count
@@ -523,7 +523,7 @@ class VisorProWindowManager: ObservableObject {
     }
     
     private func yPos(for position: String, in size: CGSize) -> CGFloat {
-        let marginVal = UserDefaults.standard.object(forKey: "overlayMargin"); let margin = marginVal != nil ? CGFloat(marginVal as! Double) : 30.0
+        let marginVal = UserDefaults.standard.object(forKey: "overlayMargin"); let margin = marginVal != nil ? CGFloat((marginVal as? NSNumber)?.doubleValue ?? 30.0) : 30.0
         let bottomPadding: CGFloat = margin
         let topPadding: CGFloat = margin
         let pillHeight: CGFloat = 56
@@ -710,6 +710,7 @@ struct ScrollSwipeModifier: ViewModifier {
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("enableSwipeToDismiss") private var enableSwipeToDismiss = true
+    @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
     
     @State private var totalScrollDelta: CGFloat = 0
     @State private var dragOffset: CGFloat = 0
@@ -735,7 +736,8 @@ struct ScrollSwipeModifier: ViewModifier {
     }
     
     private func handleScroll(event: NSEvent) {
-        guard enableSwipeToDismiss else { return }
+        let enableSwipe = UserDefaults.standard.object(forKey: "enableSwipeToDismiss") as? Bool ?? true
+        guard enableSwipe else { return }
         guard !isDismissing else { return }
         
         let isHovered = mediaKeyManager.actualHoveredTypes.contains(overlayId) ||
@@ -760,7 +762,12 @@ struct ScrollSwipeModifier: ViewModifier {
         guard isHovered || isCurrentlySwiping else { return }
         
         let rawDelta = event.scrollingDeltaY
-        let deltaY = event.isDirectionInvertedFromDevice ? -rawDelta : rawDelta
+        var deltaY = event.isDirectionInvertedFromDevice ? rawDelta : -rawDelta
+        
+        let reverseSwipe = UserDefaults.standard.bool(forKey: "reverseSwipeDirection")
+        if reverseSwipe {
+            deltaY = -deltaY
+        }
         
         let isEnding = phase == .ended || phase == .cancelled || momentum == .ended || momentum == .cancelled
         if isEnding {

@@ -5,8 +5,8 @@ import Combine
 struct WelcomeScreen: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
-    @State private var currentTab = UserDefaults.standard.bool(forKey: "hasCompletedWelcome") ? 5 : 0
-    @State private var isTrusted = AXIsProcessTrusted()
+    @State private var currentTab = UserDefaults.standard.bool(forKey: "hasCompletedWelcome") ? 6 : 0
+    @State private var isTrusted = checkAXIsProcessTrustedReliably()
     @State private var goForward: Bool = true
     @State private var window: NSWindow?
     
@@ -35,15 +35,59 @@ struct WelcomeScreen: View {
                 tutorialScreenTwo
                     .transition(activeTransition)
             } else if currentTab == 4 {
+                tutorialScreenClickActions
+                    .transition(activeTransition)
+            } else if currentTab == 5 {
                 tutorialScreenThree
                     .transition(activeTransition)
             } else {
                 permissionsScreen
                     .transition(activeTransition)
             }
+
         }
         .frame(width: 600, height: 500)
+        .overlay(
+            VStack {
+                Spacer()
+                ZStack(alignment: .bottom) {
+                    HStack {
+                        Spacer()
+                        if currentTab < 6 {
+                            Button("Skip") {
+                                if isTrusted {
+                                    hasCompletedWelcome = true
+                                } else {
+                                    goForward = true
+                                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                                        currentTab = 6
+                                    }
+                                }
+                            }
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .buttonStyle(.plain)
+                            .contentShape(Rectangle())
+                            .padding(.trailing, 30)
+                            .padding(.bottom, 56)
+                        }
+                    }
+                    
+                    if currentTab < 7 {
+                        HStack(spacing: 8) {
+                            ForEach(0..<7) { index in
+                                Circle()
+                                    .fill(currentTab == index ? Color.primary : Color.secondary.opacity(0.3))
+                                    .frame(width: 8, height: 8)
+                            }
+                        }
+                        .padding(.bottom, 20)
+                    }
+                }
+            }
+        )
         .background(WindowAccessor(window: $window))
+
         .onChange(of: window) { _, newWindow in
             if let w = newWindow {
                 w.isOpaque = false
@@ -56,14 +100,14 @@ struct WelcomeScreen: View {
             }
         }
         .onReceive(timer) { _ in
-            let trusted = AXIsProcessTrusted()
+            let trusted = checkAXIsProcessTrustedReliably()
             if isTrusted != trusted {
                 withAnimation(.spring()) {
                     isTrusted = trusted
                 }
                 if !trusted && hasCompletedWelcome {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                        currentTab = 5
+                        currentTab = 6
                     }
                 }
             }
@@ -72,7 +116,8 @@ struct WelcomeScreen: View {
     }
     
     var firstScreen: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
             Spacer(minLength: 0)
             
             Image(nsImage: NSApplication.shared.applicationIconImage)
@@ -105,6 +150,8 @@ struct WelcomeScreen: View {
             .padding(.horizontal, 10)
             
             Spacer(minLength: 16)
+            }
+            .frame(maxHeight: .infinity)
             
             Button(action: {
                 goForward = true
@@ -120,12 +167,15 @@ struct WelcomeScreen: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
         }
-        .padding(30)
+        .padding(.horizontal, 30)
+        .padding(.top, 30)
+        .padding(.bottom, 50)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     var themeScreen: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
             Spacer(minLength: 0)
             
             ZStack {
@@ -164,6 +214,8 @@ struct WelcomeScreen: View {
             .frame(maxWidth: .infinity, alignment: .center)
             
             Spacer(minLength: 16)
+            }
+            .frame(maxHeight: .infinity)
             
             HStack(spacing: 16) {
                 Button(action: {
@@ -195,12 +247,15 @@ struct WelcomeScreen: View {
                 .controlSize(.large)
             }
         }
-        .padding(30)
+        .padding(.horizontal, 30)
+        .padding(.top, 30)
+        .padding(.bottom, 50)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     var tutorialScreenOne: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
+            VStack(spacing: 8) {
             Spacer(minLength: 0)
             
             ZStack {
@@ -233,7 +288,9 @@ struct WelcomeScreen: View {
                         .fill(Color.secondary.opacity(0.1))
                 )
             
-            Spacer(minLength: 16)
+            Spacer(minLength: 8)
+            }
+            .frame(maxHeight: .infinity)
             
             HStack(spacing: 16) {
                 Button(action: {
@@ -265,12 +322,15 @@ struct WelcomeScreen: View {
                 .controlSize(.large)
             }
         }
-        .padding(30)
+        .padding(.horizontal, 30)
+        .padding(.top, 30)
+        .padding(.bottom, 50)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     var tutorialScreenTwo: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
             Spacer(minLength: 0)
             
             ZStack {
@@ -304,6 +364,8 @@ struct WelcomeScreen: View {
                 )
             
             Spacer(minLength: 16)
+            }
+            .frame(maxHeight: .infinity)
             
             HStack(spacing: 16) {
                 Button(action: {
@@ -335,12 +397,91 @@ struct WelcomeScreen: View {
                 .controlSize(.large)
             }
         }
-        .padding(30)
+        .padding(.horizontal, 30)
+        .padding(.top, 30)
+        .padding(.bottom, 50)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    
+    var tutorialScreenClickActions: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
+            Spacer(minLength: 0)
+            
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.orange)
+                    .frame(width: 56, height: 56)
+                Image(systemName: "hand.tap.fill")
+                    .font(.system(size: 26))
+                    .foregroundColor(.white)
+            }
+            .padding(.bottom, 4)
+            
+            VStack(spacing: 6) {
+                Text("Click Actions")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                
+                Text("Not all overlays expand. Some simply perform an action when clicked, like toggling a feature on or off.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.bottom, 8)
+            
+            AnimatedTutorialClickActions()
+                .applyTheme(mediaKeyManager.overlayTheme)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.secondary.opacity(0.1))
+                )
+            
+            Spacer(minLength: 16)
+            }
+            .frame(maxHeight: .infinity)
+            
+            HStack(spacing: 16) {
+                Button(action: {
+                    goForward = false
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 3
+                    }
+                }) {
+                    Text("Back")
+                        .font(.headline)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                
+                Button(action: {
+                    goForward = true
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 5
+                    }
+                }) {
+                    Text("Continue")
+                        .font(.headline)
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+        }
+        .padding(.horizontal, 30)
+        .padding(.top, 30)
+        .padding(.bottom, 50)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     var tutorialScreenThree: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
             Spacer(minLength: 0)
             
             ZStack {
@@ -374,12 +515,14 @@ struct WelcomeScreen: View {
                 )
             
             Spacer(minLength: 16)
+            }
+            .frame(maxHeight: .infinity)
             
             HStack(spacing: 16) {
                 Button(action: {
                     goForward = false
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                        currentTab = 3
+                        currentTab = 4
                     }
                 }) {
                     Text("Back")
@@ -393,7 +536,7 @@ struct WelcomeScreen: View {
                 Button(action: {
                     goForward = true
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                        currentTab = 5
+                        currentTab = 6
                     }
                 }) {
                     Text("Continue")
@@ -405,12 +548,15 @@ struct WelcomeScreen: View {
                 .controlSize(.large)
             }
         }
-        .padding(30)
+        .padding(.horizontal, 30)
+        .padding(.top, 30)
+        .padding(.bottom, 50)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     var permissionsScreen: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
             Spacer(minLength: 0)
             
             ZStack {
@@ -451,6 +597,13 @@ struct WelcomeScreen: View {
                             .font(.system(size: 36))
                         Text("Permissions granted!")
                             .font(.headline)
+                        
+                        if !trustedAtLaunchGlobal {
+                            Text("A restart is required for all features to work correctly.")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                     .transition(.scale.combined(with: .opacity))
                 } else {
@@ -484,6 +637,8 @@ struct WelcomeScreen: View {
             .frame(minHeight: 90)
             
             Spacer(minLength: 10)
+            }
+            .frame(maxHeight: .infinity)
             
             HStack(spacing: 16) {
                 if !hasCompletedWelcome {
@@ -504,8 +659,17 @@ struct WelcomeScreen: View {
                 
                 Button(action: {
                     hasCompletedWelcome = true
+                    UserDefaults.standard.set(true, forKey: "hasCompletedWelcome")
+                    
+                    if isTrusted && !trustedAtLaunchGlobal {
+                        let process = Process()
+                        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                        process.arguments = ["-n", Bundle.main.bundlePath]
+                        try? process.run()
+                        NSApplication.shared.terminate(nil)
+                    }
                 }) {
-                    Text("Finish")
+                    Text((isTrusted && !trustedAtLaunchGlobal) ? "Relaunch" : "Finish")
                         .font(.headline)
                         .padding(.horizontal, 40)
                         .padding(.vertical, 4)
@@ -515,7 +679,9 @@ struct WelcomeScreen: View {
                 .disabled(!isTrusted)
             }
         }
-        .padding(30)
+        .padding(.horizontal, 30)
+        .padding(.top, 30)
+        .padding(.bottom, 50)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -617,7 +783,7 @@ struct AnimatedTutorialOne: View {
                 .scaleEffect(cursorScale, anchor: .topLeading)
                 .offset(cursorOffset)
         }
-        .frame(maxWidth: .infinity, minHeight: 160)
+        .frame(maxWidth: .infinity, minHeight: 130)
         .onAppear {
             runAnimation()
         }
@@ -766,7 +932,7 @@ struct AnimatedTutorialThree: View {
                 isExpanded: .constant(false),
                 showProgressBar: true,
                 progress: progress,
-                barColor: .mint,
+                barColor: .indigo,
                 fillCenter: false,
                 isMuted: false,
                 customWidth: 230,
@@ -776,17 +942,17 @@ struct AnimatedTutorialThree: View {
                 disableTimeoutMode: true,
                 baseContent: {
                     HStack(alignment: .center, spacing: 14) {
-                        Image(systemName: "capslock.fill")
+                        Image(systemName: "airpodspro")
                             .font(.system(size: 18, weight: .medium))
                             .foregroundColor(.primary)
                             .frame(width: 26, height: 24)
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Keyboard")
+                            Text("Bluetooth Connected")
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
                                 
-                            MarqueeText(text: "Caps Lock ON", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                            MarqueeText(text: "AirPods Pro", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                         }
                         Spacer(minLength: 8)
                     }
@@ -828,6 +994,96 @@ struct AnimatedTutorialThree: View {
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.8) {
+            runAnimation()
+        }
+    }
+}
+
+
+struct AnimatedTutorialClickActions: View {
+    @State private var isOn = true
+    @State private var cursorOffset = CGSize(width: 50, height: 100)
+    @State private var cursorScale: CGFloat = 1.0
+
+    var body: some View {
+        ZStack {
+            UniversalOverlayView(
+                isPreview: true,
+                isExpanded: .constant(false),
+                showProgressBar: true,
+                progress: 1.0,
+                barColor: isOn ? .mint : .secondary,
+                fillCenter: false,
+                isMuted: false,
+                customWidth: 230,
+                supportDragGesture: false,
+                isExpandable: false,
+                expandUpwards: false,
+                disableTimeoutMode: true,
+                baseContent: {
+                    HStack(alignment: .center, spacing: 14) {
+                        Image(systemName: isOn ? "capslock.fill" : "capslock")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(.primary)
+                            .frame(width: 26, height: 24)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Keyboard")
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundColor(.secondary)
+                                
+                            MarqueeText(text: isOn ? "Caps Lock ON" : "Caps Lock OFF", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                        }
+                        Spacer(minLength: 8)
+                    }
+                    .padding(.horizontal, 23)
+                },
+                expandedContent: { EmptyView() }
+            )
+            .environmentObject(MediaKeyManager.shared)
+            .frame(width: 230)
+            .allowsHitTesting(false)
+
+            Image(nsImage: NSCursor.arrow.image)
+                .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
+                .scaleEffect(cursorScale, anchor: .topLeading)
+                .offset(cursorOffset)
+        }
+        .frame(maxWidth: .infinity, minHeight: 120)
+        .onAppear {
+            runAnimation()
+        }
+    }
+    
+    func runAnimation() {
+        isOn = true
+        cursorOffset = CGSize(width: 0, height: 80)
+        
+        // Move to overlay
+        withAnimation(.easeInOut(duration: 1.0).delay(0.5)) {
+            cursorOffset = CGSize(width: 20, height: 10)
+        }
+        
+        // First click (turn off)
+        withAnimation(.easeOut(duration: 0.1).delay(1.5)) {
+            cursorScale = 0.8
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            withAnimation(.spring()) {
+                isOn = false
+            }
+            withAnimation(.easeOut(duration: 0.1)) {
+                cursorScale = 1.0
+            }
+        }
+        
+        // Move away
+        withAnimation(.easeInOut(duration: 1.0).delay(2.5)) {
+            cursorOffset = CGSize(width: 80, height: 100)
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
             runAnimation()
         }
     }

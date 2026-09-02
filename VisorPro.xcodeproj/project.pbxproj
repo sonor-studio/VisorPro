@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FA6B08843048A2EC008824F5 /* SMC in Frameworks */ = {isa = PBXBuildFile; productRef = FA6B08833048A2EC008824F5 /* SMC */; };
+		FA6B08863048A2EC008824F5 /* SMCKit in Frameworks */ = {isa = PBXBuildFile; productRef = FA6B08853048A2EC008824F5 /* SMCKit */; };
 		FA8D16FA3045E22A0040670D /* SMCKit in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D16F93045E22A0040670D /* SMCKit */; };
 		FA8D1711304634CE0040670D /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D1710304634CE0040670D /* TelemetryDeck */; };
 		FA8D18263046353E0040670D /* TelemetryClient in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D18253046353E0040670D /* TelemetryClient */; };
@@ -58,8 +60,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FA6B08863048A2EC008824F5 /* SMCKit in Frameworks */,
 				FA8D16FA3045E22A0040670D /* SMCKit in Frameworks */,
 				FA8D18263046353E0040670D /* TelemetryClient in Frameworks */,
+				FA6B08843048A2EC008824F5 /* SMC in Frameworks */,
 				FA8D1711304634CE0040670D /* TelemetryDeck in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -223,8 +227,8 @@
 			mainGroup = FA01FF7A300BB56700235EBF;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				FA8D16F83045E22A0040670D /* XCRemoteSwiftPackageReference "SMCKit" */,
 				FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */,
+				FA6B08823048A2EC008824F5 /* XCLocalSwiftPackageReference "SMCKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FA01FF84300BB56700235EBF /* Products */;
@@ -354,10 +358,10 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
+				ONLY_ACTIVE_ARCH = NO;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -412,7 +416,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -432,9 +436,9 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6F78X5RA6P;
+				DEVELOPMENT_TEAM = B8R3X8NN3X;
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
@@ -488,9 +492,9 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6F78X5RA6P;
+				DEVELOPMENT_TEAM = B8R3X8NN3X;
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
@@ -539,7 +543,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = B8R3X8NN3X;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sonorstudio.VisorProTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -560,7 +564,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = B8R3X8NN3X;
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sonorstudio.VisorProTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -652,10 +656,17 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		FA6B08823048A2EC008824F5 /* XCLocalSwiftPackageReference "SMCKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = SMCKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		FA8D16F83045E22A0040670D /* XCRemoteSwiftPackageReference "SMCKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/srimanachanta/SMCKit.git";
+			repositoryURL = "file:///Users/macbook/Desktop/Dev/VisorPro/SMCKit";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.0.0;
@@ -672,6 +683,14 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		FA6B08833048A2EC008824F5 /* SMC */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SMC;
+		};
+		FA6B08853048A2EC008824F5 /* SMCKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SMCKit;
+		};
 		FA8D16F93045E22A0040670D /* SMCKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FA8D16F83045E22A0040670D /* XCRemoteSwiftPackageReference "SMCKit" */;

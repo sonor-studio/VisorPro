@@ -270,8 +270,17 @@ struct FeedbackSettingsView: View {
             DispatchQueue.main.async {
                 isSubmitting = false
                 if let error = error {
-                    LogManager.shared.log("Feedback Error: \(error)", level: "ERROR")
-                    errorMessage = "An error occurred. Please try again."
+                    let nsError = error as NSError
+                    if nsError.domain == NSURLErrorDomain && (
+                        nsError.code == NSURLErrorNotConnectedToInternet ||
+                        nsError.code == NSURLErrorCannotFindHost ||
+                        nsError.code == NSURLErrorCannotConnectToHost
+                    ) {
+                        errorMessage = "No internet connection. Please try again later."
+                    } else {
+                        LogManager.shared.log("Feedback Error: \(error)", level: "ERROR")
+                        errorMessage = "An error occurred. Please try again."
+                    }
                 } else if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
                     // Success
                     showSuccessMessage = true

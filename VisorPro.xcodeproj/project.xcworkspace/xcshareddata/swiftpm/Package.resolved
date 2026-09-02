@@ -1,15 +1,6 @@
 {
-  "originHash" : "dfa0f97169082438fcf660a5e3c67310c7881a53145fc567678ac3cf4af37eb3",
+  "originHash" : "e6b912a1f0fb86c4d8173d6b940cc75df225a96f5220968535213c288741c2bd",
   "pins" : [
-    {
-      "identity" : "smckit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/srimanachanta/SMCKit.git",
-      "state" : {
-        "revision" : "53fc7a6e35a897b1658a7ef0f98ed1710fe46723",
-        "version" : "1.1.0"
-      }
-    },
     {
       "identity" : "swiftclient",
       "kind" : "remoteSourceControl",

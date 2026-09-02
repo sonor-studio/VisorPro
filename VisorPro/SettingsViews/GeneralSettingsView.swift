@@ -8,6 +8,7 @@ struct GeneralSettingsView: View {
     @AppStorage("overlayDisplayTarget") private var overlayDisplayTarget: String = "all"
     @AppStorage("previewBackgroundStyle") private var previewBackgroundStyle = "gradient"
     @AppStorage("enableSwipeToDismiss") private var enableSwipeToDismiss = true
+    @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("globalOverlayPosition") private var globalOverlayPosition: String = "top"
@@ -159,16 +160,33 @@ struct GeneralSettingsView: View {
             }
             
             Section {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Swipe to dismiss")
-                            .font(.body)
-                        Text("Swipe an active overlay tile towards the nearest screen edge to quickly dismiss it.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Swipe to dismiss")
+                                .font(.body)
+                            Text("Swipe an active overlay tile towards the nearest screen edge to quickly dismiss it.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: $enableSwipeToDismiss).labelsHidden()
                     }
-                    Spacer()
-                    Toggle("", isOn: $enableSwipeToDismiss).labelsHidden()
+                    
+                    if enableSwipeToDismiss {
+                        Divider()
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Invert swipe direction")
+                                    .font(.body)
+                                Text("Useful if you use third-party apps that reverse trackpad scrolling.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $reverseSwipeDirection).labelsHidden()
+                        }
+                    }
                 }
             } header: {
                 Text("Gestures")

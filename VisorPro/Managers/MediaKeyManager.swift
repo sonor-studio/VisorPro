@@ -106,7 +106,15 @@ class MediaKeyManager: ObservableObject {
     }
     
     @Published var lastAction: String = "Waiting for actions..."
-    @Published var isTrusted: Bool = false
+    @Published var isTrusted: Bool = false {
+        didSet {
+            if oldValue != isTrusted {
+                DispatchQueue.main.async {
+                    self.setupMediaKeyTap()
+                }
+            }
+        }
+    }
     @Published var activeBluetoothNotifications: [DeviceNotification] = []
     @Published var activePeripheralNotifications: [DeviceNotification] = []
     @Published var activeDisplayNotifications: [DeviceNotification] = []
@@ -120,7 +128,14 @@ class MediaKeyManager: ObservableObject {
     var lastDisplayConnectionTime: Date? = nil
     
     @AppStorage("maxSimultaneousNotifications") var maxSimultaneousNotifications: Int = 5
-    @AppStorage("mediaSkipDuration") var mediaSkipDuration: Double = 10.0
+    @Published var mediaSkipDuration: Double = {
+        let val = UserDefaults.standard.object(forKey: "mediaSkipDuration")
+        return (val as? NSNumber)?.doubleValue ?? 10.0
+    }() {
+        didSet {
+            UserDefaults.standard.set(mediaSkipDuration, forKey: "mediaSkipDuration")
+        }
+    }
     @AppStorage("overlayTheme") var overlayTheme: String = "system"
     @Published var globalHoveredTypes: Set<String> = []
     @Published var actualHoveredTypes: Set<String> = []
@@ -174,13 +189,13 @@ class MediaKeyManager: ObservableObject {
             if !enableWiFi { withAnimation { self.showWiFiIndicator = false } }
         }
     }
-    @Published var enableBluetooth: Bool = UserDefaults.standard.object(forKey: "enableBluetooth") as? Bool ?? true {
+    @Published var enableBluetooth: Bool = UserDefaults.standard.object(forKey: "enableBluetooth") as? Bool ?? false {
         didSet { 
             UserDefaults.standard.set(enableBluetooth, forKey: "enableBluetooth")
             if !enableBluetooth { withAnimation { self.activeBluetoothNotifications.removeAll() } }
         }
     }
-    @Published var enableWiFi: Bool = UserDefaults.standard.object(forKey: "enableWiFi") as? Bool ?? true {
+    @Published var enableWiFi: Bool = UserDefaults.standard.object(forKey: "enableWiFi") as? Bool ?? false {
         didSet { 
             UserDefaults.standard.set(enableWiFi, forKey: "enableWiFi")
             if !enableWiFi { withAnimation { self.showWiFiIndicator = false } }
@@ -582,7 +597,7 @@ class MediaKeyManager: ObservableObject {
     private var themeObserver: ThemeObserver?
     
     // Privacy
-    @Published var enablePrivacy: Bool = UserDefaults.standard.object(forKey: "enablePrivacy") as? Bool ?? true {
+    @Published var enablePrivacy: Bool = UserDefaults.standard.object(forKey: "enablePrivacy") as? Bool ?? false {
         didSet { 
             UserDefaults.standard.set(enablePrivacy, forKey: "enablePrivacy")
             if !enablePrivacy { withAnimation { self.showMicIndicator = false; self.showCameraIndicator = false; self.showLocationIndicator = false } }
@@ -3102,7 +3117,7 @@ func triggerCpuTempOverlay(temp: Double) {
         mediaKeyRunLoopSource = nil
         
         // i nie korzystamy z systemowego OSD
-        guard (enableVolume || enableBrightness || enableKeyboardBrightness || enableMediaNotification) && !useSystemOSD else {
+        guard (enableVolume || enableBrightness || enableKeyboardBrightness || enableMediaNotification) && !useSystemOSD && self.isTrusted else {
             return
         }
         
@@ -3112,13 +3127,16 @@ func triggerCpuTempOverlay(temp: Double) {
         let mediaCallback: CGEventTapCallBack = { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
             let manager = Unmanaged<MediaKeyManager>.fromOpaque(refcon!).takeUnretainedValue()
             
-            if type == .tapDisabledByTimeout {
+            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 if let tap = manager.mediaKeyTap {
-                    CGEvent.tapEnable(tap: tap, enable: true)
+                    if checkAXIsProcessTrustedReliably() {
+                        CGEvent.tapEnable(tap: tap, enable: true)
+                    } else {
+                        DispatchQueue.main.async {
+                            manager.isTrusted = false
+                        }
+                    }
                 }
-                return Unmanaged.passRetained(event)
-            }
-            if type == .tapDisabledByUserInput {
                 return Unmanaged.passRetained(event)
             }
             
@@ -3247,7 +3265,7 @@ func triggerCpuTempOverlay(temp: Double) {
         }
         
         mediaKeyTap = CGEvent.tapCreate(
-            tap: .cghidEventTap,
+            tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: CGEventMask(mediaEventMask),
