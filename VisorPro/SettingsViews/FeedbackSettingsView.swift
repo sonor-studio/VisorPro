@@ -256,10 +256,7 @@ struct FeedbackSettingsView: View {
         ]
         
         if attachLogs {
-            let logs = LogManager.shared.getLogs()
-            // Reverse lines so newest logs are at the top in the database
-            let reversedLogs = logs.components(separatedBy: .newlines).reversed().joined(separator: "\n")
-            payload["logs"] = reversedLogs
+            payload["logs"] = LogManager.shared.getLogs()
         }
         
         guard let body = try? JSONSerialization.data(withJSONObject: payload) else {

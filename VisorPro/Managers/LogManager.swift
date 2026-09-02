@@ -17,40 +17,65 @@ class LogManager {
         
         logFileURL = appSupportURL.appendingPathComponent("session_logs.txt")
         
-        // Keep logs across sessions but trim if file exceeds 1MB to avoid infinite growth
+        // Read current content and handle trimming if > 1MB
+        var currentContent = ""
         if fileManager.fileExists(atPath: logFileURL.path) {
             if let attributes = try? fileManager.attributesOfItem(atPath: logFileURL.path),
                let fileSize = attributes[.size] as? UInt64,
                fileSize > 1024 * 1024 { // 1 MB
-                
                 if let content = try? String(contentsOf: logFileURL, encoding: .utf8) {
                     let lines = content.split(separator: "\n")
-                    let recentLines = lines.suffix(1000).joined(separator: "\n") + "\n"
-                    try? recentLines.write(to: logFileURL, atomically: true, encoding: .utf8)
-                } else {
-                    try? fileManager.removeItem(at: logFileURL)
-                    fileManager.createFile(atPath: logFileURL.path, contents: nil, attributes: nil)
+                    currentContent = lines.suffix(1000).joined(separator: "\n") + "\n"
                 }
+            } else {
+                currentContent = (try? String(contentsOf: logFileURL, encoding: .utf8)) ?? ""
             }
-            
-            // Insert a visual separator for the new session
-            if let fileHandle = try? FileHandle(forWritingTo: logFileURL) {
-                let separator = "\n========================================\nNEW SESSION STARTED\n========================================\n"
-                if let data = separator.data(using: .utf8) {
-                    if #available(macOS 10.15.4, *) {
-                        _ = try? fileHandle.seekToEnd()
-                        _ = try? fileHandle.write(contentsOf: data)
-                    } else {
-                        fileHandle.seekToEndOfFile()
-                        fileHandle.write(data)
-                    }
-                }
-                fileHandle.closeFile()
-            }
-        } else {
-            // Create initial empty file
-            fileManager.createFile(atPath: logFileURL.path, contents: nil, attributes: nil)
         }
+        
+        // Generate Device Info
+        var size = 0
+        sysctlbyname("machdep.cpu.brand_string", nil, &size, nil, 0)
+        var cpuInfo = "Unknown CPU"
+        if size > 0 {
+            var machine = [CChar](repeating: 0, count: size)
+            sysctlbyname("machdep.cpu.brand_string", &machine, &size, nil, 0)
+            cpuInfo = String(cString: machine)
+        }
+        
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+        let buildVersion = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+        
+        let deviceInfoHeader = """
+        ========================================
+        DEVICE INFORMATION
+        ========================================
+        OS: \(osVersion)
+        Processor: \(cpuInfo)
+        App Version: \(appVersion) (\(buildVersion))
+        ========================================
+        """
+        
+        // Ensure device info is at the very top
+        if !currentContent.hasPrefix("========================================\nDEVICE INFORMATION") {
+            // Remove any old device info block if it got pushed down (e.g. after trimming)
+            if let range = currentContent.range(of: "========================================\nDEVICE INFORMATION\n========================================\n.*?========================================\n", options: .regularExpression) {
+                currentContent.removeSubrange(range)
+            }
+            // Trim leading newlines from current content
+            currentContent = currentContent.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !currentContent.isEmpty {
+                currentContent = "\n\n" + currentContent
+            }
+            currentContent = deviceInfoHeader + currentContent
+        }
+        
+        // Append new session marker
+        let sessionMarker = "\n\n========================================\nNEW SESSION STARTED\n========================================\n"
+        currentContent += sessionMarker
+        
+        // Write back to file
+        try? currentContent.write(to: logFileURL, atomically: true, encoding: .utf8)
         
         log("Application launched")
     }
