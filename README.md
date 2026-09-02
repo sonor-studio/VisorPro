@@ -24,7 +24,7 @@ Designed to blend seamlessly with macOS Dark Mode, utilizing native background b
 
 <br>
 
-![Dark Overlay](VisorPro/Resources/overlay-dark.png)
+![Dark Overlay](https://github.com/user-attachments/assets/674e1c61-4da2-44a1-a189-68c6fac59fed)
 
 ---
 
@@ -34,7 +34,7 @@ A bright, frosted-glass appearance that fits perfectly into daytime setups.
 
 <br>
 
-![Light Overlay](VisorPro/Resources/overlay-light.png)
+![Light Overlay](https://github.com/user-attachments/assets/800a6045-fa97-4f94-b6b1-7573aa30917e)
 
 ---
 
@@ -44,7 +44,7 @@ Click on overlays to expand them into a rich dashboard showing real-time metrics
 
 <br>
 
-![Expanded Overlay](VisorPro/Resources/overlay-expanded.png)
+![Expanded Overlay](https://github.com/user-attachments/assets/4428f6fb-a97d-4dc8-9e3c-3a8e08c600bf)
 
 ---
 
