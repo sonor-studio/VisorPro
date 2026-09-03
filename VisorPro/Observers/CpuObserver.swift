@@ -47,13 +47,13 @@ class CpuObserver: ObservableObject {
             do {
                 if let knownKey = workingSensorKey {
                     // Jeśli już wiemy, który czujnik działa na tym Macu, używamy go od razu
-                    let temp: Float = try await SMCKit.shared.read(toFourCharCode(knownKey))
+                    let temp: Float = try SMCKit.shared.read(toFourCharCode(knownKey))
                     currentTemp = Double(temp)
                 } else {
                     // Pierwsze uruchomienie: szukamy działającego czujnika
                     for key in sensorKeys {
                         do {
-                            let temp: Float = try await SMCKit.shared.read(toFourCharCode(key))
+                            let temp: Float = try SMCKit.shared.read(toFourCharCode(key))
                             if temp > 10.0 { // Upewniamy się, że odczyt jest sensowny (nie 0.0)
                                 workingSensorKey = key
                                 currentTemp = Double(temp)

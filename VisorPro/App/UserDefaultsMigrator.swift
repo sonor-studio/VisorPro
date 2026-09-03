@@ -1,9 +1,7 @@
 import Foundation
 
 struct UserDefaultsMigrator {
-    static func migrate() {
-        let defaults = UserDefaults.standard
-        
+    static func migrate(defaults: UserDefaults = .standard) {
         let doubleKeys = ["brightnessStep", "keyboardBrightnessStep", "volumeStep", "overlayMargin"]
         for key in doubleKeys {
             if let val = defaults.object(forKey: key) {

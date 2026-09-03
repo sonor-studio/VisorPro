@@ -265,24 +265,6 @@ class MediaObserver {
         return titles
     }
     
-    func fetchCurrentState(triggerNotification: Bool = false) {
-        // Trigger a fresh output from the helper by killing and restarting, or just read the latest state
-        // To be instant, we can just trigger UI with what we have since the helper is always listening!
-        DispatchQueue.main.async {
-            self.manager?.updateMediaInfo(
-                title: self.lastTitle,
-                artist: self.lastArtist,
-                album: self.lastAlbum,
-                duration: self.lastDuration,
-                elapsedTime: self.lastElapsedTime,
-                isPlaying: self.lastIsPlaying,
-                mediaAction: self.lastIsPlaying ? "resume" : "pause",
-                bundleId: "",
-                triggerNotification: triggerNotification
-            )
-        }
-    }
-    
     deinit {
         helperProcess?.terminate()
     }

@@ -236,12 +236,10 @@ struct MediaOverlayView: View {
             localElapsed = mediaKeyManager.mediaElapsedTime
         }
         .onChange(of: mediaKeyManager.mediaElapsedTime) { oldValue, newValue in
-            if actualAction != "start" && actualAction != "end" {
-                localElapsed = newValue
-            }
+            localElapsed = newValue
         }
         .onReceive(timer) { _ in
-            if actualIsPlaying && actualAction != "start" && actualAction != "end" {
+            if actualIsPlaying && actualAction != "end" {
                 localElapsed += 0.1
             }
         }

@@ -10,8 +10,15 @@ class BatteryObserver {
     private var smoothedAmperage: Double?
     private var timer: Timer?
     
-    init(manager: MediaKeyManager) {
+    var batteryDataProvider: () -> [String: Any]?
+    
+    init(manager: MediaKeyManager, batteryDataProvider: (() -> [String: Any]?)? = nil) {
         self.manager = manager
+        if let provider = batteryDataProvider {
+            self.batteryDataProvider = provider
+        } else {
+            self.batteryDataProvider = BatteryObserver.defaultBatteryProvider
+        }
         startObserving()
         checkBatteryState(initial: true)
     }
@@ -45,6 +52,10 @@ class BatteryObserver {
     }
     
     private func getBatteryDescriptionFast() -> [String: Any]? {
+        return self.batteryDataProvider()
+    }
+    
+    static func defaultBatteryProvider() -> [String: Any]? {
         let matchingDict = IOServiceMatching("AppleSmartBattery")
         let service = IOServiceGetMatchingService(0, matchingDict)
         
@@ -255,21 +266,6 @@ class BatteryObserver {
                 }
             }
         }
-    }
-    
-    private func getBatteryDescription() -> [String: Any]? {
-        let task = Process()
-        task.launchPath = "/usr/sbin/ioreg"
-        task.arguments = ["-rn", "AppleSmartBattery", "-a"]
-        
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.launch()
-        task.waitUntilExit()
-        
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [[String: Any]] else { return nil }
-        return plist.first
     }
     
     private func calculateFallbackTime(isPluggedIn: Bool) -> String {

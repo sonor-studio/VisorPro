@@ -3,21 +3,7 @@ import CoreAudio
 import Dispatch
 import AudioToolbox
 
-// Global C-function callback for AudioHardwareServiceAddPropertyListener
-func virtualVolumeListenerCallback(
-    inObjectID: AudioObjectID,
-    inNumberAddresses: UInt32,
-    inAddresses: UnsafePointer<AudioObjectPropertyAddress>,
-    inClientData: UnsafeMutableRawPointer?
-) -> OSStatus {
-    if let clientData = inClientData {
-        let observer = Unmanaged<AudioRouteObserver>.fromOpaque(clientData).takeUnretainedValue()
-        DispatchQueue.main.async {
-            observer.handleVolumeChanged()
-        }
-    }
-    return noErr
-}
+
 
 class AudioRouteObserver {
     private weak var manager: MediaKeyManager?

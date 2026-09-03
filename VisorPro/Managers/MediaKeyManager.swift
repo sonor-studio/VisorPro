@@ -18,77 +18,15 @@ import CoreBluetooth
 import CoreLocation
 import CoreServices
 
-class PermissionHelperDelegate: NSObject, CLLocationManagerDelegate {
-    static let shared = PermissionHelperDelegate()
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        // Forces the manager to update its internal state
-    }
-}
 
-struct PermissionHelper {
-    static let sharedLocationManager: CLLocationManager = {
-        let manager = CLLocationManager()
-        manager.delegate = PermissionHelperDelegate.shared
-        return manager
-    }()
-    
-    static func hasLocationPermission() -> Bool {
-        let status = sharedLocationManager.authorizationStatus
-        return status != .denied && status != .restricted
-    }
-    
-    static func isLocationNotDetermined() -> Bool {
-        return sharedLocationManager.authorizationStatus == .notDetermined
-    }
-    
-    static func checkBluetoothPermission() -> Bool {
-        if #available(macOS 11.0, *) {
-            let status = CBManager.authorization
-            return status != .denied && status != .restricted
-        }
-        return true
-    }
-    
-    static func openPrivacySettings(for type: String) {
-        var urlString = "x-apple.systempreferences:com.apple.preference.security"
-        switch type {
-        case "Location":
-            urlString += "?Privacy_LocationServices"
-        case "Bluetooth":
-            urlString += "?Privacy_Bluetooth"
-        case "AppleEvents":
-            urlString += "?Privacy_Automation"
-        case "Microphone":
-            urlString += "?Privacy_Microphone"
-        default:
-            break
-        }
-        if let url = URL(string: urlString) {
-            NSWorkspace.shared.open(url)
-        }
-    }
-}
 
-struct KeyboardLayout: Hashable, Identifiable {
-    let id: String
-    let name: String
-    let isSelected: Bool
-}
 
-struct Shortcut {
-    let character: String
-    let modifiers: NSEvent.ModifierFlags
-}
 
-struct DeviceNotification: Identifiable, Equatable {
-    let id: String
-    let deviceName: String
-    let type: String
-    let icon: String
-    let isConnected: Bool
-    let timestamp: Date
-    var details: [String: String]? = nil
-}
+
+
+
+
+
 
 class MediaKeyManager: ObservableObject {
     func getOverlayPosition(for key: String) -> String {
@@ -1139,10 +1077,6 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func getAvailableCameras() -> [(id: UInt32, name: String)] {
-        return avObserver?.getAvailableCameraDevices() ?? []
-    }
-    
         
     func finalizeCameraIndicator(appName: String) {
         DispatchQueue.main.async { [weak self] in
@@ -1321,58 +1255,6 @@ class MediaKeyManager: ObservableObject {
                 self.isBatteryInitialized = true
                 self.isTestingBattery = false
             }
-        }
-    }
-    
-    func triggerTestBatteryOverlay(type: String) {
-        if !isTestingBattery {
-            testOriginalPercentage = currentBatteryPercentage
-            testOriginalPluggedIn = isPluggedIn
-        }
-        
-        isBatteryInitialized = false
-        
-        switch type {
-        case "plugged":
-            isPluggedIn = true
-            currentBatteryPercentage = 82
-            batteryTimeRemaining = "1h 20m until full"
-        case "unplugged":
-            isPluggedIn = false
-            currentBatteryPercentage = 82
-            batteryTimeRemaining = "4h 30m remaining"
-        case "full":
-            isPluggedIn = true
-            if chargeLimit < 100 {
-                currentBatteryPercentage = chargeLimit
-                isEffectivelyFullyCharged = true
-                batteryTimeRemaining = "Charge limit (\(chargeLimit)%)"
-            } else {
-                currentBatteryPercentage = 100
-                isEffectivelyFullyCharged = false
-                batteryTimeRemaining = "Fully charged"
-            }
-        case "low20":
-            isPluggedIn = false
-            currentBatteryPercentage = 20
-            batteryTimeRemaining = "1h 15m remaining"
-        case "low10":
-            isPluggedIn = false
-            currentBatteryPercentage = 10
-            batteryTimeRemaining = "32m remaining"
-        default:
-            break
-        }
-        
-        isBatteryInitialized = true
-        isTestingBattery = true
-        
-        if type == "low20" || type == "low10" {
-            triggerLowBatteryWarning()
-        } else if type == "unplugged" {
-            triggerUnplugStatus()
-        } else {
-            triggerChargingStatus()
         }
     }
     
@@ -2506,61 +2388,6 @@ func triggerCpuTempOverlay(temp: Double) {
         }
         return false
     }
-    
-    func triggerMediaIndicator() {
-        if !enableMediaNotification { return }
-        if isAnyAppInFullScreen() { return }
-        
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.mediaTimer?.invalidate()
-            
-            let pos = self.getOverlayPosition(for: "mediaOverlayPosition")
-            self.dismissCollidingIndicators(newPosition: pos, source: "media")
-            let executeShow = { [weak self] in
-                guard let self = self else { return }
-
-                self.mediaEventId = UUID()
-
-                withAnimation(.easeInOut(duration: 0.15)) {
-
-                    self.showMediaIndicator = true; self.overlayTriggerTimes["media"] = Date()
-
-                }
-
-                if !self.globalHoveredTypes.contains("media") {
-                    self.mediaTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            self?.showMediaIndicator = false
-                        }
-                    }
-                }
-
-            }
-
-            
-
-            if self.showMediaIndicator {
-
-                withAnimation(.easeInOut(duration: 0.25)) {
-
-                    self.showMediaIndicator = false
-
-                }
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-
-                    executeShow()
-
-                }
-
-            } else {
-
-                executeShow()
-
-            }
-        }
-    }
     private var initialPercentageWhenPluggedIn: Int? = nil
     private var hasChargedSincePluggedIn: Bool = false
     
@@ -2624,10 +2451,6 @@ func triggerCpuTempOverlay(temp: Double) {
             return limit
         }
         return 100
-    }
-    
-    func refreshBatteryState() {
-        batteryObserver?.refresh()
     }
     
     func openBatterySettings() {
