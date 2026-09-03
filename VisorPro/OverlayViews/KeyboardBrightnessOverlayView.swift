@@ -71,7 +71,7 @@ struct KeyboardBrightnessOverlayView: View {
         }
         .onChange(of: actualBrightness) { _, newValue in
             let targetProgress = CGFloat(newValue) / 100.0
-            withAnimation(.easeOut(duration: 0.25)) {
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
                 animatedBrightnessProgress = targetProgress
             }
         }

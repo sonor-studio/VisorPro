@@ -1740,9 +1740,12 @@ class MediaKeyManager: ObservableObject {
         let volPos = self.getOverlayPosition(for: "volumeOverlayPosition")
         dismissCollidingIndicators(newPosition: volPos, source: "volume")
         
-        withAnimation(.easeInOut(duration: 0.25)) {
-            showVolumeIndicator = true; self.overlayTriggerTimes["volume"] = Date()
+        if !showVolumeIndicator {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                showVolumeIndicator = true
+            }
         }
+        self.overlayTriggerTimes["volume"] = Date()
         
         volumeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
@@ -1761,9 +1764,12 @@ class MediaKeyManager: ObservableObject {
         let brightPos = self.getOverlayPosition(for: "brightnessOverlayPosition")
         dismissCollidingIndicators(newPosition: brightPos, source: "brightness")
         
-        withAnimation(.easeInOut(duration: 0.25)) {
-            showBrightnessIndicator = true; self.overlayTriggerTimes["brightness"] = Date()
+        if !showBrightnessIndicator {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                showBrightnessIndicator = true
+            }
         }
+        self.overlayTriggerTimes["brightness"] = Date()
         
         brightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
@@ -1782,9 +1788,12 @@ class MediaKeyManager: ObservableObject {
         let kbPos = self.getOverlayPosition(for: "keyboardBrightnessOverlayPosition")
         dismissCollidingIndicators(newPosition: kbPos, source: "keyboardBrightness")
         
-        withAnimation(.easeInOut(duration: 0.25)) {
-            showKeyboardBrightnessIndicator = true; self.overlayTriggerTimes["keyboardBrightness"] = Date()
+        if !showKeyboardBrightnessIndicator {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                showKeyboardBrightnessIndicator = true
+            }
         }
+        self.overlayTriggerTimes["keyboardBrightness"] = Date()
         
         keyboardBrightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
