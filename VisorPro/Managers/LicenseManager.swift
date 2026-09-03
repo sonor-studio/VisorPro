@@ -17,14 +17,35 @@ class LicenseManager: ObservableObject {
         checkAndIssueLicense()
     }
     
+    struct ParsedLicense {
+        let key: String
+        let joinDate: Date
+        let isSynced: Bool
+    }
+    
     func checkAndIssueLicense() {
-        if let existing = readFromKeychain() {
-            self.licenseKey = existing.key
-            self.joinDate = existing.date
-            self.isPremium = true
-            self.isEarlyAdopter = existing.key.hasPrefix("EA-")
-            LogManager.shared.log("License found in Keychain. Premium: true, Early Adopter: \(self.isEarlyAdopter)", level: "INFO")
-        } else {
+        let allItems = readAllKeychainItems()
+        
+        var parsedItems: [ParsedLicense] = []
+        let formatter = ISO8601DateFormatter()
+        
+        for dict in allItems {
+            if let data = dict[kSecValueData as String] as? Data,
+               let keyStr = String(data: data, encoding: .utf8) {
+                
+                let sysDate = dict[kSecAttrCreationDate as String] as? Date ?? Date()
+                let comment = dict[kSecAttrComment as String] as? String ?? ""
+                
+                // If we previously saved the original date in the comment, use it. Otherwise fallback to system creation date.
+                let jDate = formatter.date(from: comment) ?? sysDate
+                let isSync = dict[kSecAttrSynchronizable as String] as? Bool ?? false
+                
+                parsedItems.append(ParsedLicense(key: keyStr, joinDate: jDate, isSynced: isSync))
+            }
+        }
+        
+        if parsedItems.isEmpty {
+            // Brand new user, no keys found anywhere
             let randomPart = UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16).uppercased()
             let formattedRandom = stride(from: 0, to: randomPart.count, by: 4).map {
                 let start = randomPart.index(randomPart.startIndex, offsetBy: $0)
@@ -33,91 +54,115 @@ class LicenseManager: ObservableObject {
             }.joined(separator: "-")
             
             let newKey = "EA-\(formattedRandom)"
+            let newDate = Date()
             
-            if saveToKeychain(newKey) {
+            if saveToKeychain(key: newKey, date: newDate) {
                 self.licenseKey = newKey
-                self.joinDate = Date()
+                self.joinDate = newDate
                 self.isPremium = true
                 self.isEarlyAdopter = true
                 LogManager.shared.log("Issued new early adopter license and saved to Keychain.", level: "INFO")
             } else {
                 LogManager.shared.log("Failed to save license to Keychain.", level: "ERROR")
             }
+            
+        } else {
+            // User has one or more keys.
+            // 1. ALWAYS pick the oldest key by date to protect against overwrite bugs.
+            parsedItems.sort { $0.joinDate < $1.joinDate }
+            let oldest = parsedItems.first!
+            
+            self.licenseKey = oldest.key
+            self.joinDate = oldest.joinDate
+            self.isPremium = true
+            self.isEarlyAdopter = oldest.key.hasPrefix("EA-")
+            LogManager.shared.log("License found. Premium: true, Early Adopter: \(self.isEarlyAdopter)", level: "INFO")
+            
+            // 2. Self-healing & iCloud Sync Promotion
+            let needsCleanup = parsedItems.count > 1
+            let needsPromotion = !oldest.isSynced
+            
+            if needsCleanup || needsPromotion {
+                LogManager.shared.log("Keychain needs cleanup/promotion. Duplicates: \(needsCleanup), Needs iCloud: \(needsPromotion)", level: "INFO")
+                
+                // Wipe ALL existing keys (both local and cloud) to start fresh
+                let delQuery: [String: Any] = [
+                    kSecClass as String: kSecClassGenericPassword,
+                    kSecAttrService as String: keychainService,
+                    kSecAttrAccount as String: licenseAccount
+                ]
+                
+                var dqCloud = delQuery; dqCloud[kSecAttrSynchronizable as String] = true
+                SecItemDelete(dqCloud as CFDictionary)
+                
+                var dqLocal = delQuery; dqLocal[kSecAttrSynchronizable as String] = false
+                SecItemDelete(dqLocal as CFDictionary)
+                
+                // Re-save the oldest key. This preserves its original date (via kSecAttrComment) and attempts to push to iCloud.
+                _ = saveToKeychain(key: oldest.key, date: oldest.joinDate)
+            }
         }
     }
     
-    private func saveToKeychain(_ value: String) -> Bool {
-        guard let data = value.data(using: .utf8) else { return false }
+    private func saveToKeychain(key: String, date: Date) -> Bool {
+        guard let data = key.data(using: .utf8) else { return false }
         
-        let query: [String: Any] = [
+        let dateStr = ISO8601DateFormatter().string(from: date)
+        
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: licenseAccount
+            kSecAttrAccount as String: licenseAccount,
+            kSecValueData as String: data,
+            kSecAttrComment as String: dateStr
         ]
         
-        // Delete any existing items (both synced and local will be matched without the sync attribute)
-        SecItemDelete(query as CFDictionary)
+        // Try iCloud first
+        query[kSecAttrSynchronizable as String] = true
+        var status = SecItemAdd(query as CFDictionary, nil)
         
-        var addQuery = query
-        addQuery[kSecValueData as String] = data
-        // Explicitly force to local login keychain for maximum reliability across reinstalls
-        addQuery[kSecAttrSynchronizable as String] = false
-        
-        let status = SecItemAdd(addQuery as CFDictionary, nil)
-        if status == errSecSuccess {
-            LogManager.shared.log("Saved license to Keychain.", level: "INFO")
-            return true
+        if status != errSecSuccess {
+            // Fallback to local keychain if iCloud sync fails or is disabled
+            query[kSecAttrSynchronizable as String] = false
+            status = SecItemAdd(query as CFDictionary, nil)
+            if status == errSecSuccess {
+                LogManager.shared.log("Saved license to local Keychain.", level: "INFO")
+            }
+        } else {
+            LogManager.shared.log("Saved license to iCloud Keychain.", level: "INFO")
         }
-        return false
+        
+        return status == errSecSuccess
     }
     
-    private func readFromKeychain() -> (key: String, date: Date)? {
-        let query: [String: Any] = [
+    private func readAllKeychainItems() -> [[String: Any]] {
+        var results: [[String: Any]] = []
+        
+        let baseQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: licenseAccount,
             kSecReturnData as String: true,
             kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitAll // Fetch all duplicates if any
+            kSecMatchLimit as String: kSecMatchLimitAll
         ]
         
+        // Query iCloud items explicitly
+        var cloudQuery = baseQuery
+        cloudQuery[kSecAttrSynchronizable as String] = true
         var items: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &items)
-        
-        if status == errSecSuccess, let array = items as? [[String: Any]], !array.isEmpty {
-            
-            // Sort by creation date so we always pick the OLDEST one (the original license)
-            let sortedArray = array.sorted { (dict1, dict2) -> Bool in
-                let date1 = dict1[kSecAttrCreationDate as String] as? Date ?? Date()
-                let date2 = dict2[kSecAttrCreationDate as String] as? Date ?? Date()
-                return date1 < date2
-            }
-            
-            let oldestItem = sortedArray.first!
-            
-            // If there are duplicates, purge them and keep only the oldest one
-            if array.count > 1 {
-                SecItemDelete(query as CFDictionary)
-                
-                let restoreQuery: [String: Any] = [
-                    kSecClass as String: kSecClassGenericPassword,
-                    kSecAttrService as String: keychainService,
-                    kSecAttrAccount as String: licenseAccount,
-                    kSecValueData as String: oldestItem[kSecValueData as String]!,
-                    kSecAttrSynchronizable as String: false
-                ]
-                // Optional: carry over creation date if possible (usually read-only on creation)
-                SecItemAdd(restoreQuery as CFDictionary, nil)
-            }
-            
-            if let data = oldestItem[kSecValueData as String] as? Data,
-               let keyString = String(data: data, encoding: .utf8) {
-               
-               let creationDate = oldestItem[kSecAttrCreationDate as String] as? Date ?? Date()
-               return (keyString, creationDate)
-            }
+        if SecItemCopyMatching(cloudQuery as CFDictionary, &items) == errSecSuccess, let arr = items as? [[String: Any]] {
+            results.append(contentsOf: arr)
         }
         
-        return nil
+        // Query Local items explicitly
+        var localQuery = baseQuery
+        localQuery[kSecAttrSynchronizable as String] = false
+        items = nil
+        if SecItemCopyMatching(localQuery as CFDictionary, &items) == errSecSuccess, let arr = items as? [[String: Any]] {
+            results.append(contentsOf: arr)
+        }
+        
+        return results
     }
 }
