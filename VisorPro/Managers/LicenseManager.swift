@@ -41,7 +41,7 @@ class LicenseManager: ObservableObject {
                     jDate = min(sysDate, commentDate)
                 }
                 
-                let isSync = dict[kSecAttrSynchronizable as String] as? Bool ?? false
+                let isSync = false
                 
                 parsedItems.append(ParsedLicense(key: keyStr, joinDate: jDate, isSynced: isSync))
             }
@@ -84,7 +84,7 @@ class LicenseManager: ObservableObject {
             LogManager.shared.log("License found. Premium: true, Early Adopter: \(isEA)", level: "INFO")
             
             let needsCleanup = parsedItems.count > 1
-            let needsPromotion = !oldest.isSynced
+            let needsPromotion = false
             
             if needsCleanup || needsPromotion {
                 LogManager.shared.log("Keychain needs cleanup/promotion. Duplicates: \(needsCleanup), Needs iCloud: \(needsPromotion)", level: "INFO")
@@ -95,11 +95,7 @@ class LicenseManager: ObservableObject {
                     kSecAttrAccount as String: licenseAccount
                 ]
                 
-                var dqCloud = delQuery; dqCloud[kSecAttrSynchronizable as String] = true
-                SecItemDelete(dqCloud as CFDictionary)
                 
-                var dqLocal = delQuery; dqLocal[kSecAttrSynchronizable as String] = false
-                SecItemDelete(dqLocal as CFDictionary)
                 
                 _ = saveToKeychain(key: oldest.key, date: oldest.joinDate)
             }
@@ -110,7 +106,7 @@ class LicenseManager: ObservableObject {
         
         let dateStr = ISO8601DateFormatter().string(from: date)
         
-        var query: [String: Any] = [
+        let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: licenseAccount,
@@ -123,24 +119,15 @@ class LicenseManager: ObservableObject {
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: licenseAccount
         ]
-        var dqCloud = delQuery; dqCloud[kSecAttrSynchronizable as String] = true
-        SecItemDelete(dqCloud as CFDictionary)
-        var dqLocal = delQuery; dqLocal[kSecAttrSynchronizable as String] = false
-        SecItemDelete(dqLocal as CFDictionary)
         
-        // Try iCloud first
-        query[kSecAttrSynchronizable as String] = true
-        var status = SecItemAdd(query as CFDictionary, nil)
+        SecItemDelete(delQuery as CFDictionary)
         
-        if status != errSecSuccess {
-            // Fallback to local keychain if iCloud sync fails or is disabled
-            query[kSecAttrSynchronizable as String] = false
-            status = SecItemAdd(query as CFDictionary, nil)
-            if status == errSecSuccess {
-                LogManager.shared.log("Saved license to local Keychain.", level: "INFO")
-            }
+        let status = SecItemAdd(query as CFDictionary, nil)
+        
+        if status == errSecSuccess {
+            LogManager.shared.log("Saved license to local Keychain.", level: "INFO")
         } else {
-            LogManager.shared.log("Saved license to iCloud Keychain.", level: "INFO")
+            LogManager.shared.log("Failed to save license. Status: \(status)", level: "ERROR")
         }
         
         return status == errSecSuccess
@@ -156,26 +143,15 @@ class LicenseManager: ObservableObject {
             kSecMatchLimit as String: kSecMatchLimitAll
         ]
         
-        // 1. Fetch ALL attributes (Cloud & Local) to find the absolute oldest date without triggering the -50 bug
-        var cloudAttrQuery = attrQuery
-        cloudAttrQuery[kSecAttrSynchronizable as String] = true
         var itemAttrs: CFTypeRef?
-        if SecItemCopyMatching(cloudAttrQuery as CFDictionary, &itemAttrs) == errSecSuccess, let arr = itemAttrs as? [NSDictionary] {
-            allAttributes.append(contentsOf: arr.compactMap { $0 as? [String: Any] })
-        }
-        
-        var localAttrQuery = attrQuery
-        localAttrQuery[kSecAttrSynchronizable as String] = false
-        itemAttrs = nil
-        if SecItemCopyMatching(localAttrQuery as CFDictionary, &itemAttrs) == errSecSuccess, let arr = itemAttrs as? [NSDictionary] {
+        if SecItemCopyMatching(attrQuery as CFDictionary, &itemAttrs) == errSecSuccess, let arr = itemAttrs as? [NSDictionary] {
             allAttributes.append(contentsOf: arr.compactMap { $0 as? [String: Any] })
         }
         
         if allAttributes.isEmpty {
-            return [] // No keys exist anywhere
+            return []
         }
         
-        // Find the absolute oldest date across all duplicates
         let formatter = ISO8601DateFormatter()
         var oldestDate = Date()
         var foundDate = false
@@ -193,7 +169,6 @@ class LicenseManager: ObservableObject {
             }
         }
         
-        // 2. Fetch exactly ONE item with Data to get the key string (avoids -50 bug)
         let dataQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
@@ -204,27 +179,15 @@ class LicenseManager: ObservableObject {
         ]
         
         var finalItem: [String: Any]? = nil
-        var cloudDataQuery = dataQuery
-        cloudDataQuery[kSecAttrSynchronizable as String] = true
         var dataItem: CFTypeRef?
-        if SecItemCopyMatching(cloudDataQuery as CFDictionary, &dataItem) == errSecSuccess, let dict = dataItem as? NSDictionary {
+        if SecItemCopyMatching(dataQuery as CFDictionary, &dataItem) == errSecSuccess, let dict = dataItem as? NSDictionary {
             finalItem = dict as? [String: Any]
-        } else {
-            var localDataQuery = dataQuery
-            localDataQuery[kSecAttrSynchronizable as String] = false
-            dataItem = nil
-            if SecItemCopyMatching(localDataQuery as CFDictionary, &dataItem) == errSecSuccess, let dict = dataItem as? NSDictionary {
-                finalItem = dict as? [String: Any]
-            }
         }
         
         if var finalItem = finalItem {
-            // Inject the absolute oldest date into this item's attributes so the parser uses it!
             finalItem[kSecAttrCreationDate as String] = oldestDate
-            // Ensure we trigger cleanup if there are duplicates
             if allAttributes.count > 1 {
-                // We append a duplicate to force checkAndIssueLicense to run cleanup
-                return [finalItem, finalItem] 
+                return [finalItem, finalItem]
             }
             return [finalItem]
         }
