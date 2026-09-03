@@ -107,45 +107,38 @@ class LicenseManager: ObservableObject {
     }
     
     private func readFromKeychain() -> (key: String, date: Date, isSynchronized: Bool)? {
-        let query: [String: Any] = [
+        var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: licenseAccount,
             kSecReturnData as String: true,
             kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitAll,
-            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecAttrSynchronizable as String: true
         ]
         
-        var items: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &items)
+        var item: CFTypeRef?
+        var status = SecItemCopyMatching(query as CFDictionary, &item)
+        var bestItem: [String: Any]? = nil
         
-        if status == errSecSuccess, let array = items as? [[String: Any]], !array.isEmpty {
-            
-            // Prefer the iCloud synced item if it exists
-            let syncedItem = array.first(where: { ($0[kSecAttrSynchronizable as String] as? Bool) == true })
-            let localItem = array.first(where: { ($0[kSecAttrSynchronizable as String] as? Bool) == false })
-            
-            // If both exist, we should delete the local one to clean up
-            if syncedItem != nil && localItem != nil {
-                let deleteQuery: [String: Any] = [
-                    kSecClass as String: kSecClassGenericPassword,
-                    kSecAttrService as String: keychainService,
-                    kSecAttrAccount as String: licenseAccount,
-                    kSecAttrSynchronizable as String: false
-                ]
-                SecItemDelete(deleteQuery as CFDictionary)
+        if status == errSecSuccess, let dict = item as? [String: Any] {
+            bestItem = dict
+        } else {
+            // Fallback: search for local item
+            query[kSecAttrSynchronizable as String] = false
+            status = SecItemCopyMatching(query as CFDictionary, &item)
+            if status == errSecSuccess, let dict = item as? [String: Any] {
+                bestItem = dict
             }
-            
-            let bestItem = syncedItem ?? array.first!
-            
-            if let data = bestItem[kSecValueData as String] as? Data,
-               let keyString = String(data: data, encoding: .utf8) {
-               
-               let creationDate = bestItem[kSecAttrCreationDate as String] as? Date ?? Date()
-               let isSync = bestItem[kSecAttrSynchronizable as String] as? Bool ?? false
-               return (keyString, creationDate, isSync)
-            }
+        }
+        
+        if let bestItem = bestItem,
+           let data = bestItem[kSecValueData as String] as? Data,
+           let keyString = String(data: data, encoding: .utf8) {
+           
+           let creationDate = bestItem[kSecAttrCreationDate as String] as? Date ?? Date()
+           let isSync = bestItem[kSecAttrSynchronizable as String] as? Bool ?? false
+           return (keyString, creationDate, isSync)
         }
         
         return nil
