@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		FA6B08843048A2EC008824F5 /* SMC in Frameworks */ = {isa = PBXBuildFile; productRef = FA6B08833048A2EC008824F5 /* SMC */; };
 		FA6B08863048A2EC008824F5 /* SMCKit in Frameworks */ = {isa = PBXBuildFile; productRef = FA6B08853048A2EC008824F5 /* SMCKit */; };
-		FA8D16FA3045E22A0040670D /* SMCKit in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D16F93045E22A0040670D /* SMCKit */; };
 		FA8D1711304634CE0040670D /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D1710304634CE0040670D /* TelemetryDeck */; };
 		FA8D18263046353E0040670D /* TelemetryClient in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D18253046353E0040670D /* TelemetryClient */; };
 /* End PBXBuildFile section */
@@ -61,7 +60,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FA6B08863048A2EC008824F5 /* SMCKit in Frameworks */,
-				FA8D16FA3045E22A0040670D /* SMCKit in Frameworks */,
 				FA8D18263046353E0040670D /* TelemetryClient in Frameworks */,
 				FA6B08843048A2EC008824F5 /* SMC in Frameworks */,
 				FA8D1711304634CE0040670D /* TelemetryDeck in Frameworks */,
@@ -436,7 +434,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B8R3X8NN3X;
+				DEVELOPMENT_TEAM = 6F78X5RA6P;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -492,7 +490,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B8R3X8NN3X;
+				DEVELOPMENT_TEAM = 6F78X5RA6P;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -664,14 +662,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		FA8D16F83045E22A0040670D /* XCRemoteSwiftPackageReference "SMCKit" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "file:///Users/macbook/Desktop/Dev/VisorPro/SMCKit";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.0;
-			};
-		};
 		FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/TelemetryDeck/SwiftClient";
@@ -689,11 +679,6 @@
 		};
 		FA6B08853048A2EC008824F5 /* SMCKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = SMCKit;
-		};
-		FA8D16F93045E22A0040670D /* SMCKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = FA8D16F83045E22A0040670D /* XCRemoteSwiftPackageReference "SMCKit" */;
 			productName = SMCKit;
 		};
 		FA8D1710304634CE0040670D /* TelemetryDeck */ = {

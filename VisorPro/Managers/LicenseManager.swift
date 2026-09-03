@@ -146,9 +146,55 @@ class LicenseManager: ObservableObject {
         return status == errSecSuccess
     }
     private func readAllKeychainItems() -> [[String: Any]] {
-        var results: [[String: Any]] = []
+        var allAttributes: [[String: Any]] = []
         
-        let baseQuery: [String: Any] = [
+        let attrQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: licenseAccount,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitAll
+        ]
+        
+        // 1. Fetch ALL attributes (Cloud & Local) to find the absolute oldest date without triggering the -50 bug
+        var cloudAttrQuery = attrQuery
+        cloudAttrQuery[kSecAttrSynchronizable as String] = true
+        var itemAttrs: CFTypeRef?
+        if SecItemCopyMatching(cloudAttrQuery as CFDictionary, &itemAttrs) == errSecSuccess, let arr = itemAttrs as? [NSDictionary] {
+            allAttributes.append(contentsOf: arr.compactMap { $0 as? [String: Any] })
+        }
+        
+        var localAttrQuery = attrQuery
+        localAttrQuery[kSecAttrSynchronizable as String] = false
+        itemAttrs = nil
+        if SecItemCopyMatching(localAttrQuery as CFDictionary, &itemAttrs) == errSecSuccess, let arr = itemAttrs as? [NSDictionary] {
+            allAttributes.append(contentsOf: arr.compactMap { $0 as? [String: Any] })
+        }
+        
+        if allAttributes.isEmpty {
+            return [] // No keys exist anywhere
+        }
+        
+        // Find the absolute oldest date across all duplicates
+        let formatter = ISO8601DateFormatter()
+        var oldestDate = Date()
+        var foundDate = false
+        
+        for dict in allAttributes {
+            let sysDate = dict[kSecAttrCreationDate as String] as? Date ?? Date()
+            let comment = dict[kSecAttrComment as String] as? String ?? ""
+            var jDate = sysDate
+            if let commentDate = formatter.date(from: comment) {
+                jDate = min(sysDate, commentDate)
+            }
+            if !foundDate || jDate < oldestDate {
+                oldestDate = jDate
+                foundDate = true
+            }
+        }
+        
+        // 2. Fetch exactly ONE item with Data to get the key string (avoids -50 bug)
+        let dataQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: licenseAccount,
@@ -157,24 +203,32 @@ class LicenseManager: ObservableObject {
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
         
-        var cloudQuery = baseQuery
-        cloudQuery[kSecAttrSynchronizable as String] = true
-        var item: CFTypeRef?
-        if SecItemCopyMatching(cloudQuery as CFDictionary, &item) == errSecSuccess, let dict = item as? NSDictionary {
-            if let swiftDict = dict as? [String: Any] {
-                results.append(swiftDict)
+        var finalItem: [String: Any]? = nil
+        var cloudDataQuery = dataQuery
+        cloudDataQuery[kSecAttrSynchronizable as String] = true
+        var dataItem: CFTypeRef?
+        if SecItemCopyMatching(cloudDataQuery as CFDictionary, &dataItem) == errSecSuccess, let dict = dataItem as? NSDictionary {
+            finalItem = dict as? [String: Any]
+        } else {
+            var localDataQuery = dataQuery
+            localDataQuery[kSecAttrSynchronizable as String] = false
+            dataItem = nil
+            if SecItemCopyMatching(localDataQuery as CFDictionary, &dataItem) == errSecSuccess, let dict = dataItem as? NSDictionary {
+                finalItem = dict as? [String: Any]
             }
         }
         
-        var localQuery = baseQuery
-        localQuery[kSecAttrSynchronizable as String] = false
-        item = nil
-        if SecItemCopyMatching(localQuery as CFDictionary, &item) == errSecSuccess, let dict = item as? NSDictionary {
-            if let swiftDict = dict as? [String: Any] {
-                results.append(swiftDict)
+        if var finalItem = finalItem {
+            // Inject the absolute oldest date into this item's attributes so the parser uses it!
+            finalItem[kSecAttrCreationDate as String] = oldestDate
+            // Ensure we trigger cleanup if there are duplicates
+            if allAttributes.count > 1 {
+                // We append a duplicate to force checkAndIssueLicense to run cleanup
+                return [finalItem, finalItem] 
             }
+            return [finalItem]
         }
         
-        return results
+        return []
     }
 }
