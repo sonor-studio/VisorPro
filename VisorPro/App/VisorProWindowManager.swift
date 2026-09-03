@@ -219,8 +219,6 @@ class VisorProWindowManager: ObservableObject {
         
         let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if manager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
-        let cpuPos = MediaKeyManager.shared.getOverlayPosition(for: "cpuOverlayPosition")
-        if manager.showCpuIndicator { active.append(ActiveOverlay(id: "cpu", type: .cpu, position: cpuPos, notification: nil)) }
         
         let accBatPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
         if manager.showAccessoryBatteryIndicator {
@@ -699,7 +697,7 @@ struct SingleOverlayContainer: View {
         case .display: DisplayOverlayView(notification: overlay.notification)
         case .ram: RamOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
-        case .cpu: CpuTemperatureOverlayView(isPreview: false)
+
         }
     }
 }

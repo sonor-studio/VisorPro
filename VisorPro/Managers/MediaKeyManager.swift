@@ -185,18 +185,8 @@ class MediaKeyManager: ObservableObject {
 
     
     
-    @Published var notifyOnHighCpuTemp: Bool = UserDefaults.standard.object(forKey: "notifyOnHighCpuTemp") as? Bool ?? false {
-        didSet { UserDefaults.standard.set(notifyOnHighCpuTemp, forKey: "notifyOnHighCpuTemp") }
-    }
-    @Published var soundOnHighCpuTemp: String = UserDefaults.standard.string(forKey: "soundOnHighCpuTemp") ?? "None" {
-        didSet { UserDefaults.standard.set(soundOnHighCpuTemp, forKey: "soundOnHighCpuTemp") }
-    }
-    @Published var highCpuTempThreshold: Double = UserDefaults.standard.object(forKey: "highCpuTempThreshold") as? Double ?? 80.0 {
-        didSet { UserDefaults.standard.set(highCpuTempThreshold, forKey: "highCpuTempThreshold") }
-    }
-    @Published var cpuTemperature: Double = 0.0
-    @Published var cpuTempHistory: [Double] = Array(repeating: 0.0, count: 16)
-    @Published var cpuTopProcesses: [(name: String, cpuPercent: Double, icon: NSImage?)] = []
+
+
 
     @Published var notifyOnHighRam: Bool = UserDefaults.standard.object(forKey: "notifyOnHighRam") as? Bool ?? false {
         didSet { UserDefaults.standard.set(notifyOnHighRam, forKey: "notifyOnHighRam") }
@@ -354,10 +344,7 @@ class MediaKeyManager: ObservableObject {
     
     // RAM Monitoring
     
-    @Published var showCpuIndicator: Bool = false
-    @Published var cpuEventId = UUID()
-    private var cpuAlertTriggered: Bool = false
-    private var hideCpuIndicatorTask: DispatchWorkItem?
+
 
     @Published var showRamIndicator: Bool = false
     @Published var ramEventId = UUID()
@@ -1236,7 +1223,7 @@ class MediaKeyManager: ObservableObject {
             else if overlayId.hasPrefix("display") { activeDisplayNotifications.removeAll(where: { "display_\($0.id)" == overlayId }) }
             
             else if overlayId.hasPrefix("ram") { showRamIndicator = false }
-            else if overlayId.hasPrefix("cpu") { showCpuIndicator = false }
+
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
         }
     }
@@ -1854,57 +1841,6 @@ class MediaKeyManager: ObservableObject {
             executeShow()
         }
     }
-    
-func triggerCpuTempOverlay(temp: Double) {
-        DispatchQueue.main.async {
-            self.cpuTemperature = temp
-            self.cpuTempHistory.removeFirst()
-            self.cpuTempHistory.append(temp)
-            
-            let threshold = self.highCpuTempThreshold
-            
-            if temp >= threshold {
-                if !self.cpuAlertTriggered {
-                    self.cpuAlertTriggered = true
-                    
-                    if self.notifyOnHighCpuTemp && !self.globalHoveredTypes.contains("cpu") {
-                        self.playNotificationSound(named: self.soundOnHighCpuTemp)
-                        
-                        self.hideCpuIndicatorTask?.cancel()
-                        let pos = self.getOverlayPosition(for: "cpuOverlayPosition")
-                        self.dismissCollidingIndicators(newPosition: pos, source: "cpu")
-                        
-                        let executeShow = {
-                            self.cpuEventId = UUID()
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                self.showCpuIndicator = true
-                                self.overlayTriggerTimes["cpu"] = Date()
-                            }
-                            
-                            let task = DispatchWorkItem {
-                                withAnimation(.easeInOut(duration: 0.15)) {
-                                    self.showCpuIndicator = false
-                                }
-                            }
-                            self.hideCpuIndicatorTask = task
-                            DispatchQueue.main.asyncAfter(deadline: .now() + MediaKeyManager.notificationDuration, execute: task)
-                        }
-                        
-                        if self.showCpuIndicator {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                self.showCpuIndicator = false
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: executeShow)
-                        } else {
-                            executeShow()
-                        }
-                    }
-                }
-            } else if temp <= (threshold - 5.0) {
-                self.cpuAlertTriggered = false
-            }
-        }
-    }
 
     func triggerRamOverlay() {
         if !notifyOnHighRam { return }
@@ -2337,7 +2273,7 @@ func triggerCpuTempOverlay(temp: Double) {
             mediaHideTimer?.invalidate(); mediaHideTimer = nil
             mediaTimer?.invalidate(); mediaTimer = nil
         case "ram": hideRamIndicatorTask?.cancel(); hideRamIndicatorTask = nil
-        case "cpu": hideCpuIndicatorTask?.cancel(); hideCpuIndicatorTask = nil
+
         
         case "theme": themeTimer?.invalidate(); themeTimer = nil
         case "accessoryBattery": accessoryBatteryTimer?.invalidate(); accessoryBatteryTimer = nil

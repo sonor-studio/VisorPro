@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
-        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery, cpu
+        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -254,7 +254,6 @@ struct ContentView: View {
         case .display: DisplayOverlayView(notification: overlay.notification)
         case .ram: RamOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
-        case .cpu: CpuTemperatureOverlayView()
         }
     }
     
