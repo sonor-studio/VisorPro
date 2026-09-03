@@ -36,7 +36,11 @@ class LicenseManager: ObservableObject {
                 let sysDate = dict[kSecAttrCreationDate as String] as? Date ?? Date()
                 let comment = dict[kSecAttrComment as String] as? String ?? ""
                 
-                let jDate = formatter.date(from: comment) ?? sysDate
+                var jDate = sysDate
+                if let commentDate = formatter.date(from: comment) {
+                    jDate = min(sysDate, commentDate)
+                }
+                
                 let isSync = dict[kSecAttrSynchronizable as String] as? Bool ?? false
                 
                 parsedItems.append(ParsedLicense(key: keyStr, joinDate: jDate, isSynced: isSync))
@@ -150,23 +154,25 @@ class LicenseManager: ObservableObject {
             kSecAttrAccount as String: licenseAccount,
             kSecReturnData as String: true,
             kSecReturnAttributes as String: true,
-            kSecMatchLimit as String: kSecMatchLimitAll
+            kSecMatchLimit as String: kSecMatchLimitOne
         ]
         
-        // Query iCloud items explicitly
         var cloudQuery = baseQuery
         cloudQuery[kSecAttrSynchronizable as String] = true
-        var items: CFTypeRef?
-        if SecItemCopyMatching(cloudQuery as CFDictionary, &items) == errSecSuccess, let arr = items as? [NSDictionary] {
-            results.append(contentsOf: arr.compactMap { $0 as? [String: Any] })
+        var item: CFTypeRef?
+        if SecItemCopyMatching(cloudQuery as CFDictionary, &item) == errSecSuccess, let dict = item as? NSDictionary {
+            if let swiftDict = dict as? [String: Any] {
+                results.append(swiftDict)
+            }
         }
         
-        // Query Local items explicitly
         var localQuery = baseQuery
         localQuery[kSecAttrSynchronizable as String] = false
-        items = nil
-        if SecItemCopyMatching(localQuery as CFDictionary, &items) == errSecSuccess, let arr = items as? [NSDictionary] {
-            results.append(contentsOf: arr.compactMap { $0 as? [String: Any] })
+        item = nil
+        if SecItemCopyMatching(localQuery as CFDictionary, &item) == errSecSuccess, let dict = item as? NSDictionary {
+            if let swiftDict = dict as? [String: Any] {
+                results.append(swiftDict)
+            }
         }
         
         return results
