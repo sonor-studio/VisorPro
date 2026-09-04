@@ -17,6 +17,7 @@ struct EarlyAdopterNoticeSheet: View {
     
     var body: some View {
         VStack(spacing: 20) {
+            Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 42))
                 .foregroundColor(.green)
                 .shadow(color: Color.green.opacity(0.3), radius: 8, x: 0, y: 4)
