@@ -11,37 +11,33 @@ struct PeripheralSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                if savedLicenseKey.isEmpty {
-                    PremiumLockedView()
-                    Spacer()
-                } else {
-
-    VStack(alignment: .leading, spacing: 12) {
-                        Text("Peripherals Module")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .center)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Peripherals Module")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     
-                        Text("Module Configuration")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 4)
+                    Text("Module Configuration")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
                         
-                        VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "power", iconColor: .teal, title: "Enable Peripherals Module", subtitle: "When disabled, VisorPro will not show overlays when USB/Thunderbolt devices are plugged in") {
-                                Toggle("", isOn: $mediaKeyManager.enablePeripheral).labelsHidden()
-                            }
+                    VStack(spacing: 0) {
+                        CustomSettingsRow(icon: "power", iconColor: .teal, title: "Enable Peripherals Module", subtitle: "When disabled, VisorPro will not show overlays when USB/Thunderbolt devices are plugged in") {
+                            Toggle("", isOn: $mediaKeyManager.enablePeripheral).labelsHidden()
                         }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
                     }
-                    .padding(.horizontal)
-                if mediaKeyManager.enablePeripheral {
+                    .toggleStyle(.switch)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
+
+                if mediaKeyManager.enablePeripheral || savedLicenseKey.isEmpty {
                 
                     if mediaKeyManager.enablePeripheral {
                         VStack(alignment: .center) {
@@ -65,8 +61,9 @@ struct PeripheralSettingsView: View {
                     
                         Divider()
                     
-
-                    
+                        if savedLicenseKey.isEmpty {
+                            PremiumLockedView()
+                        } else {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Overlay Triggers")
                                 .font(.headline)
@@ -207,10 +204,9 @@ struct PeripheralSettingsView: View {
                 
                     Spacer()
             
-                
-                    } else {
-                    DisabledModuleView(icon: "power", title: "Peripherals Module is Disabled", description: "Turn on the module to configure USB and Thunderbolt overlays.")
                 }
+                } else {
+                    DisabledModuleView(icon: "power", title: "Peripherals Module is Disabled", description: "Turn on the module to configure USB and Thunderbolt overlays.")
                 }
 }
 

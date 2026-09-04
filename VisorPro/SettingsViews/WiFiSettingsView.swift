@@ -13,54 +13,50 @@ struct WiFiSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                if savedLicenseKey.isEmpty {
-                    PremiumLockedView()
-                    Spacer()
-                } else {
-
-    VStack(alignment: .leading, spacing: 12) {
-                        Text("Wi-Fi Module")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .center)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Wi-Fi Module")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity, alignment: .center)
                     
-                        Text("Module Configuration")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 4)
+                    Text("Module Configuration")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
                         
-                        VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "power", iconColor: .cyan, title: "Enable Wi-Fi Module", subtitle: "When disabled, VisorPro completely ignores Wi-Fi network changes") {
-                                Toggle("", isOn: Binding(
-                                    get: { mediaKeyManager.enableWiFi },
-                                    set: { newValue in
-                                        if newValue {
-                                            if PermissionHelper.isLocationNotDetermined() {
-                                                PermissionHelper.sharedLocationManager.requestAlwaysAuthorization()
-                                                mediaKeyManager.enableWiFi = true
-                                            } else if PermissionHelper.hasLocationPermission() {
-                                                mediaKeyManager.enableWiFi = true
-                                            } else {
-                                                mediaKeyManager.enableWiFi = false
-                                                showLocationPermissionAlert = true
-                                            }
+                    VStack(spacing: 0) {
+                        CustomSettingsRow(icon: "power", iconColor: .cyan, title: "Enable Wi-Fi Module", subtitle: "When disabled, VisorPro completely ignores Wi-Fi network changes") {
+                            Toggle("", isOn: Binding(
+                                get: { mediaKeyManager.enableWiFi },
+                                set: { newValue in
+                                    if newValue {
+                                        if PermissionHelper.isLocationNotDetermined() {
+                                            PermissionHelper.sharedLocationManager.requestAlwaysAuthorization()
+                                            mediaKeyManager.enableWiFi = true
+                                        } else if PermissionHelper.hasLocationPermission() {
+                                            mediaKeyManager.enableWiFi = true
                                         } else {
                                             mediaKeyManager.enableWiFi = false
+                                            showLocationPermissionAlert = true
                                         }
+                                    } else {
+                                        mediaKeyManager.enableWiFi = false
                                     }
-                                )).labelsHidden()
-                            }
+                                }
+                            )).labelsHidden()
                         }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
                     }
-                    .padding(.horizontal)
-                if mediaKeyManager.enableWiFi {
+                    .toggleStyle(.switch)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
+
+                if mediaKeyManager.enableWiFi || savedLicenseKey.isEmpty {
                 
                     VStack(alignment: .center) {
                         Text("Preview")
@@ -84,9 +80,10 @@ struct WiFiSettingsView: View {
                     .padding(.top, 20)
                 
                     Divider()
-                    
-
                 
+                    if savedLicenseKey.isEmpty {
+                        PremiumLockedView()
+                    } else {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Overlay Triggers")
                             .font(.headline)
@@ -229,10 +226,9 @@ struct WiFiSettingsView: View {
                 
                     Spacer()
             
-                
-                    } else {
-                    DisabledModuleView(icon: "wifi.slash", title: "Wi-Fi Module is Disabled", description: "Turn on the module to configure Wi-Fi overlays.")
                 }
+                } else {
+                    DisabledModuleView(icon: "wifi.slash", title: "Wi-Fi Module is Disabled", description: "Turn on the module to configure Wi-Fi overlays.")
                 }
 }
         }

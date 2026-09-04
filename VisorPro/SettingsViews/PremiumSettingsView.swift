@@ -50,7 +50,7 @@ struct PremiumSettingsView: View {
                         HStack(spacing: 16) {
                             FeatureBadge(icon: "creditcard", text: "Single purchase")
                             FeatureBadge(icon: "infinity", text: "Lifetime validity")
-                            FeatureBadge(icon: "sparkles", text: "All future updates")
+                            FeatureBadge(icon: "gift.fill", text: "All future updates")
                         }
                         .padding(.vertical, 8)
                         
@@ -116,7 +116,7 @@ struct PremiumSettingsView: View {
                             VStack(spacing: 12) {
                                 LicenseInfoRow(title: "Plan", value: "Lifetime License", icon: "infinity")
                                 LicenseInfoRow(title: "Status", value: "Active", icon: "checkmark.circle.fill", valueColor: .green)
-                                LicenseInfoRow(title: "Updates", value: "Included", icon: "sparkles")
+                                LicenseInfoRow(title: "Updates", value: "Included", icon: "gift.fill")
                             }
                             .padding(.vertical, 4)
                             
