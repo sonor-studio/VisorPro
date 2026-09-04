@@ -148,7 +148,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let _ = MediaKeyManager.shared
         let _ = VisorProWindowManager.shared
         let _ = RamObserver.shared
-        let _ = LicenseManager.shared
         
         UpdateManager.shared.checkForUpdates()
         
@@ -161,9 +160,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         let hasCompletedWelcome = UserDefaults.standard.bool(forKey: "hasCompletedWelcome")
         let isTrusted = checkAXIsProcessTrustedReliably()
-        if !hasCompletedWelcome || !isTrusted {
+        
+        let savedLicenseKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        let hasSeenEarlyAdopterNotice = UserDefaults.standard.bool(forKey: "hasSeenEarlyAdopterNoticeV2")
+        let needsEarlyAdopterNotice = hasCompletedWelcome && savedLicenseKey.isEmpty && !hasSeenEarlyAdopterNotice
+        
+        if !hasCompletedWelcome || !isTrusted || needsEarlyAdopterNotice {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                let _ = self.handleReopen(forceDashboard: false)
+                let _ = self.handleReopen(forceDashboard: needsEarlyAdopterNotice)
             }
         }
     }
