@@ -63,7 +63,7 @@ struct EarlyAdopterNoticeSheet: View {
             
             VStack(spacing: 12) {
                 Button(action: {
-                    hasSeenNotice = true
+                    
                     showingCheckout = true
                 }) {
                     HStack(spacing: 8) {
