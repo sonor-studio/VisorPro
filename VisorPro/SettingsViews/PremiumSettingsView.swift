@@ -8,6 +8,25 @@ struct PremiumSettingsView: View {
     @StateObject private var licenseManager = PolarLicenseManager()
     
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
+    @AppStorage("licenseActivationDate") private var activationDate = ""
+
+
+    private var buyButton: some View {
+        Button(action: { showingCheckout = true }) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                Text("Get Premium")
+                    .fontWeight(.semibold)
+            }
+            .foregroundColor(.black)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(Color.white)
+            .cornerRadius(8)
+            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
 
     var body: some View {
         ScrollView {
@@ -56,20 +75,7 @@ struct PremiumSettingsView: View {
                         
                         // Buy Button & Activation
                         VStack(alignment: .leading, spacing: 8) {
-                            Button(action: { showingCheckout = true }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "checkmark.seal.fill")
-                                    Text("Get Premium")
-                                        .fontWeight(.semibold)
-                                }
-                                .foregroundColor(.black)
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 12)
-                                .background(Color.white)
-                                .cornerRadius(8)
-                                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-                            }
-                            .buttonStyle(PlainButtonStyle())
+                            buyButton
                             
                             Text("One-time payment • Secure checkout")
                                 .font(.system(size: 11))
@@ -118,6 +124,9 @@ struct PremiumSettingsView: View {
                                 LicenseInfoRow(title: "Plan", value: "Lifetime License", icon: "infinity")
                                 LicenseInfoRow(title: "Status", value: "Active", icon: "checkmark.circle.fill", valueColor: .green)
                                 LicenseInfoRow(title: "Updates", value: "Included", icon: "arrow.triangle.2.circlepath")
+                                if !activationDate.isEmpty {
+                                    LicenseInfoRow(title: "Activated", value: activationDate, icon: "calendar")
+                                }
                             }
                             .padding(.vertical, 4)
                             
@@ -444,8 +453,27 @@ struct ActivationPopupView: View {
     @ObservedObject var licenseManager: PolarLicenseManager
     @Binding var savedLicenseKey: String
     
+    @AppStorage("licenseActivationDate") private var activationDate = ""
     @State private var inputKey = ""
     
+
+    private var buyButton: some View {
+        Button(action: { showingCheckout = true }) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                Text("Get Premium")
+                    .fontWeight(.semibold)
+            }
+            .foregroundColor(.black)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(Color.white)
+            .cornerRadius(8)
+            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -495,6 +523,12 @@ struct ActivationPopupView: View {
                         let isValid = await licenseManager.validateKey(key: cleanKey)
                         if isValid {
                             savedLicenseKey = cleanKey
+                            if activationDate.isEmpty {
+                                let formatter = DateFormatter()
+                                formatter.dateStyle = .long
+                                formatter.timeStyle = .none
+                                activationDate = formatter.string(from: Date())
+                            }
                             isPresented = false
                         }
                     }
@@ -522,6 +556,24 @@ struct FeatureBadge: View {
     let icon: String
     let text: String
     
+
+    private var buyButton: some View {
+        Button(action: { showingCheckout = true }) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                Text("Get Premium")
+                    .fontWeight(.semibold)
+            }
+            .foregroundColor(.black)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(Color.white)
+            .cornerRadius(8)
+            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
@@ -539,6 +591,24 @@ struct WidgetPreviewCard<Preview: View>: View {
     let description: String
     let preview: Preview
     
+
+    private var buyButton: some View {
+        Button(action: { showingCheckout = true }) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                Text("Get Premium")
+                    .fontWeight(.semibold)
+            }
+            .foregroundColor(.black)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(Color.white)
+            .cornerRadius(8)
+            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Preview Area
@@ -636,6 +706,24 @@ struct LicenseInfoRow: View {
     let icon: String
     var valueColor: Color = .primary
     
+
+    private var buyButton: some View {
+        Button(action: { showingCheckout = true }) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                Text("Get Premium")
+                    .fontWeight(.semibold)
+            }
+            .foregroundColor(.black)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(Color.white)
+            .cornerRadius(8)
+            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
     var body: some View {
         HStack {
             Text(title)
