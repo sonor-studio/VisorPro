@@ -17,7 +17,6 @@ struct EarlyAdopterNoticeSheet: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 42))
                 .foregroundColor(.green)
                 .shadow(color: Color.green.opacity(0.3), radius: 8, x: 0, y: 4)
@@ -55,7 +54,6 @@ struct EarlyAdopterNoticeSheet: View {
                     showingCheckout = true
                 }) {
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.seal.fill")
                         if canProceed {
                             Text("Get Free License")
                                 .fontWeight(.semibold)

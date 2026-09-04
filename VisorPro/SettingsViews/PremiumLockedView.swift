@@ -31,7 +31,6 @@ struct PremiumLockedView: View {
                     showingCheckout = true
                 }) {
                     HStack(spacing: 8) {
-                        Image(systemName: "sparkles")
                         Text("Get Free License")
                             .fontWeight(.semibold)
                     }

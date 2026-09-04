@@ -20,31 +20,33 @@ struct PrivacySettingsView: View {
         ScrollView {
             VStack(spacing: 24) {
                 
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Privacy Module")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                if !savedLicenseKey.isEmpty {
+    VStack(alignment: .leading, spacing: 12) {
+                        Text("Privacy Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     
-                    Text("Module Configuration")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 4)
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
                         
-                    VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "power", iconColor: .blue, title: "Enable Privacy Module", subtitle: "When disabled, VisorPro completely ignores Camera, Microphone and Location activity") {
-                            Toggle("", isOn: $mediaKeyManager.enablePrivacy).labelsHidden()
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "power", iconColor: .blue, title: "Enable Privacy Module", subtitle: "When disabled, VisorPro completely ignores Camera, Microphone and Location activity") {
+                                Toggle("", isOn: $mediaKeyManager.enablePrivacy).labelsHidden()
+                            }
                         }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
                     }
-                    .toggleStyle(.switch)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(12)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
+                    .padding(.horizontal)
                 }
-                .padding(.horizontal)
                 
                 if mediaKeyManager.enablePrivacy || savedLicenseKey.isEmpty {
                     // Previews
