@@ -55,7 +55,7 @@ struct PremiumSettingsView: View {
                         .padding(.vertical, 8)
                         
                         // Buy Button & Activation
-                        VStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Button(action: { showingCheckout = true }) {
                                 HStack(spacing: 8) {
                                     Image(systemName: "checkmark.seal.fill")

@@ -6,7 +6,7 @@ struct EarlyAdopterNoticeSheet: View {
     @Binding var hasSeenNotice: Bool
     @Binding var savedLicenseKey: String
     
-    @State private var countdown = 3
+    @State private var countdown = 5
     @State private var canProceed = false
     @State private var showingCheckout = false
     @State private var showingActivation = false
