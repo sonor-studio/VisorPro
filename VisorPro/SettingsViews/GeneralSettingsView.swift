@@ -320,7 +320,7 @@ struct GeneralSettingsView: View {
                 mediaKeyManager.maxSimultaneousNotifications = 1
             }
         }
-        .onChange(of: savedLicenseKey) { newValue in
+        .onChange(of: savedLicenseKey) { oldValue, newValue in
             if newValue.isEmpty {
                 mediaKeyManager.maxSimultaneousNotifications = 1
             }

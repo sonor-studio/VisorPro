@@ -73,18 +73,6 @@ struct AboutSettingsView: View {
                     }
                 }
                 .font(.system(size: 13, weight: .medium))
-                
-                if !savedLicenseKey.isEmpty {
-                    HStack {
-                        Text("License Key")
-                        Spacer()
-                        Text(savedLicenseKey)
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.secondary)
-                            .textSelection(.enabled)
-                    }
-                    .font(.system(size: 13, weight: .medium))
-                }
             }
             
             Section(header: Text("Technical Information").font(.system(size: 12, weight: .semibold))) {

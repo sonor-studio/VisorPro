@@ -142,6 +142,20 @@ struct EarlyAdopterNoticeSheet: View {
         .sheet(isPresented: $showingCheckout) {
             VStack(spacing: 0) {
                 HStack {
+                    Button(action: {
+                        NSWorkspace.shared.open(URL(string: "https://buy.polar.sh/polar_cl_PInjogqryIOSYRz17wX36JqBy15auEMjHYREM1Gspct")!)
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "safari")
+                            Text("Open in Browser")
+                        }
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.blue)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.leading, 20)
+                    .help("Open in Safari for Apple Pay support")
+                    
                     Spacer()
                     Button(action: { 
                         showingCheckout = false
@@ -169,7 +183,7 @@ struct EarlyAdopterNoticeSheet: View {
                 savedLicenseKey: $savedLicenseKey
             )
         }
-        .onChange(of: savedLicenseKey) { newValue in
+        .onChange(of: savedLicenseKey) { oldValue, newValue in
             if !newValue.isEmpty {
                 hasSeenNotice = true
                 isPresented = false

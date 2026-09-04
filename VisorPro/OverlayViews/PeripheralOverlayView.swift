@@ -278,7 +278,7 @@ struct PeripheralOverlayView: View {
                                 
                                 if !otherKeys.isEmpty && shouldHideDetailsBehindButton {
                                     Button(action: {
-                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
                                             showMoreDetails.toggle()
                                         }
                                     }) {
@@ -493,7 +493,9 @@ struct PeripheralOverlayView: View {
         }
         .onChange(of: actualNotification?.isConnected) { _, connected in
             if connected == false {
-                isExpanded = false
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded = false
+                }
             }
         }
         .onChange(of: actualNotification?.timestamp) { _, _ in

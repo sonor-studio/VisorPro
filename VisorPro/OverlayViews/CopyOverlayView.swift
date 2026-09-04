@@ -85,7 +85,9 @@ struct CopyOverlayView: View {
                 if canExpand {
                     // UniversalOverlayView will automatically toggle isExpanded
                 } else {
-                    isExpanded = false
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded = false
+                    }
                 }
                 if !isPreview {
                     mediaKeyManager.keepAlive(for: "copy", isHovering: true)

@@ -96,7 +96,7 @@ struct VolumeOverlayView: View {
                                 onSelect: {
                                     if !isPreview {
                                         VolumeManager.shared.setOutputDevice(id: device.id)
-                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
                                             isExpanded = false
                                         }
                                     }
@@ -124,13 +124,13 @@ struct VolumeOverlayView: View {
         }
         .onChange(of: actualVolume) { _, newValue in
             let targetProgress = CGFloat(newValue) / 100.0
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 _animatedVolumeProgress = targetProgress
             }
         }
         .onChange(of: actualIsMuted) { _, _ in
             let targetProgress = CGFloat(actualVolume) / 100.0
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.85)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 _animatedVolumeProgress = targetProgress
             }
         }

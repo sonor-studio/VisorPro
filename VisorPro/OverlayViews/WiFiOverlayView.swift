@@ -53,7 +53,7 @@ struct StatRow: View {
                     pasteboard.clearContents()
                     pasteboard.setString(value, forType: .string)
                     onCopy?()
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
                         copied = true
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
@@ -119,7 +119,7 @@ struct WiFiOverlayView: View {
             customHeight: 56,
             supportDragGesture: false,
             onSimpleTap: {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     if !isExpanded && actualIsConnected && !mediaKeyManager.wiFiDetailsFetched {
                         mediaKeyManager.fetchWiFiDetails()
                     }
@@ -193,7 +193,7 @@ struct WiFiOverlayView: View {
                                 Button(action: {
                                     if !isPreview {
                                         mediaKeyManager.openNetworkSettings()
-                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
                                             isExpanded = false
                                         }
                                     }

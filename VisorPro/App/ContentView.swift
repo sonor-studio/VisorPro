@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
-        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery
+        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, focus, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -55,6 +55,9 @@ struct ContentView: View {
         
         let themePos = MediaKeyManager.shared.getOverlayPosition(for: "themeOverlayPosition")
         if mediaKeyManager.showThemeIndicator { active.append(ActiveOverlay(id: "theme", type: .theme, position: themePos, notification: nil)) }
+        
+        let focusPos = MediaKeyManager.shared.getOverlayPosition(for: "focusOverlayPosition")
+        if mediaKeyManager.showFocusIndicator { active.append(ActiveOverlay(id: "focus", type: .focus, position: focusPos, notification: nil)) }
         
         let micPos = MediaKeyManager.shared.getOverlayPosition(for: "micOverlayPosition")
         if mediaKeyManager.showMicIndicator { active.append(ActiveOverlay(id: "mic", type: .mic, position: micPos, notification: nil)) }
@@ -246,6 +249,7 @@ struct ContentView: View {
         case .language: LanguageOverlayView()
         case .media: MediaOverlayView()
         case .theme: ThemeOverlayView()
+        case .focus: FocusOverlayView()
         case .mic: MicOverlayView()
         case .camera: CameraOverlayView()
         case .location: LocationOverlayView()

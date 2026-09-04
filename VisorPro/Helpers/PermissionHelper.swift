@@ -26,6 +26,11 @@ struct PermissionHelper {
         return true
     }
     
+    static func hasFullDiskAccess() -> Bool {
+        let dbPath = NSString(string: "~/Library/DoNotDisturb/DB/Assertions.json").expandingTildeInPath
+        return FileManager.default.isReadableFile(atPath: dbPath)
+    }
+    
     static func openPrivacySettings(for type: String) {
         var urlString = "x-apple.systempreferences:com.apple.preference.security"
         switch type {
@@ -37,6 +42,8 @@ struct PermissionHelper {
             urlString += "?Privacy_Automation"
         case "Microphone":
             urlString += "?Privacy_Microphone"
+        case "FullDisk":
+            urlString += "?Privacy_AllFiles"
         default:
             break
         }

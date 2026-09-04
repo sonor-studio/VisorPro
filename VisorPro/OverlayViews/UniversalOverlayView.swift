@@ -37,6 +37,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var holdTimer: Timer? = nil
     @State private var isHovering: Bool = false
     @State private var expandedKeepAliveTimer: Timer? = nil
+    @State private var isAnimating: Bool = false
+    @AppStorage("enableCloseButton") private var enableCloseButton = false
     
     private var isGloballyHovered: Bool {
         guard let keepAliveId = keepAliveId else { return isHovering }
@@ -57,20 +59,21 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         let innerRadius: CGFloat = outerRadius - trackPadding
         let trackWidth: CGFloat = width - (trackPadding * 2)
         
-        VStack(spacing: 0) {
-            baseContent()
-                .frame(width: width, height: baseHeight)
-                .allowsHitTesting(false)
-            
-            expandedContent()
-                .padding(.bottom, 16)
-                .frame(width: width)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(height: isExpanded ? nil : 0, alignment: .top)
-                .clipped()
-                .opacity(isExpanded ? 1 : 0)
-        }
-        .frame(width: width, alignment: expandUpwards ? .bottom : .top)
+        ZStack(alignment: .topLeading) {
+            VStack(spacing: 0) {
+                baseContent()
+                    .frame(width: width, height: baseHeight)
+                    .allowsHitTesting(false)
+                
+                expandedContent()
+                    .padding(.bottom, 16)
+                    .frame(width: width)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(height: isExpanded ? nil : 0, alignment: .top)
+                    .clipped()
+                    .opacity(isExpanded ? 1 : 0)
+            }
+            .frame(width: width, alignment: expandUpwards ? .bottom : .top)
         .background(
             ZStack(alignment: .leading) {
                 ZStack {
@@ -193,22 +196,23 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     if !isDragging {
                         let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
                         if !moved {
-                            if supportDragGesture {
-                                if value.startLocation.x <= 50 && onLeftTap != nil {
-                                    onLeftTap?()
-                                } else {
+                            if value.startLocation.x <= 50 && onLeftTap != nil {
+                                onLeftTap?()
+                            } else {
+                                if supportDragGesture {
                                     onRightTap?()
-                                    if isExpandable {
-                                        withAnimation(.linear(duration: 0.15)) {
+                                } else {
+                                    onSimpleTap?()
+                                }
+                                if isExpandable {
+                                    if !isAnimating {
+                                        isAnimating = true
+                                        withAnimation(.easeInOut(duration: 0.2)) {
                                             isExpanded.toggle()
                                         }
-                                    }
-                                }
-                            } else {
-                                onSimpleTap?()
-                                if isExpandable {
-                                    withAnimation(.linear(duration: 0.15)) {
-                                        isExpanded.toggle()
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                            isAnimating = false
+                                        }
                                     }
                                 }
                             }
@@ -244,7 +248,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         }
         .onChange(of: isExpandable) { _, newValue in
             if !newValue && isExpanded {
-                withAnimation(.linear(duration: 0.15)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded = false
                 }
             }
@@ -268,6 +272,34 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = nil
                 triggerKeepAlive(expandedOverride: false)
+            }
+        }
+        
+            if enableCloseButton && !isPreview {
+                let dynamicOffset: CGFloat = -2 + (outerRadius - 28) * 0.3
+                Button(action: {
+                    if let id = keepAliveId {
+                        mediaKeyManager.forceHide(overlayId: id)
+                    }
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 20, height: 20)
+                        .background(
+                            Circle()
+                                .fill(colorScheme == .dark ? Color(white: 0.2) : Color.white)
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.1) : Color.clear, lineWidth: 0.5)
+                                )
+                                .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
+                        )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .offset(x: dynamicOffset, y: dynamicOffset)
+                .opacity(isGloballyHovered ? 1 : 0)
+                .animation(.easeInOut(duration: 0.15), value: isGloballyHovered)
             }
         }
     }

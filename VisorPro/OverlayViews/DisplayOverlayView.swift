@@ -164,7 +164,9 @@ struct DisplayOverlayView: View {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.displays") {
                             NSWorkspace.shared.open(url)
                         }
-                        isExpanded = false
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isExpanded = false
+                        }
                     }) {
                         HStack(spacing: 6) {
                             Image(systemName: "gearshape.fill")
@@ -189,7 +191,9 @@ struct DisplayOverlayView: View {
         .id(notification?.timestamp ?? Date(timeIntervalSince1970: 0))
         .onChange(of: notification?.id) { _, _ in
             if !isConnected {
-                isExpanded = false
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded = false
+                }
             }
         }
     }

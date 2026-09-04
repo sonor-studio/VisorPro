@@ -265,7 +265,7 @@ struct MicOverlayView: View {
             if isActive && isExpanded && !isPreview && micShowVisualizer {
                 MicLevelMonitor.shared.startMonitoring()
             } else if !isActive && isExpanded {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded = false
                 }
             }
@@ -449,7 +449,7 @@ struct CameraOverlayView: View {
                                             process.arguments = ["-9", "\(pid)"]
                                             try? process.run()
                                             
-                                            withAnimation {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
                                                 isExpanded = false
                                             }
                                         }
@@ -486,7 +486,7 @@ struct CameraOverlayView: View {
         }
         .onChange(of: actualIsActive) { _, isActive in
             if !isActive && isExpanded {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded = false
                 }
             }

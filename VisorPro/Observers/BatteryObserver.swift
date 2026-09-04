@@ -55,7 +55,7 @@ class BatteryObserver {
         return self.batteryDataProvider()
     }
     
-    static func defaultBatteryProvider() -> [String: Any]? {
+    nonisolated static func defaultBatteryProvider() -> [String: Any]? {
         let matchingDict = IOServiceMatching("AppleSmartBattery")
         let service = IOServiceGetMatchingService(0, matchingDict)
         

@@ -194,6 +194,9 @@ class VisorProWindowManager: ObservableObject {
         let themePos = MediaKeyManager.shared.getOverlayPosition(for: "themeOverlayPosition")
         if manager.showThemeIndicator { active.append(ActiveOverlay(id: "theme", type: .theme, position: themePos, notification: nil)) }
         
+        let focusPos = MediaKeyManager.shared.getOverlayPosition(for: "focusOverlayPosition")
+        if manager.showFocusIndicator { active.append(ActiveOverlay(id: "focus", type: .focus, position: focusPos, notification: nil)) }
+        
         let micPos = MediaKeyManager.shared.getOverlayPosition(for: "micOverlayPosition")
         if manager.showMicIndicator { active.append(ActiveOverlay(id: "mic", type: .mic, position: micPos, notification: nil)) }
         
@@ -477,7 +480,7 @@ class VisorProWindowManager: ObservableObject {
     }
     
     private func createPanel(for overlay: ActiveOverlay) -> NSPanel {
-        let w: CGFloat = (overlay.type == .capsLock || overlay.type == .theme) ? 230 : 260
+        let w: CGFloat = (overlay.type == .capsLock || overlay.type == .theme || overlay.type == .focus) ? 230 : 260
         let h: CGFloat
         if overlay.type == .media {
             h = 72
@@ -647,7 +650,7 @@ struct SingleOverlayContainer: View {
     }
     
     private var placeholderWidth: CGFloat {
-        (overlay.type == .capsLock || overlay.type == .theme) ? 230 : 260
+        (overlay.type == .capsLock || overlay.type == .theme || overlay.type == .focus) ? 230 : 260
     }
     
     private var placeholderHeight: CGFloat {
@@ -689,6 +692,7 @@ struct SingleOverlayContainer: View {
         case .language: LanguageOverlayView()
         case .media: MediaOverlayView()
         case .theme: ThemeOverlayView()
+        case .focus: FocusOverlayView()
         case .mic: MicOverlayView()
         case .camera: CameraOverlayView()
         case .location: LocationOverlayView()

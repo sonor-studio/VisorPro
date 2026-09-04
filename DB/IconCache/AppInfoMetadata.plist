@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>appInfo</key>
+	<array/>
+	<key>monitoredBundleIdentifiers</key>
+	<array>
+		<string>com.apple.Passbook</string>
+		<string>com.apple.findmy</string>
+		<string>net.whatsapp.WhatsApp</string>
+		<string>com.apple.ScreenTimeNotifications</string>
+		<string>com.apple.Fitness</string>
+		<string>com.apple.weather</string>
+		<string>com.evelstar.app</string>
+		<string>com.apple.HeartRate</string>
+		<string>com.pzpn.lnp</string>
+		<string>com.apple.NanoMenstrualCycles</string>
+		<string>ee.mtakso.client</string>
+		<string>com.apple.NanoOxygenSaturation.watchkitapp</string>
+		<string>com.apple.MobileSMS</string>
+		<string>pl.nask.mObywatel</string>
+		<string>com.apple.NanoHeartRhythm</string>
+		<string>com.apple.SessionTrackerApp</string>
+		<string>com.google.Maps</string>
+		<string>pl.neptis.yanosik</string>
+		<string>com.apple.findmy.findpeople</string>
+		<string>com.apple.findmy.finddevices</string>
+		<string>com.glovo.glover</string>
+		<string>com.apple.reminders</string>
+		<string>com.apple.mobilephone</string>
+		<string>pl.pekao.pekaosa.peopay</string>
+		<string>com.apple.iCal</string>
+		<string>com.apple.Health</string>
+		<string>com.apple.NanoTranslate</string>
+		<string>com.google.Gmail</string>
+		<string>com.apple.findmy.finditems</string>
+		<string>com.traineffective.ios</string>
+		<string>com.facebook.archon</string>
+		<string>com.SofaScore.iOS</string>
+		<string>com.apple.Sharing.WatchRemoteNotifications</string>
+	</array>
+</dict>
+</plist>

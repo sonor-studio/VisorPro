@@ -122,7 +122,7 @@ struct BluetoothOverlayView: View {
             customHeight: 56,
             supportDragGesture: false,
             onSimpleTap: {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     if !isExpanded && actualIsConnected {
                         mediaKeyManager.fetchBluetoothDetails()
                     }
@@ -203,7 +203,7 @@ struct BluetoothOverlayView: View {
                                 .padding(.vertical, 4)
                                 
                                 Button(action: {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
                                         showDetails.toggle()
                                     }
                                 }) {
@@ -256,7 +256,7 @@ struct BluetoothOverlayView: View {
                                 if !isPreview {
                                     mediaKeyManager.disconnectBluetoothDevice(macAddress: deviceId)
                                 }
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
                                     isExpanded = false
                                 }
                             }) {
@@ -277,7 +277,7 @@ struct BluetoothOverlayView: View {
                         Button(action: {
                             if !isPreview {
                                 mediaKeyManager.openBluetoothSettings()
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
                                     isExpanded = false
                                 }
                             }

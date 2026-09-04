@@ -907,8 +907,7 @@ class MediaKeyManager: ObservableObject {
                     let pos = self.getOverlayPosition(for: "focusOverlayPosition")
                     self.dismissCollidingIndicators(newPosition: pos, source: "focus")
                     
-                    let executeShow = { [weak self] in
-                        guard let self = self else { return }
+                    let executeShow = {
                         self.isFocusReminder = true
                         self.isFocusSwitched = false
                         self.focusEventId = UUID()
@@ -916,9 +915,9 @@ class MediaKeyManager: ObservableObject {
                             self.showFocusIndicator = true
                             self.overlayTriggerTimes["focus"] = Date()
                         }
-                        self.focusTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                        self.focusTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
                             withAnimation(.easeInOut(duration: 0.25)) {
-                                self?.showFocusIndicator = false
+                                self.showFocusIndicator = false
                             }
                         }
                     }
@@ -1625,7 +1624,7 @@ class MediaKeyManager: ObservableObject {
                 details: details
             )
             
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 if let idx = self.activeDisplayNotifications.firstIndex(where: { $0.id == id }) {
                     self.activeDisplayNotifications[idx] = newNotif
                 } else if !self.activeDisplayNotifications.isEmpty {
@@ -1640,7 +1639,7 @@ class MediaKeyManager: ObservableObject {
             let timerKey = "display_\(id)"
             self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
             self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     self?.activeDisplayNotifications.removeAll(where: { $0.id == id })
                 }
             }
@@ -3383,7 +3382,11 @@ class MediaKeyManager: ObservableObject {
         
         let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: mediaBundleId)
         if let app = runningApps.first {
-            app.activate(options: [.activateIgnoringOtherApps])
+            if #available(macOS 14.0, *) {
+                app.activate()
+            } else {
+                app.activate(options: [.activateIgnoringOtherApps])
+            }
         } else {
             if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: mediaBundleId) {
                 let configuration = NSWorkspace.OpenConfiguration()

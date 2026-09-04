@@ -70,7 +70,7 @@ struct LanguageOverlayView: View {
                                         mediaKeyManager.currentKeyboardLanguage = layout.name
                                         mediaKeyManager.selectLanguage(idToSelect: layout.id)
                                     }
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
                                         isExpanded = false
                                     }
                                 }

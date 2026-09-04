@@ -166,7 +166,6 @@ struct SettingsView: View {
             .hideSidebarToggle()
             
             Group {
-                let isPremium = !savedLicenseKey.isEmpty
                 
                 switch selection {
                 case .premium:

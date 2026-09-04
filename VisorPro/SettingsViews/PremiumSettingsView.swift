@@ -421,6 +421,20 @@ struct PremiumSettingsView: View {
         .sheet(isPresented: $showingCheckout) {
             VStack(spacing: 0) {
                 HStack {
+                    Button(action: {
+                        NSWorkspace.shared.open(URL(string: "https://buy.polar.sh/polar_cl_PInjogqryIOSYRz17wX36JqBy15auEMjHYREM1Gspct")!)
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "safari")
+                            Text("Open in Browser")
+                        }
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.blue)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.leading, 20)
+                    .help("Open in Safari for Apple Pay support")
+                    
                     Spacer()
                     Button(action: { showingCheckout = false }) {
                         Image(systemName: "xmark.circle.fill")
@@ -475,7 +489,7 @@ struct ActivationPopupView: View {
                 .foregroundColor(.secondary)
             
             HStack {
-                TextField("ea-XYZ-...", text: $inputKey)
+                TextField("EA-XYZ-...", text: $inputKey)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .font(.system(.body, design: .monospaced))
                 
@@ -496,7 +510,7 @@ struct ActivationPopupView: View {
             }
             
             HStack {
-                Link("Lost your key?", destination: URL(string: "https://polar.sh/samuel-cook/portal/request")!)
+                Link("Lost your key?", destination: URL(string: "https://polar.sh/sonor-studio/portal/request")!)
                     .font(.system(size: 11))
                 Spacer()
                 

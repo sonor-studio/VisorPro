@@ -104,6 +104,11 @@ struct MediaOverlayView: View {
                 localElapsed = newTime
                 mediaKeyManager.simulateSeek(to: newTime)
             },
+            onLeftTap: {
+                if !isPreview {
+                    mediaKeyManager.openMediaApp()
+                }
+            },
             isExpandable: mediaAllowExpansion,
             expandUpwards: mediaPos.hasPrefix("bottom"),
             keepAliveId: "media",
