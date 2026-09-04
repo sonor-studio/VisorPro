@@ -457,23 +457,6 @@ struct ActivationPopupView: View {
     @State private var inputKey = ""
     
 
-    private var buyButton: some View {
-        Button(action: { showingCheckout = true }) {
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                Text("Get Premium")
-                    .fontWeight(.semibold)
-            }
-            .foregroundColor(.black)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(Color.white)
-            .cornerRadius(8)
-            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -557,23 +540,6 @@ struct FeatureBadge: View {
     let text: String
     
 
-    private var buyButton: some View {
-        Button(action: { showingCheckout = true }) {
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                Text("Get Premium")
-                    .fontWeight(.semibold)
-            }
-            .foregroundColor(.black)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(Color.white)
-            .cornerRadius(8)
-            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
-
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
@@ -591,23 +557,6 @@ struct WidgetPreviewCard<Preview: View>: View {
     let description: String
     let preview: Preview
     
-
-    private var buyButton: some View {
-        Button(action: { showingCheckout = true }) {
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                Text("Get Premium")
-                    .fontWeight(.semibold)
-            }
-            .foregroundColor(.black)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(Color.white)
-            .cornerRadius(8)
-            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -706,23 +655,6 @@ struct LicenseInfoRow: View {
     let icon: String
     var valueColor: Color = .primary
     
-
-    private var buyButton: some View {
-        Button(action: { showingCheckout = true }) {
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                Text("Get Premium")
-                    .fontWeight(.semibold)
-            }
-            .foregroundColor(.black)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(Color.white)
-            .cornerRadius(8)
-            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-        }
-        .buttonStyle(PlainButtonStyle())
-    }
 
     var body: some View {
         HStack {
