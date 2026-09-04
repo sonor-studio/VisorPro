@@ -26,11 +26,26 @@ The Administrator has not appointed a Data Protection Officer, as he is not obli
 ## 4. Scope of processed personal data
 The Administrator collects fully anonymized, aggregated statistical data regarding the usage of the Application (e.g., app launches, system version) to monitor technical performance and improve the Application. This data does not contain personal information (such as IP addresses) and cannot be used to identify a specific user. The Administrator uses the privacy-first external service TelemetryDeck for this purpose.
 
+### 4.1 No Account Required
+You do not need to create an account to use VisorPro. The application does not ask you to sign in, and it does not require your name or personal email address to use the free tier.
+
+### 4.2 Local processing of device and sensor data
+In order to provide its core functionality (such as displaying overlays for CPU/RAM usage, Wi-Fi status, Bluetooth devices, currently playing media, and camera/microphone access warnings), the Application requests access to various macOS system APIs and permissions. 
+
+**All data retrieved from these sensors and system APIs (including media metadata, hardware states, and privacy indicators) is processed strictly locally on your device.** The Application does not store this data permanently, nor does it transmit any of this information to the Administrator's servers or any third-party services. The access is used exclusively in real-time to render the visual overlays on your screen.
+
+### 4.3 macOS Permissions
+macOS may ask for permission before VisorPro can access certain types of information (like your location, camera, or microphone state). You can choose whether to grant these permissions, and you can revoke them at any time in your Mac's System Settings > Privacy & Security. If you deny a permission, the corresponding overlay will simply be disabled or display limited information.
+
 ## 5. Purposes and legal grounds for data processing (Art. 6 GDPR)
 Since the Application does not currently collect any personal data from its users, the Administrator does not process personal data for marketing, profiling, or analytical purposes. Should a user contact the Administrator directly via e-mail for technical support, the user's e-mail address and the content of the correspondence will be processed solely based on Art. 6(1)(f) of the GDPR (legitimate interest of the Administrator) for the purpose of handling the inquiry.
 
-## 6. Recipients of personal data
-Since no personal data is collected by the Application, data is not entrusted or sold to any third parties (such as external databases or authentication providers).
+## 6. Recipients of personal data and Third-Party Services
+While the Application itself does not collect personal data from free users, the purchase of VisorPro Premium and license management is handled by our Merchant of Record and payment provider, **Polar (Polar Software, Inc.)**.
+
+When you purchase a license or activate Premium, Polar may collect and process personal data such as your email address, billing information, and license keys. The processing of this data is subject to Polar's Privacy Policy. We strongly encourage you to review it here: [https://polar.sh/legal/privacy](https://polar.sh/legal/privacy).
+
+The Administrator does not store your payment details or credit card information on their own servers. Data is not entrusted or sold to any other third parties.
 
 ## 7. Transfer of data outside the EU/EEA
 The Application does not transfer any personal data to third countries or international organizations.
