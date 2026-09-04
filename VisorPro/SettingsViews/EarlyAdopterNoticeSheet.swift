@@ -1,6 +1,5 @@
 import SwiftUI
 import WebKit
-import Combine
 
 struct EarlyAdopterNoticeSheet: View {
     @Binding var isPresented: Bool
@@ -12,8 +11,6 @@ struct EarlyAdopterNoticeSheet: View {
     @State private var showingCheckout = false
     @State private var showingActivation = false
     @StateObject private var licenseManager = PolarLicenseManager()
-    
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     var body: some View {
         VStack(spacing: 20) {
@@ -33,18 +30,33 @@ struct EarlyAdopterNoticeSheet: View {
                     .foregroundColor(.secondary)
             }
             
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Thank you for supporting VisorPro early. As promised, your lifetime access to all features is completely free of charge.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.primary)
-                    .lineSpacing(2)
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "gift.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 18))
+                        .frame(width: 24)
+                    
+                    Text("As an early supporter, your lifetime access to all features remains completely free.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.primary)
+                        .lineSpacing(2)
+                }
                 
-                Text("We recently introduced an official licensing system. You can generate your personal license key below to unlock all trackers permanently.")
-                    .font(.system(size: 13))
-                    .foregroundColor(.secondary)
-                    .lineSpacing(2)
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "key.fill")
+                        .foregroundColor(.blue)
+                        .font(.system(size: 18))
+                        .frame(width: 24)
+                    
+                    Text("We've launched a new licensing system. Claim your personal key to unlock all trackers permanently.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.primary)
+                        .lineSpacing(2)
+                }
             }
             .padding(.horizontal, 8)
+            .padding(.vertical, 8)
             
             Divider()
                 .opacity(0.5)
@@ -55,6 +67,7 @@ struct EarlyAdopterNoticeSheet: View {
                     showingCheckout = true
                 }) {
                     HStack(spacing: 8) {
+                        Image(systemName: "checkmark.seal.fill")
                         if canProceed {
                             Text("Get Free License")
                                 .fontWeight(.semibold)
@@ -87,25 +100,33 @@ struct EarlyAdopterNoticeSheet: View {
                     
                     Spacer()
                     
-                    Button(action: {
-                        isPresented = false
-                    }) {
-                        Text("Remind me later")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+                    if canProceed {
+                        Button(action: {
+                            isPresented = false
+                        }) {
+                            Text("Remind me later")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(.horizontal, 4)
             }
         }
         .padding(26)
         .frame(width: 440)
-        .onReceive(timer) { _ in
-            if countdown > 1 {
-                countdown -= 1
-            } else {
-                canProceed = true
+        .onAppear {
+            Task {
+                while countdown > 0 {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    await MainActor.run {
+                        countdown -= 1
+                        if countdown == 0 {
+                            canProceed = true
+                        }
+                    }
+                }
             }
         }
         .sheet(isPresented: $showingCheckout) {

@@ -55,15 +55,16 @@ struct PremiumSettingsView: View {
                         .padding(.vertical, 8)
                         
                         // Buy Button & Activation
-                        HStack(spacing: 16) {
+                        VStack(spacing: 8) {
                             Button(action: { showingCheckout = true }) {
-                                HStack {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "checkmark.seal.fill")
                                     Text("Get Premium")
                                         .fontWeight(.semibold)
                                 }
                                 .foregroundColor(.black)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 10)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 12)
                                 .background(Color.white)
                                 .cornerRadius(8)
                                 .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)

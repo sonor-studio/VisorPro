@@ -31,6 +31,7 @@ struct PremiumLockedView: View {
                     showingCheckout = true
                 }) {
                     HStack(spacing: 8) {
+                        Image(systemName: "checkmark.seal.fill")
                         Text("Get Free License")
                             .fontWeight(.semibold)
                     }
