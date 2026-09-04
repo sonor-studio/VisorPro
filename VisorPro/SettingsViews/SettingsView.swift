@@ -30,7 +30,7 @@ struct SettingsView: View {
     @State private var window: NSWindow?
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
-    @AppStorage("hasSeenEarlyAdopterNotice") private var hasSeenEarlyAdopterNotice = false
+    @AppStorage("hasSeenEarlyAdopterNoticeV2") private var hasSeenEarlyAdopterNotice = false
     @State private var showingEarlyAdopterNotice = false
     
     var body: some View {
@@ -279,11 +279,10 @@ struct SettingsView: View {
             selection = .premium
         }
         .onAppear {
-            if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    showingEarlyAdopterNotice = true
-                }
-            }
+            checkAndShowEarlyAdopterNotice()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            checkAndShowEarlyAdopterNotice()
         }
         .sheet(isPresented: $showingEarlyAdopterNotice) {
             EarlyAdopterNoticeSheet(
@@ -291,6 +290,18 @@ struct SettingsView: View {
                 hasSeenNotice: $hasSeenEarlyAdopterNotice,
                 savedLicenseKey: $savedLicenseKey
             )
+        }
+    }
+    
+    private func checkAndShowEarlyAdopterNotice() {
+        if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice {
+            // Prevent spamming if it's already showing
+            guard !showingEarlyAdopterNotice else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice {
+                    showingEarlyAdopterNotice = true
+                }
+            }
         }
     }
 }
