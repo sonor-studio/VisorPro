@@ -102,6 +102,16 @@ struct EarlyAdopterNoticeSheet: View {
                     
                     if canProceed {
                         Button(action: {
+                            hasSeenNotice = true
+                            isPresented = false
+                        }) {
+                            Text("Don't remind me")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        Button(action: {
                             isPresented = false
                         }) {
                             Text("Remind me later")

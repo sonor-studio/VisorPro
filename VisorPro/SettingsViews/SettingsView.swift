@@ -279,7 +279,7 @@ struct SettingsView: View {
             selection = .premium
         }
         .onAppear {
-            if savedLicenseKey.isEmpty && hasCompletedWelcome   {
+            if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     showingEarlyAdopterNotice = true
                 }
