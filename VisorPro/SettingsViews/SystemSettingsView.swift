@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SystemSettingsView: View {
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("showSystemModule") private var showSystemModule = true
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
@@ -10,31 +11,36 @@ struct SystemSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("System Module")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                if savedLicenseKey.isEmpty {
+                    PremiumLockedView()
+                    Spacer()
+                } else {
+
+    VStack(alignment: .leading, spacing: 12) {
+                        Text("System Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
                     
-                    Text("Module Configuration")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 4)
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
                         
-                    VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "cpu", iconColor: .purple, title: "Enable System Module", subtitle: "When disabled, VisorPro will not show system overlays") {
-                            Toggle("", isOn: $showSystemModule).labelsHidden()
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "cpu", iconColor: .purple, title: "Enable System Module", subtitle: "When disabled, VisorPro will not show system overlays") {
+                                Toggle("", isOn: $showSystemModule).labelsHidden()
+                            }
                         }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
                     }
-                    .toggleStyle(.switch)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
-                }
-                .padding(.horizontal)
+                    .padding(.horizontal)
 
                 if showSystemModule {
                 
@@ -59,6 +65,8 @@ struct SystemSettingsView: View {
                         .padding(.top, 20)
                     
                         Divider()
+                    
+
                     
                         VStack(alignment: .leading, spacing: 12) {
                             Text("RAM Alert")
@@ -131,8 +139,10 @@ struct SystemSettingsView: View {
                         }
                     }
             
-                } else {
+                
+                    } else {
                     DisabledModuleView(icon: "cpu", title: "System Module is Disabled", description: "Turn on the module to configure system overlays.")
+                }
                 }
 }
             .padding(.vertical, 20)

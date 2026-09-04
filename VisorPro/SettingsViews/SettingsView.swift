@@ -5,6 +5,7 @@ import ServiceManagement
 
 struct SettingsView: View {
     enum SidebarItem: Hashable {
+        case premium
         case general
         case recentChanges
         case volume
@@ -17,6 +18,7 @@ struct SettingsView: View {
         case media
         case privacy
         case theme
+        case focus
         case peripheral
         case display
         case feedback
@@ -26,6 +28,10 @@ struct SettingsView: View {
     
     @State private var selection: SidebarItem? = .general
     @State private var window: NSWindow?
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
+    @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
+    @AppStorage("hasSeenEarlyAdopterNotice") private var hasSeenEarlyAdopterNotice = false
+    @State private var showingEarlyAdopterNotice = false
     
     var body: some View {
         HSplitView {
@@ -49,6 +55,12 @@ struct SettingsView: View {
                             SidebarIcon(systemName: "envelope.fill", color: .blue)
                         }
                     .tag(SidebarItem.feedback)
+                    Label {
+                            Text("Premium")
+                        } icon: {
+                            SidebarIcon(systemName: "checkmark.seal.fill", color: .green)
+                        }
+                    .tag(SidebarItem.premium)
                 }
                 
                 Section("Trackers") {
@@ -58,12 +70,6 @@ struct SettingsView: View {
                             SidebarIcon(systemName: "speaker.wave.2.fill", color: .blue)
                         }
                     .tag(SidebarItem.volume)
-                    Label {
-                            Text("Media")
-                        } icon: {
-                            SidebarIcon(systemName: "playpause.fill", color: .red)
-                        }
-                    .tag(SidebarItem.media)
                     Label {
                             Text("Brightness")
                         } icon: {
@@ -88,44 +94,58 @@ struct SettingsView: View {
                             SidebarIcon(systemName: "keyboard", color: .orange)
                         }
                     .tag(SidebarItem.keyboard)
+                    
+                    // --- PREMIUM TRACKERS ---
                     Label {
-                            Text("Wi-Fi")
+                            HStack { Text("Media"); Spacer(); }
+                        } icon: {
+                            SidebarIcon(systemName: "playpause.fill", color: .red)
+                        }
+                    .tag(SidebarItem.media)
+                    Label {
+                            HStack { Text("Wi-Fi"); Spacer(); }
                         } icon: {
                             SidebarIcon(systemName: "wifi", color: .cyan)
                         }
                     .tag(SidebarItem.wifi)
                     Label {
-                            Text("Bluetooth")
+                            HStack { Text("Bluetooth"); Spacer(); }
                         } icon: {
                             SidebarIcon(systemName: "point.3.connected.trianglepath.dotted", color: .indigo)
                         }
                     .tag(SidebarItem.bluetooth)
                     Label {
-                            Text("Privacy")
+                            HStack { Text("Privacy"); Spacer(); }
                         } icon: {
                             SidebarIcon(systemName: "hand.raised.fill", color: .blue)
                         }
                     .tag(SidebarItem.privacy)
                     Label {
-                            Text("Theme")
+                            HStack { Text("Theme"); Spacer(); }
                         } icon: {
                             SidebarIcon(systemName: "paintpalette.fill", color: .purple)
                         }
                     .tag(SidebarItem.theme)
                     Label {
-                            Text("Peripherals")
+                            HStack { Text("Focus Mode"); Spacer(); }
+                        } icon: {
+                            SidebarIcon(systemName: "moon.fill", color: .indigo)
+                        }
+                    .tag(SidebarItem.focus)
+                    Label {
+                            HStack { Text("Peripherals"); Spacer(); }
                         } icon: {
                             SidebarIcon(systemName: "cable.connector", color: .teal)
                         }
                     .tag(SidebarItem.peripheral)
                     Label {
-                            Text("Displays")
+                            HStack { Text("Displays"); Spacer(); }
                         } icon: {
                             SidebarIcon(systemName: "display.2", color: .blue)
                         }
                     .tag(SidebarItem.display)
                     Label {
-                            Text("System")
+                            HStack { Text("System"); Spacer(); }
                         } icon: {
                             SidebarIcon(systemName: "cpu", color: .purple)
                         }
@@ -144,12 +164,23 @@ struct SettingsView: View {
             .listStyle(.sidebar)
             .frame(minWidth: 150, idealWidth: 180, maxWidth: 210)
             .hideSidebarToggle()
+            
             Group {
+                let isPremium = !savedLicenseKey.isEmpty
+                
                 switch selection {
+                case .premium:
+                    PremiumSettingsView()
                 case .general:
                     GeneralSettingsView()
                 case .recentChanges:
                     ChangelogSettingsView()
+                case .feedback:
+                    FeedbackSettingsView()
+                case .about:
+                    AboutSettingsView()
+                    
+                // FREE TRACKERS
                 case .volume:
                     VolumeSettingsView()
                 case .brightness:
@@ -160,26 +191,27 @@ struct SettingsView: View {
                     BatterySettingsView()
                 case .keyboard:
                     KeyboardSettingsView()
+                    
+                // PREMIUM TRACKERS
+                case .media:
+                    MediaSettingsView()
                 case .wifi:
                     WiFiSettingsView()
                 case .bluetooth:
                     BluetoothSettingsView()
-                case .media:
-                    MediaSettingsView()
                 case .privacy:
                     PrivacySettingsView()
                 case .theme:
                     ThemeSettingsView()
+                case .focus:
+                    FocusSettingsView()
                 case .peripheral:
                     PeripheralSettingsView()
                 case .display:
                     DisplaySettingsView()
-                case .feedback:
-                    FeedbackSettingsView()
                 case .macSystem:
                     SystemSettingsView()
-                case .about:
-                    AboutSettingsView()
+                    
                 case .none:
                     Text("Select an item")
                         .font(.title)
@@ -242,6 +274,23 @@ struct SettingsView: View {
                 selection = .none
                 WallpaperHelper.clearCache()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenPremiumSettings"))) { _ in
+            selection = .premium
+        }
+        .onAppear {
+            if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    showingEarlyAdopterNotice = true
+                }
+            }
+        }
+        .sheet(isPresented: $showingEarlyAdopterNotice) {
+            EarlyAdopterNoticeSheet(
+                isPresented: $showingEarlyAdopterNotice,
+                hasSeenNotice: $hasSeenEarlyAdopterNotice,
+                savedLicenseKey: $savedLicenseKey
+            )
         }
     }
 }

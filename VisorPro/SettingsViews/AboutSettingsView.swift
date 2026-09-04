@@ -3,7 +3,7 @@ import AppKit
 
 struct AboutSettingsView: View {
     @Environment(\.colorScheme) var colorScheme
-    @ObservedObject var licenseManager = LicenseManager.shared
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     
     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     
@@ -59,24 +59,14 @@ struct AboutSettingsView: View {
                 HStack {
                     Text("License Status")
                     Spacer()
-                    if licenseManager.isPremium {
-                        if licenseManager.isEarlyAdopter {
-                            Text("Premium (Early Adopter)")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Color.green.opacity(0.85))
-                                .cornerRadius(6)
-                        } else {
-                            Text("Premium")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Color.blue.opacity(0.85))
-                                .cornerRadius(6)
-                        }
+                    if !savedLicenseKey.isEmpty {
+                        Text("Premium")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.blue.opacity(0.85))
+                            .cornerRadius(6)
                     } else {
                         Text("Free Version")
                             .foregroundColor(.secondary)
@@ -84,24 +74,14 @@ struct AboutSettingsView: View {
                 }
                 .font(.system(size: 13, weight: .medium))
                 
-                if let key = licenseManager.licenseKey {
+                if !savedLicenseKey.isEmpty {
                     HStack {
                         Text("License Key")
                         Spacer()
-                        Text(key)
+                        Text(savedLicenseKey)
                             .font(.system(.caption, design: .monospaced))
                             .foregroundColor(.secondary)
                             .textSelection(.enabled)
-                    }
-                    .font(.system(size: 13, weight: .medium))
-                }
-                
-                if let date = licenseManager.joinDate {
-                    HStack {
-                        Text("Join Date")
-                        Spacer()
-                        Text(date, style: .date)
-                            .foregroundColor(.secondary)
                     }
                     .font(.system(size: 13, weight: .medium))
                 }

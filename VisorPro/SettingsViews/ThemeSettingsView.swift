@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ThemeSettingsView: View {
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("themeOverlayPosition") private var themeOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
@@ -10,32 +11,36 @@ struct ThemeSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Theme Module")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    
-                    Text("Module Configuration")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 4)
-                        
-                    VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "power", iconColor: .purple, title: "Enable Theme Module", subtitle: "When disabled, VisorPro will not show an overlay when system theme changes") {
-                            Toggle("", isOn: $mediaKeyManager.enableTheme).labelsHidden()
-                        }
-                    }
-                    .toggleStyle(.switch)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
-                }
-                .padding(.horizontal)
+                if savedLicenseKey.isEmpty {
+                    PremiumLockedView()
+                    Spacer()
+                } else {
 
+    VStack(alignment: .leading, spacing: 12) {
+                        Text("Theme Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "power", iconColor: .purple, title: "Enable Theme Module", subtitle: "When disabled, VisorPro will not show an overlay when system theme changes") {
+                                Toggle("", isOn: $mediaKeyManager.enableTheme).labelsHidden()
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
                 if mediaKeyManager.enableTheme {
                 
                     if mediaKeyManager.enableTheme {
@@ -59,6 +64,8 @@ struct ThemeSettingsView: View {
                         .padding(.top, 20)
                     
                         Divider()
+                    
+
                     
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Overlay Triggers")
@@ -124,8 +131,10 @@ struct ThemeSettingsView: View {
                 
                     Spacer()
             
-                } else {
+                
+                    } else {
                     DisabledModuleView(icon: "power", title: "Theme Module is Disabled", description: "Turn on the module to configure theme overlays.")
+                }
                 }
 }
         }

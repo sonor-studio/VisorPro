@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DisplaySettingsView: View {
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("displayOverlayPosition") private var displayOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
@@ -9,32 +10,36 @@ struct DisplaySettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Displays Module")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    
-                    Text("Module Configuration")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 4)
-                        
-                    VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "display", iconColor: .blue, title: "Enable Displays Module", subtitle: "When disabled, VisorPro will not show overlays when external monitors are plugged in") {
-                            Toggle("", isOn: $mediaKeyManager.enableDisplay).labelsHidden()
-                        }
-                    }
-                    .toggleStyle(.switch)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
-                }
-                .padding(.horizontal)
+                if savedLicenseKey.isEmpty {
+                    PremiumLockedView()
+                    Spacer()
+                } else {
 
+    VStack(alignment: .leading, spacing: 12) {
+                        Text("Displays Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "display", iconColor: .blue, title: "Enable Displays Module", subtitle: "When disabled, VisorPro will not show overlays when external monitors are plugged in") {
+                                Toggle("", isOn: $mediaKeyManager.enableDisplay).labelsHidden()
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
                 if mediaKeyManager.enableDisplay {
                 
                     if mediaKeyManager.enableDisplay {
@@ -58,6 +63,8 @@ struct DisplaySettingsView: View {
                         .padding(.top, 20)
                     
                         Divider()
+                    
+
                     
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Overlay Triggers")
@@ -129,8 +136,10 @@ struct DisplaySettingsView: View {
                 
                     Spacer()
             
-                } else {
+                
+                    } else {
                     DisabledModuleView(icon: "display", title: "Displays Module is Disabled", description: "Turn on the module to configure display overlays.")
+                }
                 }
 }
         }

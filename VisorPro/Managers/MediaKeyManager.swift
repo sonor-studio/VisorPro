@@ -521,6 +521,58 @@ class MediaKeyManager: ObservableObject {
     private var themeTimer: Timer?
     private var themeObserver: ThemeObserver?
     
+    // Focus Mode
+    @Published var enableFocus: Bool = UserDefaults.standard.object(forKey: "enableFocus") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(enableFocus, forKey: "enableFocus") }
+    }
+    @Published var notifyOnFocusOn: Bool = UserDefaults.standard.object(forKey: "notifyOnFocusOn") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnFocusOn, forKey: "notifyOnFocusOn") }
+    }
+    @Published var notifyOnFocusOff: Bool = UserDefaults.standard.object(forKey: "notifyOnFocusOff") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnFocusOff, forKey: "notifyOnFocusOff") }
+    }
+    @Published var soundOnFocusOn: String = UserDefaults.standard.string(forKey: "soundOnFocusOn") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnFocusOn, forKey: "soundOnFocusOn") }
+    }
+    @Published var soundOnFocusOff: String = UserDefaults.standard.string(forKey: "soundOnFocusOff") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnFocusOff, forKey: "soundOnFocusOff") }
+    }
+    @Published var enableFocusReminder: Bool = UserDefaults.standard.object(forKey: "enableFocusReminder") as? Bool ?? false {
+        didSet {
+            UserDefaults.standard.set(enableFocusReminder, forKey: "enableFocusReminder")
+            updateFocusReminderTimer()
+        }
+    }
+    @Published var focusReminderInterval: Int = UserDefaults.standard.integer(forKey: "focusReminderInterval") == 0 ? 15 : UserDefaults.standard.integer(forKey: "focusReminderInterval") {
+        didSet {
+            UserDefaults.standard.set(focusReminderInterval, forKey: "focusReminderInterval")
+            updateFocusReminderTimer()
+        }
+    }
+    
+    private var focusReminderTimer: Timer?
+    @Published var showFocusIndicator: Bool = false
+    @Published var isFocusModeActive: Bool = false
+    @Published var focusModeName: String = "Focus"
+    @Published var focusColorName: String = "systemIndigoColor"
+    @Published var focusSymbol: String = "moon.fill"
+    @Published var isFocusReminder: Bool = false
+    @Published var isFocusSwitched: Bool = false
+    struct ActiveFocusDetails: Equatable {
+        var startDate: Date?
+        var endDate: Date?
+        var source: String?
+        var device: String?
+        var untilLocationLeft: Bool = false
+        var endedAt: Date?
+        var endedReason: String?
+    }
+    @Published var focusEventId: UUID = UUID()
+    @Published var activeFocusDetails: ActiveFocusDetails? = nil
+    @Published var lastEndedFocusDetails: ActiveFocusDetails? = nil
+    private var focusTimer: Timer?
+    private var focusObserver: FocusObserver?
+    
     // Privacy
     @Published var enablePrivacy: Bool = UserDefaults.standard.object(forKey: "enablePrivacy") as? Bool ?? false {
         didSet { 
@@ -775,6 +827,9 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerThemeIndicator(isDark: Bool) {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         if !enableTheme { return }
         if isDark && !notifyOnThemeDark { return }
         if !isDark && !notifyOnThemeLight { return }
@@ -832,6 +887,119 @@ class MediaKeyManager: ObservableObject {
 
                 executeShow()
 
+            }
+        }
+    }
+    
+    private func updateFocusReminderTimer() {
+        focusReminderTimer?.invalidate()
+        focusReminderTimer = nil
+        
+        if enableFocus && enableFocusReminder && isFocusModeActive {
+            let interval = TimeInterval(focusReminderInterval * 60)
+            focusReminderTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+                guard let self = self else { return }
+                
+                // Show reminder without playing a sound (or play a subtle sound if requested, but default is visual)
+                DispatchQueue.main.async {
+                    self.focusTimer?.invalidate()
+                    
+                    let pos = self.getOverlayPosition(for: "focusOverlayPosition")
+                    self.dismissCollidingIndicators(newPosition: pos, source: "focus")
+                    
+                    let executeShow = { [weak self] in
+                        guard let self = self else { return }
+                        self.isFocusReminder = true
+                        self.isFocusSwitched = false
+                        self.focusEventId = UUID()
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            self.showFocusIndicator = true
+                            self.overlayTriggerTimes["focus"] = Date()
+                        }
+                        self.focusTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                self?.showFocusIndicator = false
+                            }
+                        }
+                    }
+                    
+                    if self.showFocusIndicator {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            self.showFocusIndicator = false
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            executeShow()
+                        }
+                    } else {
+                        executeShow()
+                    }
+                }
+            }
+        }
+    }
+    
+    func triggerFocusIndicator(isActive: Bool, modeName: String?, colorName: String = "systemIndigoColor", symbol: String = "moon.fill", isSwitched: Bool = false, details: ActiveFocusDetails? = nil) {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
+        if !enableFocus { return }
+        if isActive && !notifyOnFocusOn { return }
+        if !isActive && !notifyOnFocusOff { return }
+        
+        playNotificationSound(named: isActive ? soundOnFocusOn : soundOnFocusOff)
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.focusTimer?.invalidate()
+            
+            let pos = self.getOverlayPosition(for: "focusOverlayPosition")
+            self.dismissCollidingIndicators(newPosition: pos, source: "focus")
+            
+            self.isFocusModeActive = isActive
+            self.focusModeName = modeName ?? "Focus"
+            self.focusColorName = colorName
+            self.focusSymbol = symbol
+            self.isFocusReminder = false
+            self.isFocusSwitched = isSwitched
+            if isActive {
+                self.activeFocusDetails = details
+                self.lastEndedFocusDetails = nil
+            } else {
+                if var lastDetails = self.activeFocusDetails {
+                    lastDetails.endedAt = Date()
+                    self.lastEndedFocusDetails = lastDetails
+                } else if var details = details {
+                    details.endedAt = Date()
+                    self.lastEndedFocusDetails = details
+                }
+                self.activeFocusDetails = nil
+            }
+            
+            self.updateFocusReminderTimer()
+            
+            let executeShow = { [weak self] in
+                guard let self = self else { return }
+                self.focusEventId = UUID()
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    self.showFocusIndicator = true
+                    self.overlayTriggerTimes["focus"] = Date()
+                }
+                self.focusTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self?.showFocusIndicator = false
+                    }
+                }
+            }
+            
+            if self.showFocusIndicator {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self.showFocusIndicator = false
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    executeShow()
+                }
+            } else {
+                executeShow()
             }
         }
     }
@@ -999,6 +1167,9 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerMicIndicator(isActive: Bool, deviceName: String = "") {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
@@ -1101,6 +1272,9 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerCameraIndicator(isActive: Bool, deviceName: String = "") {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
@@ -1165,6 +1339,9 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerLocationIndicator(appName: String = "") {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
@@ -1215,6 +1392,7 @@ class MediaKeyManager: ObservableObject {
             else if overlayId == "language" { showLanguageIndicator = false }
             else if overlayId == "media" { showMediaIndicator = false }
             else if overlayId == "theme" { showThemeIndicator = false }
+            else if overlayId == "focus" { showFocusIndicator = false }
             else if overlayId == "mic" { showMicIndicator = false }
             else if overlayId == "camera" { showCameraIndicator = false }
             else if overlayId == "location" { showLocationIndicator = false }
@@ -1344,6 +1522,9 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerPeripheralIndicator(id: String? = nil, deviceName: String, type: String, typeIcon: String, isConnected: Bool, details: [String: String]? = nil) {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if !self.enablePeripheral { return }
@@ -1411,6 +1592,9 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerDisplayIndicator(id: String, deviceName: String, type: String, typeIcon: String, isConnected: Bool, isModeChange: Bool = false, details: [String: String]? = nil) {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
@@ -1641,6 +1825,9 @@ class MediaKeyManager: ObservableObject {
     }
     
     func triggerAccessoryBatteryIndicator(deviceName: String, percentage: Int, isPluggedIn: Bool, isWarning: Bool) {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
@@ -1843,6 +2030,9 @@ class MediaKeyManager: ObservableObject {
     }
 
     func triggerRamOverlay() {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         if !notifyOnHighRam { return }
         
         playNotificationSound(named: self.soundOnHighRam)
@@ -1922,6 +2112,9 @@ class MediaKeyManager: ObservableObject {
     
     
     func triggerBluetoothIndicator(deviceName: String, deviceAddress: String, isConnected: Bool) {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         if !enableBluetooth { return }
         
         DispatchQueue.main.async { [weak self] in
@@ -1976,6 +2169,9 @@ class MediaKeyManager: ObservableObject {
     @Published var wiFiEventId: UUID = UUID()
     
     func triggerWiFiIndicator(ssid: String, isConnected: Bool, isHotspot: Bool = false) {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         if !enableWiFi { return }
         
         DispatchQueue.main.async { [weak self] in
@@ -2172,6 +2368,9 @@ class MediaKeyManager: ObservableObject {
     }
     
     func updateMediaInfo(title: String, artist: String, album: String, duration: Double, elapsedTime: Double, isPlaying: Bool, mediaAction: String, bundleId: String, triggerNotification: Bool) {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
         let isVisible = activePeripheralNotifications.contains { $0.id == "media" }
         if isVisible && !self.mediaBundleId.isEmpty && bundleId != "" && self.mediaBundleId != bundleId {
             return
@@ -2276,6 +2475,7 @@ class MediaKeyManager: ObservableObject {
 
         
         case "theme": themeTimer?.invalidate(); themeTimer = nil
+        case "focus": focusTimer?.invalidate(); focusTimer = nil
         case "accessoryBattery": accessoryBatteryTimer?.invalidate(); accessoryBatteryTimer = nil
         default: break
         }
@@ -2519,6 +2719,7 @@ class MediaKeyManager: ObservableObject {
         self.wifiObserver = WiFiObserver(manager: self)
         self.pasteboardObserver = PasteboardObserver(manager: self)
         self.themeObserver = ThemeObserver(manager: self)
+        self.focusObserver = FocusObserver(manager: self)
         self.peripheralObserver = PeripheralObserver(manager: self)
         self.displayObserver = DisplayObserver(manager: self)
         self.btPoller = BluetoothBatteryPoller(manager: self)
@@ -3174,6 +3375,20 @@ class MediaKeyManager: ObservableObject {
             typealias MRMediaRemoteSetElapsedTimeFunc = @convention(c) (Double) -> Void
             let command = unsafeBitCast(pointer, to: MRMediaRemoteSetElapsedTimeFunc.self)
             command(time)
+        }
+    }
+    
+    func openMediaApp() {
+        guard !mediaBundleId.isEmpty else { return }
+        
+        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: mediaBundleId)
+        if let app = runningApps.first {
+            app.activate(options: [.activateIgnoringOtherApps])
+        } else {
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: mediaBundleId) {
+                let configuration = NSWorkspace.OpenConfiguration()
+                NSWorkspace.shared.openApplication(at: url, configuration: configuration)
+            }
         }
     }
 }

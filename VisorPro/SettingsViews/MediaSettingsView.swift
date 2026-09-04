@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MediaSettingsView: View {
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("mediaOverlayPosition") private var mediaOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
@@ -11,32 +12,36 @@ struct MediaSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Multimedia Module")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    
-                    Text("Module Configuration")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 4)
-                        
-                    VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "power", iconColor: .red, title: "Enable Multimedia Module", subtitle: "When disabled, VisorPro will not show playback notifications") {
-                            Toggle("", isOn: $mediaKeyManager.enableMediaNotification).labelsHidden()
-                        }
-                    }
-                    .toggleStyle(.switch)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
-                }
-                .padding(.horizontal)
+                if savedLicenseKey.isEmpty {
+                    PremiumLockedView()
+                    Spacer()
+                } else {
 
+    VStack(alignment: .leading, spacing: 12) {
+                        Text("Multimedia Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "power", iconColor: .red, title: "Enable Multimedia Module", subtitle: "When disabled, VisorPro will not show playback notifications") {
+                                Toggle("", isOn: $mediaKeyManager.enableMediaNotification).labelsHidden()
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
                 if mediaKeyManager.enableMediaNotification {
                 
                     VStack(alignment: .center) {
@@ -55,6 +60,8 @@ struct MediaSettingsView: View {
                     .padding(.top, 20)
                 
                     Divider()
+                    
+
                 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Overlay Triggers")
@@ -157,8 +164,10 @@ struct MediaSettingsView: View {
                 
                     Spacer()
             
-                } else {
+                
+                    } else {
                     DisabledModuleView(icon: "power", title: "Multimedia Module is Disabled", description: "Turn on the module to configure multimedia overlays.")
+                }
                 }
 }
         }

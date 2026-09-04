@@ -8,12 +8,14 @@ struct GeneralSettingsView: View {
     @AppStorage("overlayDisplayTarget") private var overlayDisplayTarget: String = "all"
     @AppStorage("previewBackgroundStyle") private var previewBackgroundStyle = "gradient"
     @AppStorage("enableSwipeToDismiss") private var enableSwipeToDismiss = true
+    @AppStorage("enableCloseButton") private var enableCloseButton = false
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("globalOverlayPosition") private var globalOverlayPosition: String = "top"
     @AppStorage("overlayMargin") private var overlayMargin: Double = 30.0
     @State private var autoUpdate = true
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     
     var body: some View {
         Form {
@@ -109,7 +111,22 @@ struct GeneralSettingsView: View {
                     HStack {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Overlays limit")
+                                HStack(spacing: 8) {
+                                    Text("Overlays limit")
+                                    if savedLicenseKey.isEmpty {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "checkmark.seal.fill")
+                                            Text("Premium")
+                                                .fontWeight(.bold)
+                                        }
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.green)
+                                        .cornerRadius(4)
+                                    }
+                                }
                                 Text("Maximum number of tiles displayed at once.")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -120,8 +137,9 @@ struct GeneralSettingsView: View {
                             HStack {
                                 Slider(value: Binding(
                                     get: { Double(mediaKeyManager.maxSimultaneousNotifications) },
-                                    set: { mediaKeyManager.maxSimultaneousNotifications = Int($0) }
+                                    set: { if !savedLicenseKey.isEmpty { mediaKeyManager.maxSimultaneousNotifications = Int($0) } }
                                 ), in: 1...5, step: 1)
+                                .disabled(savedLicenseKey.isEmpty)
                                 .labelsHidden()
                                 .frame(width: 220)
                                 
@@ -186,6 +204,20 @@ struct GeneralSettingsView: View {
                             Spacer()
                             Toggle("", isOn: $reverseSwipeDirection).labelsHidden()
                         }
+                    }
+                    
+                    Divider()
+                    
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Show close button")
+                                .font(.body)
+                            Text("Displays an 'X' button in the top-left corner to quickly dismiss the overlay.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: $enableCloseButton).labelsHidden()
                     }
                 }
             } header: {
@@ -284,6 +316,14 @@ struct GeneralSettingsView: View {
         .navigationTitle("General")
         .onAppear {
             launchAtLogin = (SMAppService.mainApp.status == .enabled)
+            if savedLicenseKey.isEmpty {
+                mediaKeyManager.maxSimultaneousNotifications = 1
+            }
+        }
+        .onChange(of: savedLicenseKey) { newValue in
+            if newValue.isEmpty {
+                mediaKeyManager.maxSimultaneousNotifications = 1
+            }
         }
     }
 }

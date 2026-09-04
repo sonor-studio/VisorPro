@@ -195,7 +195,7 @@ struct FeedbackSettingsView: View {
                                 .foregroundColor(.secondary)
                                 .font(.system(size: 13, weight: .medium))
                         } else if showSuccessMessage {
-                            Image(systemName: "checkmark.circle.fill")
+                            Image(systemName: "checkmark.seal.fill")
                                 .foregroundColor(.green)
                             Text("Feedback sent successfully!")
                                 .foregroundColor(.green)
