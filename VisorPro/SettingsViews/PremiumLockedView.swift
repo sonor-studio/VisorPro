@@ -19,12 +19,31 @@ struct PremiumLockedView: View {
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.primary)
             
-            Text("This tracker is included with VisorPro Premium. During our early access launch, all licenses are available completely free of charge.")
+                        Text("This tracker is included with VisorPro Premium. As an early supporter, you can unlock it for free by using promo code EARLY at checkout.")
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(3)
                 .frame(maxWidth: 380)
+
+            Button(action: {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString("EARLY", forType: .string)
+            }) {
+                HStack(spacing: 6) {
+                    Text("CODE: EARLY")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    Image(systemName: "doc.on.doc.fill")
+                        .font(.system(size: 10))
+                }
+                .foregroundColor(.primary)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 10)
+                .background(Color.primary.opacity(0.06))
+                .cornerRadius(6)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .help("Copy promo code")
             
             HStack(spacing: 12) {
                 Button(action: {
@@ -32,7 +51,7 @@ struct PremiumLockedView: View {
                 }) {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.seal.fill")
-                        Text("Get Free License")
+                        Text("Go to Checkout")
                             .fontWeight(.semibold)
                     }
                     .foregroundColor(Color(NSColor.windowBackgroundColor))

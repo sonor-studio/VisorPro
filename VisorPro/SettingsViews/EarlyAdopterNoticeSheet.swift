@@ -37,10 +37,11 @@ struct EarlyAdopterNoticeSheet: View {
                         .font(.system(size: 18))
                         .frame(width: 24)
                     
-                    Text("As an early supporter, your lifetime access to all features remains completely free.")
+                    Text("As an early supporter, you can unlock lifetime access to all features for free by using the code below at checkout.")
                         .font(.system(size: 13))
                         .foregroundColor(.primary)
                         .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 
                 HStack(alignment: .top, spacing: 12) {
@@ -53,10 +54,45 @@ struct EarlyAdopterNoticeSheet: View {
                         .font(.system(size: 13))
                         .foregroundColor(.primary)
                         .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 8)
+            
+            VStack(spacing: 8) {
+                Text("100% DISCOUNT CODE")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .tracking(1)
+
+                Button(action: {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString("EARLY", forType: .string)
+                }) {
+                    HStack(spacing: 12) {
+                        Text("EARLY")
+                            .font(.system(size: 24, weight: .black, design: .monospaced))
+                            .tracking(4)
+                        
+                        Image(systemName: "doc.on.doc.fill")
+                            .font(.system(size: 14))
+                            .opacity(0.6)
+                    }
+                    .foregroundColor(.primary)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 32)
+                    .background(Color.primary.opacity(0.06))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.primary.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [4]))
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .help("Click to copy promo code")
+            }
+            .padding(.bottom, 4)
             
             Divider()
                 .opacity(0.5)
@@ -69,10 +105,10 @@ struct EarlyAdopterNoticeSheet: View {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.seal.fill")
                         if canProceed {
-                            Text("Get Free License")
+                            Text("Go to Checkout")
                                 .fontWeight(.semibold)
                         } else {
-                            Text("Get Free License (\(countdown)s)")
+                            Text("Go to Checkout (\(countdown)s)")
                                 .fontWeight(.semibold)
                         }
                     }

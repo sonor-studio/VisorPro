@@ -127,6 +127,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         LogManager.shared.log("VisorPro initialization started", level: "INFO")
+
         
         let configuration = TelemetryManagerConfiguration(appID: "F983579F-8CAB-4235-B6FE-B6CE1CE3119A")
         TelemetryDeck.initialize(config: configuration)

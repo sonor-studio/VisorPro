@@ -9,6 +9,7 @@ struct PremiumSettingsView: View {
     
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @AppStorage("licenseActivationDate") private var activationDate = ""
+    @AppStorage("licenseActivationId") private var activationId = ""
 
 
     private var buyButton: some View {
@@ -145,6 +146,20 @@ struct PremiumSettingsView: View {
                                         .minimumScaleFactor(0.8)
                                     
                                     Spacer()
+                                    
+                                    Button(action: {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(savedLicenseKey, forType: .string)
+                                    }) {
+                                        Image(systemName: "doc.on.doc")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                            .padding(6)
+                                            .background(Color.primary.opacity(0.05))
+                                            .cornerRadius(6)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                    .help("Copy license key")
                                 }
                                 .padding(12)
                                 .background(Color(NSColor.windowBackgroundColor).opacity(0.4))
@@ -163,7 +178,16 @@ struct PremiumSettingsView: View {
                                 Spacer()
                                 
                                 Button(action: {
-                                    savedLicenseKey = ""
+                                    Task {
+                                        if !activationId.isEmpty {
+                                            _ = await licenseManager.deactivateKey(key: savedLicenseKey, activationId: activationId)
+                                        }
+                                        await MainActor.run {
+                                            savedLicenseKey = ""
+                                            activationId = ""
+                                            activationDate = ""
+                                        }
+                                    }
                                 }) {
                                     Text("Deactivate License")
                                         .font(.system(size: 12, weight: .medium))
@@ -449,6 +473,67 @@ struct PremiumSettingsView: View {
                         )
                         
                         WidgetPreviewCard(
+                            title: "Focus Tracker",
+                            description: "Stay in the zone with alerts when your Focus modes change.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.indigo.opacity(0.05))
+                                
+                                VStack(spacing: -16) {
+                                    // Active Abstract Pill
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "moon.fill")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.indigo)
+                                        
+                                        VStack(alignment: .leading, spacing: 5) {
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .fill(Color.secondary.opacity(0.4))
+                                                .frame(width: 30, height: 4)
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .fill(Color.indigo.opacity(0.6))
+                                                .frame(width: 55, height: 5)
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .frame(width: 130)
+                                    .background(Color(NSColor.windowBackgroundColor))
+                                    .cornerRadius(12)
+                                    .shadow(color: .black.opacity(0.12), radius: 5, y: 3)
+                                    .zIndex(2)
+                                    
+                                    // Inactive Abstract Pill
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "moon.zzz")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(Color(NSColor.secondaryLabelColor))
+                                        
+                                        VStack(alignment: .leading, spacing: 5) {
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .fill(Color.secondary.opacity(0.3))
+                                                .frame(width: 30, height: 4)
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .fill(Color.secondary.opacity(0.4))
+                                                .frame(width: 55, height: 5)
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .frame(width: 130)
+                                    .background(Color(NSColor.windowBackgroundColor))
+                                    .cornerRadius(12)
+                                    .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                    .scaleEffect(0.9)
+                                    .offset(y: 4)
+                                    .zIndex(1)
+                                }
+                            }
+                        )
+                        
+                        WidgetPreviewCard(
                             title: "More Overlays",
                             description: "Display up to 5 active tracker notifications on your screen simultaneously.",
                             preview: ZStack {
@@ -551,6 +636,7 @@ struct ActivationPopupView: View {
     @Binding var savedLicenseKey: String
     
     @AppStorage("licenseActivationDate") private var activationDate = ""
+    @AppStorage("licenseActivationId") private var activationId = ""
     @State private var inputKey = ""
     
 
@@ -600,9 +686,9 @@ struct ActivationPopupView: View {
                 Button(action: {
                     Task {
                         let cleanKey = inputKey.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let isValid = await licenseManager.validateKey(key: cleanKey)
-                        if isValid {
+                        if let newActivationId = await licenseManager.activateKey(key: cleanKey) {
                             savedLicenseKey = cleanKey
+                            activationId = newActivationId
                             if activationDate.isEmpty {
                                 let formatter = DateFormatter()
                                 formatter.dateStyle = .long
