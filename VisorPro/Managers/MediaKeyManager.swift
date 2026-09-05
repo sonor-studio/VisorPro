@@ -29,6 +29,31 @@ import CoreServices
 
 
 class MediaKeyManager: ObservableObject {
+    @AppStorage("overlayColorMode") var overlayColorMode: String = "custom"
+    @AppStorage("globalOverlayColor") var globalOverlayColor: String = "Default"
+    @AppStorage("colorOnVolume") var colorOnVolume: String = "Default"
+    @AppStorage("colorOnBrightness") var colorOnBrightness: String = "Default"
+    @AppStorage("colorOnKeyboardBrightness") var colorOnKeyboardBrightness: String = "Default"
+    @AppStorage("colorOnCopy") var colorOnCopy: String = "Default"
+    @AppStorage("colorOnCut") var colorOnCut: String = "Default"
+    @AppStorage("colorOnPaste") var colorOnPaste: String = "Default"
+    @AppStorage("colorOnCapsLock") var colorOnCapsLock: String = "Default"
+    @AppStorage("colorOnLanguageChange") var colorOnLanguageChange: String = "Default"
+    @AppStorage("colorOnThemeDark") var colorOnThemeDark: String = "Default"
+    @AppStorage("colorOnThemeLight") var colorOnThemeLight: String = "Default"
+    @AppStorage("colorMediaStart") var colorMediaStart: String = "Default"
+    @AppStorage("colorMediaPause") var colorMediaPause: String = "Default"
+    @AppStorage("colorMediaResume") var colorMediaResume: String = "Default"
+    @AppStorage("colorMediaEnd") var colorMediaEnd: String = "Default"
+    @AppStorage("colorOnHighRam") var colorOnHighRam: String = "Default"
+    @AppStorage("colorOnWiFiConnect") var colorOnWiFiConnect: String = "Default"
+    @AppStorage("colorOnBluetoothConnect") var colorOnBluetoothConnect: String = "Default"
+    @AppStorage("colorOnPeripheralConnect") var colorOnPeripheralConnect: String = "Default"
+    @AppStorage("colorOnMicOn") var colorOnMicOn: String = "Default"
+    @AppStorage("colorOnCameraOn") var colorOnCameraOn: String = "Default"
+    @AppStorage("colorOnLocationOn") var colorOnLocationOn: String = "Default"
+    @AppStorage("colorOnDisplayConnect") var colorOnDisplayConnect: String = "Default"
+    @AppStorage("colorOnDisplayModeChange") var colorOnDisplayModeChange: String = "Default"
     func getOverlayPosition(for key: String) -> String {
         let mode = UserDefaults.standard.string(forKey: "overlayPositionMode") ?? "custom"
         if mode == "fixed" {
@@ -57,6 +82,7 @@ class MediaKeyManager: ObservableObject {
     @Published var activePeripheralNotifications: [DeviceNotification] = []
     @Published var activeDisplayNotifications: [DeviceNotification] = []
     @Published var swipeOffsets: [String: CGFloat] = [:]
+    @Published var isHoveringScrollView: Bool = false
     @Published var activeSwipeIds: Set<String> = []
     private var notificationTimers: [String: Timer] = [:]
     private var overlayHideTimers: [String: Timer] = [:]
@@ -66,6 +92,8 @@ class MediaKeyManager: ObservableObject {
     var lastDisplayConnectionTime: Date? = nil
     
     @AppStorage("maxSimultaneousNotifications") var maxSimultaneousNotifications: Int = 5
+    @AppStorage("clipboardEnableHistory") var clipboardEnableHistory: Bool = true
+    @AppStorage("clipboardKeepExpandedOnPaste") var clipboardKeepExpandedOnPaste: Bool = false
     @Published var mediaSkipDuration: Double = {
         let val = UserDefaults.standard.object(forKey: "mediaSkipDuration")
         return (val as? NSNumber)?.doubleValue ?? 10.0
@@ -234,6 +262,16 @@ class MediaKeyManager: ObservableObject {
     @Published var notifyOnCapsLock: Bool = UserDefaults.standard.object(forKey: "notifyOnCapsLock") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnCapsLock, forKey: "notifyOnCapsLock") }
     }
+    @Published var notifyOnCapsLockOn: Bool = UserDefaults.standard.object(forKey: "notifyOnCapsLockOn") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnCapsLockOn, forKey: "notifyOnCapsLockOn") }
+    }
+    @Published var notifyOnCapsLockOff: Bool = UserDefaults.standard.object(forKey: "notifyOnCapsLockOff") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnCapsLockOff, forKey: "notifyOnCapsLockOff") }
+    }
+    @Published var soundOnCapsLockOff: String = UserDefaults.standard.string(forKey: "soundOnCapsLockOff") ?? "Default" {
+        didSet { UserDefaults.standard.set(soundOnCapsLockOff, forKey: "soundOnCapsLockOff") }
+    }
+
 
     @Published var soundOnCapsLock: String = UserDefaults.standard.string(forKey: "soundOnCapsLock") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnCapsLock, forKey: "soundOnCapsLock") }
@@ -362,7 +400,23 @@ class MediaKeyManager: ObservableObject {
     @Published var clipboardSourceFolder: String? = nil
     @Published var clipboardMetadataSize: String = ""
     
+    @Published var clipboardHistory: [ClipboardItem] = {
+        if let data = UserDefaults.standard.data(forKey: "clipboardHistoryData"),
+           let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data) {
+            return decoded
+        }
+        return []
+    }() {
+        didSet {
+            if let encoded = try? JSONEncoder().encode(clipboardHistory) {
+                UserDefaults.standard.set(encoded, forKey: "clipboardHistoryData")
+            }
+        }
+    }
+    @AppStorage("clipboardHistoryLimit") var clipboardHistoryLimit: Int = 30
+    
     var pendingClipboardAction: String?
+    var isProgrammaticPasteboardChange: Bool = false
     var pendingClipboardActionTimestamp: Date?
     private var copyTimer: Timer?
     private var pendingClipboardShowTask: DispatchWorkItem?
@@ -1621,6 +1675,7 @@ class MediaKeyManager: ObservableObject {
                 icon: typeIcon,
                 isConnected: isConnected,
                 timestamp: Date(),
+                isModeChange: isModeChange,
                 details: details
             )
             
@@ -1979,7 +2034,7 @@ class MediaKeyManager: ObservableObject {
         if !enableKeyboard { return }
         if action == "copy" && !notifyOnCopy { return }
         if action == "cut" && !notifyOnCut { return }
-        if action == "paste" && !notifyOnPaste { return }
+        if action == "paste" && !notifyOnPaste && !isProgrammaticPasteboardChange { return }
         
         if action == "copy" { playNotificationSound(named: soundOnCopy) }
         else if action == "cut" { playNotificationSound(named: soundOnCut) }
@@ -1987,6 +2042,7 @@ class MediaKeyManager: ObservableObject {
         
         copyTimer?.invalidate()
         pendingClipboardShowTask?.cancel()
+        cancelOverlayHide(for: "copy")
         
         let copyPos = self.getOverlayPosition(for: "copyOverlayPosition")
         dismissCollidingIndicators(newPosition: copyPos, source: "copy")
@@ -2004,6 +2060,17 @@ class MediaKeyManager: ObservableObject {
             self.clipboardMetadataSize = size
             self.clipboardEventId = UUID()
             
+            if self.clipboardEnableHistory {
+                // Dodajemy element do historii (jeżeli nie jest taki sam jak poprzedni)
+                if !trimmedText.isEmpty && self.clipboardHistory.first?.text != trimmedText {
+                    let newItem = ClipboardItem(text: trimmedText, app: app, folder: folder, size: size, timestamp: Date())
+                    self.clipboardHistory.insert(newItem, at: 0)
+                    if self.clipboardHistory.count > self.clipboardHistoryLimit {
+                        self.clipboardHistory.removeLast(self.clipboardHistory.count - self.clipboardHistoryLimit)
+                    }
+                }
+            }
+            
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.showCopyIndicator = true
                 self.overlayTriggerTimes["copy"] = Date()
@@ -2016,7 +2083,7 @@ class MediaKeyManager: ObservableObject {
             }
         }
         
-        if self.showCopyIndicator {
+        if self.showCopyIndicator && self.clipboardAction != action && action != "paste" {
             withAnimation(.easeInOut(duration: 0.25)) {
                 self.showCopyIndicator = false
             }
@@ -2068,13 +2135,104 @@ class MediaKeyManager: ObservableObject {
             executeShow()
         }
     }
+    
+    func copyHistoryItemToPasteboard(_ item: ClipboardItem) {
+        let pasteboard = NSPasteboard.general
+        self.isProgrammaticPasteboardChange = true
+        self.pendingClipboardAction = "paste"
+        self.pendingClipboardActionTimestamp = Date()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.isProgrammaticPasteboardChange = false
+        }
+        pasteboard.clearContents()
+        
+        if let folder = item.folder {
+            let fileURL = URL(fileURLWithPath: folder).appendingPathComponent(item.text)
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                pasteboard.writeObjects([fileURL as NSURL])
+            } else {
+                pasteboard.setString(item.text, forType: .string)
+            }
+        } else {
+            pasteboard.setString(item.text, forType: .string)
+        }
+        
+        DispatchQueue.main.async {
+            if let idx = self.clipboardHistory.firstIndex(where: { $0.id == item.id }) {
+                var updatedItem = item
+                updatedItem.timestamp = Date()
+                self.clipboardHistory.remove(at: idx)
+                self.clipboardHistory.insert(updatedItem, at: 0)
+            }
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            self.simulatePaste(isFile: item.folder != nil)
+        }
+    }
+
+    private func keyCode(for character: String) -> CGKeyCode {
+        switch character.lowercased() {
+        case "a": return 0; case "s": return 1; case "d": return 2; case "f": return 3
+        case "h": return 4; case "g": return 5; case "z": return 6; case "x": return 7
+        case "c": return 8; case "v": return 9; case "b": return 11; case "q": return 12
+        case "w": return 13; case "e": return 14; case "r": return 15; case "y": return 16
+        case "t": return 17; case "1": return 18; case "2": return 19; case "3": return 20
+        case "4": return 21; case "6": return 22; case "5": return 23; case "=": return 24
+        case "9": return 25; case "7": return 26; case "-": return 27; case "8": return 28
+        case "0": return 29; case "]": return 30; case "o": return 31; case "u": return 32
+        case "[": return 33; case "i": return 34; case "p": return 35; case "l": return 37
+        case "j": return 38; case "'": return 39; case "k": return 40; case ";": return 41
+        case "\\": return 42; case ",": return 43; case "/": return 44; case "n": return 45
+        case "m": return 46; case ".": return 47
+        default: return 9
+        }
+    }
+    
+    private func cgFlags(from modifiers: NSEvent.ModifierFlags) -> CGEventFlags {
+        var flags: CGEventFlags = []
+        if modifiers.contains(.command) { flags.insert(.maskCommand) }
+        if modifiers.contains(.option) { flags.insert(.maskAlternate) }
+        if modifiers.contains(.control) { flags.insert(.maskControl) }
+        if modifiers.contains(.shift) { flags.insert(.maskShift) }
+        return flags
+    }
+
+    func simulatePaste(isFile: Bool) {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        let keyCode: CGKeyCode
+        let flags: CGEventFlags
+        
+        if isFile {
+            keyCode = 9 // 'v'
+            flags = .maskCommand
+        } else {
+            keyCode = self.keyCode(for: self.pasteShortcut.character)
+            flags = self.cgFlags(from: self.pasteShortcut.modifiers)
+        }
+        
+        if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
+            keyDown.flags = flags
+            keyDown.post(tap: .cgAnnotatedSessionEventTap)
+        }
+        
+        if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
+            keyUp.flags = flags
+            keyUp.post(tap: .cgAnnotatedSessionEventTap)
+        }
+    }
 
     
     func triggerCapsLockIndicator(isOn: Bool) {
         if !enableKeyboard { return }
-        if !notifyOnCapsLock { return }
+        if isOn && !notifyOnCapsLockOn { return }
+        if !isOn && !notifyOnCapsLockOff { return }
         
-        playNotificationSound(named: soundOnCapsLock)
+        let sound = isOn ? soundOnCapsLock : soundOnCapsLockOff
+        if sound != "None" {
+            playNotificationSound(named: sound)
+        }
         
         capsLockTimer?.invalidate()
         let pos = self.getOverlayPosition(for: "capsLockOverlayPosition")

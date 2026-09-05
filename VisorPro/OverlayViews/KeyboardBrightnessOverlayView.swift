@@ -21,7 +21,7 @@ struct KeyboardBrightnessOverlayView: View {
             isExpanded: .constant(false),
             showProgressBar: true,
             progress: animatedBrightnessProgress,
-            barColor: .orange.opacity(0.85),
+            barColor: OverlayColorManager.shared.getOverlayColor(for: "colorOnKeyboardBrightness", defaultColor: .orange),
             fillCenter: keyboardBrightnessFillCenter,
             customWidth: 260,
             customHeight: 56,

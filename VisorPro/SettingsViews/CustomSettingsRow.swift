@@ -8,6 +8,16 @@ struct CustomSettingsRow<Content: View>: View {
     var appNameForIcon: String? = nil
     let content: () -> Content
     
+
+    init(icon: String, iconColor: Color, title: String, subtitle: String? = nil, appNameForIcon: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.icon = icon
+        self.iconColor = iconColor
+        self.title = title
+        self.subtitle = subtitle
+        self.appNameForIcon = appNameForIcon
+        self.content = content
+    }
+    
     var body: some View {
         HStack(spacing: 12) {
             ZStack {

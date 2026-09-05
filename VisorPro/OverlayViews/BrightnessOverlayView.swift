@@ -31,7 +31,7 @@ struct BrightnessOverlayView: View {
             isExpanded: .constant(false),
             showProgressBar: true,
             progress: animatedBrightnessProgress,
-            barColor: .yellow.opacity(0.85),
+            barColor: OverlayColorManager.shared.getOverlayColor(for: "colorOnBrightness", defaultColor: .yellow),
             fillCenter: brightnessFillCenter,
             customWidth: 260,
             customHeight: 56,

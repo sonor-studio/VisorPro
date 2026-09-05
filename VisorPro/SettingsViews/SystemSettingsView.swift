@@ -89,7 +89,8 @@ struct SystemSettingsView: View {
                                 CustomSettingsRow(icon: "memorychip", iconColor: .red, title: "High RAM Usage", subtitle: "Show overlay when RAM usage is high") {
                                     HStack(spacing: 8) {
                                         if mediaKeyManager.notifyOnHighRam {
-                                            SoundPickerControl(selectedSound: $mediaKeyManager.soundOnHighRam)
+                                            SoundPickerControl(selectedSound: $mediaKeyManager.soundOnHighRam) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnHighRam) }
                                         }
                                         Toggle("", isOn: $mediaKeyManager.notifyOnHighRam).labelsHidden()
                                     }

@@ -112,7 +112,7 @@ struct WiFiOverlayView: View {
             showProgressBar: true,
             hasTimeoutProgress: true,
             timeoutEventId: mediaKeyManager.wiFiEventId,
-            barColor: actionColor,
+            barColor: actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnWiFiConnect", defaultColor: .blue) : .gray,
             fillCenter: false,
             isMuted: false,
             customWidth: 260,

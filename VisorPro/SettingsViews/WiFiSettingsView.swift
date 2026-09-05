@@ -95,7 +95,8 @@ struct WiFiSettingsView: View {
                     
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "link", iconColor: .cyan, title: "On Connect", subtitle: "Show an overlay when connecting to a network") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyOnWiFiConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnWiFiConnect) }
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnWiFiConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnWiFiConnect) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnWiFiConnect) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnWiFiConnect).labelsHidden() }
                        
                                 }

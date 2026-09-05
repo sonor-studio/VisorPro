@@ -131,7 +131,7 @@ struct PeripheralOverlayView: View {
             showProgressBar: true,
             hasTimeoutProgress: true,
             timeoutEventId: actualNotification?.timestamp ?? Date(timeIntervalSince1970: 0),
-            barColor: actionColor,
+            barColor: isConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: .blue) : .gray,
             fillCenter: false, // uses strokeBorder
             isMuted: false,
             customWidth: 260,

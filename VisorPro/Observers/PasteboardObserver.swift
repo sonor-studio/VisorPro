@@ -42,6 +42,7 @@ class PasteboardObserver {
             if action == "ignore" { return }
             
             let data = manager.processClipboardData(for: action)
+            print("PasteboardObserver firing with action: \(action)")
             DispatchQueue.main.async {
                 manager.triggerClipboardIndicator(text: data.text, action: action, app: data.app, folder: data.folder, size: data.size)
             }

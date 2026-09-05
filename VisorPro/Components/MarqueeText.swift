@@ -12,7 +12,7 @@ struct MarqueeText: View {
     @State private var animationTask: Task<Void, Never>? = nil
     
     var body: some View {
-        Text(text)
+        Text(" ")
             .font(font)
             .lineLimit(1)
             .hidden()

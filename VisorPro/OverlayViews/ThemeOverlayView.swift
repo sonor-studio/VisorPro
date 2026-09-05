@@ -42,7 +42,7 @@ struct ThemeOverlayView: View {
             showProgressBar: true,
             hasTimeoutProgress: true,
             timeoutEventId: mediaKeyManager.themeEventId,
-            barColor: iconColor,
+            barColor: OverlayColorManager.shared.getOverlayColor(for: (isPreview ? previewIsDark : mediaKeyManager.isDarkMode) ? "colorOnThemeDark" : "colorOnThemeLight", defaultColor: iconColor),
             fillCenter: false, // It was using strokeBorder
             isMuted: false,
             customWidth: 230,

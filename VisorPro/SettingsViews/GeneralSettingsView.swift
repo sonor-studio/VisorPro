@@ -384,6 +384,40 @@ struct GeneralSettingsView: View {
                 }
                 .padding(.horizontal)
                 
+                
+                // MARK: - Overlay Color
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Overlay Color")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Overlay Color Mode")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    Text("Customize the colors of the overlays.")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                            }
+                            OverlayColorModePicker(mediaKeyManager: mediaKeyManager)
+                        }
+                        .padding(16)
+                    }
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
+
                 // MARK: - Overlay Position
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Overlay Position")

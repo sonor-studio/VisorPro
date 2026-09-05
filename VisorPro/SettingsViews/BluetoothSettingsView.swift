@@ -91,7 +91,8 @@ struct BluetoothSettingsView: View {
                     
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "link", iconColor: .indigo, title: "On Connect", subtitle: "Show an overlay when a Bluetooth device connects") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyOnBluetoothConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnBluetoothConnect) }
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnBluetoothConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnBluetoothConnect) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnBluetoothConnect) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnBluetoothConnect).labelsHidden() }
                        
                                 }

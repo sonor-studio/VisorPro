@@ -90,6 +90,13 @@ struct KeyboardBrightnessSettingsView: View {
                                 CustomSettingsRow(icon: "speaker.wave.2.fill", iconColor: .orange, title: "Notification Sound", subtitle: "Select the sound to play when changing keyboard brightness") {
                                     SoundPickerControl(selectedSound: $mediaKeyManager.soundOnKeyboardBrightness)
                                 }
+                                
+                                if mediaKeyManager.overlayColorMode == "custom" {
+                                    Divider().padding(.leading, 12)
+                                    CustomSettingsRow(icon: "paintpalette.fill", iconColor: .orange, title: "Notification Color", subtitle: "Select the color for this overlay") {
+                                        ColorPickerControl(selectedColor: $mediaKeyManager.colorOnKeyboardBrightness)
+                                    }
+                                }
                             }
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                             .cornerRadius(10)

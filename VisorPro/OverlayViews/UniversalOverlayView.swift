@@ -1,5 +1,13 @@
 import SwiftUI
 
+
+struct ExpandedHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @Environment(\.colorScheme) var colorScheme
@@ -38,6 +46,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var isHovering: Bool = false
     @State private var expandedKeepAliveTimer: Timer? = nil
     @State private var isAnimating: Bool = false
+    @State private var expandedHeight: CGFloat = 0
     @AppStorage("enableCloseButton") private var enableCloseButton = false
     
     private var isGloballyHovered: Bool {
@@ -69,9 +78,19 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .padding(.bottom, 16)
                     .frame(width: width)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(height: isExpanded ? nil : 0, alignment: .top)
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(key: ExpandedHeightPreferenceKey.self, value: proxy.size.height)
+                        }
+                    )
+                    .frame(height: isExpanded ? expandedHeight : 0, alignment: .top)
                     .clipped()
                     .opacity(isExpanded ? 1 : 0)
+                    .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
+                        if height > 0 {
+                            expandedHeight = height
+                        }
+                    }
             }
             .frame(width: width, alignment: expandUpwards ? .bottom : .top)
         .background(

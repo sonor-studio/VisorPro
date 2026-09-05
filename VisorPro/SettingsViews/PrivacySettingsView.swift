@@ -98,7 +98,8 @@ struct PrivacySettingsView: View {
                             
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "mic.fill", iconColor: .blue, title: "Notify when Microphone is ON", subtitle: "Show an overlay when the microphone starts being used") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnMicOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnMicOn) }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnMicOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnMicOn) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnMicOn) } }
 Toggle("", isOn: $mediaKeyManager.notifyOnMicOn).labelsHidden() }
                                
                             }
@@ -241,7 +242,8 @@ Toggle("", isOn: $mediaKeyManager.notifyOnMicOff).labelsHidden() }
                             
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "video.fill", iconColor: .blue, title: "Notify when Camera is ON", subtitle: "Show an overlay when the camera starts being used") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnCameraOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCameraOn) }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnCameraOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCameraOn) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnCameraOn) } }
 Toggle("", isOn: $mediaKeyManager.notifyOnCameraOn).labelsHidden() }
                                
                             }
@@ -356,7 +358,8 @@ Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "location.fill", iconColor: .blue, title: "Notify on Location Request", subtitle: "Show an overlay when location services are requested") {
                                     HStack(spacing: 8) { 
-                                        if mediaKeyManager.notifyOnLocationOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnLocationOn) }
+                                        if mediaKeyManager.notifyOnLocationOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnLocationOn) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnLocationOn) } }
                                         Toggle("", isOn: Binding(
                                             get: { mediaKeyManager.notifyOnLocationOn },
                                             set: { newValue in

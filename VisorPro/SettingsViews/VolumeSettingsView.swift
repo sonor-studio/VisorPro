@@ -71,6 +71,13 @@ struct VolumeSettingsView: View {
                                 CustomSettingsRow(icon: "speaker.wave.2.fill", iconColor: .blue, title: "Notification Sound", subtitle: "Select the sound to play when changing volume") {
                                     SoundPickerControl(selectedSound: $mediaKeyManager.soundOnVolume)
                                 }
+                                
+                                if mediaKeyManager.overlayColorMode == "custom" {
+                                    Divider().padding(.leading, 12)
+                                    CustomSettingsRow(icon: "paintpalette.fill", iconColor: .blue, title: "Notification Color", subtitle: "Select the color for this overlay") {
+                                        ColorPickerControl(selectedColor: $mediaKeyManager.colorOnVolume)
+                                    }
+                                }
                             }
                             .toggleStyle(.switch)
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))

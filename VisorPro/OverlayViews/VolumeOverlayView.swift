@@ -43,7 +43,7 @@ struct VolumeOverlayView: View {
             isExpanded: $isExpanded,
             showProgressBar: true,
             progress: animatedVolumeProgress,
-            barColor: .blue,
+            barColor: OverlayColorManager.shared.getOverlayColor(for: "colorOnVolume", defaultColor: .blue),
             fillCenter: volumeFillCenter,
             isMuted: actualIsMuted,
             supportDragGesture: volumeAllowInteractivity,

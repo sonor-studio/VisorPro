@@ -2,11 +2,36 @@ import SwiftUI
 
 struct CopyOverlayView: View {
     @State private var isExpanded: Bool = false
+    @State private var previewItemId: UUID? = nil
     @AppStorage("copyAllowExpansion") private var copyAllowExpansion: Bool = true
+    @AppStorage("clipboardEnableHistory") var clipboardEnableHistory: Bool = true
+    @AppStorage("clipboardEnablePreview") var clipboardEnablePreview: Bool = true
+    @AppStorage("clipboardKeepExpandedOnPaste") var clipboardKeepExpandedOnPaste: Bool = false
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     var isPreview: Bool = false
     var previewAction: String? = nil
+    
+    private static let mockHistory: [ClipboardItem] = [
+        ClipboardItem(id: UUID(), text: "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg", app: "Safari", folder: nil, size: "128 bytes", timestamp: Date()),
+        ClipboardItem(id: UUID(), text: "https://example.com/recipe", app: "Google Chrome", folder: nil, size: "26 bytes", timestamp: Date().addingTimeInterval(-300)),
+        ClipboardItem(id: UUID(), text: "Dinner at 8?", app: "Messages", folder: nil, size: "12 bytes", timestamp: Date().addingTimeInterval(-3600)),
+        ClipboardItem(id: UUID(), text: "print('Hello World')", app: "Xcode", folder: nil, size: "20 bytes", timestamp: Date().addingTimeInterval(-7200))
+    ]
+    
+    private var currentHistory: [ClipboardItem] {
+        if isPreview {
+            return CopyOverlayView.mockHistory
+        }
+        return mediaKeyManager.clipboardHistory
+    }
+
+    private var activePreviewId: UUID? {
+        if let pid = previewItemId, currentHistory.contains(where: { $0.id == pid }) {
+            return pid
+        }
+        return currentHistory.first?.id
+    }
     
     private var actualAction: String {
         previewAction ?? mediaKeyManager.clipboardAction
@@ -48,6 +73,34 @@ struct CopyOverlayView: View {
         }
     }
     
+    private var displayedItemText: String {
+        if let id = activePreviewId, let item = currentHistory.first(where: { $0.id == id }) {
+            return item.text
+        }
+        return isPreview ? "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg" : (mediaKeyManager.copiedText.isEmpty ? actionFallbackText : mediaKeyManager.copiedText)
+    }
+
+    private var displayedApp: String {
+        if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+            return item.app
+        }
+        return mediaKeyManager.clipboardSourceApp.isEmpty ? "Unknown" : mediaKeyManager.clipboardSourceApp
+    }
+    
+    private var displayedFolder: String? {
+        if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+            return item.folder
+        }
+        return mediaKeyManager.clipboardSourceFolder
+    }
+
+    private var displayedSize: String {
+        if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+            return item.size
+        }
+        return mediaKeyManager.clipboardMetadataSize.isEmpty ? "Unknown" : mediaKeyManager.clipboardMetadataSize
+    }
+    
     private func calculatedTextHeight(for text: String) -> CGFloat {
         let font = NSFont.systemFont(ofSize: 14, weight: .semibold)
         let rect = (text as NSString).boundingRect(
@@ -60,10 +113,9 @@ struct CopyOverlayView: View {
     }
     
     var body: some View {
-        let displayedText = isPreview ? "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg" : (mediaKeyManager.copiedText.isEmpty ? actionFallbackText : mediaKeyManager.copiedText)
-        let reqHeight = calculatedTextHeight(for: displayedText)
+        let reqHeight = calculatedTextHeight(for: displayedItemText)
         let textNeedsExpansion = reqHeight > 22
-        let canExpand = true
+        let canExpand = (clipboardEnableHistory && !currentHistory.isEmpty) || textNeedsExpansion
         let trackWidth: CGFloat = 260 - 8
         let copyPos = MediaKeyManager.shared.getOverlayPosition(for: "copyOverlayPosition")
         
@@ -77,21 +129,12 @@ struct CopyOverlayView: View {
                 TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || mediaKeyManager.globalHoveredTypes.contains("copy"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
                     .id(mediaKeyManager.clipboardEventId)
             ),
-            barColor: actionColor,
+            barColor: OverlayColorManager.shared.getOverlayColor(for: actualAction == "copy" ? "colorOnCopy" : (actualAction == "cut" ? "colorOnCut" : "colorOnPaste"), defaultColor: actionColor),
             fillCenter: false, // The original uses strokeBorder
             isMuted: false,
             supportDragGesture: false,
             onSimpleTap: {
-                if canExpand {
-                    // UniversalOverlayView will automatically toggle isExpanded
-                } else {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isExpanded = false
-                    }
-                }
-                if !isPreview {
-                    mediaKeyManager.keepAlive(for: "copy", isHovering: true)
-                }
+                handleSimpleTap(canExpand: canExpand)
             },
             isExpandable: canExpand && copyAllowExpansion,
             expandUpwards: copyPos.hasPrefix("bottom"),
@@ -109,116 +152,322 @@ struct CopyOverlayView: View {
                         Text(actionTitle)
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
-                            .padding(.leading, 14)
-                            .padding(.trailing, 16)
                         
-                        if !(isExpanded && textNeedsExpansion) {
-                            Text(displayedText)
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                .foregroundColor(.primary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .padding(.leading, 14)
-                                .padding(.trailing, 16)
-                        } else {
-                            // Leave space so layout doesn't shift vertically if we want, but since it's aligned top, it's fine.
-                            Color.clear.frame(height: 16)
-                        }
+                        MarqueeText(text: displayedItemText, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                            .frame(height: 18)
+                            .opacity((isExpanded && textNeedsExpansion) ? 0 : 1)
                     }
+                    .padding(.leading, 14)
+                    .padding(.trailing, 16)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.vertical, 5)
             },
             expandedContent: {
+                self.makeExpandedContent(canExpand: canExpand, textNeedsExpansion: textNeedsExpansion)
+            }        )
+    }
+
+
+
+
+
+    private func handleSimpleTap(canExpand: Bool) {
+        if !canExpand {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isExpanded = false
+            }
+        }
+        if !isPreview {
+            mediaKeyManager.keepAlive(for: "copy", isHovering: true)
+        }
+    }
+    
+    private func handleHistoryItemDelete(_ item: ClipboardItem) {
+        if isPreview { return }
+        withAnimation {
+            mediaKeyManager.clipboardHistory.removeAll(where: { $0.id == item.id })
+            if previewItemId == item.id {
+                previewItemId = currentHistory.first?.id
+            }
+            if currentHistory.isEmpty {
+                isExpanded = false
+            }
+        }
+    }
+    
+    private func handleHistoryItemTap(_ item: ClipboardItem) {
+        if !isPreview { mediaKeyManager.copyHistoryItemToPasteboard(item) }
+        withAnimation {
+            previewItemId = item.id
+        }
+        if !clipboardKeepExpandedOnPaste {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isExpanded = false
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func makeExpandedContent(canExpand: Bool, textNeedsExpansion: Bool) -> some View {
+
                 if canExpand {
-                    VStack(spacing: 12) {
-                        if textNeedsExpansion {
-                            ScrollView(showsIndicators: true) {
-                                Text(displayedText)
-                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                                    .foregroundColor(.primary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.leading, 16) // Shifted to left edge, under the icon
-                                    .padding(.trailing, 16)
-                                    .padding(.top, 12)
+                    VStack(spacing: 4) {
+                        if clipboardEnablePreview {
+                            VStack(spacing: 12) {
+                                if textNeedsExpansion {
+                                    ScrollView(showsIndicators: true) {
+                                        Text(displayedItemText)
+                                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                            .foregroundColor(.primary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(.leading, 16)
+                                            .padding(.trailing, 8)
+                                            .padding(.top, 12)
+                                            .frame(width: 252, alignment: .leading)
+                                    }
+                                    .frame(maxHeight: 128)
+                                    .padding(.trailing, 8)
+                                    .onHover { hovering in
+                                        mediaKeyManager.isHoveringScrollView = hovering
+                                    }
+                                    
+                                    Divider()
+                                        .padding(.horizontal, 20)
+                                }
+                                
+                                HStack(spacing: 8) {
+                                    if displayedFolder == nil {
+                                        VStack(alignment: .center, spacing: 4) {
+                                            Text("App")
+                                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                            Text(displayedApp)
+                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                                .truncationMode(.tail)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                        
+                                        Divider().frame(height: 24)
+                                        
+                                        VStack(alignment: .center, spacing: 4) {
+                                            Text("Characters")
+                                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                            Text(displayedSize)
+                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                                .truncationMode(.tail)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                    } else {
+                                        VStack(alignment: .center, spacing: 4) {
+                                            Text("Folder")
+                                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                            Text(URL(fileURLWithPath: displayedFolder!).lastPathComponent)
+                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                                .truncationMode(.tail)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                        
+                                        Divider().frame(height: 24)
+                                        
+                                        VStack(alignment: .center, spacing: 4) {
+                                            Text("Size")
+                                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                            Text(displayedSize)
+                                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                                .truncationMode(.tail)
+                                        }
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 12)
+                            }
+                            .padding(.top, textNeedsExpansion ? -16 : 0)
+                        } else {
+                            EmptyView()
+                        }
+                        
+                        if clipboardEnableHistory && !currentHistory.isEmpty {
+                            if clipboardEnablePreview {
+                                Divider()
                             }
                             
-                            Divider()
-                                .padding(.horizontal, 20)
-                        }
-                        
-                        HStack(spacing: 8) {
-                            if mediaKeyManager.clipboardSourceFolder == nil {
-                                // Text Mode
-                                VStack(alignment: .center, spacing: 4) {
-                                    Text("App")
-                                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(1)
-                                    Text(mediaKeyManager.clipboardSourceApp.isEmpty ? "Unknown" : mediaKeyManager.clipboardSourceApp)
-                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
+                            ScrollView {
                                 
-                                Divider()
-                                    .frame(height: 24)
-                                
-                                VStack(alignment: .center, spacing: 4) {
-                                    Text("Characters")
-                                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(1)
-                                    Text(mediaKeyManager.clipboardMetadataSize.isEmpty ? "Unknown" : mediaKeyManager.clipboardMetadataSize)
-                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
+                                VStack(spacing: 4) {
+                                    ForEach(currentHistory) { item in
+                                        ClipboardHistoryRowView(
+                                            item: item,
+                                            isActive: item.id == activePreviewId,
+                                            showPreviewButton: clipboardEnablePreview,
+                                            isPreview: isPreview,
+                                            onPreview: {
+                                                withAnimation {
+                                                    previewItemId = item.id
+                                                }
+                                            },
+                                            onDelete: {
+                                                handleHistoryItemDelete(item)
+                                            }
+                                        )
+                                        .onTapGesture {
+                                            handleHistoryItemTap(item)
+                                        }
+                                    }
                                 }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                            } else {
-                                // File Mode
-                                VStack(alignment: .center, spacing: 4) {
-                                    Text("Folder")
-                                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(1)
-                                    Text(URL(fileURLWithPath: mediaKeyManager.clipboardSourceFolder!).lastPathComponent)
-                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                
-                                Divider()
-                                    .frame(height: 24)
-                                
-                                VStack(alignment: .center, spacing: 4) {
-                                    Text("Size")
-                                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(1)
-                                    Text(mediaKeyManager.clipboardMetadataSize.isEmpty ? "Unknown" : mediaKeyManager.clipboardMetadataSize)
-                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                        .foregroundColor(.primary)
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
+                                .padding(.vertical, 8)
+                                .frame(width: 252)
+                            }
+                            .frame(maxHeight: 128)
+                            .padding(.trailing, 8)
+                            .onHover { hovering in
+                                mediaKeyManager.isHoveringScrollView = hovering
                             }
                         }
-                        .padding(.horizontal, 16)
-                        
-                        .padding(.top, textNeedsExpansion ? 0 : 12)
                     }
-                    .padding(.top, textNeedsExpansion ? -16 : 0)
                 } else {
                     EmptyView()
                 }
+            
+    }
+
+}
+struct ClipboardHistoryRowView: View {
+    let item: ClipboardItem
+    var isActive: Bool = false
+    var showPreviewButton: Bool = true
+    var isPreview: Bool = false
+    var onPreview: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
+    @State private var isHovering = false
+    @State private var isHoveringEye = false
+    @State private var isHoveringTrash = false
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        HStack(spacing: 10) {
+            if showPreviewButton {
+                Button(action: {
+                    onPreview?()
+                }) {
+                    Image(systemName: "eye")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(isActive ? .primary : (isHoveringEye ? .primary : .secondary))
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
+                .onHover { hovering in
+                    isHoveringEye = hovering
+                }
             }
+
+            if let icon = getAppIcon(appName: item.app) {
+                Image(nsImage: icon)
+                    .resizable()
+                    .frame(width: 16, height: 16)
+            } else {
+                Image(systemName: "app.fill")
+                    .resizable()
+                    .frame(width: 16, height: 16)
+                    .foregroundColor(.secondary)
+            }
+            
+            Text(item.text.replacingOccurrences(of: "\n", with: " "))
+                .font(.system(size: 12, weight: .regular, design: .rounded))
+                .foregroundColor(.primary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            
+            Spacer(minLength: 8)
+            
+            Text(timeAgo(from: item.timestamp))
+                .font(.system(size: 10, weight: .regular, design: .rounded))
+                .foregroundColor(.secondary)
+                
+            Button(action: {
+                onDelete?()
+            }) {
+                Image(systemName: "trash")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(isHoveringTrash ? .red : .secondary)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+            .onHover { hovering in
+                isHoveringTrash = hovering
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isActive ? (colorScheme == .dark ? Color.white.opacity(0.15) : Color.black.opacity(0.1)) : (isHovering ? Color.secondary.opacity(0.1) : Color.clear))
         )
+        .padding(.leading, 12)
+        .padding(.trailing, 4)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovering = hovering
+        }
+    }
+    
+    private func getAppIcon(appName: String) -> NSImage? {
+        if appName.isEmpty || appName == "Unknown" { return nil }
+        let workspace = NSWorkspace.shared
+        
+        if appName == "Xcode", let url = workspace.urlForApplication(withBundleIdentifier: "com.apple.dt.Xcode") {
+            return workspace.icon(forFile: url.path)
+        }
+        
+        if let path = workspace.urlForApplication(withBundleIdentifier: appName) {
+            return workspace.icon(forFile: path.path)
+        }
+        
+        let pathInApplications = "/Applications/\(appName).app"
+        if FileManager.default.fileExists(atPath: pathInApplications) {
+            return workspace.icon(forFile: pathInApplications)
+        }
+        
+        let pathInSystemApplications = "/System/Applications/\(appName).app"
+        if FileManager.default.fileExists(atPath: pathInSystemApplications) {
+            return workspace.icon(forFile: pathInSystemApplications)
+        }
+        
+        return nil
+    }
+    
+    private func timeAgo(from date: Date) -> String {
+        if isPreview {
+            if item.app == "Safari" { return "now" }
+            if item.app == "Google Chrome" { return "5m" }
+            if item.app == "Messages" { return "1h" }
+            if item.app == "Xcode" { return "2h" }
+            return "5m"
+        }
+        let seconds = Int(Date().timeIntervalSince(date))
+        if seconds < 60 { return "now" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(minutes)m" }
+        let hours = minutes / 60
+        if hours < 24 { return "\(hours)h" }
+        return "\(hours / 24)d"
     }
 }

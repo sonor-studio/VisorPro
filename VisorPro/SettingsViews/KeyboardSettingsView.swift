@@ -7,6 +7,9 @@ struct KeyboardSettingsView: View {
     @AppStorage("capsLockOverlayPosition") private var capsLockOverlayPosition: String = "top"
     @AppStorage("languageOverlayPosition") private var languageOverlayPosition: String = "top"
     @AppStorage("copyAllowExpansion") private var copyAllowExpansion: Bool = true
+    @AppStorage("clipboardEnableHistory") private var clipboardEnableHistory: Bool = true
+    @AppStorage("clipboardEnablePreview") private var clipboardEnablePreview: Bool = true
+    @AppStorage("clipboardKeepExpandedOnPaste") private var clipboardKeepExpandedOnPaste: Bool = false
     @AppStorage("capsLockAllowInteractivity") private var capsLockAllowInteractivity: Bool = true
     @AppStorage("languageAllowExpansion") private var languageAllowExpansion: Bool = true
     
@@ -86,7 +89,8 @@ struct KeyboardSettingsView: View {
                             
                                 VStack(spacing: 0) {
                                     CustomSettingsRow(icon: "doc.on.clipboard.fill", iconColor: .orange, title: "Notify on Copy", subtitle: "Show an overlay when you copy an item") {
-                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnCopy { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCopy) }
+                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnCopy { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCopy) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnCopy) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnCopy).labelsHidden() }
                                
                                 }
@@ -94,7 +98,8 @@ struct KeyboardSettingsView: View {
                                     Divider().padding(.leading, 40)
                                 
                                     CustomSettingsRow(icon: "scissors", iconColor: .orange, title: "Notify on Cut", subtitle: "Show an overlay when you cut an item") {
-                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnCut { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCut) }
+                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnCut { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCut) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnCut) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnCut).labelsHidden() }
                                
                                 }
@@ -102,7 +107,8 @@ struct KeyboardSettingsView: View {
                                     Divider().padding(.leading, 40)
                                 
                                     CustomSettingsRow(icon: "list.clipboard.fill", iconColor: .orange, title: "Notify on Paste", subtitle: "Show an overlay when you paste an item") {
-                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnPaste { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnPaste) }
+                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnPaste { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnPaste) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnPaste) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnPaste).labelsHidden() }
                                
                                 }
@@ -111,6 +117,24 @@ struct KeyboardSettingsView: View {
                                 
                                     CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .orange, title: "Allow Expansion", subtitle: "Allow overlay to expand and show clipboard preview") {
                                         Toggle("", isOn: $copyAllowExpansion).labelsHidden()
+                                    }
+                                    
+                                    Divider().padding(.leading, 40)
+                                    
+                                    CustomSettingsRow(icon: "clock.arrow.circlepath", iconColor: .orange, title: "Enable History", subtitle: "Save copied items to history list") {
+                                        Toggle("", isOn: $clipboardEnableHistory).labelsHidden()
+                                    }
+                                    
+                                    Divider().padding(.leading, 40)
+                                    
+                                    CustomSettingsRow(icon: "eye", iconColor: .orange, title: "Enable Preview", subtitle: "Show preview button for items in history") {
+                                        Toggle("", isOn: $clipboardEnablePreview).labelsHidden()
+                                    }
+                                    
+                                    Divider().padding(.leading, 40)
+                                    
+                                    CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .orange, title: "Don't Collapse on Paste", subtitle: "Keep history expanded after pasting an item") {
+                                        Toggle("", isOn: $clipboardKeepExpandedOnPaste).labelsHidden()
                                     }
                                 }
                                 .toggleStyle(.switch)
@@ -157,11 +181,28 @@ struct KeyboardSettingsView: View {
                                     .padding(.leading, 4)
                             
                                 VStack(spacing: 0) {
-                                    CustomSettingsRow(icon: "capslock.fill", iconColor: .orange, title: "Notify on Caps Lock", subtitle: "Show an overlay when Caps Lock is toggled") {
-                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnCapsLock { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCapsLock) }
-    Toggle("", isOn: $mediaKeyManager.notifyOnCapsLock).labelsHidden() }
-                               
-                                }
+                                    CustomSettingsRow(icon: "capslock.fill", iconColor: .orange, title: "Notify on Caps Lock On", subtitle: "Show an overlay when Caps Lock is enabled") {
+                                        HStack(spacing: 8) {
+                                            if mediaKeyManager.notifyOnCapsLockOn {
+                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCapsLock)
+                                                if mediaKeyManager.overlayColorMode == "custom" {
+                                                    ColorPickerControl(selectedColor: $mediaKeyManager.colorOnCapsLock)
+                                                }
+                                            }
+                                            Toggle("", isOn: $mediaKeyManager.notifyOnCapsLockOn).labelsHidden()
+                                        }
+                                    }
+                                    
+                                    Divider().padding(.leading, 40)
+                                    
+                                    CustomSettingsRow(icon: "capslock", iconColor: .orange, title: "Notify on Caps Lock Off", subtitle: "Show an overlay when Caps Lock is disabled") {
+                                        HStack(spacing: 8) {
+                                            if mediaKeyManager.notifyOnCapsLockOff {
+                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCapsLockOff)
+                                            }
+                                            Toggle("", isOn: $mediaKeyManager.notifyOnCapsLockOff).labelsHidden()
+                                        }
+                                    }
                                 
                                 
                                     Divider().padding(.leading, 40)
@@ -215,7 +256,8 @@ struct KeyboardSettingsView: View {
                             
                                 VStack(spacing: 0) {
                                     CustomSettingsRow(icon: "globe", iconColor: .orange, title: "Notify on Language Change", subtitle: "Show an overlay when keyboard layout changes") {
-                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnLanguageChange { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnLanguageChange) }
+                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnLanguageChange { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnLanguageChange) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnLanguageChange) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnLanguageChange).labelsHidden() }
                                
                                 }

@@ -74,13 +74,15 @@ struct DisplaySettingsView: View {
                         
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "display.2", iconColor: .blue, title: "Monitor Connected", subtitle: "Show overlay when a new screen is plugged in") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnDisplayConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayConnect) }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnDisplayConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayConnect) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnDisplayConnect) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnDisplayConnect).labelsHidden() }
                            
                                 }
                                 Divider().padding(.leading, 48)
                                 CustomSettingsRow(icon: "macwindow.badge.plus", iconColor: .blue, title: "Mode Change", subtitle: "Show overlay when switching between extend and mirror") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnDisplayModeChange { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayModeChange) }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnDisplayModeChange { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayModeChange) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnDisplayModeChange) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnDisplayModeChange).labelsHidden() }
                            
                                 }

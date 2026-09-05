@@ -42,8 +42,11 @@ struct MediaOverlayView: View {
     
     private var actionColor: Color {
         switch actualAction {
-        case "end": return .secondary
-        default: return .pink
+        case "start": return .blue
+        case "resume": return .green
+        case "pause": return .red
+        case "end": return .gray
+        default: return .blue
         }
     }
     
@@ -94,7 +97,7 @@ struct MediaOverlayView: View {
             isExpanded: $isExpanded,
             showProgressBar: true,
             progress: playbackProgress,
-            barColor: actionColor,
+            barColor: actualAction == "end" ? .gray : OverlayColorManager.shared.getOverlayColor(for: actualAction == "pause" ? "colorMediaPause" : (actualAction == "resume" ? "colorMediaResume" : "colorMediaStart"), defaultColor: actionColor),
             fillCenter: false,
             customWidth: width,
             customHeight: height,
@@ -125,33 +128,33 @@ struct MediaOverlayView: View {
                             HStack(spacing: 4) {
                                 Text(actionTitle)
                                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.gray)
                                     .textCase(.uppercase)
                                 
                                 Text("•")
                                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.gray)
                                     .baselineOffset(1.0)
                                 
                                 Text("\(formatTime(localElapsed)) / \(formatTime(mediaKeyManager.mediaDuration))")
                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.gray)
                             }
                         } else {
                             Text(actionTitle)
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.gray)
                                 .textCase(.uppercase)
                         }
                         
                         MarqueeText(text: actualTitle, font: .system(size: 13, weight: .bold, design: .rounded), foregroundColor: .primary)
                             
                         if !actualArtist.isEmpty {
-                            MarqueeText(text: actualArtist, font: .system(size: 11, weight: .medium, design: .rounded), foregroundColor: .secondary)
+                            MarqueeText(text: actualArtist, font: .system(size: 11, weight: .medium, design: .rounded), foregroundColor: .gray)
                         }
                     }
                     
-                    Spacer(minLength: 0)
+                    
                 }
                 .padding(.horizontal, 16)
             },

@@ -762,6 +762,7 @@ struct ScrollSwipeModifier: ViewModifier {
         
 
         guard isHovered || isCurrentlySwiping else { return }
+        if !isCurrentlySwiping && mediaKeyManager.isHoveringScrollView { return }
         
         let rawDelta = event.scrollingDeltaY
         var deltaY = event.isDirectionInvertedFromDevice ? rawDelta : -rawDelta

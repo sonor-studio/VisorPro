@@ -75,7 +75,8 @@ struct PeripheralSettingsView: View {
                         
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "cable.connector", iconColor: .teal, title: "Device Connected", subtitle: "Show overlay when a new peripheral is plugged in") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnPeripheralConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnPeripheralConnect) }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnPeripheralConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnPeripheralConnect) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnPeripheralConnect) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnPeripheralConnect).labelsHidden() }
                            
                                 }

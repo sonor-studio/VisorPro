@@ -115,7 +115,7 @@ struct BluetoothOverlayView: View {
             showProgressBar: true,
             hasTimeoutProgress: true,
             timeoutEventId: notification?.timestamp ?? Date(timeIntervalSince1970: 0),
-            barColor: actionColor,
+            barColor: actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .blue) : .gray,
             fillCenter: false,
             isMuted: false,
             customWidth: 260,

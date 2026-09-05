@@ -7,5 +7,6 @@ struct DeviceNotification: Identifiable, Equatable {
     let icon: String
     let isConnected: Bool
     let timestamp: Date
+    var isModeChange: Bool = false
     var details: [String: String]? = nil
 }

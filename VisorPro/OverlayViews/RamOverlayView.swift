@@ -42,7 +42,7 @@ struct RamOverlayView: View {
                 TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || mediaKeyManager.globalHoveredTypes.contains("ram"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
                     .id(mediaKeyManager.ramEventId)
             ),
-            barColor: barColor,
+            barColor: OverlayColorManager.shared.getOverlayColor(for: "colorOnHighRam", defaultColor: .red),
             fillCenter: false,
             isMuted: false,
             supportDragGesture: false,

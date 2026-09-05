@@ -75,13 +75,15 @@ struct ThemeSettingsView: View {
                         
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "moon.fill", iconColor: .purple, title: "Dark Mode", subtitle: "Show overlay when switching to Dark Mode") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnThemeDark { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnThemeDark) }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnThemeDark { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnThemeDark) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnThemeDark) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnThemeDark).labelsHidden() }
                            
                                 }
                                 Divider().padding(.leading, 48)
                                 CustomSettingsRow(icon: "sun.max.fill", iconColor: .purple, title: "Light Mode", subtitle: "Show overlay when switching to Light Mode") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnThemeLight { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnThemeLight) }
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnThemeLight { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnThemeLight) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnThemeLight) } }
     Toggle("", isOn: $mediaKeyManager.notifyOnThemeLight).labelsHidden() }
                            
                                 }

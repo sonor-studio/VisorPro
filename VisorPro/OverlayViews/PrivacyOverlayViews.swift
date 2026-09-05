@@ -67,7 +67,7 @@ struct MicOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsActive ? Color(red: 1.0, green: 0.65, blue: 0.0) : .secondary
+        actualIsActive ? OverlayColorManager.shared.getOverlayColor(for: "colorOnMicOn", defaultColor: Color(red: 1.0, green: 0.65, blue: 0.0)) : .secondary
     }
     
     private var actionTitle: String {
@@ -359,7 +359,7 @@ struct CameraOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsActive ? .green : .secondary
+        actualIsActive ? OverlayColorManager.shared.getOverlayColor(for: "colorOnCameraOn", defaultColor: .green) : .secondary
     }
     
     private var actionTitle: String {
@@ -512,7 +512,7 @@ struct LocationOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsActive ? Color(red: 0.0, green: 0.45, blue: 0.9) : .secondary
+        actualIsActive ? OverlayColorManager.shared.getOverlayColor(for: "colorOnLocationOn", defaultColor: Color(red: 0.0, green: 0.45, blue: 0.9)) : .secondary
     }
     
     private var actionTitle: String {

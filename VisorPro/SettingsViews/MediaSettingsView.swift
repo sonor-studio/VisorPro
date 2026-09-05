@@ -70,28 +70,32 @@ struct MediaSettingsView: View {
                         
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "music.note", iconColor: .red, title: "Start Notification", subtitle: "Shows an overlay when a new track or media starts playing") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyMediaStart { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaStart) }
+                                HStack(spacing: 8) { if mediaKeyManager.notifyMediaStart { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaStart) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorMediaStart) } }
     Toggle("", isOn: $mediaKeyManager.notifyMediaStart).labelsHidden() }
                        
                                 }
                             Divider().padding(.leading, 40)
                             CustomSettingsRow(icon: "pause.fill", iconColor: .red, title: "Pause Notification", subtitle: "Shows an overlay when you pause the current media") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyMediaPause { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaPause) }
+                                HStack(spacing: 8) { if mediaKeyManager.notifyMediaPause { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaPause) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorMediaPause) } }
     Toggle("", isOn: $mediaKeyManager.notifyMediaPause).labelsHidden() }
                        
                                 }
                             Divider().padding(.leading, 40)
                             CustomSettingsRow(icon: "play.fill", iconColor: .red, title: "Resume Notification", subtitle: "Shows an overlay when you resume paused media") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyMediaResume { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaResume) }
+                                HStack(spacing: 8) { if mediaKeyManager.notifyMediaResume { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaResume) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorMediaResume) } }
     Toggle("", isOn: $mediaKeyManager.notifyMediaResume).labelsHidden() }
                        
                                 }
                             Divider().padding(.leading, 40)
                             CustomSettingsRow(icon: "stop.fill", iconColor: .red, title: "End Notification", subtitle: "Shows an overlay when the track or media ends") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyMediaEnd { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaEnd) }
-    Toggle("", isOn: $mediaKeyManager.notifyMediaEnd).labelsHidden() }
-                       
+                                HStack(spacing: 8) {
+                                    if mediaKeyManager.notifyMediaEnd { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaEnd) }
+                                    Toggle("", isOn: $mediaKeyManager.notifyMediaEnd).labelsHidden()
                                 }
+                            }
                         }
                         .toggleStyle(.switch)
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))

@@ -26,7 +26,7 @@ struct LanguageOverlayView: View {
             showProgressBar: true,
             hasTimeoutProgress: true,
             timeoutEventId: mediaKeyManager.languageEventId,
-            barColor: .purple,
+            barColor: OverlayColorManager.shared.getOverlayColor(for: "colorOnLanguageChange", defaultColor: .blue),
             fillCenter: false,
             customWidth: 260,
             customHeight: 56,
