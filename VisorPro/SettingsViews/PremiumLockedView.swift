@@ -35,10 +35,10 @@ struct PremiumLockedView: View {
                         Text("Get Free License")
                             .fontWeight(.semibold)
                     }
-                    .foregroundColor(.black)
+                    .foregroundColor(Color(NSColor.windowBackgroundColor))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Color.white)
+                    .background(Color.primary)
                     .cornerRadius(8)
                     .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
                 }

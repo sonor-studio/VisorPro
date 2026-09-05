@@ -76,11 +76,11 @@ struct EarlyAdopterNoticeSheet: View {
                                 .fontWeight(.semibold)
                         }
                     }
-                    .foregroundColor(.black)
+                    .foregroundColor(Color(NSColor.windowBackgroundColor))
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity)
-                    .background(Color.white)
+                    .background(Color.primary)
                     .cornerRadius(8)
                     .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
                 }

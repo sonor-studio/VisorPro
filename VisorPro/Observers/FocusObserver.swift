@@ -13,7 +13,7 @@ class FocusObserver {
     
     private var lastFocusActive: Bool = false
     private var lastModeName: String = "Focus"
-    private var baselineSize: UInt64? = nil
+    private var lastSeenSize: UInt64? = nil
     
     private var isInitialLoad: Bool = true
     private let dbPath = NSString(string: "~/Library/DoNotDisturb/DB").expandingTildeInPath
@@ -65,7 +65,7 @@ class FocusObserver {
     private var lastFocusDetails: MediaKeyManager.ActiveFocusDetails?
     
     func startObserving() {
-        self.baselineSize = getAssertionsSize()
+        self.lastSeenSize = getAssertionsSize()
         
         // Initial state check
         let (isActive, modeName, colorName, symbol, details) = getDetailedFocusStatus()
@@ -91,9 +91,19 @@ class FocusObserver {
             }
         }
     }
+    private var lastDetailedMode: Bool? = nil
     
     private func pollFocusStatus() {
-        let isDetailedMode = UserDefaults.standard.bool(forKey: "focusDetailMode")
+        var isDetailedMode = UserDefaults.standard.bool(forKey: "focusDetailMode")
+        
+        // If Detailed Mode is on but Full Disk Access is missing (e.g. revoked in System Settings), auto-disable it
+        if isDetailedMode && !PermissionHelper.hasFullDiskAccess() {
+            UserDefaults.standard.set(false, forKey: "focusDetailMode")
+            isDetailedMode = false
+        }
+        
+        let silentUpdate = (lastDetailedMode != nil && lastDetailedMode != isDetailedMode)
+        self.lastDetailedMode = isDetailedMode
         
         // Try reading exact JSON status first (requires Full Disk Access AND detailed mode enabled)
         if isDetailedMode && canReadAssertionsFile() {
@@ -111,37 +121,37 @@ class FocusObserver {
                 let finalName = isActive ? modeName : self.lastModeName
                 let finalColor = isActive ? colorName : self.lastFocusColorName
                 let finalSymbol = isActive ? symbol : self.lastFocusSymbol
-                triggerChangeIfNeeded(active: isActive, name: finalName, colorName: finalColor, symbol: finalSymbol, details: details)
+                triggerChangeIfNeeded(active: isActive, name: finalName, colorName: finalColor, symbol: finalSymbol, details: details, silentUpdate: silentUpdate)
             }
             return
         }
         
         // Fallback to size logic
         guard let currentSize = getAssertionsSize() else { return }
-        var inferredActive = false
         
-        if let baseline = baselineSize {
-            if currentSize < baseline {
-                baselineSize = currentSize // New baseline
-                inferredActive = false
-            } else if currentSize > baseline {
+        var inferredActive = self.lastFocusActive
+        
+        if let lastSize = self.lastSeenSize {
+            // Turning Focus ON usually adds a whole assertion block (hundreds of bytes).
+            // Turning it OFF removes it. We use a 50-byte threshold to ignore minor metadata tweaks.
+            if currentSize > lastSize + 50 {
                 inferredActive = true
-            } else {
+            } else if currentSize + 50 < lastSize {
                 inferredActive = false
             }
-        } else {
-            baselineSize = currentSize
         }
         
+        self.lastSeenSize = currentSize
+        
         let fallbackName = inferredActive ? "Focus" : self.lastModeName
-        triggerChangeIfNeeded(active: inferredActive, name: fallbackName)
+        triggerChangeIfNeeded(active: inferredActive, name: fallbackName, silentUpdate: silentUpdate)
     }
     
-    private func triggerChangeIfNeeded(active: Bool, name: String, colorName: String = "systemIndigoColor", symbol: String = "moon.fill", details: MediaKeyManager.ActiveFocusDetails? = nil) {
+    private func triggerChangeIfNeeded(active: Bool, name: String, colorName: String = "systemIndigoColor", symbol: String = "moon.fill", details: MediaKeyManager.ActiveFocusDetails? = nil, silentUpdate: Bool = false) {
         if active != lastFocusActive || (active && name != lastModeName) {
             let isSwitched = (lastFocusActive == true && active == true && name != lastModeName)
             
-            if !isInitialLoad {
+            if !isInitialLoad && !silentUpdate {
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     self.manager?.triggerFocusIndicator(isActive: active, modeName: name, colorName: colorName, symbol: symbol, isSwitched: isSwitched, details: details)

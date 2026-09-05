@@ -77,9 +77,30 @@ struct FocusOverlayView: View {
             displayColor = Color(NSColor.secondaryLabelColor)
         }
         
-        let details = mediaKeyManager.activeFocusDetails
-        let lastEnded = mediaKeyManager.lastEndedFocusDetails
-        let isExpandable = (active && details != nil && !isPreview) || (!active && lastEnded != nil && !isPreview)
+        let details: MediaKeyManager.ActiveFocusDetails?
+        let lastEnded: MediaKeyManager.ActiveFocusDetails?
+        
+        if isPreview {
+            if UserDefaults.standard.bool(forKey: "focusDetailMode") {
+                let start = Date().addingTimeInterval(-3600)
+                let end = Date().addingTimeInterval(3600)
+                if active {
+                    details = MediaKeyManager.ActiveFocusDetails(startDate: start, endDate: end, source: "com.apple.focus", device: "This Mac", untilLocationLeft: false, endedAt: nil, endedReason: nil)
+                    lastEnded = nil
+                } else {
+                    details = nil
+                    lastEnded = MediaKeyManager.ActiveFocusDetails(startDate: start, endDate: end, source: "com.apple.focus", device: "This Mac", untilLocationLeft: false, endedAt: Date(), endedReason: "turned off")
+                }
+            } else {
+                details = nil
+                lastEnded = nil
+            }
+        } else {
+            details = mediaKeyManager.activeFocusDetails
+            lastEnded = mediaKeyManager.lastEndedFocusDetails
+        }
+        
+        let isExpandable = (active && details != nil) || (!active && lastEnded != nil)
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -111,26 +132,54 @@ struct FocusOverlayView: View {
                                 Text("•")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(.secondary)
-                                Text(startDate, style: .timer)
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .monospacedDigit()
-                                    .foregroundColor(.secondary)
+                                if isPreview {
+                                    Text("1:02:15")
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    Text(startDate, style: .timer)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundColor(.secondary)
+                                }
                             }
                             MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                        } else if active && details != nil && !mediaKeyManager.isFocusReminder, let endDate = details?.endDate, let timeStr = getEndDateString(date: endDate) {
-                            HStack(spacing: 4) {
+                        } else if active && details != nil && !mediaKeyManager.isFocusReminder && !mediaKeyManager.isFocusSwitched {
+                            if let endDate = details?.endDate, let timeStr = getEndDateString(date: endDate) {
+                                HStack(spacing: 4) {
+                                    Text(displayTitle)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundColor(.secondary)
+                                    Text("•")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.secondary)
+                                    Text("until \(timeStr)")
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                                MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                            } else if details?.untilLocationLeft == true {
+                                HStack(spacing: 4) {
+                                    Text(displayTitle)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundColor(.secondary)
+                                    Text("•")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.secondary)
+                                    Text("until I leave")
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                                MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                            } else {
                                 Text(displayTitle)
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
                                     .foregroundColor(.secondary)
-                                Text("•")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.secondary)
-                                Text("until \(timeStr)")
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(1)
+                                MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             }
-                            MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                         } else {
                             Text(displayTitle)
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -151,11 +200,19 @@ struct FocusOverlayView: View {
                                     .font(.system(size: 11, weight: .medium, design: .rounded))
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
-                                Text(startDate, style: .timer)
-                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                    .monospacedDigit()
-                                    .foregroundColor(.primary)
-                                    .lineLimit(1)
+                                if isPreview {
+                                    Text("1:02:15")
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                } else {
+                                    Text(startDate, style: .timer)
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                }
                             }
                             .frame(maxWidth: .infinity, alignment: .center)
                         }
@@ -169,11 +226,19 @@ struct FocusOverlayView: View {
                                     .font(.system(size: 11, weight: .medium, design: .rounded))
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
-                                Text(endDate, style: .timer)
-                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                    .monospacedDigit()
-                                    .foregroundColor(.primary)
-                                    .lineLimit(1)
+                                if isPreview {
+                                    Text("57:45")
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                } else {
+                                    Text(endDate, style: .timer)
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundColor(.primary)
+                                        .lineLimit(1)
+                                }
                             }
                             .frame(maxWidth: .infinity, alignment: .center)
                         } else if details.untilLocationLeft {

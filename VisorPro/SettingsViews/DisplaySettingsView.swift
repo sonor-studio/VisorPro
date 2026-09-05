@@ -28,7 +28,7 @@ struct DisplaySettingsView: View {
                             }
                         }
                         .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .background(Color(NSColor.controlBackgroundColor))
                         .cornerRadius(10)
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
@@ -92,7 +92,7 @@ struct DisplaySettingsView: View {
                                 }
                             }
                             .toggleStyle(.switch)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            .background(Color(NSColor.controlBackgroundColor))
                             .cornerRadius(10)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10)
@@ -112,7 +112,7 @@ struct DisplaySettingsView: View {
                                 }
                             }
                             .toggleStyle(.switch)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            .background(Color(NSColor.controlBackgroundColor))
                             .cornerRadius(10)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10)

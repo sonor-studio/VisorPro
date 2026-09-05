@@ -3,6 +3,8 @@ import AppKit
 import AVFoundation
 import ServiceManagement
 
+var hasShownNoticeThisSession = false
+
 struct SettingsView: View {
     enum SidebarItem: Hashable {
         case premium
@@ -32,6 +34,7 @@ struct SettingsView: View {
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
     @AppStorage("hasSeenEarlyAdopterNoticeV2") private var hasSeenEarlyAdopterNotice = false
     @State private var showingEarlyAdopterNotice = false
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         HSplitView {
@@ -162,6 +165,11 @@ struct SettingsView: View {
                 }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .background(
+                (colorScheme == .dark ? Color.black : Color.white).opacity(0.40)
+                .ignoresSafeArea()
+            )
             .frame(minWidth: 150, idealWidth: 180, maxWidth: 210)
             .hideSidebarToggle()
             
@@ -218,21 +226,17 @@ struct SettingsView: View {
                 }
             }
             .frame(minWidth: 400, maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.clear)
-        }
+            .scrollContentBackground(.hidden)
+                    }
         .frame(minWidth: 850, maxWidth: .infinity, minHeight: 500, maxHeight: .infinity)
         .background(WindowAccessor(window: $window))
-        .background(
-            ZStack {
-                VisualEffectView(material: .popover, blendingMode: .behindWindow)
-                Color(NSColor.windowBackgroundColor).opacity(0.25)
-            }
-            .ignoresSafeArea()
-        )
+        .background(VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow).ignoresSafeArea())
         .onChange(of: window) { _, newWindow in
             if let w = newWindow {
                 w.isOpaque = false
                 w.backgroundColor = .clear
+                w.titlebarAppearsTransparent = true
+                w.styleMask.insert(.fullSizeContentView)
                 w.styleMask.insert(.miniaturizable)
                 w.styleMask.insert(.resizable)
                 w.minSize = NSSize(width: 850, height: 500)
@@ -293,12 +297,13 @@ struct SettingsView: View {
     }
     
     private func checkAndShowEarlyAdopterNotice() {
-        if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice {
+        if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice && !hasShownNoticeThisSession {
             // Prevent spamming if it's already showing
             guard !showingEarlyAdopterNotice else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice {
+                if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice && !hasShownNoticeThisSession {
                     showingEarlyAdopterNotice = true
+                    hasShownNoticeThisSession = true
                 }
             }
         }

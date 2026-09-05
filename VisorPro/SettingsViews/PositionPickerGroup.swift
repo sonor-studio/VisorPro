@@ -26,7 +26,7 @@ struct PositionPickerGroup: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+        .background(Color(NSColor.controlBackgroundColor))
         .cornerRadius(12)
     }
 }
