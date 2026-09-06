@@ -26,6 +26,16 @@ DerivedData
 !LICENSE.txt
 *.patch
 
+# Skrypty shell i AppleScript
+*.sh
+*.scpt
+
+# Folder bazy danych
+DB/
+
+# Plik eksportu Xcode
+ExportOptions.plist
+
 # Skrypty testowe w głównym katalogu
 /test*.swift
 .DS_Store
