@@ -1,5 +1,111 @@
 import SwiftUI
 
+struct BendedCornerShape: InsettableShape, Sendable {
+    typealias InsetShape = BendedCornerShape
+
+    var radius: CGFloat
+    var bendAmount: CGFloat
+    var absoluteCutoutCenter: CGPoint
+    var cutoutRadius: CGFloat
+    var frameOffset: CGPoint
+    
+    var insetAmount: CGFloat = 0
+    
+    nonisolated var animatableData: CGFloat {
+        get { bendAmount }
+        set { bendAmount = newValue }
+    }
+    
+    nonisolated func inset(by amount: CGFloat) -> BendedCornerShape {
+        var shape = self
+        shape.insetAmount += amount
+        return shape
+    }
+    
+    nonisolated func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let r = max(0, radius - insetAmount)
+        let w = rect.width
+        let h = rect.height
+        
+        p.move(to: CGPoint(x: w - r - insetAmount, y: insetAmount))
+        p.addArc(center: CGPoint(x: w - r - insetAmount, y: insetAmount + r), radius: r, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+        
+        p.addLine(to: CGPoint(x: w - insetAmount, y: h - r - insetAmount))
+        p.addArc(center: CGPoint(x: w - r - insetAmount, y: h - r - insetAmount), radius: r, startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+        
+        p.addLine(to: CGPoint(x: insetAmount + r, y: h - insetAmount))
+        p.addArc(center: CGPoint(x: insetAmount + r, y: h - r - insetAmount), radius: r, startAngle: .degrees(90), endAngle: .degrees(180), clockwise: false)
+        
+        let cx = absoluteCutoutCenter.x - frameOffset.x
+        let cy = absoluteCutoutCenter.y - frameOffset.y
+        
+        let C2_x = insetAmount + r
+        let C2_y = insetAmount + r
+        let R2 = r
+        
+        let dx = C2_x - cx
+        let dy = C2_y - cy
+        let d = sqrt(dx*dx + dy*dy)
+        
+        let targetR1 = cutoutRadius + insetAmount
+        let gap = d - R2
+        let effectiveBend = max(0, min(1, bendAmount))
+        let R1 = gap + (targetR1 - gap) * effectiveBend
+        
+        let a = (R1*R1 - R2*R2 + d*d) / (2 * d)
+        let hSquared = R1*R1 - a*a
+        let h_val = sqrt(max(0, hSquared))
+        
+        let P2_x = cx + a * dx / d
+        let P2_y = cy + a * dy / d
+        
+        let i1_x = P2_x + h_val * dy / d
+        let i1_y = P2_y - h_val * dx / d
+        
+        let i2_x = P2_x - h_val * dy / d
+        let i2_y = P2_y + h_val * dx / d
+        
+        let intA = i1_y > i2_y ? CGPoint(x: i1_x, y: i1_y) : CGPoint(x: i2_x, y: i2_y)
+        let intB = i1_y > i2_y ? CGPoint(x: i2_x, y: i2_y) : CGPoint(x: i1_x, y: i1_y)
+        
+        p.addLine(to: CGPoint(x: insetAmount, y: insetAmount + r))
+        
+        // Top left corner (the bended one)
+        if bendAmount > 0.0001 {
+            func norm(_ a: CGFloat) -> CGFloat { return a < 0 ? a + 2 * .pi : a }
+            
+            let angleStart1 = norm(atan2(0, -r))
+            let angleEnd1 = norm(atan2(intA.y - C2_y, intA.x - C2_x))
+            p.addArc(center: CGPoint(x: C2_x, y: C2_y), radius: R2, startAngle: Angle(radians: Double(angleStart1)), endAngle: Angle(radians: Double(angleEnd1)), clockwise: false)
+            
+            let angleStart2 = atan2(intA.y - cy, intA.x - cx)
+            let angleEnd2 = atan2(intB.y - cy, intB.x - cx)
+            
+            var sA = angleStart2
+            var eA = angleEnd2
+            if sA < eA { sA += 2 * .pi } // Force DECREASING direction
+            
+            let steps = 24
+            for i in 1...steps {
+                let t = CGFloat(i) / CGFloat(steps)
+                let currentAngle = sA + (eA - sA) * t
+                p.addLine(to: CGPoint(x: cx + R1 * cos(currentAngle), y: cy + R1 * sin(currentAngle)))
+            }
+            
+            let angleStart3 = norm(atan2(intB.y - C2_y, intB.x - C2_x))
+            let angleEnd3 = norm(atan2(-r, 0))
+            p.addArc(center: CGPoint(x: C2_x, y: C2_y), radius: R2, startAngle: Angle(radians: Double(angleStart3)), endAngle: Angle(radians: Double(angleEnd3)), clockwise: false)
+        } else {
+            p.addArc(center: CGPoint(x: insetAmount + r, y: insetAmount + r), radius: r, startAngle: .degrees(180), endAngle: .degrees(-90), clockwise: false)
+        }
+        
+        p.closeSubpath()
+        return p
+    }
+}
+
+
 
 struct ExpandedHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
@@ -47,6 +153,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var expandedKeepAliveTimer: Timer? = nil
     @State private var isAnimating: Bool = false
     @State private var expandedHeight: CGFloat = 0
+    @State private var bendProgress: CGFloat = 0
     @AppStorage("enableCloseButton") private var enableCloseButton = false
     
     private var isGloballyHovered: Bool {
@@ -60,6 +167,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     var body: some View {
+        let dynamicOffset: CGFloat = -2 + (customHeight / 2 - 28) * 0.3
+        let buttonCenter = CGPoint(x: dynamicOffset + 10, y: dynamicOffset + 10)
         let width: CGFloat = customWidth
         let baseHeight: CGFloat = customHeight
         let outerRadius: CGFloat = baseHeight / 2
@@ -114,34 +223,23 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             )
         .background(
             ZStack(alignment: .leading) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: max(0, innerRadius - 0.75), style: .continuous)
-                        .fill(Color.black)
-                        .padding(0.75)
-                        .shadow(color: Color.black.opacity(0.45), radius: 1.8, x: 0, y: 0)
-                    RoundedRectangle(cornerRadius: innerRadius, style: .continuous)
-                        .fill(Color.black)
-                        .blendMode(.destinationOut)
-                }
-                .compositingGroup()
-                .padding(trackPadding)
-
                 // WARSTWA 1: Baza
                 Group {
-                    RoundedRectangle(cornerRadius: innerRadius, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.3), lineWidth: innerPadding)
+                    BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13 + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding))
+                        .strokeBorder(Color.primary.opacity(0.3), style: StrokeStyle(lineWidth: innerPadding, lineCap: .round, lineJoin: .round))
                         .padding(trackPadding)
                 }
                 
+                // WARSTWA 2: Pasek postępu
                 if showProgressBar {
                     ZStack {
                         if fillCenter {
-                            RoundedRectangle(cornerRadius: innerRadius, style: .continuous)
+                            BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13 + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding))
                                 .fill(isMuted ? Color.secondary.opacity(0.85) : barColor.opacity(0.95))
                                 .padding(trackPadding)
                         } else {
-                            RoundedRectangle(cornerRadius: innerRadius, style: .continuous)
-                                .strokeBorder(isMuted ? Color.secondary.opacity(0.85) : barColor.opacity(0.95), lineWidth: innerPadding)
+                            BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13 + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding))
+                                .strokeBorder(isMuted ? Color.secondary.opacity(0.85) : barColor.opacity(0.95), style: StrokeStyle(lineWidth: innerPadding, lineCap: .round, lineJoin: .round))
                                 .padding(trackPadding)
                         }
                     }
@@ -152,7 +250,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                     Spacer().frame(width: trackPadding)
                                     TimeoutProgressBar(
                                         trackWidth: trackWidth,
-                                        isHovering: isGloballyHovered || isExpanded,
+                                        isHovering: isHovering || isExpanded,
                                         initialDuration: timeoutDuration,
                                         hoverOutDuration: timeoutDuration,
                                         isPreview: isPreview
@@ -180,23 +278,23 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 
                 ZStack {
                     Color.clear.background(.thinMaterial)
-                        .clipShape(RoundedRectangle(cornerRadius: innerRadius - innerPadding, style: .continuous))
+                        .clipShape(BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding)))
                     
                     if colorScheme == .dark {
-                        RoundedRectangle(cornerRadius: innerRadius - innerPadding, style: .continuous)
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding))
                             .fill(Color.white.opacity(0.08))
                     } else {
-                        RoundedRectangle(cornerRadius: innerRadius - innerPadding, style: .continuous)
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding))
                             .fill(Color.white.opacity(0.25))
                     }
                     
-                    RoundedRectangle(cornerRadius: innerRadius - innerPadding, style: .continuous)
-                        .strokeBorder(Color.glassBorder, lineWidth: 1)
+                    BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding))
+                        .strokeBorder(Color.glassBorder, style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
                 }
                 .padding(trackPadding + innerPadding)
             }
         )
-        .contentShape(RoundedRectangle(cornerRadius: innerRadius + trackPadding, style: .continuous))
+        .contentShape(BendedCornerShape(radius: innerRadius + trackPadding, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13, frameOffset: .zero))
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
@@ -262,27 +360,44 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         .background(
             (colorScheme == .dark ? Color.black.opacity(0.25) : Color.white.opacity(0.55))
                 .background(.thickMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
+                .clipShape(BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13, frameOffset: .zero))
                 .overlay(
-                    RoundedRectangle(cornerRadius: outerRadius, style: .continuous)
-                        .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.05) : Color.white.opacity(0.9), lineWidth: colorScheme == .dark ? 1 : 1.5)
+                    BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13, frameOffset: .zero)
+                        .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.05) : Color.white.opacity(0.9), style: StrokeStyle(lineWidth: colorScheme == .dark ? 1 : 1.5, lineCap: .round, lineJoin: .round))
                 )
         )
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: max(0, outerRadius - 1), style: .continuous)
+                BendedCornerShape(radius: max(0, outerRadius - 1), bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13 + 1, frameOffset: CGPoint(x: 1, y: 1))
                     .fill(Color.black)
                     .padding(1)
                     .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
-                RoundedRectangle(cornerRadius: outerRadius, style: .continuous)
+                
+                BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13, frameOffset: .zero)
                     .fill(Color.black)
                     .blendMode(.destinationOut)
+                
+                if bendProgress > 0 {
+                    Circle()
+                        .fill(Color.black)
+                        .frame(width: 28, height: 28) // slightly larger than radius 13 to catch shadow bleed
+                        .position(x: buttonCenter.x, y: buttonCenter.y)
+                        .blendMode(.destinationOut)
+                        .opacity(bendProgress)
+                }
             }
             .compositingGroup()
         )
         .onHoverExact { hovering in
             isHovering = hovering
             triggerKeepAlive(hoveringOverride: hovering)
+            let shouldBend = hovering && enableCloseButton && !isPreview
+            let target: CGFloat = shouldBend ? 1.0 : 0.0
+            if bendProgress != target {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    bendProgress = target
+                }
+            }
         }
         .onChange(of: isExpandable) { _, newValue in
             if !newValue && isExpanded {
@@ -318,30 +433,24 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         }
         
             if enableCloseButton && !isPreview {
-                let dynamicOffset: CGFloat = -2 + (outerRadius - 28) * 0.3
-                Button(action: {
-                    if let id = keepAliveId {
-                        mediaKeyManager.forceHide(overlayId: id)
+                
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 20, height: 20)
+                    .background(
+                        Circle()
+                            .fill(colorScheme == .dark ? Color(white: 0.2) : Color.white)
+                    )
+                    .contentShape(Circle())
+                    .onTapGesture {
+                        if let id = keepAliveId {
+                            mediaKeyManager.forceHide(overlayId: id)
+                        }
                     }
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.secondary)
-                        .frame(width: 20, height: 20)
-                        .background(
-                            Circle()
-                                .fill(colorScheme == .dark ? Color(white: 0.2) : Color.white)
-                                .overlay(
-                                    Circle()
-                                        .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.1) : Color.clear, lineWidth: 0.5)
-                                )
-                                .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
-                        )
-                }
-                .buttonStyle(PlainButtonStyle())
                 .offset(x: dynamicOffset, y: dynamicOffset)
                 .opacity(isGloballyHovered ? 1 : 0)
-                .animation(.easeInOut(duration: 0.15), value: isGloballyHovered)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isGloballyHovered)
             }
         }
     }
