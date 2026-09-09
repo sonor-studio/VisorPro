@@ -3,6 +3,7 @@ import SwiftUI
 struct CopyOverlayView: View {
     @State private var isExpanded: Bool = false
     @State private var previewItemId: UUID? = nil
+    @State private var textNeedsExpansion: Bool = false
     @AppStorage("copyAllowExpansion") private var copyAllowExpansion: Bool = true
     @AppStorage("clipboardEnableHistory") var clipboardEnableHistory: Bool = true
     @AppStorage("clipboardEnablePreview") var clipboardEnablePreview: Bool = true
@@ -101,21 +102,10 @@ struct CopyOverlayView: View {
         return mediaKeyManager.clipboardMetadataSize.isEmpty ? "Unknown" : mediaKeyManager.clipboardMetadataSize
     }
     
-    private func calculatedTextHeight(for text: String) -> CGFloat {
-        let font = NSFont.systemFont(ofSize: 14, weight: .semibold)
-        let rect = (text as NSString).boundingRect(
-            with: CGSize(width: 228, height: CGFloat.greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: font],
-            context: nil
-        )
-        return ceil(rect.height)
-    }
-    
+
     var body: some View {
-        let reqHeight = calculatedTextHeight(for: displayedItemText)
-        let textNeedsExpansion = reqHeight > 22
-        let canExpand = (clipboardEnableHistory && !currentHistory.isEmpty) || textNeedsExpansion
+        let _ = print("CopyOverlayView: body evaluated (isPreview=\(isPreview))")
+        let canExpand = (clipboardEnableHistory && !currentHistory.isEmpty) || (textNeedsExpansion && clipboardEnablePreview)
         let trackWidth: CGFloat = 260 - 8
         let copyPos = MediaKeyManager.shared.getOverlayPosition(for: "copyOverlayPosition")
         
@@ -154,8 +144,9 @@ struct CopyOverlayView: View {
                             .foregroundColor(.secondary)
                         
                         MarqueeText(text: displayedItemText, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                            .id(isExpanded)
                             .frame(height: 18)
-                            .opacity((isExpanded && textNeedsExpansion) ? 0 : 1)
+                            .opacity((isExpanded && textNeedsExpansion && clipboardEnablePreview) ? 0 : 1)
                     }
                     .padding(.leading, 14)
                     .padding(.trailing, 16)
@@ -165,12 +156,29 @@ struct CopyOverlayView: View {
             },
             expandedContent: {
                 self.makeExpandedContent(canExpand: canExpand, textNeedsExpansion: textNeedsExpansion)
-            }        )
+            }
+        )
+        .onAppear {
+            updateTextExpansion()
+        }
+        .onChange(of: displayedItemText) { _, _ in
+            updateTextExpansion()
+        }
+        .onChange(of: clipboardEnableHistory) { _, _ in
+            // content shape may change, reset cached height so pre-measurement re-runs
+        }
     }
 
-
-
-
+    private func updateTextExpansion() {
+        let font = NSFont.systemFont(ofSize: 14, weight: .semibold)
+        let rect = (displayedItemText as NSString).boundingRect(
+            with: CGSize(width: 228, height: CGFloat.greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font],
+            context: nil
+        )
+        textNeedsExpansion = ceil(rect.height) > 22
+    }
 
     private func handleSimpleTap(canExpand: Bool) {
         if !canExpand {
@@ -229,7 +237,11 @@ struct CopyOverlayView: View {
                                     .frame(maxHeight: 128)
                                     .padding(.trailing, 8)
                                     .onHover { hovering in
-                                        mediaKeyManager.isHoveringScrollView = hovering
+                                        DispatchQueue.main.async {
+                                            if OverlayStateRelay.shared.isHoveringScrollView != hovering {
+                                                OverlayStateRelay.shared.isHoveringScrollView = hovering
+                                            }
+                                        }
                                     }
                                     
                                     Divider()
@@ -310,7 +322,7 @@ struct CopyOverlayView: View {
                             
                             ScrollView {
                                 
-                                VStack(spacing: 4) {
+                                LazyVStack(spacing: 4) {
                                     ForEach(currentHistory) { item in
                                         ClipboardHistoryRowView(
                                             item: item,
@@ -337,7 +349,11 @@ struct CopyOverlayView: View {
                             .frame(maxHeight: 128)
                             .padding(.trailing, 8)
                             .onHover { hovering in
-                                mediaKeyManager.isHoveringScrollView = hovering
+                                DispatchQueue.main.async {
+                                    if OverlayStateRelay.shared.isHoveringScrollView != hovering {
+                                        OverlayStateRelay.shared.isHoveringScrollView = hovering
+                                    }
+                                }
                             }
                         }
                     }
@@ -429,29 +445,38 @@ struct ClipboardHistoryRowView: View {
         }
     }
     
+    private static var iconCache: [String: NSImage] = [:]
+    
     private func getAppIcon(appName: String) -> NSImage? {
         if appName.isEmpty || appName == "Unknown" { return nil }
+        
+        if let cached = Self.iconCache[appName] {
+            return cached
+        }
+        
         let workspace = NSWorkspace.shared
+        var foundIcon: NSImage? = nil
         
         if appName == "Xcode", let url = workspace.urlForApplication(withBundleIdentifier: "com.apple.dt.Xcode") {
-            return workspace.icon(forFile: url.path)
+            foundIcon = workspace.icon(forFile: url.path)
+        } else if let path = workspace.urlForApplication(withBundleIdentifier: appName) {
+            foundIcon = workspace.icon(forFile: path.path)
+        } else {
+            let pathInApplications = "/Applications/\(appName).app"
+            if FileManager.default.fileExists(atPath: pathInApplications) {
+                foundIcon = workspace.icon(forFile: pathInApplications)
+            } else {
+                let pathInSystemApplications = "/System/Applications/\(appName).app"
+                if FileManager.default.fileExists(atPath: pathInSystemApplications) {
+                    foundIcon = workspace.icon(forFile: pathInSystemApplications)
+                }
+            }
         }
         
-        if let path = workspace.urlForApplication(withBundleIdentifier: appName) {
-            return workspace.icon(forFile: path.path)
+        if let icon = foundIcon {
+            Self.iconCache[appName] = icon
         }
-        
-        let pathInApplications = "/Applications/\(appName).app"
-        if FileManager.default.fileExists(atPath: pathInApplications) {
-            return workspace.icon(forFile: pathInApplications)
-        }
-        
-        let pathInSystemApplications = "/System/Applications/\(appName).app"
-        if FileManager.default.fileExists(atPath: pathInSystemApplications) {
-            return workspace.icon(forFile: pathInSystemApplications)
-        }
-        
-        return nil
+        return foundIcon
     }
     
     private func timeAgo(from date: Date) -> String {

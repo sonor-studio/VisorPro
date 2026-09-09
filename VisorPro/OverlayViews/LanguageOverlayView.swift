@@ -16,7 +16,7 @@ struct LanguageOverlayView: View {
     
     var body: some View {
         
-        let displayLanguage = isPreview ? (previewLanguage ?? "Polski") : mediaKeyManager.currentKeyboardLanguage
+        let displayLanguage = isPreview ? (previewLanguage ?? "English (US)") : mediaKeyManager.currentKeyboardLanguage
         
         let langPos = MediaKeyManager.shared.getOverlayPosition(for: "languageOverlayPosition")
         
@@ -32,9 +32,7 @@ struct LanguageOverlayView: View {
             customHeight: 56,
             supportDragGesture: false,
             onSimpleTap: {
-                if !isExpanded && !isPreview {
-                    availableLanguages = mediaKeyManager.getAvailableLanguages()
-                }
+                // Languages are now pre-loaded to prevent animation stutter.
             },
             isExpandable: languageAllowExpansion,
             expandUpwards: langPos.hasPrefix("bottom"),
@@ -84,6 +82,32 @@ struct LanguageOverlayView: View {
             }
         )
         .id(mediaKeyManager.languageEventId)
+        .onAppear {
+            if isPreview {
+                availableLanguages = [
+                    KeyboardLayout(id: "1", name: "English (US)", isSelected: true),
+                    KeyboardLayout(id: "2", name: "Spanish", isSelected: false),
+                    KeyboardLayout(id: "3", name: "Emoji", isSelected: false)
+                ]
+            } else {
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let langs = mediaKeyManager.getAvailableLanguages()
+                    DispatchQueue.main.async {
+                        self.availableLanguages = langs
+                    }
+                }
+            }
+        }
+        .onChange(of: mediaKeyManager.currentKeyboardLanguage) { _, _ in
+            if !isPreview {
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let langs = mediaKeyManager.getAvailableLanguages()
+                    DispatchQueue.main.async {
+                        self.availableLanguages = langs
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -101,7 +125,7 @@ struct LanguageRowView: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.primary)
                 Spacer()
-                if layout.isSelected || (isPreview && layout.name == "Polski") {
+                if layout.isSelected || (isPreview && layout.name == "English (US)") {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.purple)
@@ -125,6 +149,6 @@ struct LanguageRowView: View {
 }
 
 #Preview {
-    LanguageOverlayView(isPreview: true, previewLanguage: "Polski")
+    LanguageOverlayView(isPreview: true, previewLanguage: "English (US)")
         .environmentObject(MediaKeyManager())
 }

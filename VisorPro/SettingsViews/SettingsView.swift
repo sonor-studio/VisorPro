@@ -15,6 +15,7 @@ struct SettingsView: View {
         case keyboardBrightness
         case battery
         case keyboard
+        case clipboard
         case wifi
         case bluetooth
         case media
@@ -97,6 +98,12 @@ struct SettingsView: View {
                             SidebarIcon(systemName: "keyboard", color: .orange)
                         }
                     .tag(SidebarItem.keyboard)
+                    Label {
+                            Text("Clipboard")
+                        } icon: {
+                            SidebarIcon(systemName: "doc.on.clipboard", color: .blue)
+                        }
+                    .tag(SidebarItem.clipboard)
                     
                     // --- PREMIUM TRACKERS ---
                     Label {
@@ -198,6 +205,8 @@ struct SettingsView: View {
                     BatterySettingsView()
                 case .keyboard:
                     KeyboardSettingsView()
+                case .clipboard:
+                    ClipboardSettingsView()
                     
                 // PREMIUM TRACKERS
                 case .media:

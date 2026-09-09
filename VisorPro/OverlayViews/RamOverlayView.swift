@@ -29,9 +29,7 @@ struct RamOverlayView: View {
         ] : mediaKeyManager.ramTopProcesses
         
         let trackWidth: CGFloat = 260 - 8
-        let isCritical = percent >= 90.0
-        let chartColor: Color = isCritical ? .red : .orange
-        let barColor: Color = isCritical ? .red : .orange
+        let themeColor = OverlayColorManager.shared.getOverlayColor(for: "colorOnHighRam", defaultColor: .red)
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -88,7 +86,7 @@ struct RamOverlayView: View {
             expandedContent: {
                 VStack(spacing: 8) {
                     // RAM usage history chart
-                    RamChartView(history: history, color: chartColor, unit: "%", timeLabel: "-1m")
+                    RamChartView(history: history, color: themeColor, unit: "%", timeLabel: "-1m")
                         .frame(height: 55)
                         .padding(.horizontal, 16)
                         .padding(.top, 4)

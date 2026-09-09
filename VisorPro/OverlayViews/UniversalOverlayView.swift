@@ -86,13 +86,32 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .frame(height: isExpanded ? expandedHeight : 0, alignment: .top)
                     .clipped()
                     .opacity(isExpanded ? 1 : 0)
+                    .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
-                        if height > 0 {
+                        if height > 0 && abs(height - expandedHeight) > 0.5 {
+                            print("UniversalOverlayView: expandedHeight changed to \(height) (was \(expandedHeight))")
                             expandedHeight = height
                         }
                     }
             }
             .frame(width: width, alignment: expandUpwards ? .bottom : .top)
+            // Hidden pre-measurement overlay so expandedHeight is ready before first expand
+            .background(
+                Group {
+                    if expandedHeight == 0 {
+                        expandedContent()
+                            .padding(.bottom, 16)
+                            .frame(width: width)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .hidden()
+                            .background(
+                                GeometryReader { proxy in
+                                    Color.clear.preference(key: ExpandedHeightPreferenceKey.self, value: proxy.size.height)
+                                }
+                            )
+                    }
+                }
+            )
         .background(
             ZStack(alignment: .leading) {
                 ZStack {
@@ -286,11 +305,15 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         triggerKeepAlive(expandedOverride: true)
                     }
                 }
-                triggerKeepAlive(expandedOverride: true)
+                DispatchQueue.main.async {
+                    triggerKeepAlive(expandedOverride: true)
+                }
             } else {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = nil
-                triggerKeepAlive(expandedOverride: false)
+                DispatchQueue.main.async {
+                    triggerKeepAlive(expandedOverride: false)
+                }
             }
         }
         
@@ -327,8 +350,14 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         if !isPreview, let keepAliveId = keepAliveId {
             let currentHover = hoveringOverride ?? isHovering
             let currentExpanded = expandedOverride ?? isExpanded
-            mediaKeyManager.keepAlive(for: keepAliveId, isHovering: currentHover || currentExpanded)
-            mediaKeyManager.setActualHover(for: keepAliveId, isHovering: currentHover)
+            DispatchQueue.main.async {
+                var transaction = Transaction(animation: nil)
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    mediaKeyManager.keepAlive(for: keepAliveId, isHovering: currentHover || currentExpanded)
+                    mediaKeyManager.setActualHover(for: keepAliveId, isHovering: currentHover)
+                }
+            }
         }
     }
 }

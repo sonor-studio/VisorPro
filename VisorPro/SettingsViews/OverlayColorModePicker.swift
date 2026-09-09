@@ -18,9 +18,21 @@ struct OverlayColorModePicker: View {
                             mediaKeyManager.overlayColorMode = "custom"
                         }
                         
-                        // 2. Presets
+                        // 2. One Color
+                        ColorModeTile(
+                            title: "One Color",
+                            isSelected: mediaKeyManager.overlayColorMode == "oneColor",
+                            colors: [OverlayColorManager.shared.parseColor(mediaKeyManager.globalOverlayColor)]
+                        ) {
+                            mediaKeyManager.overlayColorMode = "oneColor"
+                        }
+                        
+                        // 3. Presets
                         ForEach(OverlayColorManager.shared.presets) { preset in
-                            let previewColors = preset.colors.values.prefix(4).map { OverlayColorManager.shared.parseColor($0) }
+                            let uniqueColors = preset.colors.values.reduce(into: [String]()) { result, color in
+                                if !result.contains(color) { result.append(color) }
+                            }
+                            let previewColors = uniqueColors.prefix(4).map { OverlayColorManager.shared.parseColor($0) }
                             
                             ColorModeTile(
                                 title: preset.name,
@@ -29,15 +41,6 @@ struct OverlayColorModePicker: View {
                             ) {
                                 mediaKeyManager.overlayColorMode = preset.id
                             }
-                        }
-                        
-                        // 3. One Color
-                        ColorModeTile(
-                            title: "One Color",
-                            isSelected: mediaKeyManager.overlayColorMode == "oneColor",
-                            colors: [OverlayColorManager.shared.parseColor(mediaKeyManager.globalOverlayColor)]
-                        ) {
-                            mediaKeyManager.overlayColorMode = "oneColor"
                         }
                     }
                     .padding(.vertical, 8)
@@ -131,7 +134,8 @@ struct PresetDetailsSheet: View {
                         ("Volume", ["colorOnVolume"]),
                         ("Brightness", ["colorOnBrightness"]),
                         ("Keyboard Brightness", ["colorOnKeyboardBrightness"]),
-                        ("Keyboard", ["colorOnCopy", "colorOnCut", "colorOnPaste", "colorOnCapsLock", "colorOnLanguageChange"]),
+                        ("Keyboard", ["colorOnCapsLock", "colorOnLanguageChange"]),
+                        ("Clipboard", ["colorOnCopy", "colorOnCut", "colorOnPaste"]),
                         ("Media", ["colorMediaStart", "colorMediaPause", "colorMediaResume"]),
                         ("Wi-Fi", ["colorOnWiFiConnect"]),
                         ("Bluetooth", ["colorOnBluetoothConnect"]),
@@ -203,13 +207,19 @@ struct ColorModeTile: View {
                         .frame(width: 80, height: 50)
                     
                     if colors.count > 1 {
-                        PizzaColorView(colors: colors)
-                            .frame(width: 80, height: 50)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        HStack(spacing: -8) {
+                            ForEach(0..<min(4, colors.count), id: \.self) { i in
+                                Circle()
+                                    .fill(colors[i])
+                                    .frame(width: 24, height: 24)
+                                    .overlay(Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 2))
+                                    .shadow(color: Color.black.opacity(0.1), radius: 1, x: 0, y: 1)
+                            }
+                        }
                     } else if let color = colors.first {
-                        RoundedRectangle(cornerRadius: 6)
+                        Circle()
                             .fill(color)
-                            .frame(width: 80, height: 50)
+                            .frame(width: 28, height: 28)
                     }
                     
                     if isSelected {
@@ -229,26 +239,3 @@ struct ColorModeTile: View {
     }
 }
 
-struct PizzaColorView: View {
-    let colors: [Color]
-    var body: some View {
-        GeometryReader { geometry in
-            let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
-            let radius = max(geometry.size.width, geometry.size.height)
-            
-            ZStack {
-                ForEach(0..<colors.count, id: \.self) { i in
-                    let startAngle = Angle(degrees: Double(i) * (360.0 / Double(colors.count)) - 90)
-                    let endAngle = Angle(degrees: Double(i + 1) * (360.0 / Double(colors.count)) - 90)
-                    
-                    Path { path in
-                        path.move(to: center)
-                        path.addArc(center: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
-                        path.closeSubpath()
-                    }
-                    .fill(colors[i])
-                }
-            }
-        }
-    }
-}

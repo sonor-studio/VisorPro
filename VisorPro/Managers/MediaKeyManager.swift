@@ -28,6 +28,12 @@ import CoreServices
 
 
 
+extension Notification.Name {
+    /// Posted when overlay visibility changes (show/hide). Used by VisorProWindowManager
+    /// instead of subscribing to MediaKeyManager.objectWillChange (which fires too broadly).
+    static let visorProOverlayStateChanged = Notification.Name("VisorProOverlayStateChanged")
+}
+
 class MediaKeyManager: ObservableObject {
     @AppStorage("overlayColorMode") var overlayColorMode: String = "custom"
     @AppStorage("globalOverlayColor") var globalOverlayColor: String = "Default"
@@ -81,9 +87,21 @@ class MediaKeyManager: ObservableObject {
     @Published var activeBluetoothNotifications: [DeviceNotification] = []
     @Published var activePeripheralNotifications: [DeviceNotification] = []
     @Published var activeDisplayNotifications: [DeviceNotification] = []
-    @Published var swipeOffsets: [String: CGFloat] = [:]
-    @Published var isHoveringScrollView: Bool = false
-    @Published var activeSwipeIds: Set<String> = []
+    // MARK: - Bridge properties → OverlayStateRelay (no longer @Published here)
+    // These delegate to OverlayStateRelay so changes don't fire MediaKeyManager.objectWillChange,
+    // preventing dashboard re-renders on every swipe/hover event.
+    var swipeOffsets: [String: CGFloat] {
+        get { OverlayStateRelay.shared.swipeOffsets }
+        set { OverlayStateRelay.shared.swipeOffsets = newValue }
+    }
+    var isHoveringScrollView: Bool {
+        get { OverlayStateRelay.shared.isHoveringScrollView }
+        set { OverlayStateRelay.shared.isHoveringScrollView = newValue }
+    }
+    var activeSwipeIds: Set<String> {
+        get { OverlayStateRelay.shared.activeSwipeIds }
+        set { OverlayStateRelay.shared.activeSwipeIds = newValue }
+    }
     private var notificationTimers: [String: Timer] = [:]
     private var overlayHideTimers: [String: Timer] = [:]
     
@@ -403,7 +421,27 @@ class MediaKeyManager: ObservableObject {
     @Published var clipboardHistory: [ClipboardItem] = {
         if let data = UserDefaults.standard.data(forKey: "clipboardHistoryData"),
            let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data) {
-            return decoded
+            
+            let retention = UserDefaults.standard.string(forKey: "clipboardHistoryRetention") ?? "24h"
+            if retention == "restart" {
+                return []
+            }
+            
+            var history = decoded
+            if retention == "24h" {
+                let threshold = Date().addingTimeInterval(-24 * 60 * 60)
+                history.removeAll(where: { $0.timestamp < threshold })
+            } else if retention == "7d" {
+                let threshold = Date().addingTimeInterval(-7 * 24 * 60 * 60)
+                history.removeAll(where: { $0.timestamp < threshold })
+            }
+            
+            let limit = UserDefaults.standard.integer(forKey: "clipboardHistoryLimit")
+            let actualLimit = limit > 0 ? limit : 30
+            if history.count > actualLimit {
+                history.removeLast(history.count - actualLimit)
+            }
+            return history
         }
         return []
     }() {
@@ -414,6 +452,35 @@ class MediaKeyManager: ObservableObject {
         }
     }
     @AppStorage("clipboardHistoryLimit") var clipboardHistoryLimit: Int = 30
+
+    func cleanupClipboardHistory() {
+        let retention = UserDefaults.standard.string(forKey: "clipboardHistoryRetention") ?? "24h"
+        
+        var modified = false
+        if retention == "24h" {
+            let threshold = Date().addingTimeInterval(-24 * 60 * 60)
+            let startCount = self.clipboardHistory.count
+            self.clipboardHistory.removeAll(where: { $0.timestamp < threshold })
+            if self.clipboardHistory.count != startCount { modified = true }
+        } else if retention == "7d" {
+            let threshold = Date().addingTimeInterval(-7 * 24 * 60 * 60)
+            let startCount = self.clipboardHistory.count
+            self.clipboardHistory.removeAll(where: { $0.timestamp < threshold })
+            if self.clipboardHistory.count != startCount { modified = true }
+        }
+        
+        let limit = self.clipboardHistoryLimit > 0 ? self.clipboardHistoryLimit : 30
+        if self.clipboardHistory.count > limit {
+            self.clipboardHistory.removeLast(self.clipboardHistory.count - limit)
+            modified = true
+        }
+        
+        if modified {
+            let current = self.clipboardHistory
+            self.clipboardHistory = current
+        }
+    }
+
     
     var pendingClipboardAction: String?
     var isProgrammaticPasteboardChange: Bool = false
@@ -906,6 +973,7 @@ class MediaKeyManager: ObservableObject {
                 withAnimation(.easeInOut(duration: 0.15)) {
 
                     self.showThemeIndicator = true; self.overlayTriggerTimes["theme"] = Date()
+                    self.notifyOverlayStateChanged()
 
                 }
 
@@ -967,6 +1035,7 @@ class MediaKeyManager: ObservableObject {
                         self.focusEventId = UUID()
                         withAnimation(.easeInOut(duration: 0.15)) {
                             self.showFocusIndicator = true
+                            self.notifyOverlayStateChanged()
                             self.overlayTriggerTimes["focus"] = Date()
                         }
                         self.focusTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
@@ -1035,6 +1104,7 @@ class MediaKeyManager: ObservableObject {
                 self.focusEventId = UUID()
                 withAnimation(.easeInOut(duration: 0.15)) {
                     self.showFocusIndicator = true
+                    self.notifyOverlayStateChanged()
                     self.overlayTriggerTimes["focus"] = Date()
                 }
                 self.focusTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
@@ -1076,6 +1146,7 @@ class MediaKeyManager: ObservableObject {
                 withAnimation(.easeInOut(duration: 0.15)) {
 
                     self.showLanguageIndicator = true; self.overlayTriggerTimes["language"] = Date()
+                    self.notifyOverlayStateChanged()
 
                 }
 
@@ -1201,6 +1272,7 @@ class MediaKeyManager: ObservableObject {
             }
             
             self.showMicIndicator = true
+            self.notifyOverlayStateChanged()
             let micAllow = UserDefaults.standard.object(forKey: "micAllowExpansion") as? Bool ?? true
             if !micAllow { self.isMicExpanded = false }
             self.playNotificationSound(named: self.soundOnMicOn)
@@ -1276,6 +1348,7 @@ class MediaKeyManager: ObservableObject {
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.micEventId = UUID()
                 self.showMicIndicator = true; self.overlayTriggerTimes["mic"] = Date()
+                self.notifyOverlayStateChanged()
             }
             
             if !self.isMicExpanded {
@@ -1306,6 +1379,7 @@ class MediaKeyManager: ObservableObject {
             }
             
             self.showCameraIndicator = true
+            self.notifyOverlayStateChanged()
             let camAllow = UserDefaults.standard.object(forKey: "cameraAllowExpansion") as? Bool ?? true
             if !camAllow { self.isCameraExpanded = false }
             self.playNotificationSound(named: self.soundOnCameraOn)
@@ -1376,6 +1450,7 @@ class MediaKeyManager: ObservableObject {
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.cameraEventId = UUID()
                 self.showCameraIndicator = true; self.overlayTriggerTimes["camera"] = Date()
+                self.notifyOverlayStateChanged()
             }
             
             let camAllow = UserDefaults.standard.object(forKey: "cameraAllowExpansion") as? Bool ?? true
@@ -1414,6 +1489,7 @@ class MediaKeyManager: ObservableObject {
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.locationEventId = UUID()
                 self.showLocationIndicator = true; self.overlayTriggerTimes["location"] = Date()
+                self.notifyOverlayStateChanged()
             }
             
             if !self.isLocationExpanded {
@@ -1431,6 +1507,12 @@ class MediaKeyManager: ObservableObject {
     private var isTestingBattery = false
     private var testOriginalPercentage = 0
     private var testOriginalPluggedIn = false
+    
+    /// Posts a targeted notification that only VisorProWindowManager listens to.
+    /// This replaces the overly-broad objectWillChange.sink pattern.
+    func notifyOverlayStateChanged() {
+        NotificationCenter.default.post(name: .visorProOverlayStateChanged, object: nil)
+    }
     
     @MainActor
     func forceHide(overlayId: String) {
@@ -1457,6 +1539,7 @@ class MediaKeyManager: ObservableObject {
 
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
         }
+        notifyOverlayStateChanged()
     }
     
     func hideBatteryOverlay() {
@@ -1465,6 +1548,7 @@ class MediaKeyManager: ObservableObject {
                 self.showChargingStatus = false
                 self.showLowBatteryWarning = false
                 self.showUnpluggedStatus = false
+                self.notifyOverlayStateChanged()
             }
             if self.isTestingBattery {
                 self.isBatteryInitialized = false
@@ -1494,10 +1578,12 @@ class MediaKeyManager: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery_warning"] = Date()
+                    self.notifyOverlayStateChanged()
                 }
             }
         } else {
             withAnimation(.easeInOut(duration: 0.25)) { self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery_warning"] = Date() }
+            self.notifyOverlayStateChanged()
         }
         
         chargingTimer?.invalidate()
@@ -1529,11 +1615,13 @@ class MediaKeyManager: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self.showChargingStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
+                    self.notifyOverlayStateChanged()
                 }
             }
         } else {
             withAnimation(.easeInOut(duration: 0.25)) {
                 self.showChargingStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
+                self.notifyOverlayStateChanged()
             }
         }
         
@@ -1561,11 +1649,13 @@ class MediaKeyManager: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self.showUnpluggedStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
+                    self.notifyOverlayStateChanged()
                 }
             }
         } else {
             withAnimation(.easeInOut(duration: 0.25)) {
                 self.showUnpluggedStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
+                self.notifyOverlayStateChanged()
             }
         }
         
@@ -1631,6 +1721,7 @@ class MediaKeyManager: ObservableObject {
                 self.activePeripheralNotifications[idx] = newNotif
             } else {
                 self.activePeripheralNotifications.append(newNotif)
+                self.notifyOverlayStateChanged()
             }
             self.enforceNotificationLimit()
         }
@@ -1688,6 +1779,7 @@ class MediaKeyManager: ObservableObject {
                     self.activeDisplayNotifications[0] = newNotif
                 } else {
                     self.activeDisplayNotifications.append(newNotif)
+                    self.notifyOverlayStateChanged()
                 }
             }
             
@@ -1914,6 +2006,7 @@ class MediaKeyManager: ObservableObject {
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.accessoryBatteryEventId = UUID()
                 self.showAccessoryBatteryIndicator = true
+                self.notifyOverlayStateChanged()
                 self.overlayTriggerTimes["accessoryBattery"] = Date()
             }
             
@@ -1971,6 +2064,7 @@ class MediaKeyManager: ObservableObject {
         if !showVolumeIndicator {
             withAnimation(.easeInOut(duration: 0.25)) {
                 showVolumeIndicator = true
+                notifyOverlayStateChanged()
             }
         }
         self.overlayTriggerTimes["volume"] = Date()
@@ -1995,6 +2089,7 @@ class MediaKeyManager: ObservableObject {
         if !showBrightnessIndicator {
             withAnimation(.easeInOut(duration: 0.25)) {
                 showBrightnessIndicator = true
+                notifyOverlayStateChanged()
             }
         }
         self.overlayTriggerTimes["brightness"] = Date()
@@ -2019,6 +2114,7 @@ class MediaKeyManager: ObservableObject {
         if !showKeyboardBrightnessIndicator {
             withAnimation(.easeInOut(duration: 0.25)) {
                 showKeyboardBrightnessIndicator = true
+                notifyOverlayStateChanged()
             }
         }
         self.overlayTriggerTimes["keyboardBrightness"] = Date()
@@ -2065,14 +2161,13 @@ class MediaKeyManager: ObservableObject {
                 if !trimmedText.isEmpty && self.clipboardHistory.first?.text != trimmedText {
                     let newItem = ClipboardItem(text: trimmedText, app: app, folder: folder, size: size, timestamp: Date())
                     self.clipboardHistory.insert(newItem, at: 0)
-                    if self.clipboardHistory.count > self.clipboardHistoryLimit {
-                        self.clipboardHistory.removeLast(self.clipboardHistory.count - self.clipboardHistoryLimit)
-                    }
+                    self.cleanupClipboardHistory()
                 }
             }
             
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.showCopyIndicator = true
+                self.notifyOverlayStateChanged()
                 self.overlayTriggerTimes["copy"] = Date()
             }
             
@@ -2112,6 +2207,7 @@ class MediaKeyManager: ObservableObject {
             self.ramEventId = UUID()
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.showRamIndicator = true
+                self.notifyOverlayStateChanged()
                 self.overlayTriggerTimes["ram"] = Date()
             }
             
@@ -2247,6 +2343,7 @@ class MediaKeyManager: ObservableObject {
                 withAnimation(.easeInOut(duration: 0.15)) {
 
                     self.showCapsLockIndicator = true; self.overlayTriggerTimes["capsLock"] = Date()
+                    self.notifyOverlayStateChanged()
 
                 }
 
@@ -2308,6 +2405,7 @@ class MediaKeyManager: ObservableObject {
                     self.activeBluetoothNotifications[idx] = newNotif
                 } else {
                     self.activeBluetoothNotifications.append(newNotif)
+                    self.notifyOverlayStateChanged()
                 }
                 self.enforceNotificationLimit()
             }
@@ -2364,6 +2462,7 @@ class MediaKeyManager: ObservableObject {
                 withAnimation(.easeInOut(duration: 0.15)) {
 
                     self.showWiFiIndicator = true; self.overlayTriggerTimes["wifi"] = Date()
+                    self.notifyOverlayStateChanged()
 
                 }
 
@@ -2579,6 +2678,7 @@ class MediaKeyManager: ObservableObject {
             // Show overlay
             withAnimation {
                 self.showMediaIndicator = true; self.overlayTriggerTimes["media"] = Date()
+                self.notifyOverlayStateChanged()
                 self.mediaHideTimer?.invalidate()
                 if !self.globalHoveredTypes.contains("media") {
                     self.mediaHideTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
@@ -2640,9 +2740,13 @@ class MediaKeyManager: ObservableObject {
     
     func keepAlive(for type: String, isHovering: Bool) {
         if isHovering {
-            globalHoveredTypes.insert(type)
+            if !globalHoveredTypes.contains(type) {
+                globalHoveredTypes.insert(type)
+            }
         } else {
-            globalHoveredTypes.remove(type)
+            if globalHoveredTypes.contains(type) {
+                globalHoveredTypes.remove(type)
+            }
         }
         
         let defaultDelay: TimeInterval = MediaKeyManager.notificationDuration
@@ -2658,9 +2762,13 @@ class MediaKeyManager: ObservableObject {
     
     func setActualHover(for type: String, isHovering: Bool) {
         if isHovering {
-            actualHoveredTypes.insert(type)
+            if !actualHoveredTypes.contains(type) {
+                actualHoveredTypes.insert(type)
+            }
         } else {
-            actualHoveredTypes.remove(type)
+            if actualHoveredTypes.contains(type) {
+                actualHoveredTypes.remove(type)
+            }
         }
     }
     
@@ -3247,6 +3355,7 @@ class MediaKeyManager: ObservableObject {
             return
         }
         
+        
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         let mediaEventMask = 1 << CGEventType(rawValue: UInt32(NX_SYSDEFINED))!.rawValue
         
@@ -3553,6 +3662,3 @@ class MediaKeyManager: ObservableObject {
         }
     }
 }
-
-
-

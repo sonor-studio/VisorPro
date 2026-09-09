@@ -127,11 +127,23 @@ class MediaObserver {
         guard let data = jsonString.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
         
-        let title = json["title"] as? String ?? ""
+        var title = json["title"] as? String ?? ""
         let artistRaw = json["artist"] as? String ?? ""
         let album = json["album"] as? String ?? ""
         let appName = json["appName"] as? String ?? ""
         let bundleId = json["bundleId"] as? String ?? ""
+        
+        if title.isEmpty || title == "Unknown Media" || title == "nieznane nagranie" {
+            let players = ["com.apple.quicktimeplayerx", "com.apple.iina", "org.videolan.vlc", "io.mpv"]
+            if players.contains(bundleId.lowercased()) {
+                if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier?.lowercased() == bundleId.lowercased() }) {
+                    let winTitles = getActiveWindowTitles(pid: app.processIdentifier)
+                    if let firstWin = winTitles.first(where: { !$0.isEmpty }) {
+                        title = firstWin.replacingOccurrences(of: " — QuickTime Player", with: "").replacingOccurrences(of: " - VLC media player", with: "")
+                    }
+                }
+            }
+        }
         
         let qlBundle = bundleId.lowercased()
         let qlApp = appName.lowercased()

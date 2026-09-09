@@ -432,22 +432,13 @@ class VolumeManager {
             mElement: kAudioObjectPropertyElementMain
         )
         var vol = volume
-        var status = AudioObjectSetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
-        if status != noErr {
+        let masterStatus = AudioObjectSetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+        if masterStatus != noErr {
+            // Master element not supported — set both channels individually
             volAddress.mElement = 1
-            status = AudioObjectSetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
-            if status != noErr {
-                volAddress.mElement = 2
-                status = AudioObjectSetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
-                if status != noErr {
-                    var systemVolAddress = AudioObjectPropertyAddress(
-                        mSelector: kAudioDevicePropertyVolumeScalar,
-                        mScope: kAudioDevicePropertyScopeOutput,
-                        mElement: kAudioObjectPropertyElementMain
-                    )
-                    AudioObjectSetPropertyData(defaultOutputDeviceID, &systemVolAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
-                }
-            }
+            AudioObjectSetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+            volAddress.mElement = 2
+            AudioObjectSetPropertyData(defaultOutputDeviceID, &volAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
         }
         
         var muteAddress = AudioObjectPropertyAddress(
@@ -456,8 +447,8 @@ class VolumeManager {
             mElement: kAudioObjectPropertyElementMain
         )
         var muteVal: UInt32 = mute ? 1 : 0
-        status = AudioObjectSetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
-        if status != noErr {
+        let muteStatus = AudioObjectSetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
+        if muteStatus != noErr {
             muteAddress.mElement = 1
             AudioObjectSetPropertyData(defaultOutputDeviceID, &muteAddress, 0, nil, UInt32(MemoryLayout<UInt32>.size), &muteVal)
             muteAddress.mElement = 2

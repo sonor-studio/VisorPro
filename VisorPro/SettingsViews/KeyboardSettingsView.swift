@@ -2,15 +2,10 @@ import SwiftUI
 
 struct KeyboardSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @AppStorage("copyOverlayPosition") private var copyOverlayPosition: String = "top"
-    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
+        @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("capsLockOverlayPosition") private var capsLockOverlayPosition: String = "top"
     @AppStorage("languageOverlayPosition") private var languageOverlayPosition: String = "top"
-    @AppStorage("copyAllowExpansion") private var copyAllowExpansion: Bool = true
-    @AppStorage("clipboardEnableHistory") private var clipboardEnableHistory: Bool = true
-    @AppStorage("clipboardEnablePreview") private var clipboardEnablePreview: Bool = true
-    @AppStorage("clipboardKeepExpandedOnPaste") private var clipboardKeepExpandedOnPaste: Bool = false
-    @AppStorage("capsLockAllowInteractivity") private var capsLockAllowInteractivity: Bool = true
+                    @AppStorage("capsLockAllowInteractivity") private var capsLockAllowInteractivity: Bool = true
     @AppStorage("languageAllowExpansion") private var languageAllowExpansion: Bool = true
     
     var body: some View {
@@ -54,10 +49,11 @@ struct KeyboardSettingsView: View {
                                 PreviewBackgroundView()
                             
                                 HStack(spacing: 20) {
-                                CopyOverlayView(isPreview: true, previewAction: "copy").applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
-                            
+
                                 CapsLockOverlayView(isPreview: true, previewIsOn: true).applyTheme(mediaKeyManager.overlayTheme)
+                                    .scaleEffect(0.85)
+                                
+                                LanguageOverlayView(isPreview: true, previewLanguage: "English (US)").applyTheme(mediaKeyManager.overlayTheme)
                                     .scaleEffect(0.85)
                             }
                             }
@@ -69,99 +65,6 @@ struct KeyboardSettingsView: View {
                         Divider()
                     
                         VStack(alignment: .leading, spacing: 24) {
-                            // Clipboard Category Card
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("Clipboard")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.primary)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                
-                                Text("Overlay Triggers")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 10)
-                                    .padding(.bottom, 4)
-                                    .padding(.leading, 4)
-                            
-                                VStack(spacing: 0) {
-                                    CustomSettingsRow(icon: "doc.on.clipboard.fill", iconColor: .orange, title: "Notify on Copy", subtitle: "Show an overlay when you copy an item") {
-                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnCopy { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCopy) 
- if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnCopy) } }
-    Toggle("", isOn: $mediaKeyManager.notifyOnCopy).labelsHidden() }
-                               
-                                }
-                                
-                                    Divider().padding(.leading, 40)
-                                
-                                    CustomSettingsRow(icon: "scissors", iconColor: .orange, title: "Notify on Cut", subtitle: "Show an overlay when you cut an item") {
-                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnCut { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCut) 
- if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnCut) } }
-    Toggle("", isOn: $mediaKeyManager.notifyOnCut).labelsHidden() }
-                               
-                                }
-                                
-                                    Divider().padding(.leading, 40)
-                                
-                                    CustomSettingsRow(icon: "list.clipboard.fill", iconColor: .orange, title: "Notify on Paste", subtitle: "Show an overlay when you paste an item") {
-                                        HStack(spacing: 8) { if mediaKeyManager.notifyOnPaste { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnPaste) 
- if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnPaste) } }
-    Toggle("", isOn: $mediaKeyManager.notifyOnPaste).labelsHidden() }
-                               
-                                }
-                                
-                                    Divider().padding(.leading, 40)
-                                
-                                    CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .orange, title: "Allow Expansion", subtitle: "Allow overlay to expand and show clipboard preview") {
-                                        Toggle("", isOn: $copyAllowExpansion).labelsHidden()
-                                    }
-                                    
-                                    Divider().padding(.leading, 40)
-                                    
-                                    CustomSettingsRow(icon: "clock.arrow.circlepath", iconColor: .orange, title: "Enable History", subtitle: "Save copied items to history list") {
-                                        Toggle("", isOn: $clipboardEnableHistory).labelsHidden()
-                                    }
-                                    
-                                    Divider().padding(.leading, 40)
-                                    
-                                    CustomSettingsRow(icon: "eye", iconColor: .orange, title: "Enable Preview", subtitle: "Show preview button for items in history") {
-                                        Toggle("", isOn: $clipboardEnablePreview).labelsHidden()
-                                    }
-                                    
-                                    Divider().padding(.leading, 40)
-                                    
-                                    CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .orange, title: "Don't Collapse on Paste", subtitle: "Keep history expanded after pasting an item") {
-                                        Toggle("", isOn: $clipboardKeepExpandedOnPaste).labelsHidden()
-                                    }
-                                }
-                                .toggleStyle(.switch)
-                                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                                .cornerRadius(10)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                                )
-                            
-                                Group {
-                                    if overlayPositionMode == "custom" {
-                                    Text("Overlay Position")
-                                        .font(.headline)
-                                        .foregroundColor(.secondary)
-                                        .padding(.top, 10)
-                                        .padding(.leading, 4)
-                                
-                                    PositionPickerGroup(selection: $copyOverlayPosition)
-                                    }
-                                }
-                                    .padding(.bottom, 12)
-                            }
-                            .padding(.horizontal)
-                        
-                            Divider()
-                        
                             // Caps Lock Category Card
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Caps Lock")
@@ -207,6 +110,23 @@ struct KeyboardSettingsView: View {
                                 
                                     Divider().padding(.leading, 40)
                                 
+                                }
+                                .toggleStyle(.switch)
+                                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                                .cornerRadius(10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                                )
+                                
+                                Text("Interactivity")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 10)
+                                    .padding(.bottom, 4)
+                                    .padding(.leading, 4)
+                                    
+                                VStack(spacing: 0) {
                                     CustomSettingsRow(icon: "hand.tap.fill", iconColor: .orange, title: "Allow Interactivity", subtitle: "Allow tapping to toggle Caps Lock") {
                                         Toggle("", isOn: $capsLockAllowInteractivity).labelsHidden()
                                     }
@@ -264,6 +184,23 @@ struct KeyboardSettingsView: View {
                                 
                                     Divider().padding(.leading, 40)
                                 
+                                }
+                                .toggleStyle(.switch)
+                                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                                .cornerRadius(10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                                )
+                                
+                                Text("Expansion & Behavior")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 10)
+                                    .padding(.bottom, 4)
+                                    .padding(.leading, 4)
+                                    
+                                VStack(spacing: 0) {
                                     CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .orange, title: "Allow Expansion", subtitle: "Allow overlay to expand and show layout details") {
                                         Toggle("", isOn: $languageAllowExpansion).labelsHidden()
                                     }

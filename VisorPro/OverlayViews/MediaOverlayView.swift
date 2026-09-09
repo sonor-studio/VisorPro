@@ -6,8 +6,8 @@ struct MediaOverlayView: View {
     @AppStorage("mediaAllowExpansion") private var mediaAllowExpansion: Bool = true
     @AppStorage("mediaAllowInteractivity") private var mediaAllowInteractivity: Bool = true
     var isPreview: Bool = false
-    var previewTitle: String = "Sample Media"
-    var previewArtist: String = "YouTube / Safari"
+    var previewTitle: String = "How to make a Neapolitan Pizza at home"
+    var previewArtist: String = "YouTube • Vito Iacopelli"
     var previewProgress: Double = 0.4
     var previewIsPlaying: Bool = false
     
@@ -18,6 +18,14 @@ struct MediaOverlayView: View {
     
     private var actualArtist: String {
         isPreview ? previewArtist : mediaKeyManager.mediaArtist
+    }
+    
+    private var actualDuration: Double {
+        isPreview ? 180.0 : mediaKeyManager.mediaDuration
+    }
+    
+    private var actualBundleId: String {
+        isPreview ? "com.apple.Safari" : mediaKeyManager.mediaBundleId
     }
     
     private var actualIsPlaying: Bool {
@@ -33,7 +41,7 @@ struct MediaOverlayView: View {
     
     private var playbackProgress: CGFloat {
         if isPreview { return CGFloat(previewProgress) }
-        let duration = mediaKeyManager.mediaDuration
+        let duration = actualDuration
         if duration > 0 {
             return CGFloat(min(max(localElapsed / duration, 0), 1))
         }
@@ -61,7 +69,7 @@ struct MediaOverlayView: View {
     }
     
     private var actionIcon: String {
-        let bundle = mediaKeyManager.mediaBundleId.lowercased()
+        let bundle = actualBundleId.lowercased()
         
         if bundle.contains("spotify") {
             return "music.note"
@@ -103,7 +111,7 @@ struct MediaOverlayView: View {
             customHeight: height,
             supportDragGesture: mediaAllowInteractivity,
             onDrag: { v in
-                let newTime = Double(v) * mediaKeyManager.mediaDuration
+                let newTime = Double(v) * actualDuration
                 localElapsed = newTime
                 mediaKeyManager.simulateSeek(to: newTime)
             },
@@ -124,7 +132,7 @@ struct MediaOverlayView: View {
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        if mediaKeyManager.mediaDuration > 0 {
+                        if actualDuration > 0 {
                             HStack(spacing: 4) {
                                 Text(actionTitle)
                                     .font(.system(size: 10, weight: .bold, design: .rounded))
@@ -136,7 +144,7 @@ struct MediaOverlayView: View {
                                     .foregroundColor(.gray)
                                     .baselineOffset(1.0)
                                 
-                                Text("\(formatTime(localElapsed)) / \(formatTime(mediaKeyManager.mediaDuration))")
+                                Text("\(formatTime(localElapsed)) / \(formatTime(actualDuration))")
                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                                     .foregroundColor(.gray)
                             }
@@ -219,7 +227,7 @@ struct MediaOverlayView: View {
                         DragGesture(minimumDistance: 0).onEnded { _ in
                             if isPreview { return }
                             let skip = mediaKeyManager.mediaSkipDuration
-                            let newTime = min(mediaKeyManager.mediaDuration, localElapsed + skip)
+                            let newTime = min(actualDuration, localElapsed + skip)
                             localElapsed = newTime
                             mediaKeyManager.simulateSeek(to: newTime)
                         }
@@ -241,10 +249,16 @@ struct MediaOverlayView: View {
         )
         .id(mediaKeyManager.mediaEventId)
         .onAppear {
-            localElapsed = mediaKeyManager.mediaElapsedTime
+            if isPreview {
+                localElapsed = 180.0 * previewProgress
+            } else {
+                localElapsed = mediaKeyManager.mediaElapsedTime
+            }
         }
         .onChange(of: mediaKeyManager.mediaElapsedTime) { oldValue, newValue in
-            localElapsed = newValue
+            if !isPreview {
+                localElapsed = newValue
+            }
         }
         .onReceive(timer) { _ in
             if actualIsPlaying && actualAction != "end" {

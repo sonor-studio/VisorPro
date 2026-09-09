@@ -133,17 +133,47 @@ class VisorProWindowManager: ObservableObject {
         return result
     }
 
+    private var heartbeatTimer: AnyCancellable?
     
     private init() {
-        MediaKeyManager.shared.objectWillChange.sink { [weak self] _ in
+        // Listen for overlay state changes (show/hide) via targeted notification.
+        // This replaces the overly-broad objectWillChange.sink which fired on EVERY
+        // MediaKeyManager property change (including settings edits in the dashboard).
+        NotificationCenter.default.publisher(for: .visorProOverlayStateChanged)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateWindows()
+                self?.ensureHeartbeatRunning()
+            }
+            .store(in: &cancellables)
+        
+        // Also observe OverlayStateRelay for swipe offset changes (high-frequency, overlay-only)
+        OverlayStateRelay.shared.objectWillChange.sink { [weak self] _ in
             DispatchQueue.main.async {
                 self?.updateWindows()
             }
         }.store(in: &cancellables)
         
-        Timer.publish(every: 0.1, on: .main, in: .common).autoconnect().sink { [weak self] _ in
-            self?.updateWindows()
-        }.store(in: &cancellables)
+        // Start initial heartbeat — it will auto-stop when no panels are active
+        ensureHeartbeatRunning()
+    }
+    
+    /// Starts the 0.1s heartbeat timer if it's not already running.
+    /// The timer auto-stops when there are no active overlay panels.
+    private func ensureHeartbeatRunning() {
+        guard heartbeatTimer == nil else { return }
+        heartbeatTimer = Timer.publish(every: 0.1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self else { return }
+                if self.windows.isEmpty {
+                    // No active panels — stop the heartbeat to save CPU
+                    self.heartbeatTimer?.cancel()
+                    self.heartbeatTimer = nil
+                } else {
+                    self.updateWindows()
+                }
+            }
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -320,7 +350,7 @@ class VisorProWindowManager: ObservableObject {
                     shownPanels.remove(id)
                 } else {
                     exitingPanels.insert(id)
-                    let currentSwipeOffset = MediaKeyManager.shared.swipeOffsets[overlayId] ?? 0.0
+                    let currentSwipeOffset = OverlayStateRelay.shared.swipeOffsets[overlayId] ?? 0.0
                     
                     if abs(currentSwipeOffset) > 30 {
                         NSAnimationContext.runAnimationGroup({ ctx in
@@ -417,7 +447,7 @@ class VisorProWindowManager: ObservableObject {
                     originY = yCenter - (currentHeight / 2) - 2.5
                 }
                 
-                let swipeOffset = MediaKeyManager.shared.swipeOffsets[overlay.id] ?? 0.0
+                let swipeOffset = OverlayStateRelay.shared.swipeOffsets[overlay.id] ?? 0.0
                 let originY_withOffset = originY - swipeOffset
                 
                 let targetOrigin = NSPoint(x: originX, y: originY_withOffset)
@@ -460,7 +490,7 @@ class VisorProWindowManager: ObservableObject {
                     let isRescued = rescuedPanels.contains(windowId)
                     if lastTarget == nil || abs(lastTarget!.x - targetOrigin.x) > 0.5 || abs(lastTarget!.y - targetOrigin.y) > 0.5 || isRescued {
                         targetOrigins[windowId] = targetOrigin
-                        let isDragging = MediaKeyManager.shared.activeSwipeIds.contains(overlay.id)
+                        let isDragging = OverlayStateRelay.shared.activeSwipeIds.contains(overlay.id)
                         
                         if isDragging {
                             panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
@@ -511,7 +541,9 @@ class VisorProWindowManager: ObservableObject {
         panel.isOpaque = false
         panel.hasShadow = false
         
-        let view = SingleOverlayContainer(overlay: overlay).environmentObject(MediaKeyManager.shared)
+        let view = SingleOverlayContainer(overlay: overlay)
+            .environmentObject(MediaKeyManager.shared)
+            .environmentObject(OverlayStateRelay.shared)
         panel.contentView = NSHostingView(rootView: view)
         
         panel.isFloatingPanel = true
@@ -711,6 +743,7 @@ struct ScrollSwipeModifier: ViewModifier {
     let isTopPosition: Bool
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("enableSwipeToDismiss") private var enableSwipeToDismiss = true
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
     
@@ -728,12 +761,12 @@ struct ScrollSwipeModifier: ViewModifier {
                 isDismissing = false
                 dragOffset = 0
                 totalScrollDelta = 0
-                mediaKeyManager.swipeOffsets[overlayId] = 0
+                overlayState.swipeOffsets[overlayId] = 0
                 setupMonitors()
             }
             .onDisappear {
                 removeMonitors()
-                mediaKeyManager.swipeOffsets[overlayId] = 0
+                overlayState.swipeOffsets[overlayId] = 0
             }
     }
     
@@ -750,19 +783,19 @@ struct ScrollSwipeModifier: ViewModifier {
         
         // Polegamy wyłącznie na precyzyjnym systemie onHoverExact z UniversalOverlayView
         // który śledzi idealnie krawędzie interfejsu (globalHoveredTypes), ignorując ukryte pole NSWindow.
-        var isCurrentlySwiping = mediaKeyManager.activeSwipeIds.contains(overlayId)
+        var isCurrentlySwiping = overlayState.activeSwipeIds.contains(overlayId)
         
         let phase = event.phase
         let momentum = event.momentumPhase
         
         if phase == .began && !isHovered {
-            mediaKeyManager.activeSwipeIds.remove(overlayId)
+            overlayState.activeSwipeIds.remove(overlayId)
             isCurrentlySwiping = false
         }
         
 
         guard isHovered || isCurrentlySwiping else { return }
-        if !isCurrentlySwiping && mediaKeyManager.isHoveringScrollView { return }
+        if !isCurrentlySwiping && overlayState.isHoveringScrollView { return }
         
         let rawDelta = event.scrollingDeltaY
         var deltaY = event.isDirectionInvertedFromDevice ? rawDelta : -rawDelta
@@ -774,12 +807,12 @@ struct ScrollSwipeModifier: ViewModifier {
         
         let isEnding = phase == .ended || phase == .cancelled || momentum == .ended || momentum == .cancelled
         if isEnding {
-            mediaKeyManager.activeSwipeIds.remove(overlayId)
+            overlayState.activeSwipeIds.remove(overlayId)
             debounceTimer?.invalidate()
             guard !isDismissing else { return }
             dragOffset = 0
             totalScrollDelta = 0
-            mediaKeyManager.swipeOffsets[overlayId] = 0
+            overlayState.swipeOffsets[overlayId] = 0
             mediaKeyManager.keepAlive(for: overlayId, isHovering: isHovered)
             return
         }
@@ -789,7 +822,7 @@ struct ScrollSwipeModifier: ViewModifier {
         totalScrollDelta += deltaY
         
         if abs(totalScrollDelta) > 10 {
-            mediaKeyManager.activeSwipeIds.insert(overlayId)
+            overlayState.activeSwipeIds.insert(overlayId)
             mediaKeyManager.keepAlive(for: overlayId, isHovering: true)
         }
         
@@ -820,21 +853,21 @@ struct ScrollSwipeModifier: ViewModifier {
         if isOverThreshold && !isDismissing {
             isDismissing = true
             mediaKeyManager.forceHide(overlayId: overlayId)
-            mediaKeyManager.activeSwipeIds.remove(overlayId)
+            overlayState.activeSwipeIds.remove(overlayId)
         }
         
         // Always and consistently assign the current delta (which grows from the finger or from inertial momentum).
-        mediaKeyManager.swipeOffsets[overlayId] = dragOffset
+        overlayState.swipeOffsets[overlayId] = dragOffset
         
         if !isDismissing {
             if phase.rawValue == 0 && momentum.rawValue == 0 {
                 debounceTimer?.invalidate()
                 debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { _ in
                     guard !isDismissing else { return }
-                    mediaKeyManager.activeSwipeIds.remove(overlayId)
+                    overlayState.activeSwipeIds.remove(overlayId)
                     dragOffset = 0
                     totalScrollDelta = 0
-                    mediaKeyManager.swipeOffsets[overlayId] = 0
+                    overlayState.swipeOffsets[overlayId] = 0
                 }
             }
         }
