@@ -43,8 +43,20 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
         }
     }
     
+    func canUseSSIDAPI() -> Bool {
+        if #available(macOS 14.0, *) {
+            let status = locationManager?.authorizationStatus ?? .notDetermined
+            return status != .notDetermined && status != .denied && status != .restricted
+        }
+        return true
+    }
+
     func startObserving() {
-        self.lastSSID = CWWiFiClient.shared().interface()?.ssid()
+        if canUseSSIDAPI() {
+            self.lastSSID = CWWiFiClient.shared().interface()?.ssid()
+        } else {
+            self.lastSSID = nil
+        }
         self.lastIsConnected = self.lastSSID != nil
         
         DispatchQueue.main.async { [weak self] in
@@ -76,16 +88,24 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
     private var isFetchingNetworkSetup: Bool = false
     
     @objc private func pollWiFi() {
-        guard let interface = CWWiFiClient.shared().interface() else { return }
+        let interface = CWWiFiClient.shared().interface()
         
-        let powerOn = interface.powerOn()
+        // If interface is nil, assume power is on to allow networksetup fallback
+        let powerOn = interface?.powerOn() ?? true
         if !powerOn {
             inactiveCounter = 0
             handleFinalState(isConnected: false, ssid: nil)
             return
         }
         
-        if let ssid = interface.ssid(), !ssid.isEmpty {
+        var currentSSID: String? = nil
+        if canUseSSIDAPI() {
+            currentSSID = interface?.ssid()
+        } else {
+            LogManager.shared.log("WiFiObserver: Missing Location permissions. Skipping CoreWLAN ssid() to prevent crash. Falling back to networksetup.", level: "WARNING")
+        }
+        
+        if let ssid = currentSSID, !ssid.isEmpty {
             inactiveCounter = 0
             cachedNetworkSetupSSID = ssid
             handleFinalState(isConnected: true, ssid: ssid)
@@ -95,10 +115,11 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
                 isFetchingNetworkSetup = true
                 lastNetworkSetupPoll = Date()
                 
+                let interfaceName = interface?.interfaceName ?? "en0"
                 DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                     let process = Process()
                     process.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
-                    process.arguments = ["-getairportnetwork", "en0"]
+                    process.arguments = ["-getairportnetwork", interfaceName]
                     let pipe = Pipe()
                     process.standardOutput = pipe
                     
@@ -108,12 +129,17 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
                         process.waitUntilExit()
                         let data = pipe.fileHandleForReading.readDataToEndOfFile()
                         if let output = String(data: data, encoding: .utf8) {
-                            if output.contains("Current Wi-Fi Network:") {
-                                let parts = output.components(separatedBy: "Current Wi-Fi Network: ")
-                                if parts.count > 1 {
-                                    let parsed = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
-                                    if parsed != "null" && !parsed.isEmpty {
-                                        foundSSID = parsed
+                            let lines = output.components(separatedBy: .newlines)
+                            for line in lines {
+                                // Check for colon to split, ignore "not associated" messages in any language if possible
+                                if line.contains(":") && !line.lowercased().contains("not associated") {
+                                    let parts = line.split(separator: ":", maxSplits: 1)
+                                    if parts.count == 2 {
+                                        let parsed = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+                                        if parsed != "null" && !parsed.isEmpty {
+                                            foundSSID = parsed
+                                            break
+                                        }
                                     }
                                 }
                             }

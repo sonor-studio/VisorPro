@@ -2565,7 +2565,23 @@ class MediaKeyManager: ObservableObject {
     
     func fetchDynamicWiFiDetails() {
         DispatchQueue.global(qos: .userInitiated).async {
-            guard let interface = CWWiFiClient.shared().interface() else { return }
+            guard let interface = CWWiFiClient.shared().interface() else { 
+                LogManager.shared.log("fetchDynamicWiFiDetails: Wi-Fi interface is nil.", level: "ERROR")
+                return 
+            }
+            
+            // Safety check: Do not query details if Wi-Fi is powered off.
+            // Querying transmitRate or rssiValue when disconnected can cause EXC_BREAKPOINT in CoreWLAN.
+            if !interface.powerOn() || !self.wiFiIsConnected {
+                LogManager.shared.log("fetchDynamicWiFiDetails: Wi-Fi is disconnected or powered off, skipping detail fetch.", level: "WARNING")
+                DispatchQueue.main.async {
+                    self.wiFiRSSI = nil
+                    self.wiFiTxRate = nil
+                    self.wiFiChannel = nil
+                    self.wiFiIPAddress = nil
+                }
+                return
+            }
             
             let rssi = interface.rssiValue()
             let txRate = interface.transmitRate()
@@ -2583,23 +2599,34 @@ class MediaKeyManager: ObservableObject {
                 channelStr = "Ch \(channel.channelNumber) (\(band))"
             }
             
+            let expectedInterfaceName = interface.interfaceName ?? "en0"
             var ipAddr: String? = nil
             var ifaddr: UnsafeMutablePointer<ifaddrs>?
             if getifaddrs(&ifaddr) == 0 {
                 var ptr = ifaddr
                 while ptr != nil {
                     defer { ptr = ptr?.pointee.ifa_next }
-                    let interfaceInfo = ptr?.pointee
-                    if interfaceInfo?.ifa_addr.pointee.sa_family == UInt8(AF_INET) {
-                        if String(cString: (interfaceInfo?.ifa_name)!) == "en0" {
-                            var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-                            getnameinfo(interfaceInfo?.ifa_addr, socklen_t((interfaceInfo?.ifa_addr.pointee.sa_len)!),
-                                        &hostname, socklen_t(hostname.count), nil, socklen_t(0), NI_NUMERICHOST)
-                            ipAddr = String(cString: hostname)
+                    if let interfaceInfo = ptr?.pointee {
+                        let addrFamily = interfaceInfo.ifa_addr?.pointee.sa_family
+                        if addrFamily == UInt8(AF_INET) {
+                            if let namePtr = interfaceInfo.ifa_name, String(cString: namePtr) == expectedInterfaceName {
+                                if let sockaddr = interfaceInfo.ifa_addr {
+                                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                                    let result = getnameinfo(sockaddr, socklen_t(sockaddr.pointee.sa_len),
+                                                             &hostname, socklen_t(hostname.count), nil, socklen_t(0), NI_NUMERICHOST)
+                                    if result == 0 {
+                                        ipAddr = String(cString: hostname)
+                                    } else {
+                                        LogManager.shared.log("fetchDynamicWiFiDetails: getnameinfo failed with error code \(result)", level: "ERROR")
+                                    }
+                                }
+                            }
                         }
                     }
                 }
                 freeifaddrs(ifaddr)
+            } else {
+                LogManager.shared.log("fetchDynamicWiFiDetails: getifaddrs failed.", level: "ERROR")
             }
             
             DispatchQueue.main.async {
