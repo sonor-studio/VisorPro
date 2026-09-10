@@ -23,7 +23,7 @@ struct KeyboardSettingsView: View {
                         .padding(.leading, 4)
                         
                     VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "power", iconColor: .orange, title: "Enable Keyboard Module", subtitle: "When disabled, VisorPro completely ignores Caps Lock, Clipboard, and Layout shortcuts") {
+                        CustomSettingsRow(icon: "power", iconColor: .orange, title: "Enable Keyboard Module", subtitle: "When disabled, VisorPro completely ignores Caps Lock and Layout shortcuts") {
                             Toggle("", isOn: $mediaKeyManager.enableKeyboard).labelsHidden()
                         }
                     }

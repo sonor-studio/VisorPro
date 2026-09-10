@@ -62,6 +62,7 @@ struct VisorProApp: App {
                 Toggle("Keyboard Brightness", isOn: $mediaKeyManager.enableKeyboardBrightness)
                 Toggle("Battery", isOn: $mediaKeyManager.enableBattery)
                 Toggle("Keyboard", isOn: $mediaKeyManager.enableKeyboard)
+                Toggle("Clipboard", isOn: $mediaKeyManager.enableClipboard)
                 
                 if !savedLicenseKey.isEmpty {
                     Divider()

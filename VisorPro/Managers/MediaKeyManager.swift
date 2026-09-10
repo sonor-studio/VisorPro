@@ -212,9 +212,14 @@ class MediaKeyManager: ObservableObject {
     @Published var enableKeyboard: Bool = UserDefaults.standard.object(forKey: "enableKeyboard") as? Bool ?? true {
         didSet { 
             UserDefaults.standard.set(enableKeyboard, forKey: "enableKeyboard")
-            if !enableKeyboard { withAnimation { self.showCopyIndicator = false; self.showCapsLockIndicator = false; self.showLanguageIndicator = false } }
-            if !enableBluetooth { withAnimation { self.activeBluetoothNotifications.removeAll() } }
-            if !enableWiFi { withAnimation { self.showWiFiIndicator = false } }
+            if !enableKeyboard { withAnimation { self.showCapsLockIndicator = false; self.showLanguageIndicator = false } }
+        }
+    }
+    
+    @Published var enableClipboard: Bool = UserDefaults.standard.object(forKey: "enableClipboard") as? Bool ?? true {
+        didSet { 
+            UserDefaults.standard.set(enableClipboard, forKey: "enableClipboard")
+            if !enableClipboard { withAnimation { self.showCopyIndicator = false } }
         }
     }
     @Published var enableBluetooth: Bool = UserDefaults.standard.object(forKey: "enableBluetooth") as? Bool ?? false {

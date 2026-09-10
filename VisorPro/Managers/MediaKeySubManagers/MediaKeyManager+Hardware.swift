@@ -5,7 +5,7 @@ import SwiftUI
 extension MediaKeyManager {
     
     func triggerClipboardIndicator(text: String, action: String = "copy", app: String = "", folder: String? = nil, size: String = "") {
-        if !enableKeyboard { return }
+        if !enableClipboard { return }
         if action == "copy" && !notifyOnCopy { return }
         if action == "cut" && !notifyOnCut { return }
         if action == "paste" && !notifyOnPaste && !isProgrammaticPasteboardChange { return }
@@ -156,7 +156,7 @@ extension MediaKeyManager {
     internal func startHardwareKeyPolling() {
         hardwareKeyPollingTimer?.invalidate()
         hardwareKeyPollingTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            guard let self = self, self.enableKeyboard, self.isTrusted else { return }
+            guard let self = self, self.enableClipboard, self.isTrusted else { return }
             
             // Cmd (lewy lub prawy)
             let cmdPressed = CGEventSource.keyState(.hidSystemState, key: 55) || CGEventSource.keyState(.hidSystemState, key: 54)

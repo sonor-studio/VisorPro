@@ -26,8 +26,8 @@ struct ClipboardSettingsView: View {
                         .padding(.leading, 4)
                         
                     VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "power", iconColor: .blue, title: "Enable Keyboard Module", subtitle: "When disabled, VisorPro completely ignores Caps Lock, Clipboard, and Layout shortcuts") {
-                            Toggle("", isOn: $mediaKeyManager.enableKeyboard).labelsHidden()
+                        CustomSettingsRow(icon: "power", iconColor: .blue, title: "Enable Clipboard Module", subtitle: "When disabled, VisorPro completely ignores Clipboard shortcuts") {
+                            Toggle("", isOn: $mediaKeyManager.enableClipboard).labelsHidden()
                         }
                     }
                     .toggleStyle(.switch)
@@ -40,9 +40,9 @@ struct ClipboardSettingsView: View {
                 }
                 .padding(.horizontal)
 
-                if mediaKeyManager.enableKeyboard {
+                if mediaKeyManager.enableClipboard {
                 
-                    if mediaKeyManager.enableKeyboard {
+                    if mediaKeyManager.enableClipboard {
                         VStack(alignment: .center) {
                             Text("Preview")
                                 .font(.headline)
@@ -228,7 +228,7 @@ struct ClipboardSettingsView: View {
                     Spacer()
             
                 } else {
-                    DisabledModuleView(icon: "power", title: "Keyboard Module is Disabled", description: "Turn on the module to configure clipboard overlays.")
+                    DisabledModuleView(icon: "power", title: "Clipboard Module is Disabled", description: "Turn on the module to configure clipboard overlays.")
                 }
 }
             .padding(.vertical, 20)
