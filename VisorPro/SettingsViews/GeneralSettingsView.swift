@@ -11,6 +11,7 @@ struct GeneralSettingsView: View {
     @AppStorage("enableSwipeToDismiss") private var enableSwipeToDismiss = true
     @AppStorage("enableCloseButton") private var enableCloseButton = true
     @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = false
+    @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
@@ -378,6 +379,27 @@ struct GeneralSettingsView: View {
                             .padding(.horizontal, 12)
                             
                             if enableCloseButton {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Position")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.primary)
+                                        Text("Choose which side the close button appears on.")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Picker("", selection: $closeButtonOnRight) {
+                                        Text("Left").tag(false)
+                                        Text("Right").tag(true)
+                                    }
+                                    .pickerStyle(.segmented)
+                                    .frame(width: 120)
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .padding(.leading, 20)
+                                
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("Keep visible when expanded")

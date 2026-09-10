@@ -82,18 +82,16 @@ struct ThemeOverlayView: View {
     
     private func toggleSystemTheme() {
         DispatchQueue.global(qos: .userInitiated).async {
-            let scriptSource = """
-            tell application "System Events"
-                tell appearance preferences
-                    set dark mode to not dark mode
-                end tell
-            end tell
-            """
-            if let script = NSAppleScript(source: scriptSource) {
-                var error: NSDictionary?
-                script.executeAndReturnError(&error)
-                if error != nil {
-                }
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = [
+                "-e",
+                "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"
+            ]
+            do {
+                try process.run()
+            } catch {
+                print("Failed to toggle theme: \(error)")
             }
         }
     }

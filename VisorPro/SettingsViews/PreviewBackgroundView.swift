@@ -65,7 +65,7 @@ struct PreviewBackgroundView: View {
                 var loadedImage: NSImage? = nil
                 var loadedColor: NSColor? = nil
                 
-                if let wallpaperURL = WallpaperHelper.getActiveDynamicWallpaperURL() {
+                if let wallpaperURL = await WallpaperHelper.getActiveDynamicWallpaperURL() {
                     if wallpaperURL.pathExtension.lowercased() == "mov" {
                         if let image = await WallpaperHelper.generateImageFromVideoWallpaper(videoURL: wallpaperURL, targetSize: 800) {
                             loadedImage = image
@@ -97,7 +97,6 @@ struct PreviewBackgroundView: View {
         .onDisappear {
             wallpaperImage = nil
             wallpaperColor = nil
-            WallpaperHelper.clearCache()
         }
     }
 }

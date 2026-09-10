@@ -61,7 +61,6 @@ struct WallpaperPickerView: View {
             builtInWallpapers.removeAll()
             desktopImage = nil
             desktopColor = nil
-            WallpaperHelper.clearCache()
         }
     }
     
@@ -78,7 +77,7 @@ struct WallpaperPickerView: View {
             var loadedImage: NSImage? = nil
             var loadedColor: NSColor? = nil
             
-            if let wallpaperURL = WallpaperHelper.getActiveDynamicWallpaperURL() {
+            if let wallpaperURL = await WallpaperHelper.getActiveDynamicWallpaperURL() {
                 if wallpaperURL.pathExtension.lowercased() == "mov" {
                     if let image = await WallpaperHelper.generateImageFromVideoWallpaper(videoURL: wallpaperURL, targetSize: 800) {
                         loadedImage = image

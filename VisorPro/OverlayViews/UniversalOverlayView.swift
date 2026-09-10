@@ -8,6 +8,7 @@ struct BendedCornerShape: InsettableShape, Sendable {
     var absoluteCutoutCenter: CGPoint
     var cutoutRadius: CGFloat
     var frameOffset: CGPoint
+    var isRightSide: Bool = false
     
     var insetAmount: CGFloat = 0
     
@@ -101,6 +102,13 @@ struct BendedCornerShape: InsettableShape, Sendable {
         }
         
         p.closeSubpath()
+        
+        if isRightSide {
+            let transform = CGAffineTransform(translationX: rect.width, y: 0)
+                .scaledBy(x: -1, y: 1)
+            return p.applying(transform)
+        }
+        
         return p
     }
 }
@@ -155,8 +163,9 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var isAnimating: Bool = false
     @State private var expandedHeight: CGFloat = 0
     @State private var bendProgress: CGFloat = 0
-    @AppStorage("enableCloseButton") private var enableCloseButton = true
-    @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = false
+    @AppStorage("enableCloseButton") private var enableCloseButton = false
+    @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = true
+    @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
     
     private var isGloballyHovered: Bool {
         guard let keepAliveId = keepAliveId else { return isHovering }
@@ -169,9 +178,10 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     var body: some View {
-        let dynamicOffset: CGFloat = -2 + (customHeight / 2 - 28) * 0.3
-        let buttonCenter = CGPoint(x: dynamicOffset + 10, y: dynamicOffset + 10)
         let width: CGFloat = customWidth
+        let dynamicOffset: CGFloat = -2 + (customHeight / 2 - 28) * 0.3
+        let buttonCenter = CGPoint(x: closeButtonOnRight ? width - (dynamicOffset + 10) : dynamicOffset + 10, y: dynamicOffset + 10)
+        let cutoutCenterForShape = CGPoint(x: closeButtonOnRight ? width - buttonCenter.x : buttonCenter.x, y: buttonCenter.y)
         let baseHeight: CGFloat = customHeight
         let outerRadius: CGFloat = baseHeight / 2
         let trackPadding: CGFloat = 4
@@ -231,7 +241,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             ZStack(alignment: .leading) {
                 // WARSTWA 1: Baza
                 Group {
-                    BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13 + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding))
+                    BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 13 + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
                         .strokeBorder(Color.primary.opacity(0.3), style: StrokeStyle(lineWidth: innerPadding, lineCap: .round, lineJoin: .round))
                         .padding(trackPadding)
                 }
@@ -240,11 +250,11 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 if showProgressBar {
                     ZStack {
                         if fillCenter {
-                            BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13 + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding))
+                            BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 13 + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
                                 .fill(isMuted ? Color.secondary.opacity(0.85) : barColor.opacity(0.95))
                                 .padding(trackPadding)
                         } else {
-                            BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13 + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding))
+                            BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 13 + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
                                 .strokeBorder(isMuted ? Color.secondary.opacity(0.85) : barColor.opacity(0.95), style: StrokeStyle(lineWidth: innerPadding, lineCap: .round, lineJoin: .round))
                                 .padding(trackPadding)
                         }
@@ -284,23 +294,23 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 
                 ZStack {
                     Color.clear.background(.thinMaterial)
-                        .clipShape(BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding)))
+                        .clipShape(BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight))
                     
                     if colorScheme == .dark {
-                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding))
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
                             .fill(Color.white.opacity(0.08))
                     } else {
-                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding))
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
                             .fill(Color.white.opacity(0.25))
                     }
                     
-                    BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding))
+                    BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
                         .strokeBorder(Color.glassBorder, style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
                 }
                 .padding(trackPadding + innerPadding)
             }
         )
-        .contentShape(BendedCornerShape(radius: innerRadius + trackPadding, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13, frameOffset: .zero))
+        .contentShape(BendedCornerShape(radius: innerRadius + trackPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 13, frameOffset: .zero, isRightSide: closeButtonOnRight))
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
@@ -366,20 +376,20 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         .background(
             (colorScheme == .dark ? Color.black.opacity(0.25) : Color.white.opacity(0.55))
                 .background(.thickMaterial)
-                .clipShape(BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13, frameOffset: .zero))
+                .clipShape(BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 13, frameOffset: .zero, isRightSide: closeButtonOnRight))
                 .overlay(
-                    BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13, frameOffset: .zero)
+                    BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 13, frameOffset: .zero, isRightSide: closeButtonOnRight)
                         .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.05) : Color.white.opacity(0.9), style: StrokeStyle(lineWidth: colorScheme == .dark ? 1 : 1.5, lineCap: .round, lineJoin: .round))
                 )
         )
         .background(
             ZStack {
-                BendedCornerShape(radius: max(0, outerRadius - 1), bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13 + 1, frameOffset: CGPoint(x: 1, y: 1))
+                BendedCornerShape(radius: max(0, outerRadius - 1), bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 13 + 1, frameOffset: CGPoint(x: 1, y: 1), isRightSide: closeButtonOnRight)
                     .fill(Color.black)
                     .padding(1)
                     .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
                 
-                BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: buttonCenter, cutoutRadius: 13, frameOffset: .zero)
+                BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 13, frameOffset: .zero, isRightSide: closeButtonOnRight)
                     .fill(Color.black)
                     .blendMode(.destinationOut)
                 
@@ -458,7 +468,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                             mediaKeyManager.forceHide(overlayId: id)
                         }
                     }
-                .offset(x: dynamicOffset, y: dynamicOffset)
+                .offset(x: buttonCenter.x - 10, y: dynamicOffset)
                 .opacity(shouldShowCloseButton ? 1 : 0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: shouldShowCloseButton)
             }
