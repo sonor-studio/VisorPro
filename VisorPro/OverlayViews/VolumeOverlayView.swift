@@ -79,6 +79,7 @@ struct VolumeOverlayView: View {
                         .frame(width: 26, height: 24)
                     
                     MarqueeText(text: actualIsMuted ? "Muted" : mediaKeyManager.currentAudioDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                        .id(actualIsMuted ? "muted" : mediaKeyManager.currentAudioDeviceName)
                     
                     Spacer(minLength: 8)
                     

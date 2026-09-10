@@ -53,7 +53,7 @@ struct DisplayOverlayView: View {
     }
     
     var body: some View {
-        let actionColor: Color = isConnected ? Color(red: 0.0, green: 0.8, blue: 0.7) : .gray
+        let actionColor: Color = isConnected ? Color(red: 0.0, green: 0.8, blue: 0.7) : .offStateGray
         let pos = MediaKeyManager.shared.getOverlayPosition(for: "displayOverlayPosition")
         
         return UniversalOverlayView(
@@ -62,7 +62,7 @@ struct DisplayOverlayView: View {
             showProgressBar: true,
             hasTimeoutProgress: true,
             timeoutEventId: notification?.timestamp ?? Date(timeIntervalSince1970: 0),
-            barColor: !isConnected ? .gray : (notification?.isModeChange == true ? OverlayColorManager.shared.getOverlayColor(for: "colorOnDisplayModeChange", defaultColor: actionColor) : OverlayColorManager.shared.getOverlayColor(for: "colorOnDisplayConnect", defaultColor: actionColor)),
+            barColor: !isConnected ? .offStateGray : (notification?.isModeChange == true ? OverlayColorManager.shared.getOverlayColor(for: "colorOnDisplayModeChange", defaultColor: actionColor) : OverlayColorManager.shared.getOverlayColor(for: "colorOnDisplayConnect", defaultColor: actionColor)),
             fillCenter: false,
             isMuted: false,
             customWidth: 260,
@@ -74,7 +74,7 @@ struct DisplayOverlayView: View {
                 HStack(alignment: .top, spacing: 0) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(isConnected ? .primary : .gray)
+                        .foregroundColor(isConnected ? .primary : .offStateGray)
                         .frame(width: 26, height: 24)
                         .padding(.leading, 16)
                         .padding(.top, 4)
@@ -82,7 +82,7 @@ struct DisplayOverlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(isConnected ? typeText : "Disconnected")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.offStateGray)
                             .padding(.leading, 14)
                             .padding(.trailing, 16)
                         
@@ -120,7 +120,7 @@ struct DisplayOverlayView: View {
                             .background(Color.primary.opacity(0.05))
                             .cornerRadius(6)
                         }
-                        .foregroundColor(.gray)
+                        .foregroundColor(.offStateGray)
                     }
                     
                     if isConnected {
@@ -133,7 +133,7 @@ struct DisplayOverlayView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 5)
                                     .background(isMirrored ? Color.clear : Color.primary.opacity(0.15))
-                                    .foregroundColor(isMirrored ? .gray : .primary)
+                                    .foregroundColor(isMirrored ? .offStateGray : .primary)
                                     .cornerRadius(6)
                             }
                             .contentShape(Rectangle())
@@ -147,7 +147,7 @@ struct DisplayOverlayView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 5)
                                     .background(!isMirrored ? Color.clear : Color.primary.opacity(0.15))
-                                    .foregroundColor(!isMirrored ? .gray : .primary)
+                                    .foregroundColor(!isMirrored ? .offStateGray : .primary)
                                     .cornerRadius(6)
                             }
                             .contentShape(Rectangle())

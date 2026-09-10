@@ -12,7 +12,7 @@ struct CapsLockOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsOn ? .mint : .gray
+        actualIsOn ? .mint : .offStateGray
     }
     
     private var actionTitle: String {
@@ -21,7 +21,6 @@ struct CapsLockOverlayView: View {
     
     var body: some View {
         let actionTitle = actualIsOn ? "Caps Lock ON" : "Caps Lock OFF"
-        let actionColor: Color = actualIsOn ? .mint : .gray
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -29,7 +28,7 @@ struct CapsLockOverlayView: View {
             showProgressBar: true,
             hasTimeoutProgress: true,
             timeoutEventId: mediaKeyManager.capsLockEventId,
-            barColor: actualIsOn ? OverlayColorManager.shared.getOverlayColor(for: "colorOnCapsLock", defaultColor: .green) : .gray,
+            barColor: actualIsOn ? OverlayColorManager.shared.getOverlayColor(for: "colorOnCapsLock", defaultColor: .green) : .offStateGray,
             fillCenter: false,
             isMuted: false,
             customWidth: 230,
@@ -55,7 +54,7 @@ struct CapsLockOverlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Keyboard")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.gray)
+                            .foregroundColor(.offStateGray)
                             
                         MarqueeText(text: actionTitle, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }

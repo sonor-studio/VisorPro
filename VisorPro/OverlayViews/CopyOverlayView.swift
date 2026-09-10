@@ -104,7 +104,6 @@ struct CopyOverlayView: View {
     
 
     var body: some View {
-        let _ = print("CopyOverlayView: body evaluated (isPreview=\(isPreview))")
         let canExpand = (clipboardEnableHistory && !currentHistory.isEmpty) || (textNeedsExpansion && clipboardEnablePreview)
         let trackWidth: CGFloat = 260 - 8
         let copyPos = MediaKeyManager.shared.getOverlayPosition(for: "copyOverlayPosition")

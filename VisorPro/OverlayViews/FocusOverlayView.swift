@@ -74,7 +74,7 @@ struct FocusOverlayView: View {
         } else {
             displayTitle = "Focus Off"
             displayIcon = "moon.zzz" 
-            displayColor = .gray
+            displayColor = .offStateGray
         }
         
         let details: MediaKeyManager.ActiveFocusDetails?

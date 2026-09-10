@@ -709,6 +709,7 @@ struct SingleOverlayContainer: View {
         .padding(.top, 10)
         .padding(.bottom, 15)
         .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: overlay.position.hasPrefix("bottom") ? .bottom : (overlay.position.hasPrefix("top") ? .top : .center))
     }
     
     @ViewBuilder
@@ -863,11 +864,13 @@ struct ScrollSwipeModifier: ViewModifier {
             if phase.rawValue == 0 && momentum.rawValue == 0 {
                 debounceTimer?.invalidate()
                 debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { _ in
-                    guard !isDismissing else { return }
-                    overlayState.activeSwipeIds.remove(overlayId)
-                    dragOffset = 0
-                    totalScrollDelta = 0
-                    overlayState.swipeOffsets[overlayId] = 0
+                    Task { @MainActor in
+                        guard !isDismissing else { return }
+                        overlayState.activeSwipeIds.remove(overlayId)
+                        dragOffset = 0
+                        totalScrollDelta = 0
+                        overlayState.swipeOffsets[overlayId] = 0
+                    }
                 }
             }
         }

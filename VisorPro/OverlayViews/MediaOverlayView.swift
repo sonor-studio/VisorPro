@@ -53,7 +53,7 @@ struct MediaOverlayView: View {
         case "start": return .blue
         case "resume": return .green
         case "pause": return .red
-        case "end": return .gray
+        case "end": return .offStateGray
         default: return .blue
         }
     }
@@ -105,7 +105,7 @@ struct MediaOverlayView: View {
             isExpanded: $isExpanded,
             showProgressBar: true,
             progress: playbackProgress,
-            barColor: actualAction == "end" ? .gray : OverlayColorManager.shared.getOverlayColor(for: actualAction == "pause" ? "colorMediaPause" : (actualAction == "resume" ? "colorMediaResume" : "colorMediaStart"), defaultColor: actionColor),
+            barColor: actualAction == "end" ? .offStateGray : OverlayColorManager.shared.getOverlayColor(for: actualAction == "pause" ? "colorMediaPause" : (actualAction == "resume" ? "colorMediaResume" : "colorMediaStart"), defaultColor: actionColor),
             fillCenter: false,
             customWidth: width,
             customHeight: height,
@@ -124,6 +124,7 @@ struct MediaOverlayView: View {
             expandUpwards: mediaPos.hasPrefix("bottom"),
             keepAliveId: "media",
             disableTimeoutMode: true,
+            fixedExpandedHeight: 50,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actionIcon)
@@ -131,39 +132,48 @@ struct MediaOverlayView: View {
                         .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
                     
-                    VStack(alignment: .leading, spacing: 2) {
-                        if actualDuration > 0 {
-                            HStack(spacing: 4) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Group {
+                            if actualDuration > 0 {
+                                HStack(spacing: 4) {
+                                    Text(actionTitle)
+                                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                                        .foregroundColor(.offStateGray)
+                                        .textCase(.uppercase)
+                                    
+                                    Text("•")
+                                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                                        .foregroundColor(.offStateGray)
+                                        .baselineOffset(1.0)
+                                    
+                                    MediaTimeText(elapsed: localElapsed, duration: actualDuration)
+                                }
+                            } else {
                                 Text(actionTitle)
                                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(.offStateGray)
                                     .textCase(.uppercase)
-                                
-                                Text("•")
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundColor(.gray)
-                                    .baselineOffset(1.0)
-                                
-                                Text("\(formatTime(localElapsed)) / \(formatTime(actualDuration))")
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundColor(.gray)
                             }
-                        } else {
-                            Text(actionTitle)
-                                .font(.system(size: 10, weight: .bold, design: .rounded))
-                                .foregroundColor(.gray)
-                                .textCase(.uppercase)
                         }
+                        .frame(height: 17, alignment: .center)
                         
                         MarqueeText(text: actualTitle, font: .system(size: 13, weight: .bold, design: .rounded), foregroundColor: .primary)
+                            .frame(height: 17, alignment: .center)
                             
-                        if !actualArtist.isEmpty {
-                            MarqueeText(text: actualArtist, font: .system(size: 11, weight: .medium, design: .rounded), foregroundColor: .gray)
+                        Group {
+                            if !actualArtist.isEmpty {
+                                MarqueeText(text: actualArtist, font: .system(size: 11, weight: .medium, design: .rounded), foregroundColor: .offStateGray)
+                            } else {
+                                Color.clear
+                            }
                         }
+                        .frame(height: 17, alignment: .center)
                     }
-                    
+                    .frame(height: 54)
+
                     
                 }
+                .frame(maxHeight: .infinity)
                 .padding(.horizontal, 16)
             },
             expandedContent: {
@@ -265,6 +275,18 @@ struct MediaOverlayView: View {
                 localElapsed += 0.1
             }
         }
+    }
+    
+}
+
+struct MediaTimeText: View {
+    var elapsed: Double
+    var duration: Double
+    
+    var body: some View {
+        Text("\(formatTime(elapsed)) / \(formatTime(duration))")
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .foregroundColor(.offStateGray)
     }
     
     private func formatTime(_ time: Double) -> String {

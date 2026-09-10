@@ -32,7 +32,13 @@ struct OverlayColorModePicker: View {
                             let uniqueColors = preset.colors.values.reduce(into: [String]()) { result, color in
                                 if !result.contains(color) { result.append(color) }
                             }
-                            let previewColors = uniqueColors.prefix(4).map { OverlayColorManager.shared.parseColor($0) }
+                            let previewColors: [Color] = {
+                                var colors = uniqueColors.prefix(4).map { OverlayColorManager.shared.parseColor($0) }
+                                if preset.id == "preset_monochrome" && !colors.contains(.secondary) {
+                                    colors.append(.secondary)
+                                }
+                                return colors
+                            }()
                             
                             ColorModeTile(
                                 title: preset.name,
@@ -210,10 +216,11 @@ struct ColorModeTile: View {
                         HStack(spacing: -8) {
                             ForEach(0..<min(4, colors.count), id: \.self) { i in
                                 Circle()
-                                    .fill(colors[i])
+                                    .fill(colors[i].opacity(0.8))
                                     .frame(width: 24, height: 24)
                                     .overlay(Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 2))
                                     .shadow(color: Color.black.opacity(0.1), radius: 1, x: 0, y: 1)
+                                    .zIndex(Double(colors.count - i))
                             }
                         }
                     } else if let color = colors.first {

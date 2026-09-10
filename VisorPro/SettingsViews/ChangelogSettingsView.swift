@@ -258,6 +258,132 @@ struct ChangelogSettingsView: View {
                                 }
                             }
                         )
+                        
+                        ChangelogCard(
+                            icon: "paintpalette.fill",
+                            title: "Color System",
+                            description: "Personalize your overlays with our new color system. Choose from enhanced presets to match your style.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.orange.opacity(0.05))
+                                
+                                HStack(spacing: -8) {
+                                    Circle().fill(Color.red.opacity(0.8)).frame(width: 32, height: 32)
+                                        .overlay(Circle().stroke(Color(NSColor.windowBackgroundColor), lineWidth: 2))
+                                    Circle().fill(Color.orange.opacity(0.8)).frame(width: 32, height: 32)
+                                        .overlay(Circle().stroke(Color(NSColor.windowBackgroundColor), lineWidth: 2))
+                                    Circle().fill(Color.blue.opacity(0.8)).frame(width: 32, height: 32)
+                                        .overlay(Circle().stroke(Color(NSColor.windowBackgroundColor), lineWidth: 2))
+                                    Circle().fill(Color.purple.opacity(0.8)).frame(width: 32, height: 32)
+                                        .overlay(Circle().stroke(Color(NSColor.windowBackgroundColor), lineWidth: 2))
+                                }
+                                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "doc.on.clipboard.fill",
+                            title: "Clipboard History UI",
+                            description: "We've added a refined interface for managing your clipboard history, making it easier to access and use your recent clips.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.blue.opacity(0.05))
+                                
+                                ZStack {
+                                    // Background item
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .frame(width: 80, height: 40)
+                                        .rotationEffect(.degrees(-8))
+                                        .offset(x: -10, y: 15)
+                                        .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+                                        .overlay(
+                                            HStack {
+                                                Image(systemName: "photo").foregroundColor(.purple.opacity(0.5)).font(.system(size: 14))
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.2)).frame(width: 30, height: 4)
+                                            }.padding(.horizontal, 10), alignment: .leading
+                                        )
+                                        
+                                    // Middle item
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .frame(width: 80, height: 40)
+                                        .rotationEffect(.degrees(4))
+                                        .offset(x: 15, y: -5)
+                                        .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+                                        .overlay(
+                                            HStack {
+                                                Image(systemName: "link").foregroundColor(.blue.opacity(0.5)).font(.system(size: 14))
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.2)).frame(width: 40, height: 4)
+                                            }.padding(.horizontal, 10), alignment: .leading
+                                        )
+                                        
+                                    // Front item
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .frame(width: 90, height: 45)
+                                        .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+                                        .overlay(
+                                            HStack {
+                                                Image(systemName: "text.alignleft").foregroundColor(.orange.opacity(0.8)).font(.system(size: 14))
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 45, height: 4)
+                                                    RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.3)).frame(width: 30, height: 4)
+                                                }
+                                            }.padding(.horizontal, 12), alignment: .leading
+                                        )
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "ladybug.fill",
+                            title: "Bug Fixes",
+                            description: "Resolved background Wi-Fi crashes on sleep, fixed an issue with headphone audio balance shifting when changing volume, and addressed overlay bend artifacts.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.green.opacity(0.05))
+                                
+                                ZStack {
+                                    // Background abstract code
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .frame(width: 80, height: 60)
+                                        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                        .overlay(
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.2)).frame(width: 50, height: 4)
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.2)).frame(width: 30, height: 4)
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.2)).frame(width: 40, height: 4)
+                                            }.padding(12), alignment: .topLeading
+                                        )
+                                        .rotationEffect(.degrees(-8))
+                                        .offset(x: -10, y: 5)
+                                        
+                                    // Floating magnifying glass focusing on the code
+                                    ZStack {
+                                        Image(systemName: "magnifyingglass")
+                                            .font(.system(size: 48, weight: .thin))
+                                            .foregroundColor(.primary.opacity(0.7))
+                                            
+                                        // The checkmark and glow grouped to center inside the lens
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color.green.opacity(0.15)) // The glass lens glow
+                                                .frame(width: 32, height: 32)
+                                                .blur(radius: 4)
+                                                
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(.green)
+                                        }
+                                        .offset(x: -5, y: -5) // Adjusted centering over the magnifying glass lens
+                                    }
+                                    .shadow(color: .black.opacity(0.15), radius: 5, y: 4)
+                                    .offset(x: 5, y: -5)
+                                }
+                            }
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -7,8 +7,10 @@ struct GeneralSettingsView: View {
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("overlayDisplayTarget") private var overlayDisplayTarget: String = "all"
     @AppStorage("previewBackgroundStyle") private var previewBackgroundStyle = "gradient"
+    @AppStorage("showMediaProgress") private var showMediaProgress = false
     @AppStorage("enableSwipeToDismiss") private var enableSwipeToDismiss = true
-    @AppStorage("enableCloseButton") private var enableCloseButton = false
+    @AppStorage("enableCloseButton") private var enableCloseButton = true
+    @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = false
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
@@ -359,20 +361,40 @@ struct GeneralSettingsView: View {
                         Divider().padding(.leading, 12)
                         
                         // Show close button
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Show close button")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.primary)
-                                Text("Displays an 'X' button in the top-left corner to quickly dismiss the overlay.")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.secondary)
+                        VStack(spacing: 0) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Show close button")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    Text("Displays an 'X' button in the top-left corner to quickly dismiss the overlay.")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Toggle("", isOn: $enableCloseButton).labelsHidden()
                             }
-                            Spacer()
-                            Toggle("", isOn: $enableCloseButton).labelsHidden()
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            
+                            if enableCloseButton {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Keep visible when expanded")
+                                            .font(.system(size: 13))
+                                            .foregroundColor(.primary)
+                                        Text("If disabled, the button only shows on direct hover, even if the overlay is expanded.")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Spacer()
+                                    Toggle("", isOn: $keepCloseButtonWhenExpanded).labelsHidden()
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .padding(.leading, 20)
+                            }
                         }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
                     }
                     .toggleStyle(.switch)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -396,9 +418,24 @@ struct GeneralSettingsView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Overlay Color Mode")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(.primary)
+                                    HStack(spacing: 8) {
+                                        Text("Overlay Color Mode")
+                                            .font(.system(size: 13, weight: .medium))
+                                            .foregroundColor(.primary)
+                                        if savedLicenseKey.isEmpty {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "checkmark.seal.fill")
+                                                Text("Premium")
+                                                    .fontWeight(.bold)
+                                            }
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.green)
+                                            .cornerRadius(4)
+                                        }
+                                    }
                                     Text("Customize the colors of the overlays.")
                                         .font(.system(size: 11))
                                         .foregroundColor(.secondary)
@@ -406,6 +443,8 @@ struct GeneralSettingsView: View {
                                 Spacer()
                             }
                             OverlayColorModePicker(mediaKeyManager: mediaKeyManager)
+                                .disabled(savedLicenseKey.isEmpty)
+                                .opacity(savedLicenseKey.isEmpty ? 0.6 : 1.0)
                         }
                         .padding(16)
                     }
@@ -532,11 +571,13 @@ struct GeneralSettingsView: View {
             launchAtLogin = (SMAppService.mainApp.status == .enabled)
             if savedLicenseKey.isEmpty {
                 mediaKeyManager.maxSimultaneousNotifications = 1
+                mediaKeyManager.resetColorsToDefault()
             }
         }
         .onChange(of: savedLicenseKey) { oldValue, newValue in
             if newValue.isEmpty {
                 mediaKeyManager.maxSimultaneousNotifications = 1
+                mediaKeyManager.resetColorsToDefault()
             }
         }
     }

@@ -83,7 +83,7 @@ struct BendedCornerShape: InsettableShape, Sendable {
             let angleEnd2 = atan2(intB.y - cy, intB.x - cx)
             
             var sA = angleStart2
-            var eA = angleEnd2
+            let eA = angleEnd2
             if sA < eA { sA += 2 * .pi } // Force DECREASING direction
             
             let steps = 24
@@ -143,6 +143,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var expandUpwards: Bool = false
     var keepAliveId: String? = nil
     var disableTimeoutMode: Bool = false
+    var fixedExpandedHeight: CGFloat? = nil
     
     @ViewBuilder var baseContent: () -> BaseContent
     @ViewBuilder var expandedContent: () -> ExpandedContent
@@ -154,7 +155,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var isAnimating: Bool = false
     @State private var expandedHeight: CGFloat = 0
     @State private var bendProgress: CGFloat = 0
-    @AppStorage("enableCloseButton") private var enableCloseButton = false
+    @AppStorage("enableCloseButton") private var enableCloseButton = true
+    @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = false
     
     private var isGloballyHovered: Bool {
         guard let keepAliveId = keepAliveId else { return isHovering }
@@ -182,23 +184,27 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 baseContent()
                     .frame(width: width, height: baseHeight)
                     .allowsHitTesting(false)
+                    .animation(nil, value: isExpanded)
                 
                 expandedContent()
                     .padding(.bottom, 16)
                     .frame(width: width)
                     .fixedSize(horizontal: false, vertical: true)
                     .background(
-                        GeometryReader { proxy in
-                            Color.clear.preference(key: ExpandedHeightPreferenceKey.self, value: proxy.size.height)
+                        Group {
+                            if fixedExpandedHeight == nil {
+                                GeometryReader { proxy in
+                                    Color.clear.preference(key: ExpandedHeightPreferenceKey.self, value: proxy.size.height)
+                                }
+                            }
                         }
                     )
-                    .frame(height: isExpanded ? expandedHeight : 0, alignment: .top)
+                    .frame(height: isExpanded ? (fixedExpandedHeight ?? expandedHeight) : 0, alignment: .top)
                     .clipped()
                     .opacity(isExpanded ? 1 : 0)
                     .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
-                        if height > 0 && abs(height - expandedHeight) > 0.5 {
-                            print("UniversalOverlayView: expandedHeight changed to \(height) (was \(expandedHeight))")
+                        if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 0.5 {
                             expandedHeight = height
                         }
                     }
@@ -207,7 +213,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             // Hidden pre-measurement overlay so expandedHeight is ready before first expand
             .background(
                 Group {
-                    if expandedHeight == 0 {
+                    if fixedExpandedHeight == nil && expandedHeight == 0 {
                         expandedContent()
                             .padding(.bottom, 16)
                             .frame(width: width)
@@ -391,13 +397,13 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         .onHoverExact { hovering in
             isHovering = hovering
             triggerKeepAlive(hoveringOverride: hovering)
-            let shouldBend = hovering && enableCloseButton && !isPreview
-            let target: CGFloat = shouldBend ? 1.0 : 0.0
-            if bendProgress != target {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    bendProgress = target
-                }
-            }
+            updateBendProgress()
+        }
+        .onChange(of: isGloballyHovered) { _, _ in
+            updateBendProgress()
+        }
+        .onChange(of: keepCloseButtonWhenExpanded) { _, _ in
+            updateBendProgress()
         }
         .onChange(of: isExpandable) { _, newValue in
             if !newValue && isExpanded {
@@ -440,7 +446,11 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .frame(width: 20, height: 20)
                     .background(
                         Circle()
-                            .fill(colorScheme == .dark ? Color(white: 0.2) : Color.white)
+                            .fill(colorScheme == .dark ? Color(white: 0.3) : Color(white: 0.96))
+                    )
+                    .overlay(
+                        Circle()
+                            .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.05) : Color.white.opacity(0.9), style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
                     )
                     .contentShape(Circle())
                     .onTapGesture {
@@ -449,8 +459,26 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         }
                     }
                 .offset(x: dynamicOffset, y: dynamicOffset)
-                .opacity(isGloballyHovered ? 1 : 0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isGloballyHovered)
+                .opacity(shouldShowCloseButton ? 1 : 0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: shouldShowCloseButton)
+            }
+        }
+    }
+    
+    private var shouldShowCloseButton: Bool {
+        guard enableCloseButton && !isPreview else { return false }
+        if keepCloseButtonWhenExpanded {
+            return isGloballyHovered
+        } else {
+            return isHovering
+        }
+    }
+    
+    private func updateBendProgress() {
+        let target: CGFloat = shouldShowCloseButton ? 1.0 : 0.0
+        if bendProgress != target {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                bendProgress = target
             }
         }
     }

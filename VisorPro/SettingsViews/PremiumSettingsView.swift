@@ -576,6 +576,27 @@ struct PremiumSettingsView: View {
                                 .offset(y: 4)
                             }
                         )
+
+                        WidgetPreviewCard(
+                            title: "Overlay Colors",
+                            description: "Customize the color scheme of your overlays with presets or choose your own style.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.orange.opacity(0.05))
+                                
+                                HStack(spacing: -8) {
+                                    Circle().fill(Color.red.opacity(0.8)).frame(width: 32, height: 32)
+                                        .overlay(Circle().stroke(Color(NSColor.windowBackgroundColor), lineWidth: 2))
+                                    Circle().fill(Color.orange.opacity(0.8)).frame(width: 32, height: 32)
+                                        .overlay(Circle().stroke(Color(NSColor.windowBackgroundColor), lineWidth: 2))
+                                    Circle().fill(Color.blue.opacity(0.8)).frame(width: 32, height: 32)
+                                        .overlay(Circle().stroke(Color(NSColor.windowBackgroundColor), lineWidth: 2))
+                                    Circle().fill(Color.purple.opacity(0.8)).frame(width: 32, height: 32)
+                                        .overlay(Circle().stroke(Color(NSColor.windowBackgroundColor), lineWidth: 2))
+                                }
+                                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                            }
+                        )
                     }
                 }
                 .padding(.horizontal, 4)

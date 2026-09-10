@@ -7,7 +7,7 @@ class OverlayColorManager: ObservableObject {
     
     @Published var dummyTrigger: Bool = false
     
-    let availableColors = ["Blue", "Red", "Green", "Yellow", "Orange", "Purple", "Pink", "Teal", "Indigo"]
+    let availableColors = ["Blue", "Red", "Green", "Yellow", "Orange", "Purple", "Pink", "Teal", "Indigo", "White/Black"]
     
     struct ColorPreset: Identifiable {
         let id: String
@@ -159,6 +159,30 @@ class OverlayColorManager: ObservableObject {
             "colorOnLocationOn": "Yellow",
             "colorOnDisplayConnect": "Green",
             "colorOnDisplayModeChange": "Yellow"
+        ]),
+        ColorPreset(id: "preset_monochrome", name: "Monochrome", colors: [
+            "colorOnVolume": "White/Black",
+            "colorOnBrightness": "White/Black",
+            "colorOnKeyboardBrightness": "White/Black",
+            "colorOnCopy": "White/Black",
+            "colorOnCut": "White/Black",
+            "colorOnPaste": "White/Black",
+            "colorOnCapsLock": "White/Black",
+            "colorOnLanguageChange": "White/Black",
+            "colorOnThemeDark": "White/Black",
+            "colorOnThemeLight": "White/Black",
+            "colorMediaStart": "White/Black",
+            "colorMediaPause": "White/Black",
+            "colorMediaResume": "White/Black",
+            "colorOnHighRam": "White/Black",
+            "colorOnWiFiConnect": "White/Black",
+            "colorOnBluetoothConnect": "White/Black",
+            "colorOnPeripheralConnect": "White/Black",
+            "colorOnMicOn": "White/Black",
+            "colorOnCameraOn": "White/Black",
+            "colorOnLocationOn": "White/Black",
+            "colorOnDisplayConnect": "White/Black",
+            "colorOnDisplayModeChange": "White/Black"
         ])
     ]
     
@@ -173,13 +197,18 @@ class OverlayColorManager: ObservableObject {
         case "Pink": return Color(red: 0.85, green: 0.15, blue: 0.55) // a more vibrant pink
         case "Teal": return .teal
         case "Indigo": return .indigo
-        case "Default": fallthrough
+        case "White/Black":
+            let theme = UserDefaults.standard.string(forKey: "overlayTheme") ?? "system"
+            if theme == "dark" { return .white }
+            if theme == "light" { return .black }
+            return .primary
+                case "Default": fallthrough
         default: return defaultColor
         }
     }
     
     func getOverlayColor(for key: String, defaultColor: Color = .blue) -> Color {
-        let mode = UserDefaults.standard.string(forKey: "overlayColorMode") ?? "custom"
+        let mode = UserDefaults.standard.string(forKey: "overlayColorMode") ?? "preset_default"
         
         if mode == "oneColor" {
             let hex = UserDefaults.standard.string(forKey: "globalOverlayColor") ?? "Default"
@@ -220,4 +249,16 @@ class OverlayColorManager: ObservableObject {
         "colorOnDisplayConnect": "Display Connected",
         "colorOnDisplayModeChange": "Display Mode Changed"
     ]
+}
+
+extension Color {
+    static var offStateGray: Color {
+        return Color(NSColor(name: nil, dynamicProvider: { appearance in
+            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
+                return NSColor(white: 0.6, alpha: 1.0)
+            } else {
+                return NSColor(white: 0.4, alpha: 1.0)
+            }
+        }))
+    }
 }

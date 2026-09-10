@@ -6,15 +6,18 @@ struct CustomSettingsRow<Content: View>: View {
     let title: String
     let subtitle: String?
     var appNameForIcon: String? = nil
+    var isPremiumFeature: Bool = false
     let content: () -> Content
     
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
 
-    init(icon: String, iconColor: Color, title: String, subtitle: String? = nil, appNameForIcon: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+    init(icon: String, iconColor: Color, title: String, subtitle: String? = nil, appNameForIcon: String? = nil, isPremiumFeature: Bool = false, @ViewBuilder content: @escaping () -> Content) {
         self.icon = icon
         self.iconColor = iconColor
         self.title = title
         self.subtitle = subtitle
         self.appNameForIcon = appNameForIcon
+        self.isPremiumFeature = isPremiumFeature
         self.content = content
     }
     
@@ -37,9 +40,24 @@ struct CustomSettingsRow<Content: View>: View {
             }
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.primary)
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.primary)
+                    if isPremiumFeature && savedLicenseKey.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.seal.fill")
+                            Text("Premium")
+                                .fontWeight(.bold)
+                        }
+                        .font(.system(size: 10))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.green)
+                        .cornerRadius(4)
+                    }
+                }
                 if let subtitle = subtitle {
                     Text(subtitle)
                         .font(.system(size: 11))
@@ -50,6 +68,8 @@ struct CustomSettingsRow<Content: View>: View {
             Spacer()
             
             content()
+                .disabled(isPremiumFeature && savedLicenseKey.isEmpty)
+                .opacity(isPremiumFeature && savedLicenseKey.isEmpty ? 0.6 : 1.0)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)

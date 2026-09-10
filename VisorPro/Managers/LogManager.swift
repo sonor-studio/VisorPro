@@ -99,8 +99,7 @@ class LogManager {
                 _ = try? data.write(to: logFileURL)
             }
         }
-        // Print to Xcode console for testing
-        print(logMessage, terminator: "")
+        // Print to Xcode console for testing (removed)
     }
     
     func getLogs() -> String {

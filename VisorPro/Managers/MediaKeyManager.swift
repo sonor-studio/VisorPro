@@ -35,7 +35,7 @@ extension Notification.Name {
 }
 
 class MediaKeyManager: ObservableObject {
-    @AppStorage("overlayColorMode") var overlayColorMode: String = "custom"
+    @AppStorage("overlayColorMode") var overlayColorMode: String = "preset_default"
     @AppStorage("globalOverlayColor") var globalOverlayColor: String = "Default"
     @AppStorage("colorOnVolume") var colorOnVolume: String = "Default"
     @AppStorage("colorOnBrightness") var colorOnBrightness: String = "Default"
@@ -60,6 +60,34 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("colorOnLocationOn") var colorOnLocationOn: String = "Default"
     @AppStorage("colorOnDisplayConnect") var colorOnDisplayConnect: String = "Default"
     @AppStorage("colorOnDisplayModeChange") var colorOnDisplayModeChange: String = "Default"
+    
+    func resetColorsToDefault() {
+        overlayColorMode = "preset_default"
+        globalOverlayColor = "Default"
+        colorOnVolume = "Default"
+        colorOnBrightness = "Default"
+        colorOnKeyboardBrightness = "Default"
+        colorOnCopy = "Default"
+        colorOnCut = "Default"
+        colorOnPaste = "Default"
+        colorOnCapsLock = "Default"
+        colorOnLanguageChange = "Default"
+        colorOnThemeDark = "Default"
+        colorOnThemeLight = "Default"
+        colorMediaStart = "Default"
+        colorMediaPause = "Default"
+        colorMediaResume = "Default"
+        colorMediaEnd = "Default"
+        colorOnHighRam = "Default"
+        colorOnWiFiConnect = "Default"
+        colorOnBluetoothConnect = "Default"
+        colorOnPeripheralConnect = "Default"
+        colorOnMicOn = "Default"
+        colorOnCameraOn = "Default"
+        colorOnLocationOn = "Default"
+        colorOnDisplayConnect = "Default"
+        colorOnDisplayModeChange = "Default"
+    }
     func getOverlayPosition(for key: String) -> String {
         let mode = UserDefaults.standard.string(forKey: "overlayPositionMode") ?? "custom"
         if mode == "fixed" {
@@ -2069,9 +2097,11 @@ class MediaKeyManager: ObservableObject {
         }
         self.overlayTriggerTimes["volume"] = Date()
         
-        volumeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self?.showVolumeIndicator = false
+        if !globalHoveredTypes.contains("volume") {
+            volumeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self?.showVolumeIndicator = false
+                }
             }
         }
     }
@@ -2094,9 +2124,11 @@ class MediaKeyManager: ObservableObject {
         }
         self.overlayTriggerTimes["brightness"] = Date()
         
-        brightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self?.showBrightnessIndicator = false
+        if !globalHoveredTypes.contains("brightness") {
+            brightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self?.showBrightnessIndicator = false
+                }
             }
         }
     }

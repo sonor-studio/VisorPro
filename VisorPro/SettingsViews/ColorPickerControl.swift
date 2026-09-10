@@ -3,6 +3,7 @@ import SwiftUI
 struct ColorPickerControl: View {
     @Binding var selectedColor: String
     let availableColors = OverlayColorManager.shared.availableColors
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     
     var body: some View {
         Menu {
@@ -10,20 +11,26 @@ struct ColorPickerControl: View {
                 Button(action: {
                     selectedColor = color
                 }) {
-                    Label {
-                        Text(color == "Default" ? "Default" : color)
-                    } icon: {
-                        Image(nsImage: createColorIcon(for: color))
-                    }
+                    Text(attributedText(for: color))
                 }
             }
         } label: {
             HStack(spacing: 6) {
-                Image(nsImage: createColorIcon(for: selectedColor))
+                if savedLicenseKey.isEmpty {
+                    Image(systemName: "lock.fill")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 10))
+                }
+                Circle()
+                    .fill(OverlayColorManager.shared.parseColor(selectedColor))
+                    .frame(width: 12, height: 12)
+                    .overlay(Circle().stroke(Color(NSColor.separatorColor), lineWidth: 0.5))
                 Text(selectedColor == "Default" ? "Default" : selectedColor)
             }
         }
         .fixedSize()
+        .disabled(savedLicenseKey.isEmpty)
+        .opacity(savedLicenseKey.isEmpty ? 0.6 : 1.0)
         .onAppear {
             if selectedColor == "Default" {
                 selectedColor = "Blue"
@@ -31,34 +38,15 @@ struct ColorPickerControl: View {
         }
     }
     
-    private func createColorIcon(for colorName: String) -> NSImage {
-        let size = NSSize(width: 14, height: 14)
-        let image = NSImage(size: size)
-        image.lockFocus()
+    private func attributedText(for colorName: String) -> AttributedString {
+        let color = OverlayColorManager.shared.parseColor(colorName)
+        var bullet = AttributedString("● ")
+        bullet.foregroundColor = color
+        bullet.font = .system(size: 16)
+        bullet.strokeColor = .gray
+        bullet.strokeWidth = -2.0
         
-        // Use the manager to parse the color string into a SwiftUI Color,
-        // but we need an NSColor.
-        // Actually, we can get NSColor by hardcoding or looking it up.
-        let nsColor: NSColor
-        switch colorName {
-        case "Blue": nsColor = .systemBlue
-        case "Red": nsColor = .systemRed
-        case "Green": nsColor = .systemGreen
-        case "Yellow": nsColor = .systemYellow
-        case "Orange": nsColor = .systemOrange
-        case "Purple": nsColor = .systemPurple
-        case "Pink": nsColor = NSColor(red: 0.85, green: 0.15, blue: 0.55, alpha: 1.0)
-        case "Teal": nsColor = .systemTeal
-        case "Indigo": nsColor = .systemIndigo
-        default: nsColor = .systemBlue
-        }
-        
-        nsColor.set()
-        let path = NSBezierPath(ovalIn: NSRect(origin: .zero, size: size))
-        path.fill()
-        
-        image.unlockFocus()
-        image.isTemplate = false
-        return image
+        let name = AttributedString(colorName == "Default" ? "Default" : colorName)
+        return bullet + name
     }
 }

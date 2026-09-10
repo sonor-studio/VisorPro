@@ -15,12 +15,14 @@ struct MarqueeText: View {
     @State private var textWidth: CGFloat = 0
     @State private var containerWidth: CGFloat = 0
     @State private var timer: Timer? = nil
+    @State private var animationId: UUID = UUID()
     
     var body: some View {
         Text(" ")
             .font(font)
             .lineLimit(1)
             .hidden()
+            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: alignment)
             .background(
                 GeometryReader { geo -> Color in
@@ -52,10 +54,11 @@ struct MarqueeText: View {
                             }
                         )
                         .offset(x: marqueeState == .scrolling ? -(textWidth - containerWidth) : 0)
-                        .animation(marqueeState == .scrolling ? .linear(duration: Double(textWidth - containerWidth) / 20.0) : .none, value: marqueeState)
+                        .animation(marqueeState == .scrolling ? .linear(duration: Double(max(0, textWidth - containerWidth)) / 20.0) : .none, value: marqueeState)
                 },
                 alignment: alignment
             )
+            .id(text)
             .clipped()
             .onAppear {
                 restartAnimation()
@@ -70,10 +73,12 @@ struct MarqueeText: View {
     }
     
     private func restartAnimation() {
-        print("MarqueeText: restartAnimation(textWidth=\(textWidth), containerWidth=\(containerWidth))")
         timer?.invalidate()
         timer = nil
         marqueeState = .idle
+        
+        let currentId = UUID()
+        animationId = currentId
         
         guard textWidth > containerWidth, containerWidth > 0 else {
             return
@@ -85,13 +90,16 @@ struct MarqueeText: View {
         
         // Initial start
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            guard animationId == currentId else { return }
             marqueeState = .scrolling
         }
         
         // Recurring loop
         timer = Timer.scheduledTimer(withTimeInterval: totalCycle, repeats: true) { _ in
+            guard animationId == currentId else { return }
             marqueeState = .idle
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                guard animationId == currentId else { return }
                 marqueeState = .scrolling
             }
         }
