@@ -3,6 +3,7 @@ import Combine
 
 struct PeripheralOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @State private var isExpanded: Bool = false
     @AppStorage("peripheralAllowExpansion") private var peripheralAllowExpansion: Bool = true
     @State private var isEjecting = false
@@ -44,12 +45,12 @@ struct PeripheralOverlayView: View {
     
     var isConnected: Bool {
         if let notif = actualNotification { return notif.isConnected }
-        return mediaKeyManager.peripheralIsConnected
+        return overlayState.peripheralIsConnected
     }
     
     var deviceName: String {
         if let notif = actualNotification { return notif.deviceName }
-        return mediaKeyManager.peripheralDeviceName
+        return overlayState.peripheralDeviceName
     }
     
     var iconName: String {
@@ -67,7 +68,7 @@ struct PeripheralOverlayView: View {
             if lower.contains("headphones") || lower.contains("audio") { return "headphones" }
             return notif.icon
         }
-        return mediaKeyManager.peripheralDeviceIcon
+        return overlayState.peripheralDeviceIcon
     }
     
     private var batteryLevel: Int? {
@@ -79,7 +80,7 @@ struct PeripheralOverlayView: View {
             let digits = rawBat.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
             if let val = Int(digits) { return val }
         }
-        if let val = mediaKeyManager.accessoryBatteryLevels[deviceName] {
+        if let val = overlayState.accessoryBatteryLevels[deviceName] {
             return val
         }
         return nil
@@ -90,7 +91,7 @@ struct PeripheralOverlayView: View {
         if let ch = actualNotification?.details?["Charging"] {
             return ch.lowercased().contains("yes") || ch.lowercased().contains("true")
         }
-        if let val = mediaKeyManager.accessoryBatteryCharging[deviceName] {
+        if let val = overlayState.accessoryBatteryCharging[deviceName] {
             return val
         }
         return isConnected
@@ -145,7 +146,7 @@ struct PeripheralOverlayView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(isConnected ? .primary : .secondary)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16)
+                        .padding(.leading, 16 + 4 + 3)
                         .padding(.top, 4)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -153,11 +154,11 @@ struct PeripheralOverlayView: View {
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
                             .padding(.leading, 14)
-                            .padding(.trailing, 16)
+                            .padding(.trailing, 16 + 4 + 3)
                         
                         MarqueeText(text: deviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             .padding(.leading, 14)
-                            .padding(.trailing, 16)
+                            .padding(.trailing, 16 + 4 + 3)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -291,9 +292,7 @@ struct PeripheralOverlayView: View {
                                             .cornerRadius(12)
                                     }
                                     .buttonStyle(.plain)
-                                    .onHover { hovering in
-                                        if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                                    }
+                                    .pointingHandCursor()
                                     .padding(.top, 4)
                                 }
                                 
@@ -395,6 +394,7 @@ struct PeripheralOverlayView: View {
                                     }
                                     .disabled(isMounting || (unmountedDeviceNode == nil && !isPreview))
                                     .buttonStyle(.plain)
+                                    .pointingHandCursor()
                                     .padding(.horizontal, 16)
                                 } else {
                                     HStack(spacing: 8) {
@@ -420,6 +420,7 @@ struct PeripheralOverlayView: View {
                                             .cornerRadius(28 - 4 - 3)
                                         }
                                         .buttonStyle(.plain)
+                                        .pointingHandCursor()
                                         
                                         Button(action: {
                                             if !isPreview, let notif = actualNotification {
@@ -459,6 +460,7 @@ struct PeripheralOverlayView: View {
                                         }
                                         .disabled(isEjecting)
                                         .buttonStyle(.plain)
+                                        .pointingHandCursor()
                                     }
                                     .padding(.horizontal, 16)
                                 }

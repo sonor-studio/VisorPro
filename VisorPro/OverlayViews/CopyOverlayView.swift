@@ -10,6 +10,7 @@ struct CopyOverlayView: View {
     @AppStorage("clipboardKeepExpandedOnPaste") var clipboardKeepExpandedOnPaste: Bool = false
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     var isPreview: Bool = false
     var previewAction: String? = nil
     
@@ -35,7 +36,7 @@ struct CopyOverlayView: View {
     }
     
     private var actualAction: String {
-        previewAction ?? mediaKeyManager.clipboardAction
+        previewAction ?? overlayState.clipboardAction
     }
     
     private var actionColor: Color {
@@ -78,28 +79,28 @@ struct CopyOverlayView: View {
         if let id = activePreviewId, let item = currentHistory.first(where: { $0.id == id }) {
             return item.text
         }
-        return isPreview ? "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg" : (mediaKeyManager.copiedText.isEmpty ? actionFallbackText : mediaKeyManager.copiedText)
+        return isPreview ? "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg" : (overlayState.copiedText.isEmpty ? actionFallbackText : overlayState.copiedText)
     }
 
     private var displayedApp: String {
         if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.app
         }
-        return mediaKeyManager.clipboardSourceApp.isEmpty ? "Unknown" : mediaKeyManager.clipboardSourceApp
+        return overlayState.clipboardSourceApp.isEmpty ? "Unknown" : overlayState.clipboardSourceApp
     }
     
     private var displayedFolder: String? {
         if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.folder
         }
-        return mediaKeyManager.clipboardSourceFolder
+        return overlayState.clipboardSourceFolder
     }
 
     private var displayedSize: String {
         if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.size
         }
-        return mediaKeyManager.clipboardMetadataSize.isEmpty ? "Unknown" : mediaKeyManager.clipboardMetadataSize
+        return overlayState.clipboardMetadataSize.isEmpty ? "Unknown" : overlayState.clipboardMetadataSize
     }
     
 
@@ -116,7 +117,7 @@ struct CopyOverlayView: View {
             progress: 1.0,
             customProgressMask: AnyView(
                 TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || mediaKeyManager.globalHoveredTypes.contains("copy"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
-                    .id(mediaKeyManager.clipboardEventId)
+                    .id(overlayState.clipboardEventId)
             ),
             barColor: OverlayColorManager.shared.getOverlayColor(for: actualAction == "copy" ? "colorOnCopy" : (actualAction == "cut" ? "colorOnCut" : "colorOnPaste"), defaultColor: actionColor),
             fillCenter: false, // The original uses strokeBorder
@@ -134,7 +135,7 @@ struct CopyOverlayView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16)
+                        .padding(.leading, 16 + 4 + 3)
                         .padding(.top, 4)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -143,12 +144,12 @@ struct CopyOverlayView: View {
                             .foregroundColor(.secondary)
                         
                         MarqueeText(text: displayedItemText, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                            .id(isExpanded)
+                            
                             .frame(height: 18)
                             .opacity((isExpanded && textNeedsExpansion && clipboardEnablePreview) ? 0 : 1)
                     }
                     .padding(.leading, 14)
-                    .padding(.trailing, 16)
+                    .padding(.trailing, 16 + 4 + 3)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.vertical, 5)
@@ -391,6 +392,7 @@ struct ClipboardHistoryRowView: View {
                 .onHover { hovering in
                     isHoveringEye = hovering
                 }
+                .pointingHandCursor()
             }
 
             if let icon = getAppIcon(appName: item.app) {
@@ -429,6 +431,7 @@ struct ClipboardHistoryRowView: View {
             .onHover { hovering in
                 isHoveringTrash = hovering
             }
+            .pointingHandCursor()
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
@@ -442,6 +445,7 @@ struct ClipboardHistoryRowView: View {
         .onHover { hovering in
             isHovering = hovering
         }
+        .pointingHandCursor()
     }
     
     private static var iconCache: [String: NSImage] = [:]

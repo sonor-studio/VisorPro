@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AccessoryBatteryOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @State private var animatedBatteryProgress: CGFloat = 0.0
     @State private var isExpanded: Bool = false
     @State private var hasFinishedChargeAnimation: Bool = false
@@ -14,22 +15,22 @@ struct AccessoryBatteryOverlayView: View {
     
     private var deviceName: String {
         if isPreview { return previewDeviceName }
-        return mediaKeyManager.accessoryBatteryDeviceName
+        return overlayState.accessoryBatteryDeviceName
     }
     
     private var percentage: Int {
         if isPreview { return previewPercentage }
-        return mediaKeyManager.accessoryBatteryPercentage
+        return overlayState.accessoryBatteryPercentage
     }
     
     private var isWarning: Bool {
         if isPreview { return previewIsWarning }
-        return mediaKeyManager.accessoryBatteryIsWarning
+        return overlayState.accessoryBatteryIsWarning
     }
     
     private var isPluggedIn: Bool {
         if isPreview { return previewIsPluggedIn }
-        return mediaKeyManager.accessoryBatteryIsPluggedIn
+        return overlayState.accessoryBatteryIsPluggedIn
     }
     
     private var isFullyCharged: Bool {
@@ -145,7 +146,7 @@ struct AccessoryBatteryOverlayView: View {
                     }
                     Spacer(minLength: 8)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 16 + 4 + 3)
             },
             expandedContent: {
                 VStack(spacing: 12) {
@@ -184,7 +185,7 @@ struct AccessoryBatteryOverlayView: View {
         .onAppear {
             runAnimation()
         }
-        .onChange(of: mediaKeyManager.accessoryBatteryEventId) { _, _ in
+        .onChange(of: overlayState.accessoryBatteryEventId) { _, _ in
             if !isPreview {
                 runAnimation()
             }

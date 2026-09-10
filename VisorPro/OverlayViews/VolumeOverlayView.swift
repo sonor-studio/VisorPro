@@ -2,6 +2,7 @@ import SwiftUI
 
 struct VolumeOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("volumeFillCenter") private var volumeFillCenter: Bool = false
     @AppStorage("volumeAllowExpansion") private var volumeAllowExpansion: Bool = true
     @AppStorage("volumeAllowInteractivity") private var volumeAllowInteractivity: Bool = true
@@ -13,11 +14,15 @@ struct VolumeOverlayView: View {
     var isPreview: Bool = false
     
     private var actualVolume: Int {
-        isPreview ? previewVolume : mediaKeyManager.currentVolume
+        isPreview ? previewVolume : overlayState.currentVolume
     }
     
     private var actualIsMuted: Bool {
-        isPreview ? false : mediaKeyManager.isMuted
+        isPreview ? false : overlayState.isMuted
+    }
+    
+    private var actionColor: Color {
+        actualIsMuted ? .secondary : OverlayColorManager.shared.getOverlayColor(for: "colorOnVolume", defaultColor: .blue)
     }
     
     private var iconName: String {
@@ -37,6 +42,7 @@ struct VolumeOverlayView: View {
     var body: some View {
         let currentDevices = isPreview ? [(id: UInt32(1), name: "MacBook Pro Speakers"), (id: UInt32(2), name: "AirPods Pro")] : availableDevices
         let volPos = MediaKeyManager.shared.getOverlayPosition(for: "volumeOverlayPosition")
+        let calcHeight: CGFloat = currentDevices.isEmpty ? 18 : 18 + CGFloat(currentDevices.count * 32 + (currentDevices.count - 1) * 4)
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -57,20 +63,13 @@ struct VolumeOverlayView: View {
             onLeftTap: {
                 if !isPreview { mediaKeyManager.toggleVolumeMute() }
             },
-            onRightTap: {
-                if !isExpanded {
-                    availableDevices = VolumeManager.shared.getAvailableOutputDevices()
-                }
-            },
-            onSimpleTap: {
-                if !isExpanded {
-                    availableDevices = VolumeManager.shared.getAvailableOutputDevices()
-                }
-            },
+            onRightTap: nil,
+            onSimpleTap: nil,
             isExpandable: volumeAllowExpansion,
             expandUpwards: volPos.hasPrefix("bottom"),
             keepAliveId: "volume",
             disableTimeoutMode: true,
+            fixedExpandedHeight: calcHeight,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)
@@ -78,8 +77,8 @@ struct VolumeOverlayView: View {
                         .foregroundColor(actualIsMuted ? .secondary : .primary)
                         .frame(width: 26, height: 24)
                     
-                    MarqueeText(text: actualIsMuted ? "Muted" : mediaKeyManager.currentAudioDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                        .id(actualIsMuted ? "muted" : mediaKeyManager.currentAudioDeviceName)
+                    MarqueeText(text: actualIsMuted ? "Muted" : overlayState.currentAudioDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                        .id(actualIsMuted ? "muted" : overlayState.currentAudioDeviceName)
                     
                     Spacer(minLength: 8)
                     
@@ -88,32 +87,33 @@ struct VolumeOverlayView: View {
                 .padding(.horizontal, 16 + 4 + 3) // 16 + trackPadding + innerPadding
             },
             expandedContent: {
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(currentDevices, id: \.id) { device in
-                            DeviceRowView(
-                                device: device,
-                                isCurrent: isPreview ? (device.id == 2) : device.name == mediaKeyManager.currentAudioDeviceName,
-                                onSelect: {
-                                    if !isPreview {
-                                        VolumeManager.shared.setOutputDevice(id: device.id)
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            isExpanded = false
-                                        }
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(currentDevices, id: \.id) { device in
+                        DeviceRowView(
+                            device: device,
+                            isCurrent: isPreview ? (device.id == 2) : device.name == overlayState.currentAudioDeviceName,
+                            tintColor: actionColor,
+                            onSelect: {
+                                if !isPreview {
+                                    VolumeManager.shared.setOutputDevice(id: device.id)
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        isExpanded = false
                                     }
                                 }
-                            )
-                        }
+                            }
+                        )
                     }
-                    .padding(.top, 2)
-                    
-                    .padding(.horizontal, 4 + 3 + 4)
                 }
+                .padding(.top, 2)
+                .padding(.horizontal, 4 + 3 + 4)
             }
         )
 
 
         .onAppear {
+            if !isPreview {
+                availableDevices = VolumeManager.shared.getAvailableOutputDevices()
+            }
             if isPreview {
                 _animatedVolumeProgress = 0.2
                 withAnimation(.easeInOut(duration: 1.0)) {
@@ -135,8 +135,8 @@ struct VolumeOverlayView: View {
                 _animatedVolumeProgress = targetProgress
             }
         }
-        .onChange(of: mediaKeyManager.audioDevicesChanged) { _, _ in
-            if isExpanded {
+        .onChange(of: overlayState.audioDevicesChanged) { _, _ in
+            if !isPreview {
                 availableDevices = VolumeManager.shared.getAvailableOutputDevices()
             }
         }

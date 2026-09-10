@@ -65,7 +65,6 @@ struct KeyboardSettingsView: View {
                         Divider()
                     
                         VStack(alignment: .leading, spacing: 24) {
-                            // Caps Lock Category Card
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Caps Lock")
                                     .font(.system(size: 14, weight: .bold))
@@ -156,7 +155,6 @@ struct KeyboardSettingsView: View {
                         
                             Divider()
                         
-                            // Language Category Card
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Language")
                                     .font(.system(size: 14, weight: .bold))

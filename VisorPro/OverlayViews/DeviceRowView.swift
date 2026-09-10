@@ -31,9 +31,9 @@ struct DeviceRowView: View {
         }
         .buttonStyle(.plain)
         .transition(.identity)
+        .pointingHandCursor()
         .onHoverExact { hovering in
             withAnimation(.easeInOut(duration: 0.12)) { isHovering = hovering }
-            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
     }
 }

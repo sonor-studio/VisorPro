@@ -16,7 +16,6 @@ struct RamChartView: View {
             let count = history.count
             
             ZStack(alignment: .topLeading) {
-                // Tło i siatka (Grid)
                 ForEach([0, 50, 100], id: \.self) { val in
                     let yPos = h - (CGFloat(val) / 100.0 * h)
                     
@@ -61,7 +60,6 @@ struct RamChartView: View {
                 if count > 1 {
                     let step = w / CGFloat(max(1, count - 1))
                     
-                    // Wypełnienie (Gradient)
                     Path { path in
                         for (index, value) in history.enumerated() {
                             let normalizedValue = max(0, min(100, value)) / 100.0
@@ -80,7 +78,6 @@ struct RamChartView: View {
                     }
                     .fill(LinearGradient(gradient: Gradient(colors: [color.opacity(0.4), color.opacity(0.0)]), startPoint: .top, endPoint: .bottom))
                     
-                    // Główna linia wykresu
                     Path { path in
                         for (index, value) in history.enumerated() {
                             let normalizedValue = max(0, min(100, value)) / 100.0
@@ -96,7 +93,6 @@ struct RamChartView: View {
                     }
                     .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
                     
-                    // Punkt oznaczający aktualną wartość
                     if let lastValue = history.last {
                         let normalizedValue = max(0, min(100, lastValue)) / 100.0
                         let y = h - (CGFloat(normalizedValue) * h)

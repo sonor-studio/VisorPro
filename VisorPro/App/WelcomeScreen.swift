@@ -1,11 +1,13 @@
 import SwiftUI
 import ApplicationServices
 import Combine
-
+import ServiceManagement
 struct WelcomeScreen: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
-    @State private var currentTab = UserDefaults.standard.bool(forKey: "hasCompletedWelcome") ? 6 : 0
+    @AppStorage("launchAtLogin") private var launchAtLogin = false
+    @State private var launchAtLoginWelcome = true
+    @State private var currentTab = UserDefaults.standard.bool(forKey: "hasCompletedWelcome") ? 7 : 0
     @State private var isTrusted = checkAXIsProcessTrustedReliably()
     @State private var goForward: Bool = true
     @State private var window: NSWindow?
@@ -40,6 +42,9 @@ struct WelcomeScreen: View {
             } else if currentTab == 5 {
                 tutorialScreenThree
                     .transition(activeTransition)
+            } else if currentTab == 6 {
+                autostartScreen
+                    .transition(activeTransition)
             } else {
                 permissionsScreen
                     .transition(activeTransition)
@@ -53,14 +58,14 @@ struct WelcomeScreen: View {
                 ZStack(alignment: .bottom) {
                     HStack {
                         Spacer()
-                        if currentTab < 6 {
+                        if currentTab < 7 {
                             Button("Skip") {
                                 if isTrusted {
                                     hasCompletedWelcome = true
                                 } else {
                                     goForward = true
                                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                                        currentTab = 6
+                                        currentTab = 7
                                     }
                                 }
                             }
@@ -73,9 +78,9 @@ struct WelcomeScreen: View {
                         }
                     }
                     
-                    if currentTab < 7 {
+                    if currentTab < 8 {
                         HStack(spacing: 8) {
-                            ForEach(0..<7) { index in
+                            ForEach(0..<8) { index in
                                 Circle()
                                     .fill(currentTab == index ? Color.primary : Color.secondary.opacity(0.3))
                                     .frame(width: 8, height: 8)
@@ -107,7 +112,7 @@ struct WelcomeScreen: View {
                 }
                 if !trusted && hasCompletedWelcome {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                        currentTab = 6
+                        currentTab = 7
                     }
                 }
             }
@@ -554,6 +559,110 @@ struct WelcomeScreen: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    var autostartScreen: some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 12) {
+            Spacer(minLength: 0)
+            
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.green)
+                    .frame(width: 56, height: 56)
+                Image(systemName: "macwindow")
+                    .font(.system(size: 26))
+                    .foregroundColor(.white)
+            }
+            .padding(.bottom, 4)
+            
+            VStack(spacing: 6) {
+                Text("Launch at Login")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                
+                Text("Start VisorPro automatically when you turn on your Mac. You can always change this later in Settings.")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.bottom, 16)
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Launch at login")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.primary)
+                    Text("Automatically start VisorPro when you log in.")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Toggle("", isOn: $launchAtLoginWelcome)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.secondary.opacity(0.1))
+            )
+            .padding(.horizontal, 40)
+            
+            Spacer(minLength: 16)
+            }
+            .frame(maxHeight: .infinity)
+            
+            HStack(spacing: 16) {
+                Button(action: {
+                    goForward = false
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 5
+                    }
+                }) {
+                    Text("Back")
+                        .font(.headline)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                
+                Button(action: {
+                    if launchAtLoginWelcome {
+                        do {
+                            try SMAppService.mainApp.register()
+                            launchAtLogin = true
+                        } catch {
+                            print("Error registering app for login: \(error)")
+                        }
+                    } else {
+                        do {
+                            try SMAppService.mainApp.unregister()
+                            launchAtLogin = false
+                        } catch {
+                            print("Error unregistering app for login: \(error)")
+                        }
+                    }
+                    goForward = true
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        currentTab = 7
+                    }
+                }) {
+                    Text("Continue")
+                        .font(.headline)
+                        .padding(.horizontal, 40)
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+        }
+        .padding(.horizontal, 30)
+        .padding(.top, 30)
+        .padding(.bottom, 50)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     var permissionsScreen: some View {
         VStack(spacing: 0) {
             VStack(spacing: 12) {
@@ -645,7 +754,7 @@ struct WelcomeScreen: View {
                     Button(action: {
                         goForward = false
                         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                            currentTab = 4
+                            currentTab = 6
                         }
                     }) {
                         Text("Back")

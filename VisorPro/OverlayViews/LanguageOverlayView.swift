@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LanguageOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("languageAllowExpansion") private var languageAllowExpansion: Bool = true
     @State private var isExpanded = false
     @State private var availableLanguages: [KeyboardLayout] = []
@@ -16,17 +17,17 @@ struct LanguageOverlayView: View {
     
     var body: some View {
         
-        let displayLanguage = isPreview ? (previewLanguage ?? "English (US)") : mediaKeyManager.currentKeyboardLanguage
-        
+        let displayLanguage = isPreview ? (previewLanguage ?? "English (US)") : overlayState.currentKeyboardLanguage
         let langPos = MediaKeyManager.shared.getOverlayPosition(for: "languageOverlayPosition")
+        let actionColor = OverlayColorManager.shared.getOverlayColor(for: "colorOnLanguageChange", defaultColor: .blue)
         
         return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: $isExpanded,
             showProgressBar: true,
             hasTimeoutProgress: true,
-            timeoutEventId: mediaKeyManager.languageEventId,
-            barColor: OverlayColorManager.shared.getOverlayColor(for: "colorOnLanguageChange", defaultColor: .blue),
+            timeoutEventId: overlayState.languageEventId,
+            barColor: actionColor,
             fillCenter: false,
             customWidth: 260,
             customHeight: 56,
@@ -57,31 +58,29 @@ struct LanguageOverlayView: View {
                 .padding(.horizontal, 16 + 4 + 3)
             },
             expandedContent: {
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(availableLanguages, id: \.id) { layout in
-                            LanguageRowView(
-                                layout: layout,
-                                isPreview: isPreview,
-                                onSelect: {
-                                    if !isPreview {
-                                        mediaKeyManager.currentKeyboardLanguage = layout.name
-                                        mediaKeyManager.selectLanguage(idToSelect: layout.id)
-                                    }
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        isExpanded = false
-                                    }
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(availableLanguages, id: \.id) { layout in
+                        LanguageRowView(
+                            layout: layout,
+                            isPreview: isPreview,
+                            tintColor: actionColor,
+                            onSelect: {
+                                if !isPreview {
+                                    overlayState.currentKeyboardLanguage = layout.name
+                                    mediaKeyManager.selectLanguage(idToSelect: layout.id)
                                 }
-                            )
-                        }
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isExpanded = false
+                                }
+                            }
+                        )
                     }
-                    .padding(.top, 2)
-                    
-                    .padding(.horizontal, 8)
                 }
+                .padding(.top, 2)
+                .padding(.horizontal, 4 + 3 + 4)
             }
         )
-        .id(mediaKeyManager.languageEventId)
+        .id(overlayState.languageEventId)
         .onAppear {
             if isPreview {
                 availableLanguages = [
@@ -90,22 +89,12 @@ struct LanguageOverlayView: View {
                     KeyboardLayout(id: "3", name: "Emoji", isSelected: false)
                 ]
             } else {
-                DispatchQueue.global(qos: .userInitiated).async {
-                    let langs = mediaKeyManager.getAvailableLanguages()
-                    DispatchQueue.main.async {
-                        self.availableLanguages = langs
-                    }
-                }
+                availableLanguages = mediaKeyManager.getAvailableLanguages()
             }
         }
-        .onChange(of: mediaKeyManager.currentKeyboardLanguage) { _, _ in
+        .onChange(of: overlayState.currentKeyboardLanguage) { _, _ in
             if !isPreview {
-                DispatchQueue.global(qos: .userInitiated).async {
-                    let langs = mediaKeyManager.getAvailableLanguages()
-                    DispatchQueue.main.async {
-                        self.availableLanguages = langs
-                    }
-                }
+                availableLanguages = mediaKeyManager.getAvailableLanguages()
             }
         }
     }
@@ -114,6 +103,7 @@ struct LanguageOverlayView: View {
 struct LanguageRowView: View {
     let layout: KeyboardLayout
     let isPreview: Bool
+    var tintColor: Color = .blue
     let onSelect: () -> Void
     
     @State private var isHovering = false
@@ -128,18 +118,19 @@ struct LanguageRowView: View {
                 if layout.isSelected || (isPreview && layout.name == "English (US)") {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.purple)
+                        .foregroundColor(tintColor)
                 }
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.primary.opacity(isHovering ? 0.05 : 0.001))
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isHovering ? Color.primary.opacity(0.08) : Color.clear)
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
-        .contentShape(Rectangle())
+        .pointingHandCursor()
         .onHoverExact { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovering = hovering
@@ -151,4 +142,5 @@ struct LanguageRowView: View {
 #Preview {
     LanguageOverlayView(isPreview: true, previewLanguage: "English (US)")
         .environmentObject(MediaKeyManager())
+        .environmentObject(OverlayStateRelay.shared)
 }

@@ -338,8 +338,8 @@ struct ChangelogSettingsView: View {
                         
                         ChangelogCard(
                             icon: "ladybug.fill",
-                            title: "Bug Fixes",
-                            description: "Resolved background Wi-Fi crashes on sleep, fixed an issue with headphone audio balance shifting when changing volume, and addressed overlay bend artifacts.",
+                            title: "Bug Fixes & Optimizations",
+                            description: "Resolved background Wi-Fi crashes, fixed headphone audio balance shifts, addressed overlay artifacts, and heavily optimized the app for a smoother experience.",
                             preview: ZStack {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.green.opacity(0.05))

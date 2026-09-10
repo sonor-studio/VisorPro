@@ -34,6 +34,8 @@ struct VisorProApp: App {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
+    @AppStorage("showSystemModule") private var showSystemModule = true
     
     var body: some Scene {
         let _ = { appDelegate.openSettingsAction = { openSettings() } }()
@@ -41,12 +43,42 @@ struct VisorProApp: App {
         Settings {
             RootView()
                 .environmentObject(mediaKeyManager)
+                .environmentObject(OverlayStateRelay.shared)
         }
         // Removed .windowResizability(.contentSize) from Settings so it remembers size
         
 
         
         MenuBarExtra("VisorPro", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
+            let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+            Button("Visor Pro v\(appVersion)") {}
+                .disabled(true)
+            
+            Divider()
+            
+            Menu("Quick Toggles") {
+                Toggle("Volume", isOn: $mediaKeyManager.enableVolume)
+                Toggle("Brightness", isOn: $mediaKeyManager.enableBrightness)
+                Toggle("Keyboard Brightness", isOn: $mediaKeyManager.enableKeyboardBrightness)
+                Toggle("Battery", isOn: $mediaKeyManager.enableBattery)
+                Toggle("Keyboard", isOn: $mediaKeyManager.enableKeyboard)
+                
+                if !savedLicenseKey.isEmpty {
+                    Divider()
+                    Toggle("Media", isOn: $mediaKeyManager.enableMediaNotification)
+                    Toggle("Wi-Fi", isOn: $mediaKeyManager.enableWiFi)
+                    Toggle("Bluetooth", isOn: $mediaKeyManager.enableBluetooth)
+                    Toggle("Privacy", isOn: $mediaKeyManager.enablePrivacy)
+                    Toggle("Theme", isOn: $mediaKeyManager.enableTheme)
+                    Toggle("Focus Mode", isOn: $mediaKeyManager.enableFocus)
+                    Toggle("Peripherals", isOn: $mediaKeyManager.enablePeripheral)
+                    Toggle("Displays", isOn: $mediaKeyManager.enableDisplay)
+                    Toggle("System", isOn: $showSystemModule)
+                }
+            }
+            
+            Divider()
+            
             Button("Dashboard") {
                 appDelegate.openDashboard()
             }
@@ -90,7 +122,7 @@ struct RootView: View {
                 consumeForceDashboardFlag()
             }
         }
-        .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
+        .onReceive(Timer.publish(every: 3.0, on: .main, in: .common).autoconnect()) { _ in
             let trusted = checkAXIsProcessTrustedReliably()
             if isTrusted != trusted {
                 isTrusted = trusted

@@ -3,14 +3,15 @@ import SwiftUI
 struct RamOverlayView: View {
     @State private var isExpanded: Bool = false
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     var isPreview: Bool = false
     
     var body: some View {
         let ramOverlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
-        let percent = isPreview ? 95.0 : mediaKeyManager.ramUsagePercent
-        let used = isPreview ? 15.2 : mediaKeyManager.usedRamGB
-        let total = isPreview ? 16.0 : mediaKeyManager.totalRamGB
-        let history = isPreview ? [62.0, 65.0, 68.0, 72.0, 70.0, 75.0, 78.0, 82.0, 80.0, 85.0, 88.0, 91.0, 89.0, 93.0, 95.0, 95.0] : mediaKeyManager.ramUsageHistory
+        let percent = isPreview ? 95.0 : overlayState.ramUsagePercent
+        let used = isPreview ? 15.2 : overlayState.usedRamGB
+        let total = isPreview ? 16.0 : overlayState.totalRamGB
+        let history = isPreview ? [62.0, 65.0, 68.0, 72.0, 70.0, 75.0, 78.0, 82.0, 80.0, 85.0, 88.0, 91.0, 89.0, 93.0, 95.0, 95.0] : overlayState.ramUsageHistory
         let getIcon = { (name: String) -> NSImage? in
             if let path = NSWorkspace.shared.perform(NSSelectorFromString("fullPathForApplication:"), with: name)?.takeUnretainedValue() as? String {
                 return NSWorkspace.shared.icon(forFile: path)
@@ -26,7 +27,7 @@ struct RamOverlayView: View {
             ("Safari", 0.9, getIcon("com.apple.Safari")),
             ("Microsoft Word", 0.5, NSImage(named: "PreviewWord")),
             ("Terminal", 0.2, getIcon("com.apple.Terminal"))
-        ] : mediaKeyManager.ramTopProcesses
+        ] : overlayState.ramTopProcesses
         
         let trackWidth: CGFloat = 260 - 8
         let themeColor = OverlayColorManager.shared.getOverlayColor(for: "colorOnHighRam", defaultColor: .red)
@@ -38,7 +39,7 @@ struct RamOverlayView: View {
             progress: percent / 100.0,
             customProgressMask: AnyView(
                 TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || mediaKeyManager.globalHoveredTypes.contains("ram"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
-                    .id(mediaKeyManager.ramEventId)
+                    .id(overlayState.ramEventId)
             ),
             barColor: OverlayColorManager.shared.getOverlayColor(for: "colorOnHighRam", defaultColor: .red),
             fillCenter: false,
@@ -58,7 +59,7 @@ struct RamOverlayView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16)
+                        .padding(.leading, 16 + 4 + 3)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text("RAM Usage")

@@ -2,12 +2,16 @@ import SwiftUI
 
 struct FocusOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     
     var isPreview: Bool = false
     var previewIsActive: Bool = false
     var previewModeName: String = "Praca"
     
     private func getColor(from name: String) -> Color {
+        if mediaKeyManager.overlayColorMode == "preset_monochrome" {
+            return OverlayColorManager.shared.parseColor("White/Black")
+        }
         switch name {
         case "systemMintColor": return .mint
         case "systemGreenColor": return .green
@@ -53,10 +57,10 @@ struct FocusOverlayView: View {
             iconName = "moon.fill"
             iconColor = getColor(from: "systemIndigoColor")
         } else {
-            active = mediaKeyManager.isFocusModeActive
-            modeName = mediaKeyManager.focusModeName
-            iconName = mediaKeyManager.focusSymbol
-            iconColor = getColor(from: mediaKeyManager.focusColorName)
+            active = overlayState.isFocusModeActive
+            modeName = overlayState.focusModeName
+            iconName = overlayState.focusSymbol
+            iconColor = getColor(from: overlayState.focusColorName)
         }
         
         let displayTitle: String
@@ -67,7 +71,7 @@ struct FocusOverlayView: View {
             if isPreview {
                 displayTitle = "Focus On"
             } else {
-                displayTitle = mediaKeyManager.isFocusSwitched ? "Focus Switched" : (mediaKeyManager.isFocusReminder ? "Focus Reminder" : "Focus On")
+                displayTitle = overlayState.isFocusSwitched ? "Focus Switched" : (overlayState.isFocusReminder ? "Focus Reminder" : "Focus On")
             }
             displayIcon = iconName
             displayColor = iconColor
@@ -96,8 +100,8 @@ struct FocusOverlayView: View {
                 lastEnded = nil
             }
         } else {
-            details = mediaKeyManager.activeFocusDetails
-            lastEnded = mediaKeyManager.lastEndedFocusDetails
+            details = overlayState.activeFocusDetails
+            lastEnded = overlayState.lastEndedFocusDetails
         }
         
         let isExpandable = (active && details != nil) || (!active && lastEnded != nil)
@@ -107,7 +111,7 @@ struct FocusOverlayView: View {
             isExpanded: $isExpanded,
             showProgressBar: true,
             hasTimeoutProgress: true,
-            timeoutEventId: mediaKeyManager.focusEventId,
+            timeoutEventId: overlayState.focusEventId,
             barColor: displayColor,
             fillCenter: false,
             isMuted: false,
@@ -124,7 +128,7 @@ struct FocusOverlayView: View {
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        if active && details != nil && mediaKeyManager.isFocusReminder, let startDate = details?.startDate {
+                        if active && details != nil && overlayState.isFocusReminder, let startDate = details?.startDate {
                             HStack(spacing: 4) {
                                 Text(displayTitle)
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -145,7 +149,7 @@ struct FocusOverlayView: View {
                                 }
                             }
                             MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                        } else if active && details != nil && !mediaKeyManager.isFocusReminder && !mediaKeyManager.isFocusSwitched {
+                        } else if active && details != nil && !overlayState.isFocusReminder && !overlayState.isFocusSwitched {
                             if let endDate = details?.endDate, let timeStr = getEndDateString(date: endDate) {
                                 HStack(spacing: 4) {
                                     Text(displayTitle)
@@ -277,7 +281,6 @@ struct FocusOverlayView: View {
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 16)
                     .padding(.top, 12)
                 } else if !active, let lastEnded = lastEnded {
                     if let start = lastEnded.startDate, let end = lastEnded.endedAt {
@@ -295,7 +298,6 @@ struct FocusOverlayView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
                         .padding(.top, 4)
                     }
                 } else {
@@ -303,7 +305,7 @@ struct FocusOverlayView: View {
                 }
             }
         )
-        .id(mediaKeyManager.focusEventId)
+        .id(overlayState.focusEventId)
         .frame(width: 240, alignment: .top)
     }
 }

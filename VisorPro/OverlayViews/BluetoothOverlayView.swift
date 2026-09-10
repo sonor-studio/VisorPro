@@ -3,6 +3,7 @@ import IOBluetooth
 
 struct BluetoothOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("bluetoothAllowExpansion") private var bluetoothAllowExpansion: Bool = true
     @State private var isHovering = false
     @State private var refreshTimer: Timer?
@@ -16,13 +17,13 @@ struct BluetoothOverlayView: View {
     private var actualIsConnected: Bool {
         if isPreview { return previewIsConnected }
         if let notif = notification { return notif.isConnected }
-        return mediaKeyManager.bluetoothIsConnected // Fallback if needed
+        return overlayState.bluetoothIsConnected // Fallback if needed
     }
     
     private var actualDeviceName: String {
         if isPreview { return previewDeviceName }
         if let notif = notification { return notif.deviceName }
-        return mediaKeyManager.bluetoothDeviceName
+        return overlayState.bluetoothDeviceName
     }
     
     private var actionColor: Color {
@@ -67,7 +68,7 @@ struct BluetoothOverlayView: View {
         let deviceId = isPreview ? "00:11:22:33:44:55" : (notification?.id ?? "")
         let hasDetails = isPreview || mediaKeyManager.bluetoothDetails[deviceId] != nil
         let systemName = mediaKeyManager.bluetoothDetails[deviceId]?["SystemName"] ?? actualDeviceName
-        let deviceBatteries = mediaKeyManager.accessoryBatteryLevels.filter { $0.key.hasPrefix(systemName) }
+        let deviceBatteries = overlayState.accessoryBatteryLevels.filter { $0.key.hasPrefix(systemName) }
         let effectiveDeviceBatteries: [String: Int] = isPreview ? [
             "\(systemName) (Left)": 85,
             "\(systemName) (Right)": 100,
@@ -137,7 +138,7 @@ struct BluetoothOverlayView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(actualIsConnected ? .primary : .secondary)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16)
+                        .padding(.leading, 16 + 4 + 3)
                         .padding(.top, 4)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -145,11 +146,11 @@ struct BluetoothOverlayView: View {
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
                             .padding(.leading, 14)
-                            .padding(.trailing, 16)
+                            .padding(.trailing, 16 + 4 + 3)
                         
                         MarqueeText(text: actualDeviceName.isEmpty ? "Unknown Device" : actualDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             .padding(.leading, 14)
-                            .padding(.trailing, 16)
+                            .padding(.trailing, 16 + 4 + 3)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -216,9 +217,7 @@ struct BluetoothOverlayView: View {
                                         .cornerRadius(12)
                                 }
                                 .buttonStyle(.plain)
-                                .onHover { hovering in
-                                    if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                                }
+                                .pointingHandCursor()
                             }
                             
                             if showDetails {
@@ -272,6 +271,7 @@ struct BluetoothOverlayView: View {
                                 .cornerRadius(28 - 4 - 3)
                             }
                             .buttonStyle(.plain)
+                            .pointingHandCursor()
                         }
                         
                         Button(action: {
@@ -294,6 +294,7 @@ struct BluetoothOverlayView: View {
                             .cornerRadius(28 - 4 - 3)
                         }
                         .buttonStyle(.plain)
+                        .pointingHandCursor()
                     }
                     .padding(.horizontal, 16)
                     

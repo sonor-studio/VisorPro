@@ -2,13 +2,14 @@ import SwiftUI
 
 struct BrightnessOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = false
     @AppStorage("brightnessAllowInteractivity") private var brightnessAllowInteractivity: Bool = true
     @State private var animatedBrightnessProgress: CGFloat = 0.0
     var isPreview: Bool = false
     
     private var actualBrightness: Int {
-        isPreview ? 75 : mediaKeyManager.currentBrightness
+        isPreview ? 75 : overlayState.currentBrightness
     }
     
     private var iconName: String {
@@ -59,7 +60,7 @@ struct BrightnessOverlayView: View {
                     
                     AnimatablePercentageText(progress: animatedBrightnessProgress, isTopTitle: true, color: .primary, isPluggedIn: false, customText: "%d%")
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 16 + 4 + 3)
             },
             expandedContent: {
                 EmptyView()

@@ -151,7 +151,7 @@ class BluetoothBatteryPoller {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
-            // Dopasowanie ikon
+            // Match icons
             let icon: String
             if name.hasSuffix("(Left)") {
                 icon = "airpodpro.left"

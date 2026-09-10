@@ -191,10 +191,32 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
-                baseContent()
+                                ZStack(alignment: .leading) {
+                    baseContent()
+                        .frame(width: width, height: baseHeight)
+                        .allowsHitTesting(false)
+                        .animation(nil, value: isExpanded)
+                        .drawingGroup()
+                        
+                    HStack(spacing: 0) {
+                        if onLeftTap != nil {
+                            Rectangle()
+                                .fill(Color.clear)
+                                .frame(width: 50)
+                                .contentShape(Rectangle())
+                                .pointingHandCursor()
+                        }
+                        if !isExpandable && onSimpleTap != nil {
+                            Rectangle()
+                                .fill(Color.clear)
+                                .contentShape(Rectangle())
+                                .pointingHandCursor()
+                        } else {
+                            Spacer()
+                        }
+                    }
                     .frame(width: width, height: baseHeight)
-                    .allowsHitTesting(false)
-                    .animation(nil, value: isExpanded)
+                }
                 
                 expandedContent()
                     .padding(.bottom, 16)
@@ -220,23 +242,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     }
             }
             .frame(width: width, alignment: expandUpwards ? .bottom : .top)
-            // Hidden pre-measurement overlay so expandedHeight is ready before first expand
-            .background(
-                Group {
-                    if fixedExpandedHeight == nil && expandedHeight == 0 {
-                        expandedContent()
-                            .padding(.bottom, 16)
-                            .frame(width: width)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .hidden()
-                            .background(
-                                GeometryReader { proxy in
-                                    Color.clear.preference(key: ExpandedHeightPreferenceKey.self, value: proxy.size.height)
-                                }
-                            )
-                    }
-                }
-            )
+
         .background(
             ZStack(alignment: .leading) {
                 // WARSTWA 1: Baza
@@ -246,7 +252,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         .padding(trackPadding)
                 }
                 
-                // WARSTWA 2: Pasek postępu
                 if showProgressBar {
                     ZStack {
                         if fillCenter {
@@ -373,6 +378,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     isDragging = false
                 }
         )
+
         .background(
             (colorScheme == .dark ? Color.black.opacity(0.25) : Color.white.opacity(0.55))
                 .background(.thickMaterial)
@@ -447,7 +453,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 }
             }
         }
-        
             if enableCloseButton && !isPreview {
                 
                 Image(systemName: "xmark")
@@ -462,12 +467,14 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         Circle()
                             .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.05) : Color.white.opacity(0.9), style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
                     )
+                    .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
                     .contentShape(Circle())
                     .onTapGesture {
                         if let id = keepAliveId {
                             mediaKeyManager.forceHide(overlayId: id)
                         }
                     }
+                    .pointingHandCursor()
                 .offset(x: buttonCenter.x - 10, y: dynamicOffset)
                 .opacity(shouldShowCloseButton ? 1 : 0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: shouldShowCloseButton)

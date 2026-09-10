@@ -168,7 +168,7 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             handleFinalState(isConnected: true, ssid: validSSID)
         } else {
             inactiveCounter += 1
-            if inactiveCounter >= 10 { // 5 sekundy "pustego" stanu
+            if inactiveCounter >= 10 { // 5 seconds of "empty" state
                 handleFinalState(isConnected: false, ssid: nil)
             }
         }

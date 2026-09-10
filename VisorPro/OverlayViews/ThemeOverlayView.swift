@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ThemeOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @Environment(\.colorScheme) var colorScheme
     @AppStorage("themeAllowInteractivity") private var themeAllowInteractivity: Bool = true
     
@@ -24,7 +25,7 @@ struct ThemeOverlayView: View {
                 iconColor = Color(red: 1.0, green: 0.72, blue: 0.0)
             }
         } else {
-            if mediaKeyManager.isDarkMode {
+            if overlayState.isDarkMode {
                 titleText = "Dark Mode"
                 iconName = "moon.fill"
                 iconColor = Color(red: 0.45, green: 0.5, blue: 0.9)
@@ -41,8 +42,8 @@ struct ThemeOverlayView: View {
             isExpanded: .constant(false),
             showProgressBar: true,
             hasTimeoutProgress: true,
-            timeoutEventId: mediaKeyManager.themeEventId,
-            barColor: OverlayColorManager.shared.getOverlayColor(for: (isPreview ? previewIsDark : mediaKeyManager.isDarkMode) ? "colorOnThemeDark" : "colorOnThemeLight", defaultColor: iconColor),
+            timeoutEventId: overlayState.themeEventId,
+            barColor: OverlayColorManager.shared.getOverlayColor(for: (isPreview ? previewIsDark : overlayState.isDarkMode) ? "colorOnThemeDark" : "colorOnThemeLight", defaultColor: iconColor),
             fillCenter: false, // It was using strokeBorder
             isMuted: false,
             customWidth: 230,
@@ -76,7 +77,7 @@ struct ThemeOverlayView: View {
                 EmptyView()
             }
         )
-        .id(mediaKeyManager.themeEventId)
+        .id(overlayState.themeEventId)
         .frame(width: 230, height: 56, alignment: .top)
     }
     

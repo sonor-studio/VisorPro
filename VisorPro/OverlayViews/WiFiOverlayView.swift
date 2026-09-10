@@ -63,6 +63,7 @@ struct StatRow: View {
                     }
                 }
             }
+            .pointingHandCursor()
             .help((isCopyable && !disableCopy) ? "Copy to clipboard" : "")
         }
     }
@@ -70,6 +71,7 @@ struct StatRow: View {
 
 struct WiFiOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("wifiAllowExpansion") private var wifiAllowExpansion: Bool = true
     @State private var isExpanded: Bool = false
     @State private var refreshTimer: Timer?
@@ -78,15 +80,15 @@ struct WiFiOverlayView: View {
     var previewSSID: String = "My Wi-Fi"
     
     private var actualIsConnected: Bool {
-        isPreview ? previewIsConnected : mediaKeyManager.wiFiIsConnected
+        isPreview ? previewIsConnected : overlayState.wiFiIsConnected
     }
     
     private var actualSSID: String {
-        isPreview ? previewSSID : mediaKeyManager.wiFiSSID
+        isPreview ? previewSSID : overlayState.wiFiSSID
     }
     
     private var actualIsHotspot: Bool {
-        isPreview ? false : mediaKeyManager.wiFiIsHotspot
+        isPreview ? false : overlayState.wiFiIsHotspot
     }
     
     private var actionColor: Color {
@@ -111,7 +113,7 @@ struct WiFiOverlayView: View {
             isExpanded: $isExpanded,
             showProgressBar: true,
             hasTimeoutProgress: true,
-            timeoutEventId: mediaKeyManager.wiFiEventId,
+            timeoutEventId: overlayState.wiFiEventId,
             barColor: actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnWiFiConnect", defaultColor: .blue) : .offStateGray,
             fillCenter: false,
             isMuted: false,
@@ -120,7 +122,7 @@ struct WiFiOverlayView: View {
             supportDragGesture: false,
             onSimpleTap: {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    if !isExpanded && actualIsConnected && !mediaKeyManager.wiFiDetailsFetched {
+                    if !isExpanded && actualIsConnected && !overlayState.wiFiDetailsFetched {
                         mediaKeyManager.fetchWiFiDetails()
                     }
                 }
@@ -134,7 +136,7 @@ struct WiFiOverlayView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(actualIsConnected ? .primary : .secondary)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16)
+                        .padding(.leading, 16 + 4 + 3)
                         .padding(.top, 4)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -142,11 +144,11 @@ struct WiFiOverlayView: View {
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
                             .padding(.leading, 14)
-                            .padding(.trailing, 16)
+                            .padding(.trailing, 16 + 4 + 3)
                         
                         MarqueeText(text: actualSSID.isEmpty ? "No Network" : actualSSID, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             .padding(.leading, 14)
-                            .padding(.trailing, 16)
+                            .padding(.trailing, 16 + 4 + 3)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -158,7 +160,7 @@ struct WiFiOverlayView: View {
                         .padding(.horizontal, 16)
                         .opacity(0.5)
                     
-                    if !isPreview && !mediaKeyManager.wiFiDetailsFetched && actualIsConnected {
+                    if !isPreview && !overlayState.wiFiDetailsFetched && actualIsConnected {
                         ProgressView()
                             .scaleEffect(0.6)
                             .frame(height: 50)
@@ -184,6 +186,7 @@ struct WiFiOverlayView: View {
                                     .cornerRadius(28 - 4 - 3)
                                 }
                                 .buttonStyle(.plain)
+                                .pointingHandCursor()
                             }
                             .padding(.horizontal, 16)
                             
@@ -210,6 +213,7 @@ struct WiFiOverlayView: View {
                                     .cornerRadius(28 - 4 - 3)
                                 }
                                 .buttonStyle(.plain)
+                                .pointingHandCursor()
                             }
                             .padding(.horizontal, 16)
                             
@@ -219,7 +223,7 @@ struct WiFiOverlayView: View {
                 }
             }
         )
-        .id(mediaKeyManager.wiFiEventId)
+        .id(overlayState.wiFiEventId)
         .onChange(of: isExpanded) { _, expanded in
             if expanded {
                 refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
@@ -235,7 +239,7 @@ struct WiFiOverlayView: View {
     @ViewBuilder
     private var statsView: some View {
         VStack(spacing: 8) {
-            if let ip = isPreview ? "192.168.1.12" : mediaKeyManager.wiFiIPAddress {
+            if let ip = isPreview ? "192.168.1.12" : overlayState.wiFiIPAddress {
                 StatRow(icon: "network", label: "IP Address", value: ip, isCopyable: true, disableCopy: isPreview, onCopy: {
                     if !isPreview {
                         mediaKeyManager.pendingClipboardAction = "ignore"
@@ -243,13 +247,13 @@ struct WiFiOverlayView: View {
                     }
                 })
             }
-            if let txRate = isPreview ? 866.0 : mediaKeyManager.wiFiTxRate {
+            if let txRate = isPreview ? 866.0 : overlayState.wiFiTxRate {
                 StatRow(icon: "bolt.horizontal", label: "Tx Rate", value: "\(Int(txRate)) Mbps")
             }
-            if let rssi = isPreview ? -52 : mediaKeyManager.wiFiRSSI {
+            if let rssi = isPreview ? -52 : overlayState.wiFiRSSI {
                 StatRow(icon: "antenna.radiowaves.left.and.right", label: "Signal", value: "\(rssi) dBm")
             }
-            if let channel = isPreview ? "44 (5 GHz)" : mediaKeyManager.wiFiChannel {
+            if let channel = isPreview ? "44 (5 GHz)" : overlayState.wiFiChannel {
                 StatRow(icon: "radio", label: "Channel", value: channel)
             }
         }

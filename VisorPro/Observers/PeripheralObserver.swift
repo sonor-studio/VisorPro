@@ -253,7 +253,9 @@ class PeripheralObserver {
                     manager.triggerPeripheralIndicator(id: deviceIdentifier, deviceName: updatedDisplayName, type: finalType, typeIcon: finalIcon, isConnected: true, details: updatedDetails.isEmpty ? nil : updatedDetails)
                 }
             } else {
-                manager?.triggerPeripheralIndicator(id: deviceIdentifier, deviceName: displayName, type: finalType, typeIcon: finalIcon, isConnected: isConnected, details: details.isEmpty ? nil : details)
+                DispatchQueue.main.async { [weak self] in
+                    self?.manager?.triggerPeripheralIndicator(id: deviceIdentifier, deviceName: displayName, type: finalType, typeIcon: finalIcon, isConnected: isConnected, details: details.isEmpty ? nil : details)
+                }
             }
         }
     }

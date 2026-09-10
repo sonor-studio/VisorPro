@@ -3,6 +3,7 @@ import Combine
 
 struct MediaOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("mediaAllowExpansion") private var mediaAllowExpansion: Bool = true
     @AppStorage("mediaAllowInteractivity") private var mediaAllowInteractivity: Bool = true
     var isPreview: Bool = false
@@ -12,31 +13,31 @@ struct MediaOverlayView: View {
     var previewIsPlaying: Bool = false
     
     private var actualTitle: String {
-        let t = isPreview ? previewTitle : mediaKeyManager.mediaTitle
+        let t = isPreview ? previewTitle : overlayState.mediaTitle
         return t.isEmpty ? "Unknown Media" : t
     }
     
     private var actualArtist: String {
-        isPreview ? previewArtist : mediaKeyManager.mediaArtist
+        isPreview ? previewArtist : overlayState.mediaArtist
     }
     
     private var actualDuration: Double {
-        isPreview ? 180.0 : mediaKeyManager.mediaDuration
+        isPreview ? 180.0 : overlayState.mediaDuration
     }
     
     private var actualBundleId: String {
-        isPreview ? "com.apple.Safari" : mediaKeyManager.mediaBundleId
+        isPreview ? "com.apple.Safari" : overlayState.mediaBundleId
     }
     
     private var actualIsPlaying: Bool {
-        isPreview ? previewIsPlaying : mediaKeyManager.mediaIsPlaying
+        isPreview ? previewIsPlaying : overlayState.mediaIsPlaying
     }
     
     @State private var localElapsed: Double = 0
     let timer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
     
     private var actualAction: String {
-        isPreview ? "start" : mediaKeyManager.mediaAction
+        isPreview ? "start" : overlayState.mediaAction
     }
     
     private var playbackProgress: CGFloat {
@@ -174,7 +175,7 @@ struct MediaOverlayView: View {
                     
                 }
                 .frame(maxHeight: .infinity)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 16 + 4 + 3)
             },
             expandedContent: {
                 HStack(spacing: 20) {
@@ -190,6 +191,7 @@ struct MediaOverlayView: View {
                                 mediaKeyManager.simulatePrevious()
                             }
                         )
+                        .pointingHandCursor()
 
                     ZStack {
                         Image(systemName: "gobackward")
@@ -210,6 +212,7 @@ struct MediaOverlayView: View {
                             mediaKeyManager.simulateSeek(to: newTime)
                         }
                     )
+                    .pointingHandCursor()
                     
                     Image(systemName: actualIsPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 26, weight: .bold))
@@ -222,6 +225,7 @@ struct MediaOverlayView: View {
                                 mediaKeyManager.simulatePlayPause()
                             }
                         )
+                        .pointingHandCursor()
                     
                     ZStack {
                         Image(systemName: "goforward")
@@ -242,6 +246,7 @@ struct MediaOverlayView: View {
                             mediaKeyManager.simulateSeek(to: newTime)
                         }
                     )
+                    .pointingHandCursor()
                     
                     Image(systemName: "forward.end.fill")
                         .font(.system(size: 16, weight: .semibold))
@@ -254,18 +259,19 @@ struct MediaOverlayView: View {
                                 mediaKeyManager.simulateNext()
                             }
                         )
+                        .pointingHandCursor()
                 }
             }
         )
-        .id(mediaKeyManager.mediaEventId)
+        .id(overlayState.mediaEventId)
         .onAppear {
             if isPreview {
                 localElapsed = 180.0 * previewProgress
             } else {
-                localElapsed = mediaKeyManager.mediaElapsedTime
+                localElapsed = overlayState.mediaElapsedTime
             }
         }
-        .onChange(of: mediaKeyManager.mediaElapsedTime) { oldValue, newValue in
+        .onChange(of: overlayState.mediaElapsedTime) { oldValue, newValue in
             if !isPreview {
                 localElapsed = newValue
             }

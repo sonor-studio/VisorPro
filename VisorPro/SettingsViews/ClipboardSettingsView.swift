@@ -68,7 +68,6 @@ struct ClipboardSettingsView: View {
                         Divider()
                     
                         VStack(alignment: .leading, spacing: 24) {
-                            // Clipboard Category Card
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Clipboard")
                                     .font(.system(size: 14, weight: .bold))

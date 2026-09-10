@@ -605,7 +605,7 @@ struct PremiumSettingsView: View {
             }
             .padding(24)
         }
-        // Usunięto sztywne białe tło, żeby widok przejmował przezroczystość z SettingsView
+        // Removed rigid white background so the view inherits transparency from SettingsView
         .background(Color.clear)
         .sheet(isPresented: $showingCheckout) {
             VStack(spacing: 0) {
@@ -649,7 +649,7 @@ struct PremiumSettingsView: View {
     }
 }
 
-// MARK: - Popup View dla Aktywacji
+// MARK: - Activation Popup View
 
 struct ActivationPopupView: View {
     @Binding var isPresented: Bool

@@ -179,7 +179,7 @@ class MediaObserver {
             self.isFirstRun = false
             mediaAction = isPlaying ? "resume" : "pause"
         } else {
-            // Wykrywanie konkretnej akcji
+            // Detect specific action
             if self.lastTitle != title && !title.isEmpty {
                 mediaAction = "start"
                 shouldTrigger = true
@@ -258,19 +258,23 @@ class MediaObserver {
         
         var focusedWindow: CFTypeRef?
         if AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &focusedWindow) == .success {
-            let window = focusedWindow as! AXUIElement
-            var title: CFTypeRef?
-            if AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &title) == .success, let t = title as? String {
-                titles.append(t)
+            if let window = focusedWindow, CFGetTypeID(window) == AXUIElementGetTypeID() {
+                let axWindow = window as! AXUIElement
+                var title: CFTypeRef?
+                if AXUIElementCopyAttributeValue(axWindow, kAXTitleAttribute as CFString, &title) == .success, let t = title as? String {
+                    titles.append(t)
+                }
             }
         }
         
         var mainWindow: CFTypeRef?
         if AXUIElementCopyAttributeValue(axApp, kAXMainWindowAttribute as CFString, &mainWindow) == .success {
-            let window = mainWindow as! AXUIElement
-            var title: CFTypeRef?
-            if AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &title) == .success, let t = title as? String {
-                titles.append(t)
+            if let window = mainWindow, CFGetTypeID(window) == AXUIElementGetTypeID() {
+                let axWindow = window as! AXUIElement
+                var title: CFTypeRef?
+                if AXUIElementCopyAttributeValue(axWindow, kAXTitleAttribute as CFString, &title) == .success, let t = title as? String {
+                    titles.append(t)
+                }
             }
         }
         

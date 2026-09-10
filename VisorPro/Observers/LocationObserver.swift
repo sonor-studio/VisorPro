@@ -84,7 +84,9 @@ class LocationObserver {
                 let now = Date()
                 if let last = self?.lastTriggerTime, now.timeIntervalSince(last) > 3.0 {
                     self?.lastTriggerTime = now
-                    manager.triggerLocationIndicator(appName: appName)
+                    DispatchQueue.main.async {
+                        manager.triggerLocationIndicator(appName: appName)
+                    }
                 }
             }
         }

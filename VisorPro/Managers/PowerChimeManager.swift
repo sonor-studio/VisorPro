@@ -3,7 +3,7 @@ import Foundation
 class PowerChimeManager {
     
     static func disableChargingSound() {
-        // Krok 1: Ustawienie flagi systemowej w defaults na false
+        // Step 1: Set the system flag in defaults to false
         executeShellCommand("defaults write com.apple.PowerChime ChimeOnAllHardware -bool false")
         executeShellCommand("defaults write com.apple.PowerChime ChimeOnNoHardware -bool true")
         

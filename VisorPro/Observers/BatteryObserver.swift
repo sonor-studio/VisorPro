@@ -72,9 +72,10 @@ class BatteryObserver {
     }
     
     private func updateLivePowerDraw() {
+        let initialPowerDraw = self.manager?.batteryPowerDraw ?? "0.0 W"
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            var powerDrawStr = self.manager?.batteryPowerDraw ?? "0.0 W"
+            var powerDrawStr = initialPowerDraw
             
             if let battery = self.getBatteryDescriptionFast() {
                 var voltage = 0.0

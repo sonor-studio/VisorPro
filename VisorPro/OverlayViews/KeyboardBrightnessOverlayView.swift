@@ -2,13 +2,14 @@ import SwiftUI
 
 struct KeyboardBrightnessOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("keyboardBrightnessFillCenter") private var keyboardBrightnessFillCenter: Bool = false
     @AppStorage("keyboardBrightnessAllowInteractivity") private var keyboardBrightnessAllowInteractivity: Bool = true
     @State private var animatedBrightnessProgress: CGFloat = 0.0
     var isPreview: Bool = false
     
     private var actualBrightness: Int {
-        isPreview ? 75 : mediaKeyManager.currentKeyboardBrightness
+        isPreview ? 75 : overlayState.currentKeyboardBrightness
     }
     
     private var iconName: String {
@@ -48,7 +49,7 @@ struct KeyboardBrightnessOverlayView: View {
                     
                     AnimatablePercentageText(progress: animatedBrightnessProgress, isTopTitle: true, color: .primary, isPluggedIn: false, customText: "%d%")
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 16 + 4 + 3)
             },
             expandedContent: {
                 EmptyView()

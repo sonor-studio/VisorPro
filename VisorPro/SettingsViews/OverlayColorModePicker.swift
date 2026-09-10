@@ -33,11 +33,10 @@ struct OverlayColorModePicker: View {
                                 if !result.contains(color) { result.append(color) }
                             }
                             let previewColors: [Color] = {
-                                var colors = uniqueColors.prefix(4).map { OverlayColorManager.shared.parseColor($0) }
-                                if preset.id == "preset_monochrome" && !colors.contains(.secondary) {
-                                    colors.append(.secondary)
+                                if preset.id == "preset_monochrome" {
+                                    return [.primary, .secondary]
                                 }
-                                return colors
+                                return uniqueColors.prefix(4).map { OverlayColorManager.shared.parseColor($0) }
                             }()
                             
                             ColorModeTile(

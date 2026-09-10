@@ -51,8 +51,10 @@ struct FocusSettingsView: View {
                             
                             HStack(spacing: -10) {
                                 FocusOverlayView(isPreview: true, previewIsActive: true, previewModeName: "Do Not Disturb")
+                                    .applyTheme(mediaKeyManager.overlayTheme)
                                     .scaleEffect(0.85)
                                 FocusOverlayView(isPreview: true, previewIsActive: false, previewModeName: "Do Not Disturb")
+                                    .applyTheme(mediaKeyManager.overlayTheme)
                                     .scaleEffect(0.85)
                             }
                         }

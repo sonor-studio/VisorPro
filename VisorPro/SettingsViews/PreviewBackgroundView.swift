@@ -53,7 +53,6 @@ struct PreviewBackgroundView: View {
         )
         .onAppear {
             Task { @MainActor in
-                // Sprawdzenie cache
                 if let cached = WallpaperHelper.cachedWallpaper {
                     self.wallpaperImage = cached
                     return

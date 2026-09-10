@@ -102,7 +102,10 @@ class MediaKeyManager: ObservableObject {
         return val == 0 ? 3.0 : val
     }
     
-    @Published var lastAction: String = "Waiting for actions..."
+    var lastAction: String {
+        get { OverlayStateRelay.shared.lastAction }
+        set { OverlayStateRelay.shared.lastAction = newValue }
+    }
     @Published var isTrusted: Bool = false {
         didSet {
             if oldValue != isTrusted {
@@ -112,10 +115,18 @@ class MediaKeyManager: ObservableObject {
             }
         }
     }
-    @Published var activeBluetoothNotifications: [DeviceNotification] = []
-    @Published var activePeripheralNotifications: [DeviceNotification] = []
-    @Published var activeDisplayNotifications: [DeviceNotification] = []
-    // MARK: - Bridge properties → OverlayStateRelay (no longer @Published here)
+    var activeBluetoothNotifications: [DeviceNotification] {
+        get { OverlayStateRelay.shared.activeBluetoothNotifications }
+        set { OverlayStateRelay.shared.activeBluetoothNotifications = newValue }
+    }
+    var activePeripheralNotifications: [DeviceNotification] {
+        get { OverlayStateRelay.shared.activePeripheralNotifications }
+        set { OverlayStateRelay.shared.activePeripheralNotifications = newValue }
+    }
+    var activeDisplayNotifications: [DeviceNotification] {
+        get { OverlayStateRelay.shared.activeDisplayNotifications }
+        set { OverlayStateRelay.shared.activeDisplayNotifications = newValue }
+    }    // MARK: - Bridge properties → OverlayStateRelay (no longer @Published here)
     // These delegate to OverlayStateRelay so changes don't fire MediaKeyManager.objectWillChange,
     // preventing dashboard re-renders on every swipe/hover event.
     var swipeOffsets: [String: CGFloat] {
@@ -130,7 +141,7 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.activeSwipeIds }
         set { OverlayStateRelay.shared.activeSwipeIds = newValue }
     }
-    private var notificationTimers: [String: Timer] = [:]
+    var notificationTimers: [String: Timer] = [:]
     private var overlayHideTimers: [String: Timer] = [:]
     
     var overlayTriggerTimes: [String: Date] = [:]
@@ -149,9 +160,14 @@ class MediaKeyManager: ObservableObject {
         }
     }
     @AppStorage("overlayTheme") var overlayTheme: String = "system"
-    @Published var globalHoveredTypes: Set<String> = []
-    @Published var actualHoveredTypes: Set<String> = []
-    
+    var globalHoveredTypes: Set<String> {
+        get { OverlayStateRelay.shared.globalHoveredTypes }
+        set { OverlayStateRelay.shared.globalHoveredTypes = newValue }
+    }
+    var actualHoveredTypes: Set<String> {
+        get { OverlayStateRelay.shared.actualHoveredTypes }
+        set { OverlayStateRelay.shared.actualHoveredTypes = newValue }
+    }    
     @Published var useSystemOSD: Bool = false {
         didSet { setupMediaKeyTap() }
     }
@@ -323,8 +339,12 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(soundOnCapsLock, forKey: "soundOnCapsLock") }
     }
 
-    @Published var currentBatteryPercentage: Int = 15 {
-        didSet {
+    var currentBatteryPercentage: Int {
+        get { OverlayStateRelay.shared.currentBatteryPercentage }
+        set { 
+            let oldValue = OverlayStateRelay.shared.currentBatteryPercentage
+            OverlayStateRelay.shared.currentBatteryPercentage = newValue
+            
             if !isBatteryInitialized { return }
             if !isPluggedIn && oldValue > currentBatteryPercentage {
                 if currentBatteryPercentage <= 20 && currentBatteryPercentage > 10 && oldValue > 20 && notifyOn20Percent {
@@ -346,11 +366,16 @@ class MediaKeyManager: ObservableObject {
                     triggerChargingStatus()
                 }
             }
+        
         }
     }
     
-    @Published var isPluggedIn: Bool = true {
-        didSet {
+    var isPluggedIn: Bool {
+        get { OverlayStateRelay.shared.isPluggedIn }
+        set { 
+            let oldValue = OverlayStateRelay.shared.isPluggedIn
+            OverlayStateRelay.shared.isPluggedIn = newValue
+            
             if !isBatteryInitialized { return }
             if isPluggedIn {
                 if oldValue != isPluggedIn && notifyOnPlug {
@@ -374,78 +399,183 @@ class MediaKeyManager: ObservableObject {
                     hideBatteryOverlay()
                 }
             }
+        
         }
     }
     
-    @Published var isBatteryInitialized: Bool = false
-    
-    @Published var isSimulated: Bool = false
-    @Published var showLowBatteryWarning: Bool = false
-    @Published var showChargingStatus: Bool = false
-    @Published var showUnpluggedStatus: Bool = false
-    @Published var batteryTimeRemaining: String = "Calculating..."
-    @Published var batteryCycleCount: Int = 0
-    @Published var batteryHealthPercentage: Int = 100
-    @Published var batteryCondition: String = "Normal"
-    @Published var batteryPowerDraw: String = "0.0 W"
-    @Published var chargeLimit: Int = 100
+    var isBatteryInitialized: Bool {
+        get { OverlayStateRelay.shared.isBatteryInitialized }
+        set { OverlayStateRelay.shared.isBatteryInitialized = newValue }
+    }    
+    var isSimulated: Bool {
+        get { OverlayStateRelay.shared.isSimulated }
+        set { OverlayStateRelay.shared.isSimulated = newValue }
+    }
+    var showLowBatteryWarning: Bool {
+        get { OverlayStateRelay.shared.showLowBatteryWarning }
+        set { OverlayStateRelay.shared.showLowBatteryWarning = newValue }
+    }
+    var showChargingStatus: Bool {
+        get { OverlayStateRelay.shared.showChargingStatus }
+        set { OverlayStateRelay.shared.showChargingStatus = newValue }
+    }
+    var showUnpluggedStatus: Bool {
+        get { OverlayStateRelay.shared.showUnpluggedStatus }
+        set { OverlayStateRelay.shared.showUnpluggedStatus = newValue }
+    }
+    var batteryTimeRemaining: String {
+        get { OverlayStateRelay.shared.batteryTimeRemaining }
+        set { OverlayStateRelay.shared.batteryTimeRemaining = newValue }
+    }
+    var batteryCycleCount: Int {
+        get { OverlayStateRelay.shared.batteryCycleCount }
+        set { OverlayStateRelay.shared.batteryCycleCount = newValue }
+    }
+    var batteryHealthPercentage: Int {
+        get { OverlayStateRelay.shared.batteryHealthPercentage }
+        set { OverlayStateRelay.shared.batteryHealthPercentage = newValue }
+    }
+    var batteryCondition: String {
+        get { OverlayStateRelay.shared.batteryCondition }
+        set { OverlayStateRelay.shared.batteryCondition = newValue }
+    }
+    var batteryPowerDraw: String {
+        get { OverlayStateRelay.shared.batteryPowerDraw }
+        set { OverlayStateRelay.shared.batteryPowerDraw = newValue }
+    }
+    var chargeLimit: Int {
+        get { OverlayStateRelay.shared.chargeLimit }
+        set { OverlayStateRelay.shared.chargeLimit = newValue }
+    }
     @Published var topBatteryConsumers: [(name: String, power: String, icon: NSImage?)] = []
-    @Published var isEffectivelyFullyCharged: Bool = false {
-        didSet {
+    var isEffectivelyFullyCharged: Bool {
+        get { OverlayStateRelay.shared.isEffectivelyFullyCharged }
+        set { 
+            let oldValue = OverlayStateRelay.shared.isEffectivelyFullyCharged
+            OverlayStateRelay.shared.isEffectivelyFullyCharged = newValue
+            
             if !isBatteryInitialized { return }
             if isEffectivelyFullyCharged && !oldValue && notifyOn100Percent {
                 triggerChargingStatus()
             }
+        
         }
     }
     
-    @Published var currentVolume: Int = 50
-    @Published var isMuted: Bool = false
-    @Published var showVolumeIndicator: Bool = false
-    @Published var currentAudioDeviceName: String = "Volume"
-    @Published var audioDevicesChanged: UUID = UUID()
-    @Published var forceSingleScreenForDisplayTransition: Bool = false
-    @Published var isDisplayTransitioning: Bool = false
-    private var volumeTimer: Timer?
+    var currentVolume: Int {
+        get { OverlayStateRelay.shared.currentVolume }
+        set { OverlayStateRelay.shared.currentVolume = newValue }
+    }
+    var isMuted: Bool {
+        get { OverlayStateRelay.shared.isMuted }
+        set { OverlayStateRelay.shared.isMuted = newValue }
+    }
+    var showVolumeIndicator: Bool {
+        get { OverlayStateRelay.shared.showVolumeIndicator }
+        set { OverlayStateRelay.shared.showVolumeIndicator = newValue }
+    }
+    var currentAudioDeviceName: String {
+        get { OverlayStateRelay.shared.currentAudioDeviceName }
+        set { OverlayStateRelay.shared.currentAudioDeviceName = newValue }
+    }
+    var audioDevicesChanged: UUID {
+        get { OverlayStateRelay.shared.audioDevicesChanged }
+        set { OverlayStateRelay.shared.audioDevicesChanged = newValue }
+    }
+    var forceSingleScreenForDisplayTransition: Bool {
+        get { OverlayStateRelay.shared.forceSingleScreenForDisplayTransition }
+        set { OverlayStateRelay.shared.forceSingleScreenForDisplayTransition = newValue }
+    }
+    var isDisplayTransitioning: Bool {
+        get { OverlayStateRelay.shared.isDisplayTransitioning }
+        set { OverlayStateRelay.shared.isDisplayTransitioning = newValue }
+    }
+    var volumeTimer: Timer?
     
-    @Published var currentBrightness: Int = 50
-    @Published var showBrightnessIndicator: Bool = false
-    private var brightnessTimer: Timer?
+    var currentBrightness: Int {
+        get { OverlayStateRelay.shared.currentBrightness }
+        set { OverlayStateRelay.shared.currentBrightness = newValue }
+    }
+    var showBrightnessIndicator: Bool {
+        get { OverlayStateRelay.shared.showBrightnessIndicator }
+        set { OverlayStateRelay.shared.showBrightnessIndicator = newValue }
+    }
+    var brightnessTimer: Timer?
     
-    @Published var currentKeyboardBrightness: Int = 50
-    @Published var showKeyboardBrightnessIndicator: Bool = false
-    private var keyboardBrightnessTimer: Timer?
-    private var chargingTimer: Timer?
+    var currentKeyboardBrightness: Int {
+        get { OverlayStateRelay.shared.currentKeyboardBrightness }
+        set { OverlayStateRelay.shared.currentKeyboardBrightness = newValue }
+    }
+    var showKeyboardBrightnessIndicator: Bool {
+        get { OverlayStateRelay.shared.showKeyboardBrightnessIndicator }
+        set { OverlayStateRelay.shared.showKeyboardBrightnessIndicator = newValue }
+    }
+    var keyboardBrightnessTimer: Timer?
+    var chargingTimer: Timer?
     
-    private var hardwareKeyPollingTimer: Timer?
+    var hardwareKeyPollingTimer: Timer?
     var detectedHardwareAction: String?
     var detectedHardwareActionTimestamp: Date?
     var lastPasteTrigger: Date?
     
     public var lastChangeCount: Int = 0
-    @Published var showCopyIndicator: Bool = false
-    
+    var showCopyIndicator: Bool {
+        get { OverlayStateRelay.shared.showCopyIndicator }
+        set { OverlayStateRelay.shared.showCopyIndicator = newValue }
+    }    
     
     // RAM Monitoring
     
 
 
-    @Published var showRamIndicator: Bool = false
+    var showRamIndicator: Bool {
+        get { OverlayStateRelay.shared.showRamIndicator }
+        set { OverlayStateRelay.shared.showRamIndicator = newValue }
+    }
     @Published var ramEventId = UUID()
-    private var hideRamIndicatorTask: DispatchWorkItem?
-    @Published var ramUsagePercent: Double = 0.0
-    @Published var totalRamGB: Double = 0.0
-    @Published var usedRamGB: Double = 0.0
-    @Published var ramUsageHistory: [Double] = []
+    var hideRamIndicatorTask: DispatchWorkItem?
+    var ramUsagePercent: Double {
+        get { OverlayStateRelay.shared.ramUsagePercent }
+        set { OverlayStateRelay.shared.ramUsagePercent = newValue }
+    }
+    var totalRamGB: Double {
+        get { OverlayStateRelay.shared.totalRamGB }
+        set { OverlayStateRelay.shared.totalRamGB = newValue }
+    }
+    var usedRamGB: Double {
+        get { OverlayStateRelay.shared.usedRamGB }
+        set { OverlayStateRelay.shared.usedRamGB = newValue }
+    }
+    var ramUsageHistory: [Double] {
+        get { OverlayStateRelay.shared.ramUsageHistory }
+        set { OverlayStateRelay.shared.ramUsageHistory = newValue }
+    }
     @Published var ramTopProcesses: [(name: String, ramGB: Double, icon: NSImage?)] = []
 
-    @Published var copiedText: String = ""
-    @Published var clipboardAction: String = "copy" // "copy", "cut", "paste"
-    @Published var clipboardEventId: UUID = UUID()
-    @Published var clipboardSourceApp: String = ""
-    @Published var clipboardSourceFolder: String? = nil
-    @Published var clipboardMetadataSize: String = ""
-    
+    var copiedText: String {
+        get { OverlayStateRelay.shared.copiedText }
+        set { OverlayStateRelay.shared.copiedText = newValue }
+    }
+    var clipboardAction: String {
+        get { OverlayStateRelay.shared.clipboardAction }
+        set { OverlayStateRelay.shared.clipboardAction = newValue }
+    }
+    var clipboardEventId: UUID {
+        get { OverlayStateRelay.shared.clipboardEventId }
+        set { OverlayStateRelay.shared.clipboardEventId = newValue }
+    }
+    var clipboardSourceApp: String {
+        get { OverlayStateRelay.shared.clipboardSourceApp }
+        set { OverlayStateRelay.shared.clipboardSourceApp = newValue }
+    }
+    var clipboardSourceFolder: String? {
+        get { OverlayStateRelay.shared.clipboardSourceFolder }
+        set { OverlayStateRelay.shared.clipboardSourceFolder = newValue }
+    }
+    var clipboardMetadataSize: String {
+        get { OverlayStateRelay.shared.clipboardMetadataSize }
+        set { OverlayStateRelay.shared.clipboardMetadataSize = newValue }
+    }    
     @Published var clipboardHistory: [ClipboardItem] = {
         if let data = UserDefaults.standard.data(forKey: "clipboardHistoryData"),
            let decoded = try? JSONDecoder().decode([ClipboardItem].self, from: data) {
@@ -513,14 +643,23 @@ class MediaKeyManager: ObservableObject {
     var pendingClipboardAction: String?
     var isProgrammaticPasteboardChange: Bool = false
     var pendingClipboardActionTimestamp: Date?
-    private var copyTimer: Timer?
-    private var pendingClipboardShowTask: DispatchWorkItem?
+    var copyTimer: Timer?
+    var pendingClipboardShowTask: DispatchWorkItem?
     private var pasteboardObserver: PasteboardObserver?
     
-    @Published var showCapsLockIndicator: Bool = false
-    @Published var isCapsLockOn: Bool = false
-    @Published var capsLockEventId: UUID = UUID()
-    private var capsLockTimer: Timer?
+    var showCapsLockIndicator: Bool {
+        get { OverlayStateRelay.shared.showCapsLockIndicator }
+        set { OverlayStateRelay.shared.showCapsLockIndicator = newValue }
+    }
+    var isCapsLockOn: Bool {
+        get { OverlayStateRelay.shared.isCapsLockOn }
+        set { OverlayStateRelay.shared.isCapsLockOn = newValue }
+    }
+    var capsLockEventId: UUID {
+        get { OverlayStateRelay.shared.capsLockEventId }
+        set { OverlayStateRelay.shared.capsLockEventId = newValue }
+    }
+    var capsLockTimer: Timer?
     
     @Published var notifyOnLanguageChange: Bool = UserDefaults.standard.object(forKey: "notifyOnLanguageChange") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnLanguageChange, forKey: "notifyOnLanguageChange") }
@@ -529,10 +668,19 @@ class MediaKeyManager: ObservableObject {
     @Published var soundOnLanguageChange: String = UserDefaults.standard.string(forKey: "soundOnLanguageChange") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnLanguageChange, forKey: "soundOnLanguageChange") }
     }
-    @Published var showLanguageIndicator: Bool = false
-    @Published var currentKeyboardLanguage: String = ""
-    @Published var languageEventId: UUID = UUID()
-    private var languageTimer: Timer?
+    var showLanguageIndicator: Bool {
+        get { OverlayStateRelay.shared.showLanguageIndicator }
+        set { OverlayStateRelay.shared.showLanguageIndicator = newValue }
+    }
+    var currentKeyboardLanguage: String {
+        get { OverlayStateRelay.shared.currentKeyboardLanguage }
+        set { OverlayStateRelay.shared.currentKeyboardLanguage = newValue }
+    }
+    var languageEventId: UUID {
+        get { OverlayStateRelay.shared.languageEventId }
+        set { OverlayStateRelay.shared.languageEventId = newValue }
+    }
+    var languageTimer: Timer?
     private var languageChangeWorkItem: DispatchWorkItem?
     public var isSwitchingLanguageInternally: Bool = false
     
@@ -557,10 +705,18 @@ class MediaKeyManager: ObservableObject {
     @Published var bluetoothBlocklist: [String] = (UserDefaults.standard.array(forKey: "bluetoothBlocklist") as? [String]) ?? [] {
         didSet { UserDefaults.standard.set(bluetoothBlocklist, forKey: "bluetoothBlocklist") }
     }
-    @Published var showBluetoothIndicator: Bool = false
-    @Published var bluetoothIsConnected: Bool = false
-    @Published var bluetoothDeviceName: String = ""
-    
+    var showBluetoothIndicator: Bool {
+        get { OverlayStateRelay.shared.showBluetoothIndicator }
+        set { OverlayStateRelay.shared.showBluetoothIndicator = newValue }
+    }
+    var bluetoothIsConnected: Bool {
+        get { OverlayStateRelay.shared.bluetoothIsConnected }
+        set { OverlayStateRelay.shared.bluetoothIsConnected = newValue }
+    }
+    var bluetoothDeviceName: String {
+        get { OverlayStateRelay.shared.bluetoothDeviceName }
+        set { OverlayStateRelay.shared.bluetoothDeviceName = newValue }
+    }    
     @Published var notifyOnWiFiConnect: Bool = UserDefaults.standard.object(forKey: "notifyOnWiFiConnect") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnWiFiConnect, forKey: "notifyOnWiFiConnect") }
     }
@@ -595,19 +751,36 @@ class MediaKeyManager: ObservableObject {
     @Published var micBlocklist: [String] = (UserDefaults.standard.array(forKey: "micBlocklist") as? [String]) ?? [] {
         didSet { UserDefaults.standard.set(micBlocklist, forKey: "micBlocklist") }
     }
-    @Published var showWiFiIndicator: Bool = false
-    @Published var wiFiSSID: String = ""
-    @Published var wiFiIsConnected: Bool = false
-    @Published var wiFiIsHotspot: Bool = false
-    
+    var showWiFiIndicator: Bool {
+        get { OverlayStateRelay.shared.showWiFiIndicator }
+        set { OverlayStateRelay.shared.showWiFiIndicator = newValue }
+    }
+    var wiFiSSID: String {
+        get { OverlayStateRelay.shared.wiFiSSID }
+        set { OverlayStateRelay.shared.wiFiSSID = newValue }
+    }
+    var wiFiIsConnected: Bool {
+        get { OverlayStateRelay.shared.wiFiIsConnected }
+        set { OverlayStateRelay.shared.wiFiIsConnected = newValue }
+    }
+    var wiFiIsHotspot: Bool {
+        get { OverlayStateRelay.shared.wiFiIsHotspot }
+        set { OverlayStateRelay.shared.wiFiIsHotspot = newValue }
+    }    
     @Published var wiFiIPAddress: String?
     @Published var wiFiRouterIP: String?
     @Published var wiFiTxRate: Double?
     @Published var wiFiChannel: String?
     @Published var wiFiRSSI: Int?
-    @Published var wiFiDetailsFetched: Bool = false
-    @Published var bluetoothEventId: UUID = UUID()
-    private var bluetoothTimer: Timer?
+    var wiFiDetailsFetched: Bool {
+        get { OverlayStateRelay.shared.wiFiDetailsFetched }
+        set { OverlayStateRelay.shared.wiFiDetailsFetched = newValue }
+    }
+    var bluetoothEventId: UUID {
+        get { OverlayStateRelay.shared.bluetoothEventId }
+        set { OverlayStateRelay.shared.bluetoothEventId = newValue }
+    }
+    var bluetoothTimer: Timer?
     private var bluetoothObserver: BluetoothObserver?
     private var lastBluetoothEventTime: Date = Date.distantPast
     
@@ -615,16 +788,42 @@ class MediaKeyManager: ObservableObject {
     @Published var enableMediaNotification: Bool = UserDefaults.standard.object(forKey: "enableMediaNotification") as? Bool ?? true {
         didSet { UserDefaults.standard.set(enableMediaNotification, forKey: "enableMediaNotification") }
     }
-    @Published var showMediaIndicator: Bool = false
-    @Published var mediaTitle: String = ""
-    @Published var mediaArtist: String = ""
-    @Published var mediaDuration: Double = 0.0
-    @Published var mediaElapsedTime: Double = 0.0
-    @Published var mediaIsPlaying: Bool = false
-    @Published var mediaAction: String = "pause"
-    @Published var mediaBundleId: String = ""
-    @Published var mediaAlbum: String = ""
-    
+    var showMediaIndicator: Bool {
+        get { OverlayStateRelay.shared.showMediaIndicator }
+        set { OverlayStateRelay.shared.showMediaIndicator = newValue }
+    }
+    var mediaTitle: String {
+        get { OverlayStateRelay.shared.mediaTitle }
+        set { OverlayStateRelay.shared.mediaTitle = newValue }
+    }
+    var mediaArtist: String {
+        get { OverlayStateRelay.shared.mediaArtist }
+        set { OverlayStateRelay.shared.mediaArtist = newValue }
+    }
+    var mediaDuration: Double {
+        get { OverlayStateRelay.shared.mediaDuration }
+        set { OverlayStateRelay.shared.mediaDuration = newValue }
+    }
+    var mediaElapsedTime: Double {
+        get { OverlayStateRelay.shared.mediaElapsedTime }
+        set { OverlayStateRelay.shared.mediaElapsedTime = newValue }
+    }
+    var mediaIsPlaying: Bool {
+        get { OverlayStateRelay.shared.mediaIsPlaying }
+        set { OverlayStateRelay.shared.mediaIsPlaying = newValue }
+    }
+    var mediaAction: String {
+        get { OverlayStateRelay.shared.mediaAction }
+        set { OverlayStateRelay.shared.mediaAction = newValue }
+    }
+    var mediaBundleId: String {
+        get { OverlayStateRelay.shared.mediaBundleId }
+        set { OverlayStateRelay.shared.mediaBundleId = newValue }
+    }
+    var mediaAlbum: String {
+        get { OverlayStateRelay.shared.mediaAlbum }
+        set { OverlayStateRelay.shared.mediaAlbum = newValue }
+    }    
     @AppStorage("notifyMediaStart") var notifyMediaStart: Bool = true
 
     @AppStorage("soundMediaStart") var soundMediaStart: String = "None"
@@ -638,7 +837,10 @@ class MediaKeyManager: ObservableObject {
 
     @AppStorage("soundMediaEnd") var soundMediaEnd: String = "None"
     
-    @Published var mediaEventId: UUID = UUID()
+    var mediaEventId: UUID {
+        get { OverlayStateRelay.shared.mediaEventId }
+        set { OverlayStateRelay.shared.mediaEventId = newValue }
+    }
     private var mediaTimer: Timer?
     private var mediaHideTimer: Timer?
     private var mediaObserver: MediaObserver?
@@ -664,10 +866,19 @@ class MediaKeyManager: ObservableObject {
     @Published var soundOnThemeLight: String = UserDefaults.standard.string(forKey: "soundOnThemeLight") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnThemeLight, forKey: "soundOnThemeLight") }
     }
-    @Published var showThemeIndicator: Bool = false
-    @Published var isDarkMode: Bool = false
-    @Published var themeEventId: UUID = UUID()
-    private var themeTimer: Timer?
+    var showThemeIndicator: Bool {
+        get { OverlayStateRelay.shared.showThemeIndicator }
+        set { OverlayStateRelay.shared.showThemeIndicator = newValue }
+    }
+    var isDarkMode: Bool {
+        get { OverlayStateRelay.shared.isDarkMode }
+        set { OverlayStateRelay.shared.isDarkMode = newValue }
+    }
+    var themeEventId: UUID {
+        get { OverlayStateRelay.shared.themeEventId }
+        set { OverlayStateRelay.shared.themeEventId = newValue }
+    }
+    var themeTimer: Timer?
     private var themeObserver: ThemeObserver?
     
     // Focus Mode
@@ -699,14 +910,35 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    private var focusReminderTimer: Timer?
-    @Published var showFocusIndicator: Bool = false
-    @Published var isFocusModeActive: Bool = false
-    @Published var focusModeName: String = "Focus"
-    @Published var focusColorName: String = "systemIndigoColor"
-    @Published var focusSymbol: String = "moon.fill"
-    @Published var isFocusReminder: Bool = false
-    @Published var isFocusSwitched: Bool = false
+    var focusReminderTimer: Timer?
+    var showFocusIndicator: Bool {
+        get { OverlayStateRelay.shared.showFocusIndicator }
+        set { OverlayStateRelay.shared.showFocusIndicator = newValue }
+    }
+    var isFocusModeActive: Bool {
+        get { OverlayStateRelay.shared.isFocusModeActive }
+        set { OverlayStateRelay.shared.isFocusModeActive = newValue }
+    }
+    var focusModeName: String {
+        get { OverlayStateRelay.shared.focusModeName }
+        set { OverlayStateRelay.shared.focusModeName = newValue }
+    }
+    var focusColorName: String {
+        get { OverlayStateRelay.shared.focusColorName }
+        set { OverlayStateRelay.shared.focusColorName = newValue }
+    }
+    var focusSymbol: String {
+        get { OverlayStateRelay.shared.focusSymbol }
+        set { OverlayStateRelay.shared.focusSymbol = newValue }
+    }
+    var isFocusReminder: Bool {
+        get { OverlayStateRelay.shared.isFocusReminder }
+        set { OverlayStateRelay.shared.isFocusReminder = newValue }
+    }
+    var isFocusSwitched: Bool {
+        get { OverlayStateRelay.shared.isFocusSwitched }
+        set { OverlayStateRelay.shared.isFocusSwitched = newValue }
+    }
     struct ActiveFocusDetails: Equatable {
         var startDate: Date?
         var endDate: Date?
@@ -716,10 +948,19 @@ class MediaKeyManager: ObservableObject {
         var endedAt: Date?
         var endedReason: String?
     }
-    @Published var focusEventId: UUID = UUID()
-    @Published var activeFocusDetails: ActiveFocusDetails? = nil
-    @Published var lastEndedFocusDetails: ActiveFocusDetails? = nil
-    private var focusTimer: Timer?
+    var focusEventId: UUID {
+        get { OverlayStateRelay.shared.focusEventId }
+        set { OverlayStateRelay.shared.focusEventId = newValue }
+    }
+    var activeFocusDetails: MediaKeyManager.ActiveFocusDetails? {
+        get { OverlayStateRelay.shared.activeFocusDetails }
+        set { OverlayStateRelay.shared.activeFocusDetails = newValue }
+    }
+    var lastEndedFocusDetails: MediaKeyManager.ActiveFocusDetails? {
+        get { OverlayStateRelay.shared.lastEndedFocusDetails }
+        set { OverlayStateRelay.shared.lastEndedFocusDetails = newValue }
+    }
+    var focusTimer: Timer?
     private var focusObserver: FocusObserver?
     
     // Privacy
@@ -774,41 +1015,106 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(locationBlocklist, forKey: "locationBlocklist") }
     }
     
-    @Published var showMicIndicator: Bool = false
-    @Published var isMicExpanded: Bool = false
-    @Published var isMicActive: Bool = false
-    @Published var activeMicName: String = ""
-    
-    @Published var showLocationIndicator: Bool = false
-    @Published var isLocationExpanded: Bool = false
-    @Published var isLocationActive: Bool = false
+    var showMicIndicator: Bool {
+        get { OverlayStateRelay.shared.showMicIndicator }
+        set { OverlayStateRelay.shared.showMicIndicator = newValue }
+    }
+    var isMicExpanded: Bool {
+        get { OverlayStateRelay.shared.isMicExpanded }
+        set { OverlayStateRelay.shared.isMicExpanded = newValue }
+    }
+    var isMicActive: Bool {
+        get { OverlayStateRelay.shared.isMicActive }
+        set { OverlayStateRelay.shared.isMicActive = newValue }
+    }
+    var activeMicName: String {
+        get { OverlayStateRelay.shared.activeMicName }
+        set { OverlayStateRelay.shared.activeMicName = newValue }
+    }    
+    var showLocationIndicator: Bool {
+        get { OverlayStateRelay.shared.showLocationIndicator }
+        set { OverlayStateRelay.shared.showLocationIndicator = newValue }
+    }
+    var isLocationExpanded: Bool {
+        get { OverlayStateRelay.shared.isLocationExpanded }
+        set { OverlayStateRelay.shared.isLocationExpanded = newValue }
+    }
+    var isLocationActive: Bool {
+        get { OverlayStateRelay.shared.isLocationActive }
+        set { OverlayStateRelay.shared.isLocationActive = newValue }
+    }
     @Published var locationEventId = UUID()
-    @Published var activeLocationAppName: String = ""
-    private var locationTimer: Timer?
-    @Published var currentMicDeviceName: String = ""
-    @Published var micEventId: UUID = UUID()
-    @Published var isSwitchingMic: Bool = false
-    private var micTimer: Timer?
-    private var isMicTimerScheduledInstantly = false
-    private var lastMicEventTime: Date = Date.distantPast
+    var activeLocationAppName: String {
+        get { OverlayStateRelay.shared.activeLocationAppName }
+        set { OverlayStateRelay.shared.activeLocationAppName = newValue }
+    }
+    var locationTimer: Timer?
+    var currentMicDeviceName: String {
+        get { OverlayStateRelay.shared.currentMicDeviceName }
+        set { OverlayStateRelay.shared.currentMicDeviceName = newValue }
+    }
+    var micEventId: UUID {
+        get { OverlayStateRelay.shared.micEventId }
+        set { OverlayStateRelay.shared.micEventId = newValue }
+    }
+    var isSwitchingMic: Bool {
+        get { OverlayStateRelay.shared.isSwitchingMic }
+        set { OverlayStateRelay.shared.isSwitchingMic = newValue }
+    }
+    var micTimer: Timer?
+    var isMicTimerScheduledInstantly = false
+    var lastMicEventTime: Date = Date.distantPast
     
-    @Published var showCameraIndicator: Bool = false
-    @Published var isCameraExpanded: Bool = false
-    @Published var isCameraActive: Bool = false
-    @Published var activeCameraName: String = ""
-    @Published var activeCameraClientName: String = ""
-    @Published var activeCameraClientBundleID: String = ""
-    @Published var activeCameraClientPID: Int32? = nil
-    @Published var cameraEventId: UUID = UUID()
-    private var cameraTimer: Timer?
-    private var isCameraTimerScheduledInstantly = false
+    var showCameraIndicator: Bool {
+        get { OverlayStateRelay.shared.showCameraIndicator }
+        set { OverlayStateRelay.shared.showCameraIndicator = newValue }
+    }
+    var isCameraExpanded: Bool {
+        get { OverlayStateRelay.shared.isCameraExpanded }
+        set { OverlayStateRelay.shared.isCameraExpanded = newValue }
+    }
+    var isCameraActive: Bool {
+        get { OverlayStateRelay.shared.isCameraActive }
+        set { OverlayStateRelay.shared.isCameraActive = newValue }
+    }
+    var activeCameraName: String {
+        get { OverlayStateRelay.shared.activeCameraName }
+        set { OverlayStateRelay.shared.activeCameraName = newValue }
+    }
+    var activeCameraClientName: String {
+        get { OverlayStateRelay.shared.activeCameraClientName }
+        set { OverlayStateRelay.shared.activeCameraClientName = newValue }
+    }
+    var activeCameraClientBundleID: String {
+        get { OverlayStateRelay.shared.activeCameraClientBundleID }
+        set { OverlayStateRelay.shared.activeCameraClientBundleID = newValue }
+    }
+    var activeCameraClientPID: Int32? {
+        get { OverlayStateRelay.shared.activeCameraClientPID }
+        set { OverlayStateRelay.shared.activeCameraClientPID = newValue }
+    }
+    var cameraEventId: UUID {
+        get { OverlayStateRelay.shared.cameraEventId }
+        set { OverlayStateRelay.shared.cameraEventId = newValue }
+    }
+    var cameraTimer: Timer?
+    var isCameraTimerScheduledInstantly = false
     
-    @Published var activeMicClientName: String = ""
-    @Published var activeMicClientBundleID: String = ""
-    @Published var activeMicClientPID: Int? = nil
+    var activeMicClientName: String {
+        get { OverlayStateRelay.shared.activeMicClientName }
+        set { OverlayStateRelay.shared.activeMicClientName = newValue }
+    }
+    var activeMicClientBundleID: String {
+        get { OverlayStateRelay.shared.activeMicClientBundleID }
+        set { OverlayStateRelay.shared.activeMicClientBundleID = newValue }
+    }
+    var activeMicClientPID: Int? {
+        get { OverlayStateRelay.shared.activeMicClientPID }
+        set { OverlayStateRelay.shared.activeMicClientPID = newValue }
+    }
     private var avObserver: AVObserver?
     private var locationObserver: LocationObserver?
-    private var cameraClientObserver: CameraClientObserver?
+    var cameraClientObserver: CameraClientObserver?
     
     // Peripherals
     @Published var enablePeripheral: Bool = UserDefaults.standard.object(forKey: "enablePeripheral") as? Bool ?? true {
@@ -894,31 +1200,75 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(accessorySoundOn10Percent, forKey: "accessorySoundOn10Percent") }
     }
     
-    @Published var showAccessoryBatteryIndicator: Bool = false
-    @Published var accessoryBatteryDeviceName: String = ""
-    @Published var accessoryBatteryPercentage: Int = 100
-    @Published var accessoryBatteryIsPluggedIn: Bool = false
-    @Published var accessoryBatteryIsWarning: Bool = false
-    @Published var accessoryBatteryEventId: UUID = UUID()
-    @Published var accessoryBatteryLevels: [String: Int] = [:]
-    @Published var accessoryBatteryCharging: [String: Bool] = [:]
-    @Published var bluetoothDetails: [String: [String: String]] = [:]
-    private var accessoryBatteryTimer: Timer?
-    private var btPoller: BluetoothBatteryPoller?
+    var showAccessoryBatteryIndicator: Bool {
+        get { OverlayStateRelay.shared.showAccessoryBatteryIndicator }
+        set { OverlayStateRelay.shared.showAccessoryBatteryIndicator = newValue }
+    }
+    var accessoryBatteryDeviceName: String {
+        get { OverlayStateRelay.shared.accessoryBatteryDeviceName }
+        set { OverlayStateRelay.shared.accessoryBatteryDeviceName = newValue }
+    }
+    var accessoryBatteryPercentage: Int {
+        get { OverlayStateRelay.shared.accessoryBatteryPercentage }
+        set { OverlayStateRelay.shared.accessoryBatteryPercentage = newValue }
+    }
+    var accessoryBatteryIsPluggedIn: Bool {
+        get { OverlayStateRelay.shared.accessoryBatteryIsPluggedIn }
+        set { OverlayStateRelay.shared.accessoryBatteryIsPluggedIn = newValue }
+    }
+    var accessoryBatteryIsWarning: Bool {
+        get { OverlayStateRelay.shared.accessoryBatteryIsWarning }
+        set { OverlayStateRelay.shared.accessoryBatteryIsWarning = newValue }
+    }
+    var accessoryBatteryEventId: UUID {
+        get { OverlayStateRelay.shared.accessoryBatteryEventId }
+        set { OverlayStateRelay.shared.accessoryBatteryEventId = newValue }
+    }
+    var accessoryBatteryLevels: [String: Int] {
+        get { OverlayStateRelay.shared.accessoryBatteryLevels }
+        set { OverlayStateRelay.shared.accessoryBatteryLevels = newValue }
+    }
+    var accessoryBatteryCharging: [String: Bool] {
+        get { OverlayStateRelay.shared.accessoryBatteryCharging }
+        set { OverlayStateRelay.shared.accessoryBatteryCharging = newValue }
+    }
+    var bluetoothDetails: [String: [String: String]] {
+        get { OverlayStateRelay.shared.bluetoothDetails }
+        set { OverlayStateRelay.shared.bluetoothDetails = newValue }
+    }
+    var accessoryBatteryTimer: Timer?
+    var btPoller: BluetoothBatteryPoller?
     
-    @Published var showPeripheralIndicator: Bool = false
-    @Published var peripheralDeviceName: String = ""
-    @Published var peripheralDeviceType: String = ""
-    @Published var peripheralDeviceIcon: String = "cable.connector"
-    @Published var peripheralIsConnected: Bool = false
-    @Published var peripheralEventId: UUID = UUID()
+    var showPeripheralIndicator: Bool {
+        get { OverlayStateRelay.shared.showPeripheralIndicator }
+        set { OverlayStateRelay.shared.showPeripheralIndicator = newValue }
+    }
+    var peripheralDeviceName: String {
+        get { OverlayStateRelay.shared.peripheralDeviceName }
+        set { OverlayStateRelay.shared.peripheralDeviceName = newValue }
+    }
+    var peripheralDeviceType: String {
+        get { OverlayStateRelay.shared.peripheralDeviceType }
+        set { OverlayStateRelay.shared.peripheralDeviceType = newValue }
+    }
+    var peripheralDeviceIcon: String {
+        get { OverlayStateRelay.shared.peripheralDeviceIcon }
+        set { OverlayStateRelay.shared.peripheralDeviceIcon = newValue }
+    }
+    var peripheralIsConnected: Bool {
+        get { OverlayStateRelay.shared.peripheralIsConnected }
+        set { OverlayStateRelay.shared.peripheralIsConnected = newValue }
+    }
+    var peripheralEventId: UUID {
+        get { OverlayStateRelay.shared.peripheralEventId }
+        set { OverlayStateRelay.shared.peripheralEventId = newValue }
+    }    
+    var lastBluetoothEventTimeByDevice: [String: Date] = [:]
     
-    private var lastBluetoothEventTimeByDevice: [String: Date] = [:]
-    
-    private var peripheralTimer: Timer?
+    var peripheralTimer: Timer?
     private var peripheralObserver: PeripheralObserver?
     private var displayObserver: DisplayObserver?
-    private var currentPlayingSound: NSSound?
+    var currentPlayingSound: NSSound?
     private var soundCache: [String: NSSound] = [:]
     
     func playNotificationSound(named soundName: String) {
@@ -974,244 +1324,8 @@ class MediaKeyManager: ObservableObject {
 
     func dismissCollidingIndicators(newPosition: String, source: String) {
     }
-    
-    func triggerThemeIndicator(isDark: Bool) {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
 
-        if !enableTheme { return }
-        if isDark && !notifyOnThemeDark { return }
-        if !isDark && !notifyOnThemeLight { return }
-        
-        playNotificationSound(named: isDark ? soundOnThemeDark : soundOnThemeLight)
-        
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.themeTimer?.invalidate()
-            
-            let pos = self.getOverlayPosition(for: "themeOverlayPosition")
-            self.dismissCollidingIndicators(newPosition: pos, source: "theme")
-            
-            self.isDarkMode = isDark
-            let executeShow = { [weak self] in
-                guard let self = self else { return }
 
-                self.themeEventId = UUID()
-
-                withAnimation(.easeInOut(duration: 0.15)) {
-
-                    self.showThemeIndicator = true; self.overlayTriggerTimes["theme"] = Date()
-                    self.notifyOverlayStateChanged()
-
-                }
-
-                self.themeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-
-                    withAnimation(.easeInOut(duration: 0.25)) {
-
-                        self?.showThemeIndicator = false
-
-                    }
-
-                }
-
-            }
-
-            
-
-            if self.showThemeIndicator {
-
-                withAnimation(.easeInOut(duration: 0.25)) {
-
-                    self.showThemeIndicator = false
-
-                }
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-
-                    executeShow()
-
-                }
-
-            } else {
-
-                executeShow()
-
-            }
-        }
-    }
-    
-    private func updateFocusReminderTimer() {
-        focusReminderTimer?.invalidate()
-        focusReminderTimer = nil
-        
-        if enableFocus && enableFocusReminder && isFocusModeActive {
-            let interval = TimeInterval(focusReminderInterval * 60)
-            focusReminderTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-                guard let self = self else { return }
-                
-                // Show reminder without playing a sound (or play a subtle sound if requested, but default is visual)
-                DispatchQueue.main.async {
-                    self.focusTimer?.invalidate()
-                    
-                    let pos = self.getOverlayPosition(for: "focusOverlayPosition")
-                    self.dismissCollidingIndicators(newPosition: pos, source: "focus")
-                    
-                    let executeShow = {
-                        self.isFocusReminder = true
-                        self.isFocusSwitched = false
-                        self.focusEventId = UUID()
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            self.showFocusIndicator = true
-                            self.notifyOverlayStateChanged()
-                            self.overlayTriggerTimes["focus"] = Date()
-                        }
-                        self.focusTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                self.showFocusIndicator = false
-                            }
-                        }
-                    }
-                    
-                    if self.showFocusIndicator {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            self.showFocusIndicator = false
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            executeShow()
-                        }
-                    } else {
-                        executeShow()
-                    }
-                }
-            }
-        }
-    }
-    
-    func triggerFocusIndicator(isActive: Bool, modeName: String?, colorName: String = "systemIndigoColor", symbol: String = "moon.fill", isSwitched: Bool = false, details: ActiveFocusDetails? = nil) {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
-
-        if !enableFocus { return }
-        if isActive && !notifyOnFocusOn { return }
-        if !isActive && !notifyOnFocusOff { return }
-        
-        playNotificationSound(named: isActive ? soundOnFocusOn : soundOnFocusOff)
-        
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.focusTimer?.invalidate()
-            
-            let pos = self.getOverlayPosition(for: "focusOverlayPosition")
-            self.dismissCollidingIndicators(newPosition: pos, source: "focus")
-            
-            self.isFocusModeActive = isActive
-            self.focusModeName = modeName ?? "Focus"
-            self.focusColorName = colorName
-            self.focusSymbol = symbol
-            self.isFocusReminder = false
-            self.isFocusSwitched = isSwitched
-            if isActive {
-                self.activeFocusDetails = details
-                self.lastEndedFocusDetails = nil
-            } else {
-                if var lastDetails = self.activeFocusDetails {
-                    lastDetails.endedAt = Date()
-                    self.lastEndedFocusDetails = lastDetails
-                } else if var details = details {
-                    details.endedAt = Date()
-                    self.lastEndedFocusDetails = details
-                }
-                self.activeFocusDetails = nil
-            }
-            
-            self.updateFocusReminderTimer()
-            
-            let executeShow = { [weak self] in
-                guard let self = self else { return }
-                self.focusEventId = UUID()
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self.showFocusIndicator = true
-                    self.notifyOverlayStateChanged()
-                    self.overlayTriggerTimes["focus"] = Date()
-                }
-                self.focusTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        self?.showFocusIndicator = false
-                    }
-                }
-            }
-            
-            if self.showFocusIndicator {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showFocusIndicator = false
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    executeShow()
-                }
-            } else {
-                executeShow()
-            }
-        }
-    }
-    
-    func triggerLanguageIndicator(language: String) {
-        if !enableKeyboard { return }
-        if !notifyOnLanguageChange { return }
-        
-        playNotificationSound(named: soundOnLanguageChange)
-        
-        languageTimer?.invalidate()
-        let pos = self.getOverlayPosition(for: "languageOverlayPosition")
-        dismissCollidingIndicators(newPosition: pos, source: "language")
-        
-        self.currentKeyboardLanguage = language
-            let executeShow = { [weak self] in
-                guard let self = self else { return }
-
-                self.languageEventId = UUID()
-
-                withAnimation(.easeInOut(duration: 0.15)) {
-
-                    self.showLanguageIndicator = true; self.overlayTriggerTimes["language"] = Date()
-                    self.notifyOverlayStateChanged()
-
-                }
-
-                self.languageTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-
-                    withAnimation(.easeInOut(duration: 0.25)) {
-
-                        self?.showLanguageIndicator = false
-
-                    }
-
-                }
-
-            }
-
-            
-
-            if self.showLanguageIndicator {
-
-                withAnimation(.easeInOut(duration: 0.25)) {
-
-                    self.showLanguageIndicator = false
-
-                }
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-
-                    executeShow()
-
-                }
-
-            } else {
-
-                executeShow()
-
-            }
-    }
     
     func getAvailableLanguages() -> [KeyboardLayout] {
         guard let sourceList = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource],
@@ -1220,22 +1334,21 @@ class MediaKeyManager: ObservableObject {
         }
         
         var currentId = ""
-        if let currentIdPtr = TISGetInputSourceProperty(currentSource, kTISPropertyInputSourceID) {
-            currentId = Unmanaged<CFString>.fromOpaque(currentIdPtr).takeUnretainedValue() as String
+        if let currentIdPtr = TISGetInputSourceProperty(currentSource, kTISPropertyInputSourceID),
+           let idStr = Unmanaged<AnyObject>.fromOpaque(currentIdPtr).takeUnretainedValue() as? String {
+            currentId = idStr
         }
         
         var layouts: [KeyboardLayout] = []
         for source in sourceList {
-            let categoryPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory)
-            guard let catPtr = categoryPtr else { continue }
-            
-            let category = Unmanaged<CFString>.fromOpaque(catPtr).takeUnretainedValue() as String
+            guard let catPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory),
+                  let category = Unmanaged<AnyObject>.fromOpaque(catPtr).takeUnretainedValue() as? String else { continue }
             
             if category == (kTISCategoryKeyboardInputSource as String) {
                 if let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
-                   let namePtr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) {
-                    let id = Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
-                    let name = Unmanaged<CFString>.fromOpaque(namePtr).takeUnretainedValue() as String
+                   let namePtr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName),
+                   let id = Unmanaged<AnyObject>.fromOpaque(idPtr).takeUnretainedValue() as? String,
+                   let name = Unmanaged<AnyObject>.fromOpaque(namePtr).takeUnretainedValue() as? String {
                     layouts.append(KeyboardLayout(id: id, name: name, isSelected: (id == currentId)))
                 }
             }
@@ -1246,8 +1359,8 @@ class MediaKeyManager: ObservableObject {
     func selectLanguage(idToSelect: String) {
         guard let sourceList = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource] else { return }
         for source in sourceList {
-            if let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) {
-                let id = Unmanaged<CFString>.fromOpaque(idPtr).takeUnretainedValue() as String
+            if let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
+               let id = Unmanaged<AnyObject>.fromOpaque(idPtr).takeUnretainedValue() as? String {
                 if id == idToSelect {
                     isSwitchingLanguageInternally = true
                     TISSelectInputSource(source)
@@ -1319,75 +1432,7 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func triggerMicIndicator(isActive: Bool, deviceName: String = "") {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            self.isMicActive = isActive
-            self.lastMicEventTime = Date()
-            
-            if isActive {
-                self.micTimer?.invalidate()
-                self.micEventId = UUID()
-                
-                if self.showMicIndicator && !self.isMicExpanded {
-                    self.isMicTimerScheduledInstantly = true
-                    self.micTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            self?.showMicIndicator = false
-                        }
-                    }
-                } else {
-                    self.isMicTimerScheduledInstantly = false
-                }
-                
-                self.activeMicName = deviceName.isEmpty ? "System Microphone" : deviceName
-                self.activeMicClientName = ""
-                self.activeMicClientBundleID = ""
-                self.activeMicClientPID = nil
-                self.cameraClientObserver?.fetchActiveMicClient()
-                return // finalizeMicIndicator will handle the UI
-            }
-            
-            // OFF logic
-            if self.isSwitchingMic { return }
-            if !self.enablePrivacy { return }
-            
-            if !self.notifyOnMicOff {
-                self.showMicIndicator = false
-                return
-            }
-            
-            if !self.activeMicClientName.isEmpty && self.micBlocklist.contains(self.activeMicClientName) {
-                self.activeMicClientName = ""
-                self.activeMicClientBundleID = ""
-                self.activeMicClientPID = nil
-                return
-            }
-            
-            self.playNotificationSound(named: self.soundOnMicOff)
-            
-            self.micTimer?.invalidate()
-            let pos = self.getOverlayPosition(for: "micOverlayPosition")
-            self.dismissCollidingIndicators(newPosition: pos, source: "mic")
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.micEventId = UUID()
-                self.showMicIndicator = true; self.overlayTriggerTimes["mic"] = Date()
-                self.notifyOverlayStateChanged()
-            }
-            
-            if !self.isMicExpanded {
-                self.micTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        self?.showMicIndicator = false
-                    }
-                }
-            }
-        }
-    }
     
         
     func finalizeCameraIndicator(appName: String) {
@@ -1426,112 +1471,11 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func triggerCameraIndicator(isActive: Bool, deviceName: String = "") {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            self.isCameraActive = isActive
-            
-            if isActive {
-                self.cameraTimer?.invalidate()
-                self.cameraEventId = UUID()
-                
-                if self.showCameraIndicator && !self.isCameraExpanded {
-                    self.isCameraTimerScheduledInstantly = true
-                    self.cameraTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            self?.showCameraIndicator = false
-                        }
-                    }
-                } else {
-                    self.isCameraTimerScheduledInstantly = false
-                }
-                
-                self.activeCameraName = deviceName.isEmpty ? "Built-in Camera" : deviceName
-                self.activeCameraClientName = ""
-                self.activeCameraClientBundleID = ""
-                self.activeCameraClientPID = nil
-                self.cameraClientObserver?.fetchActiveCameraClient()
-                return // finalizeCameraIndicator will handle the UI
-            }
-            
-            // OFF logic
-            if !self.enablePrivacy { return }
-            
-            if !self.notifyOnCameraOff { return }
-            
-            if !self.activeCameraClientName.isEmpty && self.cameraBlocklist.contains(self.activeCameraClientName) {
-                self.activeCameraClientName = ""
-                self.activeCameraClientBundleID = ""
-                self.activeCameraClientPID = nil
-                return
-            }
-            
-            self.playNotificationSound(named: self.soundOnCameraOff)
-            
-            self.cameraTimer?.invalidate()
-            let pos = self.getOverlayPosition(for: "cameraOverlayPosition")
-            self.dismissCollidingIndicators(newPosition: pos, source: "camera")
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.cameraEventId = UUID()
-                self.showCameraIndicator = true; self.overlayTriggerTimes["camera"] = Date()
-                self.notifyOverlayStateChanged()
-            }
-            
-            let camAllow = UserDefaults.standard.object(forKey: "cameraAllowExpansion") as? Bool ?? true
-            if !camAllow { self.isCameraExpanded = false }
-            
-            if !self.isCameraExpanded {
-                self.cameraTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        self?.showCameraIndicator = false
-                    }
-                }
-            }
-        }
-    }
     
-    func triggerLocationIndicator(appName: String = "") {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            if !self.enablePrivacy { return }
-            if !self.notifyOnLocationOn { return }
-            
-            self.isLocationActive = true
-            if !appName.isEmpty {
-                self.activeLocationAppName = appName
-            }
-            
-            self.playNotificationSound(named: self.soundOnLocationOn)
-            
-            self.locationTimer?.invalidate()
-            let pos = self.getOverlayPosition(for: "locationOverlayPosition")
-            self.dismissCollidingIndicators(newPosition: pos, source: "location")
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.locationEventId = UUID()
-                self.showLocationIndicator = true; self.overlayTriggerTimes["location"] = Date()
-                self.notifyOverlayStateChanged()
-            }
-            
-            if !self.isLocationExpanded {
-                self.locationTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        self?.showLocationIndicator = false
-                        self?.isLocationActive = false
-                    }
-                }
-            }
-        }
-    }
     
-    private var batteryTimer: Timer?
+    var batteryTimer: Timer?
     private var isTestingBattery = false
     private var testOriginalPercentage = 0
     private var testOriginalPluggedIn = false
@@ -1587,76 +1531,8 @@ class MediaKeyManager: ObservableObject {
             }
         }
     }
-    
-    func triggerLowBatteryWarning() {
-        if !enableBattery { return }
-        startFetchingTopBatteryConsumers()
-        let currentLevel = currentBatteryPercentage
-        playNotificationSound(named: currentLevel <= 10 ? soundOn10Percent : soundOn20Percent)
-        let battPos = self.getOverlayPosition(for: "batteryOverlayPosition")
-        dismissCollidingIndicators(newPosition: battPos, source: "battery")
-        
-        let wasActive = showChargingStatus || showLowBatteryWarning || showUnpluggedStatus
-        if wasActive {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                showChargingStatus = false
-                showLowBatteryWarning = false
-                showUnpluggedStatus = false
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery_warning"] = Date()
-                    self.notifyOverlayStateChanged()
-                }
-            }
-        } else {
-            withAnimation(.easeInOut(duration: 0.25)) { self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery_warning"] = Date() }
-            self.notifyOverlayStateChanged()
-        }
-        
-        chargingTimer?.invalidate()
-        batteryTimer?.invalidate()
-        batteryTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            self?.hideBatteryOverlay()
-        }
-    }
-    
-    func triggerChargingStatus() {
-        if !enableBattery { return }
-        if isPluggedIn {
-            playNotificationSound(named: soundOnPlug)
-        } else if currentBatteryPercentage >= 100 {
-            playNotificationSound(named: soundOn100Percent)
-        }
-        chargingTimer?.invalidate()
-        batteryTimer?.invalidate()
-        let battPos = self.getOverlayPosition(for: "batteryOverlayPosition")
-        dismissCollidingIndicators(newPosition: battPos, source: "battery")
-        
-        let wasActive = showChargingStatus || showLowBatteryWarning || showUnpluggedStatus
-        if wasActive {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                showChargingStatus = false
-                showLowBatteryWarning = false
-                showUnpluggedStatus = false
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showChargingStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
-                    self.notifyOverlayStateChanged()
-                }
-            }
-        } else {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self.showChargingStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
-                self.notifyOverlayStateChanged()
-            }
-        }
-        
-        chargingTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            self?.hideBatteryOverlay()
-        }
-    }
+
+
     
     func triggerUnplugStatus() {
         if !enableBattery { return }
@@ -1691,41 +1567,9 @@ class MediaKeyManager: ObservableObject {
             self?.hideBatteryOverlay()
         }
     }
-    
-    func triggerPeripheralIndicator(id: String? = nil, deviceName: String, type: String, typeIcon: String, isConnected: Bool, details: [String: String]? = nil) {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            if !self.enablePeripheral { return }
-            
-            let notifId = id ?? deviceName
-            // Fix for USB bus resets: delay disconnects by 3s. If reconnect happens within 3s, ignore both.
-            let debounceKey = "peripheral_debounce_\(notifId)"
-            if !isConnected {
-                self.notificationTimers[debounceKey]?.invalidate()
-                self.notificationTimers[debounceKey] = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
-                    self?.notificationTimers.removeValue(forKey: debounceKey)
-                    self?.showPeripheralOverlay(id: notifId, deviceName: deviceName, type: type, typeIcon: typeIcon, isConnected: false, details: details)
-                }
-            } else {
-                if let timer = self.notificationTimers[debounceKey] {
-                    let wasValid = timer.isValid
-                    timer.invalidate()
-                    self.notificationTimers.removeValue(forKey: debounceKey)
-                    
-                    if wasValid {
-                        // It reconnected before the 1s timer fired. This was a bus reset. Ignore it to prevent spam.
-                        return
-                    }
-                }
-                self.showPeripheralOverlay(id: notifId, deviceName: deviceName, type: type, typeIcon: typeIcon, isConnected: true, details: details)
-            }
-        }
-    }
     
-    private func showPeripheralOverlay(id: String? = nil, deviceName: String, type: String, typeIcon: String, isConnected: Bool, details: [String: String]? = nil) {
+    func showPeripheralOverlay(id: String? = nil, deviceName: String, type: String, typeIcon: String, isConnected: Bool, details: [String: String]? = nil) {
         let notifId = id ?? deviceName
         if isConnected && !self.notifyOnPeripheralConnect { return }
         if !isConnected && !self.notifyOnPeripheralDisconnect { return }
@@ -1997,55 +1841,7 @@ class MediaKeyManager: ObservableObject {
             }
         }
     }
-    
-    func triggerAccessoryBatteryIndicator(deviceName: String, percentage: Int, isPluggedIn: Bool, isWarning: Bool) {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            self.accessoryBatteryLevels[deviceName] = percentage
-            self.accessoryBatteryCharging[deviceName] = isPluggedIn
-            
-            if !self.enableAccessoryBattery { return }
-            
-            if !self.accessoryBatteryHistory.contains(deviceName) {
-                self.accessoryBatteryHistory.append(deviceName)
-            }
-            if self.accessoryBatteryBlocklist.contains(deviceName) { return }
-            
-            self.accessoryBatteryDeviceName = deviceName
-            self.accessoryBatteryPercentage = percentage
-            self.accessoryBatteryIsPluggedIn = isPluggedIn
-            self.accessoryBatteryIsWarning = isWarning
-            
-            if percentage == 100 {
-                self.playNotificationSound(named: self.accessorySoundOn100Percent)
-            } else if percentage <= 10 {
-                self.playNotificationSound(named: self.accessorySoundOn10Percent)
-            } else if percentage <= 20 {
-                self.playNotificationSound(named: self.accessorySoundOn20Percent)
-            }
-            
-            self.accessoryBatteryTimer?.invalidate()
-            let pos = self.getOverlayPosition(for: "batteryOverlayPosition")
-            self.dismissCollidingIndicators(newPosition: pos, source: "accessoryBattery")
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.accessoryBatteryEventId = UUID()
-                self.showAccessoryBatteryIndicator = true
-                self.notifyOverlayStateChanged()
-                self.overlayTriggerTimes["accessoryBattery"] = Date()
-            }
-            
-            let displayTime: TimeInterval = isWarning ? 4.5 : 3.5
-            self.accessoryBatteryTimer = Timer.scheduledTimer(withTimeInterval: displayTime, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showAccessoryBatteryIndicator = false
-                }
-            }
-        }
-    }
     
     func updateAccessoryState(deviceName: String, percentage: Int, isPluggedIn: Bool) {
         DispatchQueue.main.async { [weak self] in
@@ -2064,12 +1860,7 @@ class MediaKeyManager: ObservableObject {
             self?.bluetoothDetails[deviceName] = details
         }
     }
-    
-    func fetchBluetoothDetails() {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.btPoller?.forcePoll()
-        }
-    }
+
     
     func disconnectBluetoothDevice(macAddress: String) {
         guard let device = IOBluetoothDevice(addressString: macAddress) else { return }
@@ -2077,192 +1868,7 @@ class MediaKeyManager: ObservableObject {
             device.closeConnection()
         }
     }
-    
-    func triggerVolumeIndicator(playSound: Bool = false) {
-        if !enableVolume { return }
-        if playSound {
-            playNotificationSound(named: soundOnVolume)
-        }
 
-        cancelOverlayHide(for: "volume")
-        volumeTimer?.invalidate()
-        let volPos = self.getOverlayPosition(for: "volumeOverlayPosition")
-        dismissCollidingIndicators(newPosition: volPos, source: "volume")
-        
-        if !showVolumeIndicator {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                showVolumeIndicator = true
-                notifyOverlayStateChanged()
-            }
-        }
-        self.overlayTriggerTimes["volume"] = Date()
-        
-        if !globalHoveredTypes.contains("volume") {
-            volumeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showVolumeIndicator = false
-                }
-            }
-        }
-    }
-    
-    func triggerBrightnessIndicator(playSound: Bool = false) {
-        if !enableBrightness { return }
-        if playSound {
-            playNotificationSound(named: soundOnBrightness)
-        }
-        cancelOverlayHide(for: "brightness")
-        brightnessTimer?.invalidate()
-        let brightPos = self.getOverlayPosition(for: "brightnessOverlayPosition")
-        dismissCollidingIndicators(newPosition: brightPos, source: "brightness")
-        
-        if !showBrightnessIndicator {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                showBrightnessIndicator = true
-                notifyOverlayStateChanged()
-            }
-        }
-        self.overlayTriggerTimes["brightness"] = Date()
-        
-        if !globalHoveredTypes.contains("brightness") {
-            brightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showBrightnessIndicator = false
-                }
-            }
-        }
-    }
-    
-    func triggerKeyboardBrightnessIndicator(playSound: Bool = false) {
-        if !enableKeyboardBrightness { return }
-        if playSound {
-            playNotificationSound(named: soundOnKeyboardBrightness)
-        }
-        cancelOverlayHide(for: "keyboardBrightness")
-        keyboardBrightnessTimer?.invalidate()
-        let kbPos = self.getOverlayPosition(for: "keyboardBrightnessOverlayPosition")
-        dismissCollidingIndicators(newPosition: kbPos, source: "keyboardBrightness")
-        
-        if !showKeyboardBrightnessIndicator {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                showKeyboardBrightnessIndicator = true
-                notifyOverlayStateChanged()
-            }
-        }
-        self.overlayTriggerTimes["keyboardBrightness"] = Date()
-        
-        keyboardBrightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self?.showKeyboardBrightnessIndicator = false
-            }
-        }
-    }
-    
-    func triggerClipboardIndicator(text: String, action: String = "copy", app: String = "", folder: String? = nil, size: String = "") {
-        if !enableKeyboard { return }
-        if action == "copy" && !notifyOnCopy { return }
-        if action == "cut" && !notifyOnCut { return }
-        if action == "paste" && !notifyOnPaste && !isProgrammaticPasteboardChange { return }
-        
-        if action == "copy" { playNotificationSound(named: soundOnCopy) }
-        else if action == "cut" { playNotificationSound(named: soundOnCut) }
-        else if action == "paste" { playNotificationSound(named: soundOnPaste) }
-        
-        copyTimer?.invalidate()
-        pendingClipboardShowTask?.cancel()
-        cancelOverlayHide(for: "copy")
-        
-        let copyPos = self.getOverlayPosition(for: "copyOverlayPosition")
-        dismissCollidingIndicators(newPosition: copyPos, source: "copy")
-        
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        let executeShow = { [weak self] in
-            guard let self = self else { return }
-            
-            // Apply published states right before showing, preventing layout jumps on closing view
-            self.copiedText = trimmedText
-            self.clipboardAction = action
-            self.clipboardSourceApp = app
-            self.clipboardSourceFolder = folder
-            self.clipboardMetadataSize = size
-            self.clipboardEventId = UUID()
-            
-            if self.clipboardEnableHistory {
-                // Dodajemy element do historii (jeżeli nie jest taki sam jak poprzedni)
-                if !trimmedText.isEmpty && self.clipboardHistory.first?.text != trimmedText {
-                    let newItem = ClipboardItem(text: trimmedText, app: app, folder: folder, size: size, timestamp: Date())
-                    self.clipboardHistory.insert(newItem, at: 0)
-                    self.cleanupClipboardHistory()
-                }
-            }
-            
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.showCopyIndicator = true
-                self.notifyOverlayStateChanged()
-                self.overlayTriggerTimes["copy"] = Date()
-            }
-            
-            self.copyTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showCopyIndicator = false
-                }
-            }
-        }
-        
-        if self.showCopyIndicator && self.clipboardAction != action && action != "paste" {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self.showCopyIndicator = false
-            }
-            let task = DispatchWorkItem(block: executeShow)
-            self.pendingClipboardShowTask = task
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
-        } else {
-            executeShow()
-        }
-    }
-
-    func triggerRamOverlay() {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
-
-        if !notifyOnHighRam { return }
-        
-        playNotificationSound(named: self.soundOnHighRam)
-        
-        self.hideRamIndicatorTask?.cancel()
-        let pos = self.getOverlayPosition(for: "ramOverlayPosition")
-        dismissCollidingIndicators(newPosition: pos, source: "ram")
-        
-        let executeShow = { [weak self] in
-            guard let self = self else { return }
-            self.ramEventId = UUID()
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.showRamIndicator = true
-                self.notifyOverlayStateChanged()
-                self.overlayTriggerTimes["ram"] = Date()
-            }
-            
-            let task = DispatchWorkItem { [weak self] in
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self?.showRamIndicator = false
-                }
-            }
-            self.hideRamIndicatorTask = task
-            DispatchQueue.main.asyncAfter(deadline: .now() + MediaKeyManager.notificationDuration, execute: task)
-        }
-        
-        if self.showRamIndicator {
-            withAnimation(.easeInOut(duration: 0.1)) {
-                self.showRamIndicator = false
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                executeShow()
-            }
-        } else {
-            executeShow()
-        }
-    }
     
     func copyHistoryItemToPasteboard(_ item: ClipboardItem) {
         let pasteboard = NSPasteboard.general
@@ -2352,324 +1958,15 @@ class MediaKeyManager: ObservableObject {
     }
 
     
-    func triggerCapsLockIndicator(isOn: Bool) {
-        if !enableKeyboard { return }
-        if isOn && !notifyOnCapsLockOn { return }
-        if !isOn && !notifyOnCapsLockOff { return }
-        
-        let sound = isOn ? soundOnCapsLock : soundOnCapsLockOff
-        if sound != "None" {
-            playNotificationSound(named: sound)
-        }
-        
-        capsLockTimer?.invalidate()
-        let pos = self.getOverlayPosition(for: "capsLockOverlayPosition")
-        dismissCollidingIndicators(newPosition: pos, source: "capsLock")
-        
-        self.isCapsLockOn = isOn
-            let executeShow = { [weak self] in
-                guard let self = self else { return }
-
-                self.capsLockEventId = UUID()
-
-                withAnimation(.easeInOut(duration: 0.15)) {
-
-                    self.showCapsLockIndicator = true; self.overlayTriggerTimes["capsLock"] = Date()
-                    self.notifyOverlayStateChanged()
-
-                }
-
-                self.capsLockTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-
-                    withAnimation(.easeInOut(duration: 0.25)) {
-
-                        self?.showCapsLockIndicator = false
-
-                    }
-
-                }
-
-            }
-
-            
-
-            executeShow()
-    }
-    
-    
-    func triggerBluetoothIndicator(deviceName: String, deviceAddress: String, isConnected: Bool) {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
-
-        if !enableBluetooth { return }
-        
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            if !self.bluetoothHistory.contains(deviceName) {
-                self.bluetoothHistory.append(deviceName)
-            }
-        }
-        
-        if isConnected && !notifyOnBluetoothConnect { return }
-        if !isConnected && !notifyOnBluetoothDisconnect { return }
-        if bluetoothBlocklist.contains(deviceName) { return }
-        
-        let now = Date()
-        let eventKey = "\(deviceAddress)_\(isConnected ? "connect" : "disconnect")"
-        if let lastTime = lastBluetoothEventTimeByDevice[eventKey], now.timeIntervalSince(lastTime) < 2.0 {
-            return
-        }
-        lastBluetoothEventTimeByDevice[eventKey] = now
-        
-        let soundToPlay = isConnected ? soundOnBluetoothConnect : soundOnBluetoothDisconnect
-        playNotificationSound(named: soundToPlay)
-        
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            let pos = self.getOverlayPosition(for: "bluetoothOverlayPosition")
-            self.dismissCollidingIndicators(newPosition: pos, source: "bluetooth")
-            
-            let newNotif = DeviceNotification(id: deviceAddress, deviceName: deviceName, type: "bluetooth", icon: "bluetooth", isConnected: isConnected, timestamp: Date())
-            
-            withAnimation(.easeInOut(duration: 0.15)) {
-                if let idx = self.activeBluetoothNotifications.firstIndex(where: { $0.id == deviceAddress }) {
-                    self.activeBluetoothNotifications[idx] = newNotif
-                } else {
-                    self.activeBluetoothNotifications.append(newNotif)
-                    self.notifyOverlayStateChanged()
-                }
-                self.enforceNotificationLimit()
-            }
-            
-            let timerKey = "bluetooth_\(deviceAddress)"
-            self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
-            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.activeBluetoothNotifications.removeAll(where: { $0.id == deviceAddress })
-                }
-            }
-        }
-    }
-    
-    private var wiFiTimer: Timer?
-    @Published var wiFiEventId: UUID = UUID()
-    
-    func triggerWiFiIndicator(ssid: String, isConnected: Bool, isHotspot: Bool = false) {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
-
-        if !enableWiFi { return }
-        
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            if !self.wifiHistory.contains(ssid) {
-                self.wifiHistory.append(ssid)
-            }
-        }
-        
-        if isConnected && !notifyOnWiFiConnect { return }
-        if !isConnected && !notifyOnWiFiDisconnect { return }
-        if wifiBlocklist.contains(ssid) { return }
-        
-        let soundToPlay = isConnected ? soundOnWiFiConnect : soundOnWiFiDisconnect
-        playNotificationSound(named: soundToPlay)
-        
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.wiFiTimer?.invalidate()
-            
-            let pos = self.getOverlayPosition(for: "wifiOverlayPosition")
-            self.dismissCollidingIndicators(newPosition: pos, source: "wifi")
-            
-            self.wiFiSSID = ssid
-            self.wiFiIsConnected = isConnected
-            self.wiFiIsHotspot = isHotspot
-            let executeShow = { [weak self] in
-                guard let self = self else { return }
-
-                self.wiFiEventId = UUID()
-
-                withAnimation(.easeInOut(duration: 0.15)) {
-
-                    self.showWiFiIndicator = true; self.overlayTriggerTimes["wifi"] = Date()
-                    self.notifyOverlayStateChanged()
-
-                }
-
-                self.wiFiTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-
-                    withAnimation(.easeInOut(duration: 0.25)) {
-
-                        self?.showWiFiIndicator = false
-
-                    }
-
-                }
-
-            }
-
-            
-
-            if self.showWiFiIndicator {
-
-                withAnimation(.easeInOut(duration: 0.25)) {
-
-                    self.showWiFiIndicator = false
-
-                }
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-
-                    executeShow()
-
-                }
-
-            } else {
-
-                executeShow()
-
-            }
-        }
-    }
-    
-    func fetchWiFiDetails() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let interface = CWWiFiClient.shared().interface() else { return }
-            
-            let rssi = interface.rssiValue()
-            let txRate = interface.transmitRate()
-            
-            var channelStr: String? = nil
-            if let channel = interface.wlanChannel() {
-                let band: String
-                if channel.channelBand == .band5GHz {
-                    band = "5 GHz"
-                } else if channel.channelBand == .band6GHz {
-                    band = "6 GHz"
-                } else {
-                    band = "2.4 GHz"
-                }
-                channelStr = "Ch \(channel.channelNumber) (\(band))"
-            }
-            
-            var ipAddr: String? = nil
-            var ifaddr: UnsafeMutablePointer<ifaddrs>?
-            if getifaddrs(&ifaddr) == 0 {
-                var ptr = ifaddr
-                while ptr != nil {
-                    defer { ptr = ptr?.pointee.ifa_next }
-                    
-                    let interfaceInfo = ptr?.pointee
-                    let addrFamily = interfaceInfo?.ifa_addr.pointee.sa_family
-                    if addrFamily == UInt8(AF_INET) {
-                        let name = String(cString: (interfaceInfo?.ifa_name)!)
-                        if name == "en0" { // en0 is typically Wi-Fi on Mac
-                            var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-                            getnameinfo(interfaceInfo?.ifa_addr, socklen_t((interfaceInfo?.ifa_addr.pointee.sa_len)!),
-                                        &hostname, socklen_t(hostname.count),
-                                        nil, socklen_t(0), NI_NUMERICHOST)
-                            ipAddr = String(cString: hostname)
-                        }
-                    }
-                }
-                freeifaddrs(ifaddr)
-            }
-            
-            DispatchQueue.main.async {
-                self.wiFiRSSI = rssi
-                self.wiFiTxRate = txRate
-                self.wiFiChannel = channelStr
-                self.wiFiIPAddress = ipAddr
-                self.wiFiDetailsFetched = true
-            }
-        }
-    }
-    
+    var wiFiTimer: Timer?
+    var wiFiEventId: UUID {
+        get { OverlayStateRelay.shared.wiFiEventId }
+        set { OverlayStateRelay.shared.wiFiEventId = newValue }
+    }    
     func disconnectWiFi() {
         DispatchQueue.global(qos: .userInitiated).async {
             if let interface = CWWiFiClient.shared().interface() {
                 interface.disassociate()
-            }
-        }
-    }
-    
-    func fetchDynamicWiFiDetails() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let interface = CWWiFiClient.shared().interface() else { 
-                LogManager.shared.log("fetchDynamicWiFiDetails: Wi-Fi interface is nil.", level: "ERROR")
-                return 
-            }
-            
-            // Safety check: Do not query details if Wi-Fi is powered off.
-            // Querying transmitRate or rssiValue when disconnected can cause EXC_BREAKPOINT in CoreWLAN.
-            if !interface.powerOn() || !self.wiFiIsConnected {
-                LogManager.shared.log("fetchDynamicWiFiDetails: Wi-Fi is disconnected or powered off, skipping detail fetch.", level: "WARNING")
-                DispatchQueue.main.async {
-                    self.wiFiRSSI = nil
-                    self.wiFiTxRate = nil
-                    self.wiFiChannel = nil
-                    self.wiFiIPAddress = nil
-                }
-                return
-            }
-            
-            let rssi = interface.rssiValue()
-            let txRate = interface.transmitRate()
-            
-            var channelStr: String? = nil
-            if let channel = interface.wlanChannel() {
-                let band: String
-                if channel.channelBand == .band5GHz {
-                    band = "5 GHz"
-                } else if channel.channelBand == .band6GHz {
-                    band = "6 GHz"
-                } else {
-                    band = "2.4 GHz"
-                }
-                channelStr = "Ch \(channel.channelNumber) (\(band))"
-            }
-            
-            let expectedInterfaceName = interface.interfaceName ?? "en0"
-            var ipAddr: String? = nil
-            var ifaddr: UnsafeMutablePointer<ifaddrs>?
-            if getifaddrs(&ifaddr) == 0 {
-                var ptr = ifaddr
-                while ptr != nil {
-                    defer { ptr = ptr?.pointee.ifa_next }
-                    if let interfaceInfo = ptr?.pointee {
-                        let addrFamily = interfaceInfo.ifa_addr?.pointee.sa_family
-                        if addrFamily == UInt8(AF_INET) {
-                            if let namePtr = interfaceInfo.ifa_name, String(cString: namePtr) == expectedInterfaceName {
-                                if let sockaddr = interfaceInfo.ifa_addr {
-                                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-                                    let result = getnameinfo(sockaddr, socklen_t(sockaddr.pointee.sa_len),
-                                                             &hostname, socklen_t(hostname.count), nil, socklen_t(0), NI_NUMERICHOST)
-                                    if result == 0 {
-                                        ipAddr = String(cString: hostname)
-                                    } else {
-                                        LogManager.shared.log("fetchDynamicWiFiDetails: getnameinfo failed with error code \(result)", level: "ERROR")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                freeifaddrs(ifaddr)
-            } else {
-                LogManager.shared.log("fetchDynamicWiFiDetails: getifaddrs failed.", level: "ERROR")
-            }
-            
-            DispatchQueue.main.async {
-                self.wiFiRSSI = rssi
-                self.wiFiTxRate = txRate
-                if let newChannel = channelStr {
-                    self.wiFiChannel = newChannel
-                }
-                if let newIp = ipAddr {
-                    self.wiFiIPAddress = newIp
-                }
             }
         }
     }
@@ -2942,58 +2239,9 @@ class MediaKeyManager: ObservableObject {
             self.fetchTopBatteryConsumers()
         }
     }
+
     
-    func fetchTopBatteryConsumers() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/usr/bin/top")
-            task.arguments = ["-l", "2", "-n", "8", "-stats", "command,power", "-o", "power"]
-            
-            let pipe = Pipe()
-            task.standardOutput = pipe
-            
-            do {
-                try task.run()
-                task.waitUntilExit()
-                
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                if let output = String(data: data, encoding: .utf8) {
-                    self.parseTopOutput(output)
-                }
-            } catch {
-                LogManager.shared.log("Error in MediaKeyManager.swift: \(error)", level: "ERROR")
-            }
-        }
-    }
-    
-    private func parseTopOutput(_ output: String) {
-        let blocks = output.components(separatedBy: "COMMAND")
-        guard let lastBlock = blocks.last else { return }
-        
-        let lines = lastBlock.components(separatedBy: .newlines)
-        var results: [(String, String, NSImage?)] = []
-        
-        for line in lines.dropFirst() {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty { continue }
-            
-            let words = trimmed.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-            if words.count >= 2 {
-                if let power = words.last, let doublePower = Double(power), doublePower > 0.0 {
-                    let name = words.dropLast().joined(separator: " ")
-                    if name != "top" && name != "kernel_task" && name != "WindowServer" && name != "coreaudiod" && name != "VisorPro" {
-                        let icon = self.getIconForProcess(name: name)
-                        results.append((name, power, icon))
-                        if results.count == 4 { break }
-                    }
-                }
-            }
-        }
-        
-        DispatchQueue.main.async {
-            self.topBatteryConsumers = results
-        }
-    }
+
     
     func getIconForProcess(name: String) -> NSImage? {
         if let app = NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == name || $0.executableURL?.lastPathComponent == name }) {
@@ -3078,8 +2326,9 @@ class MediaKeyManager: ObservableObject {
         self.cameraClientObserver?.startObserving()
         
         if let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() {
-            if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) {
-                self.currentKeyboardLanguage = Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() as String
+            if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName),
+               let name = Unmanaged<AnyObject>.fromOpaque(ptr).takeUnretainedValue() as? String {
+                self.currentKeyboardLanguage = name
             }
         }
         
@@ -3095,11 +2344,14 @@ class MediaKeyManager: ObservableObject {
     }
     
     @objc private func handleLanguageChange(_ notification: Notification) {
-        if self.isSwitchingLanguageInternally { return }
-        if let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() {
-            if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName) {
-                let name = Unmanaged<CFString>.fromOpaque(ptr).takeUnretainedValue() as String
-                self.triggerLanguageIndicator(language: name)
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if self.isSwitchingLanguageInternally { return }
+            if let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() {
+                if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName),
+                   let name = Unmanaged<AnyObject>.fromOpaque(ptr).takeUnretainedValue() as? String {
+                    self.triggerLanguageIndicator(language: name)
+                }
             }
         }
     }
@@ -3245,133 +2497,9 @@ class MediaKeyManager: ObservableObject {
         hasStarted = true
         setupMediaKeyTap()
     }
-    
-    private func getFinderActiveFolder() -> String? {
-        let script = """
-        tell application "Finder"
-            try
-                set theTarget to target of front Finder window
-                return POSIX path of (theTarget as alias)
-            on error
-                return POSIX path of (path to desktop folder as alias)
-            end try
-        end tell
-        """
-        var error: NSDictionary?
-        if let appleScript = NSAppleScript(source: script) {
-            let output = appleScript.executeAndReturnError(&error)
-            if let stringValue = output.stringValue {
-                var path = stringValue
-                if path.hasSuffix("/") && path.count > 1 {
-                    path.removeLast()
-                }
-                return path
-            }
-        }
-        return nil
-    }
 
-    func processClipboardData(for action: String) -> (text: String, app: String, folder: String?, size: String) {
-        let board = NSPasteboard.general
-        var text = "File / Image"
-        var sizeStr = ""
-        var folder: String? = nil
-        
-        let types = board.types ?? []
-        let hasFileURL = types.contains(.fileURL) || types.contains(NSPasteboard.PasteboardType("public.file-url")) || types.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType"))
-        
-        let frontApp = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
-        
-        if hasFileURL, let urls = board.readObjects(forClasses: [NSURL.self], options: nil) as? [URL], !urls.isEmpty {
-            if urls.count > 1 {
-                text = "\(urls.count) files"
-                folder = urls.first?.deletingLastPathComponent().path
-                sizeStr = "\(urls.count) items"
-            } else {
-                let firstUrl = urls.first!
-                text = firstUrl.lastPathComponent
-                folder = firstUrl.deletingLastPathComponent().path
-                
-                var isDirectory: ObjCBool = false
-                if FileManager.default.fileExists(atPath: firstUrl.path, isDirectory: &isDirectory) {
-                    if isDirectory.boolValue {
-                        if let contents = try? FileManager.default.contentsOfDirectory(atPath: firstUrl.path) {
-                            sizeStr = "\(contents.count) items"
-                        } else {
-                            sizeStr = "Folder"
-                        }
-                    } else {
-                        if let attr = try? FileManager.default.attributesOfItem(atPath: firstUrl.path),
-                           let size = attr[.size] as? UInt64 {
-                            let formatter = ByteCountFormatter()
-                            formatter.allowedUnits = [.useAll]
-                            formatter.countStyle = .file
-                            sizeStr = formatter.string(fromByteCount: Int64(size))
-                        } else {
-                            sizeStr = "Unknown"
-                        }
-                    }
-                } else {
-                    sizeStr = "Unknown"
-                }
-            }
-            
-            if action == "paste" && frontApp == "Finder" {
-                if let destFolder = self.getFinderActiveFolder() {
-                    folder = destFolder
-                }
-            }
-        } else if let copiedText = board.string(forType: .string) {
-            text = copiedText
-            sizeStr = "\(copiedText.count)"
-        } else {
-            sizeStr = "Unknown"
-        }
-        
-        return (text: text, app: frontApp, folder: folder, size: sizeStr)
-    }
     
-    private func startHardwareKeyPolling() {
-        hardwareKeyPollingTimer?.invalidate()
-        hardwareKeyPollingTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            guard let self = self, self.enableKeyboard, self.isTrusted else { return }
-            
-            // Cmd (lewy lub prawy)
-            let cmdPressed = CGEventSource.keyState(.hidSystemState, key: 55) || CGEventSource.keyState(.hidSystemState, key: 54)
-            if !cmdPressed { return }
-            
-            if CGEventSource.keyState(.hidSystemState, key: 7) { // X
-                self.detectedHardwareAction = "cut"
-                self.detectedHardwareActionTimestamp = Date()
-            } else if CGEventSource.keyState(.hidSystemState, key: 8) { // C
-                self.detectedHardwareAction = "copy"
-                self.detectedHardwareActionTimestamp = Date()
-            } else if CGEventSource.keyState(.hidSystemState, key: 9) { // V
-                self.detectedHardwareAction = "paste"
-                self.detectedHardwareActionTimestamp = Date()
-                
-                let types = NSPasteboard.general.types ?? []
-                let isFile = types.contains(.fileURL) || 
-                             types.contains(NSPasteboard.PasteboardType("public.file-url")) || 
-                             types.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType"))
-                
-                let hasCustomPaste = !(self.pasteShortcut.character == "v" && self.pasteShortcut.modifiers == .command)
-                
-                if !isFile && hasCustomPaste { return }
-                
-                if let last = self.lastPasteTrigger, Date().timeIntervalSince(last) < 1.0 { return }
-                if !self.canPasteInFrontmostApp() { return }
-                
-                self.lastPasteTrigger = Date()
-                DispatchQueue.main.async {
-                    let data = self.processClipboardData(for: "paste")
-                    self.triggerClipboardIndicator(text: data.text, action: "paste", app: data.app, folder: data.folder, size: data.size)
-                }
-            }
-        }
-    }
-    
-    private func enforceNotificationLimit() {
+    func enforceNotificationLimit() {
         let allNotifs = activeBluetoothNotifications + activePeripheralNotifications + activeDisplayNotifications
         let limit = max(1, maxSimultaneousNotifications)
         if allNotifs.count <= limit { return }
@@ -3576,61 +2704,7 @@ class MediaKeyManager: ObservableObject {
         } else {
         }
     }
-    
-    private func canPasteInFrontmostApp() -> Bool {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return true }
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        
-        var menuBar: CFTypeRef?
-        if AXUIElementCopyAttributeValue(appElement, kAXMenuBarAttribute as CFString, &menuBar) != .success { return true }
-        guard let menuBarElement = menuBar as! AXUIElement? else { return true }
-        
-        var menus: CFTypeRef?
-        if AXUIElementCopyAttributeValue(menuBarElement, kAXChildrenAttribute as CFString, &menus) != .success { return true }
-        guard let menuItems = menus as? [AXUIElement] else { return true }
-        
-        for item in menuItems {
-            var title: CFTypeRef?
-            if AXUIElementCopyAttributeValue(item, kAXTitleAttribute as CFString, &title) != .success { continue }
-            if let titleStr = title as? String, (titleStr == "Edit" || titleStr == "Edycja") {
-                var children: CFTypeRef?
-                if AXUIElementCopyAttributeValue(item, kAXChildrenAttribute as CFString, &children) != .success { continue }
-                guard let editMenuArr = children as? [AXUIElement], let editMenu = editMenuArr.first else { continue }
-                
-                var editItems: CFTypeRef?
-                if AXUIElementCopyAttributeValue(editMenu, kAXChildrenAttribute as CFString, &editItems) != .success { continue }
-                guard let items = editItems as? [AXUIElement] else { continue }
-                
-                var foundPasteOption = false
-                var anyPasteEnabled = false
-                
-                for subItem in items {
-                    var subTitle: CFTypeRef?
-                    if AXUIElementCopyAttributeValue(subItem, kAXTitleAttribute as CFString, &subTitle) != .success { continue }
-                    if let subStr = subTitle as? String, (subStr.contains("Paste") || subStr.contains("Wklej")) {
-                        foundPasteOption = true
-                        var enabled: CFTypeRef?
-                        if AXUIElementCopyAttributeValue(subItem, kAXEnabledAttribute as CFString, &enabled) == .success {
-                            if let isEnabled = enabled as? Bool, isEnabled {
-                                anyPasteEnabled = true
-                                break
-                            }
-                        } else {
-                            anyPasteEnabled = true // Fallback
-                            break
-                        }
-                    }
-                }
-                
-                if foundPasteOption {
-                    return anyPasteEnabled
-                } else {
-                    return false
-                }
-            }
-        }
-        return true // Fallback
-    }
+
 
     func stopEventTaps() {
         if let tap = mediaKeyTap {

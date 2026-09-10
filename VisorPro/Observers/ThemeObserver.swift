@@ -18,11 +18,11 @@ class ThemeObserver {
     }
     
     @objc private func themeChanged() {
-        // Evaluate the new theme
-        let appearance = NSApp.effectiveAppearance
-        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        
-        manager?.triggerThemeIndicator(isDark: isDark)
+        DispatchQueue.main.async { [weak self] in
+            let appearance = NSApp.effectiveAppearance
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            self?.manager?.triggerThemeIndicator(isDark: isDark)
+        }
     }
     
     deinit {

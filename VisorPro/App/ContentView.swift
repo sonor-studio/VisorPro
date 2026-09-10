@@ -334,6 +334,7 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environmentObject(MediaKeyManager())
+        .environmentObject(OverlayStateRelay.shared)
 }
 
 

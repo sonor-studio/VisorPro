@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BatteryOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("batteryFillCenter") private var batteryFillCenter: Bool = false
     @AppStorage("batteryAllowExpansion") private var batteryAllowExpansion: Bool = true
     @State private var animatedBatteryProgress: CGFloat = 0.0
@@ -19,7 +20,7 @@ struct BatteryOverlayView: View {
             if previewType == "low10" { return 10 }
             return 82
         }
-        return mediaKeyManager.currentBatteryPercentage
+        return overlayState.currentBatteryPercentage
     }
     
     private var actualIsPluggedIn: Bool {
@@ -27,15 +28,18 @@ struct BatteryOverlayView: View {
             if previewType == "unplugged" || previewType.hasPrefix("low") { return false }
             return true
         }
-        return mediaKeyManager.isPluggedIn
+        return overlayState.isPluggedIn
     }
     
     private var isFullyCharged: Bool {
         if isPreview { return previewType == "full" }
-        return actualPercentage == 100 || mediaKeyManager.isEffectivelyFullyCharged
+        return actualPercentage == 100 || overlayState.isEffectivelyFullyCharged
     }
     
     private var batteryColor: Color {
+        if mediaKeyManager.overlayColorMode == "preset_monochrome" {
+            return OverlayColorManager.shared.parseColor("White/Black")
+        }
         if isWarningMode { return .red }
         if actualPercentage <= 20 {
             return .red
@@ -63,12 +67,12 @@ struct BatteryOverlayView: View {
             if previewType.hasPrefix("low") { return "About 25m remaining" }
             return "About 1h 20m to full"
         }
-        return mediaKeyManager.batteryTimeRemaining
+        return overlayState.batteryTimeRemaining
     }
 
     var body: some View {
         let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
-        let isFullyCharged = actualPercentage == 100 || (mediaKeyManager.isEffectivelyFullyCharged && !isPreview)
+        let isFullyCharged = actualPercentage == 100 || (overlayState.isEffectivelyFullyCharged && !isPreview)
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -98,7 +102,7 @@ struct BatteryOverlayView: View {
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
                             if hasFinishedChargeAnimation {
-                                MarqueeText(text: actualPercentage == 100 ? "You can unplug now" : "Charge limit \(mediaKeyManager.chargeLimit)%", font: .system(size: 13, weight: .bold, design: .rounded), foregroundColor: .primary)
+                                MarqueeText(text: actualPercentage == 100 ? "You can unplug now" : "Charge limit \(overlayState.chargeLimit)%", font: .system(size: 13, weight: .bold, design: .rounded), foregroundColor: .primary)
                             } else {
                                 AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: true)
                             }
@@ -112,7 +116,7 @@ struct BatteryOverlayView: View {
                     }
                     Spacer(minLength: 8)
                 }
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 16 + 4 + 3)
             },
             expandedContent: {
                 VStack(spacing: 12) {
@@ -122,7 +126,7 @@ struct BatteryOverlayView: View {
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
-                            Text((isWarningMode || !actualIsPluggedIn) ? mediaKeyManager.batteryCondition : mediaKeyManager.batteryPowerDraw)
+                            Text((isWarningMode || !actualIsPluggedIn) ? overlayState.batteryCondition : overlayState.batteryPowerDraw)
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
@@ -138,7 +142,7 @@ struct BatteryOverlayView: View {
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
-                            Text("\(mediaKeyManager.batteryHealthPercentage)%")
+                            Text("\(overlayState.batteryHealthPercentage)%")
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
@@ -154,7 +158,7 @@ struct BatteryOverlayView: View {
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
-                            Text("\(mediaKeyManager.batteryCycleCount)")
+                            Text("\(overlayState.batteryCycleCount)")
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
@@ -170,7 +174,7 @@ struct BatteryOverlayView: View {
                         ("Final Cut Pro", "45.2", NSImage(named: "PreviewFinalCut")),
                         ("Xcode", "32.5", NSImage(named: "PreviewXcode")),
                         ("WindowServer", "18.1", NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil))
-                    ] : mediaKeyManager.topBatteryConsumers
+                    ] : overlayState.topBatteryConsumers
 
                     if (isWarningMode || isPreview) && !consumers.isEmpty {
                         Divider()
@@ -229,6 +233,7 @@ struct BatteryOverlayView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     .padding(.horizontal, 20)
+                    .pointingHandCursor()
                     
                 }
             }

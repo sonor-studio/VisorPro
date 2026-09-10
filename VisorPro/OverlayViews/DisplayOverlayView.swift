@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DisplayOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @State private var isHovering: Bool = false
     @State private var isExpanded: Bool = false
     @AppStorage("displayAllowExpansion") private var displayAllowExpansion: Bool = true
@@ -76,7 +77,7 @@ struct DisplayOverlayView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(isConnected ? .primary : .offStateGray)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16)
+                        .padding(.leading, 16 + 4 + 3)
                         .padding(.top, 4)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -84,11 +85,11 @@ struct DisplayOverlayView: View {
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.offStateGray)
                             .padding(.leading, 14)
-                            .padding(.trailing, 16)
+                            .padding(.trailing, 16 + 4 + 3)
                         
                         MarqueeText(text: deviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             .padding(.leading, 14)
-                            .padding(.trailing, 16)
+                            .padding(.trailing, 16 + 4 + 3)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -138,6 +139,7 @@ struct DisplayOverlayView: View {
                             }
                             .contentShape(Rectangle())
                             .buttonStyle(.plain)
+                            .pointingHandCursor()
                             
                             Button(action: {
                                 if !isMirrored { manualToggle() }
@@ -152,6 +154,7 @@ struct DisplayOverlayView: View {
                             }
                             .contentShape(Rectangle())
                             .buttonStyle(.plain)
+                            .pointingHandCursor()
                         }
                         .padding(2)
                         .background(Color.primary.opacity(0.05))
@@ -180,9 +183,7 @@ struct DisplayOverlayView: View {
                         .cornerRadius(12)
                     }
                     .buttonStyle(.plain)
-                    .onHover { hovering in
-                        if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                    }
+                    .pointingHandCursor()
                     .padding(.horizontal, 16)
                 }
                 .padding(.top, 4)
@@ -208,16 +209,16 @@ struct DisplayOverlayView: View {
         
         let newMirrored = !isMirrored
         
-        mediaKeyManager.isDisplayTransitioning = true
+        overlayState.isDisplayTransitioning = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            mediaKeyManager.isDisplayTransitioning = false
+            overlayState.isDisplayTransitioning = false
         }
         
         if newMirrored {
-            mediaKeyManager.forceSingleScreenForDisplayTransition = true
+            overlayState.forceSingleScreenForDisplayTransition = true
             VisorProWindowManager.shared.updateWindows() // Hide secondary window immediately!
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                mediaKeyManager.forceSingleScreenForDisplayTransition = false
+                overlayState.forceSingleScreenForDisplayTransition = false
             }
         }
         

@@ -41,6 +41,7 @@ struct AnimatedTutorialClickActions: View {
                 expandedContent: { EmptyView() }
             )
             .environmentObject(MediaKeyManager.shared)
+            .environmentObject(OverlayStateRelay.shared)
             .frame(width: 230)
             .allowsHitTesting(false)
 

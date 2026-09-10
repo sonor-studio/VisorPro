@@ -2,13 +2,14 @@ import SwiftUI
 
 struct CapsLockOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("capsLockAllowInteractivity") private var capsLockAllowInteractivity: Bool = true
     var isPreview: Bool = false
     var previewIsOn: Bool = true
     @State private var localPreviewIsOn: Bool = true
     
     private var actualIsOn: Bool {
-        isPreview ? localPreviewIsOn : mediaKeyManager.isCapsLockOn
+        isPreview ? localPreviewIsOn : overlayState.isCapsLockOn
     }
     
     private var actionColor: Color {
@@ -27,7 +28,7 @@ struct CapsLockOverlayView: View {
             isExpanded: .constant(false),
             showProgressBar: true,
             hasTimeoutProgress: true,
-            timeoutEventId: mediaKeyManager.capsLockEventId,
+            timeoutEventId: overlayState.capsLockEventId,
             barColor: actualIsOn ? OverlayColorManager.shared.getOverlayColor(for: "colorOnCapsLock", defaultColor: .green) : .offStateGray,
             fillCenter: false,
             isMuted: false,
@@ -66,7 +67,7 @@ struct CapsLockOverlayView: View {
                 EmptyView()
             }
         )
-        .id(mediaKeyManager.capsLockEventId)
+        .id(overlayState.capsLockEventId)
         .frame(width: 230, height: 56, alignment: .top)
         .onAppear {
             localPreviewIsOn = previewIsOn

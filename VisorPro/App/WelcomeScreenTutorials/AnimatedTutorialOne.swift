@@ -40,6 +40,7 @@ struct AnimatedTutorialOne: View {
                 }
             )
             .environmentObject(MediaKeyManager.shared)
+            .environmentObject(OverlayStateRelay.shared)
             .frame(width: 260)
             .allowsHitTesting(false)
 

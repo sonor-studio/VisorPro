@@ -350,7 +350,7 @@ class CameraClientObserver {
     }
     
     func startObserving() {
-        // precyzyjnego `log show` dla CoreMediaIO w fetchActiveCameraClient(),
+        // precise `log show` for CoreMediaIO in fetchActiveCameraClient(),
     }
     
     func stopObserving() {
