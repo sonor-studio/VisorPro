@@ -179,7 +179,7 @@ struct BatterySettingsView: View {
                        
                                 }
                             Divider().padding(.leading, 48)
-                            CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged to 100%", subtitle: "Show when reaching full charge") {
+                            CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged", subtitle: "Show when reaching full charge") {
                                 HStack(spacing: 8) { if mediaKeyManager.notifyOn100Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn100Percent) }
     Toggle("", isOn: $mediaKeyManager.notifyOn100Percent).labelsHidden() }
                        
@@ -299,7 +299,7 @@ struct BatterySettingsView: View {
                                         Toggle("", isOn: $mediaKeyManager.accessoryNotifyOn10Percent).labelsHidden() }
                                 }
                                 Divider().padding(.leading, 48)
-                                CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged to 100%", subtitle: "Show when reaching full charge") {
+                                CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged", subtitle: "Show when reaching full charge") {
                                     HStack(spacing: 8) { if mediaKeyManager.accessoryNotifyOn100Percent { SoundPickerControl(selectedSound: $mediaKeyManager.accessorySoundOn100Percent) }
                                         Toggle("", isOn: $mediaKeyManager.accessoryNotifyOn100Percent).labelsHidden() }
                                 }

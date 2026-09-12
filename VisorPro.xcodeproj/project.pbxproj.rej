@@ -1,0 +1,30 @@
+@@ -649,7 +654,12 @@
+ 		};
+ /* End XCConfigurationList section */
+ 
+-
++/* Begin XCLocalSwiftPackageReference section */
++		FA6B08823048A2EC008824F5 /* XCLocalSwiftPackageReference "SMCKit" */ = {
++			isa = XCLocalSwiftPackageReference;
++			relativePath = SMCKit;
++		};
++/* End XCLocalSwiftPackageReference section */
+ 
+ /* Begin XCRemoteSwiftPackageReference section */
+ 		FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */ = {
+@@ -663,7 +673,14 @@
+ /* End XCRemoteSwiftPackageReference section */
+ 
+ /* Begin XCSwiftPackageProductDependency section */
+-
++		FA6B08833048A2EC008824F5 /* SMC */ = {
++			isa = XCSwiftPackageProductDependency;
++			productName = SMC;
++		};
++		FA6B08853048A2EC008824F5 /* SMCKit */ = {
++			isa = XCSwiftPackageProductDependency;
++			productName = SMCKit;
++		};
+ 		FA8D1710304634CE0040670D /* TelemetryDeck */ = {
+ 			isa = XCSwiftPackageProductDependency;
+ 			package = FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */;
