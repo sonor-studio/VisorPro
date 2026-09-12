@@ -7,6 +7,8 @@ struct WiFiSettingsView: View {
     @AppStorage("wifiOverlayPosition") private var wifiOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("wifiAllowExpansion") private var wifiAllowExpansion: Bool = true
+    @AppStorage("wifiShowSpeedTest") private var wifiShowSpeedTest: Bool = true
+    @AppStorage("wifiShowDetails") private var wifiShowDetails: Bool = true
     @State private var isHistoryExpanded: Bool = false
     @State private var showLocationPermissionAlert: Bool = false
     
@@ -194,7 +196,37 @@ struct WiFiSettingsView: View {
                             )
                         }
                     
+                        
+                        Text("Expanded View Features")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                    
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "network", iconColor: .cyan, title: "Speed Test", subtitle: "Show network speed test in expanded view") {
+                                Toggle("", isOn: $wifiShowSpeedTest).labelsHidden()
+                                    .disabled(wifiShowSpeedTest && !wifiShowDetails)
+                            }
+                            
+                            Divider().padding(.leading, 40)
+                            
+                            CustomSettingsRow(icon: "info.circle", iconColor: .cyan, title: "Network Details", subtitle: "Show IP address, Tx rate and other details") {
+                                Toggle("", isOn: $wifiShowDetails).labelsHidden()
+                                    .disabled(wifiShowDetails && !wifiShowSpeedTest)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                        
                         Text("Behavior")
+
                             .font(.headline)
                             .foregroundColor(.secondary)
                             .padding(.top, 10)

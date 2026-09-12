@@ -62,7 +62,11 @@ class TrackingNSView: NSView {
             lastBounds = bounds
             updateTrackingAreas()
         }
-        checkHoverState()
+        
+        // Wait for the layout pass/animation to settle before checking hover state
+        DispatchQueue.main.async {
+            self.checkHoverState()
+        }
     }
 
     override func updateTrackingAreas() {
@@ -100,7 +104,14 @@ class TrackingNSView: NSView {
     }
 
     override func mouseMoved(with event: NSEvent) {
-        if lastHoverState == true, let cursor = cursor {
+        // If we get a mouseMoved event from our tracking area, we must be inside it!
+        if lastHoverState != true {
+            lastHoverState = true
+            DispatchQueue.main.async {
+                self.onHoverChange?(true)
+            }
+        }
+        if let cursor = cursor {
             cursor.set()
         }
     }
@@ -163,6 +174,15 @@ extension View {
             } else {
                 NSCursor.pop()
             }
+        }
+    }
+    
+    @ViewBuilder
+    func conditionalPointingHandCursor(isEnabled: Bool) -> some View {
+        if isEnabled {
+            self.pointingHandCursor()
+        } else {
+            self
         }
     }
 }

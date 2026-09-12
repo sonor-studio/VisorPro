@@ -16,6 +16,7 @@ struct SettingsView: View {
         case battery
         case keyboard
         case clipboard
+        case date
         case wifi
         case bluetooth
         case media
@@ -104,6 +105,12 @@ struct SettingsView: View {
                             SidebarIcon(systemName: "doc.on.clipboard", color: .blue)
                         }
                     .tag(SidebarItem.clipboard)
+                    Label {
+                            Text("Date")
+                        } icon: {
+                            SidebarIcon(systemName: "calendar", color: OverlayColorManager.shared.parseColor("Emerald"))
+                        }
+                    .tag(SidebarItem.date)
                     
                     // --- PREMIUM TRACKERS ---
                     Label {
@@ -207,6 +214,8 @@ struct SettingsView: View {
                     KeyboardSettingsView()
                 case .clipboard:
                     ClipboardSettingsView()
+                case .date:
+                    DateSettingsView()
                     
                 // PREMIUM TRACKERS
                 case .media:

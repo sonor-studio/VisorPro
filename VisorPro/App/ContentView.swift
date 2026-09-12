@@ -13,7 +13,7 @@ struct ContentView: View {
     @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
-        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, focus, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery
+        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, focus, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery, cpu, date
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -71,6 +71,9 @@ struct ContentView: View {
         let wifiPos = MediaKeyManager.shared.getOverlayPosition(for: "wifiOverlayPosition")
         if mediaKeyManager.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi", type: .wifi, position: wifiPos, notification: nil)) }
         
+        let datePos = MediaKeyManager.shared.getOverlayPosition(for: "dateOverlayPosition")
+        if mediaKeyManager.showDateIndicator { active.append(ActiveOverlay(id: "date", type: .date, position: datePos, notification: nil)) }
+        
         let periPos = MediaKeyManager.shared.getOverlayPosition(for: "peripheralOverlayPosition")
         for notif in mediaKeyManager.activePeripheralNotifications {
             active.append(ActiveOverlay(id: "peripheral_\(notif.id)", type: .peripheral, position: periPos, notification: notif))
@@ -81,6 +84,7 @@ struct ContentView: View {
             active.append(ActiveOverlay(id: "display_\(notif.id)", type: .display, position: displayPos, notification: notif))
         }
         
+        let fanPos = MediaKeyManager.shared.getOverlayPosition(for: "fanOverlayPosition")
         
         let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if mediaKeyManager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
@@ -254,9 +258,11 @@ struct ContentView: View {
         case .camera: CameraOverlayView()
         case .location: LocationOverlayView()
         case .wifi: WiFiOverlayView()
+        case .date: DateOverlayView()
         case .peripheral: PeripheralOverlayView(notification: overlay.notification)
         case .display: DisplayOverlayView(notification: overlay.notification)
         case .ram: RamOverlayView()
+        case .cpu: CpuTemperatureOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
         }
     }
@@ -276,11 +282,12 @@ struct ContentView: View {
         let showCamera = mediaKeyManager.showCameraIndicator
         let showLocation = mediaKeyManager.showLocationIndicator
         let showWiFi = mediaKeyManager.showWiFiIndicator
+        let showDate = mediaKeyManager.showDateIndicator
         let showPeripheral = !mediaKeyManager.activePeripheralNotifications.isEmpty
         let showDisplay = !mediaKeyManager.activeDisplayNotifications.isEmpty
         let showRam = mediaKeyManager.showRamIndicator
         
-        let isVisible = showBattery || showVolume || showBrightness || showKeyboardBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showLocation || showWiFi || showPeripheral || showDisplay || showRam
+        let isVisible = showBattery || showVolume || showBrightness || showKeyboardBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showLocation || showWiFi || showDate || showPeripheral || showDisplay || showRam
         
         
         ZStack {

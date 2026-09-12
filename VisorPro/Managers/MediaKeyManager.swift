@@ -52,6 +52,7 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("colorMediaResume") var colorMediaResume: String = "Default"
     @AppStorage("colorMediaEnd") var colorMediaEnd: String = "Default"
     @AppStorage("colorOnHighRam") var colorOnHighRam: String = "Default"
+    @AppStorage("colorOnDateChange") var colorOnDateChange: String = "Default"
     @AppStorage("colorOnWiFiConnect") var colorOnWiFiConnect: String = "Default"
     @AppStorage("colorOnBluetoothConnect") var colorOnBluetoothConnect: String = "Default"
     @AppStorage("colorOnPeripheralConnect") var colorOnPeripheralConnect: String = "Default"
@@ -79,6 +80,7 @@ class MediaKeyManager: ObservableObject {
         colorMediaResume = "Default"
         colorMediaEnd = "Default"
         colorOnHighRam = "Default"
+        colorOnDateChange = "Default"
         colorOnWiFiConnect = "Default"
         colorOnBluetoothConnect = "Default"
         colorOnPeripheralConnect = "Default"
@@ -235,6 +237,13 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
+    @Published var enableDate: Bool = UserDefaults.standard.object(forKey: "enableDate") as? Bool ?? false {
+        didSet {
+            UserDefaults.standard.set(enableDate, forKey: "enableDate")
+            if !enableDate { withAnimation { self.showDateIndicator = false } }
+        }
+    }
+    
     @Published var targetBatteryPercentage: String = UserDefaults.standard.string(forKey: "targetBatteryPercentage") ?? "80" {
         didSet {
             UserDefaults.standard.set(targetBatteryPercentage, forKey: "targetBatteryPercentage")
@@ -289,7 +298,7 @@ class MediaKeyManager: ObservableObject {
     
     @Published var highRamThreshold: Double = {
         let val = UserDefaults.standard.object(forKey: "highRamThreshold") as? Double ?? 90.0
-        return max(80.0, min(100.0, (round(val / 5.0) * 5.0)))
+        return max(70.0, min(95.0, (round(val / 5.0) * 5.0)))
     }() {
         didSet { 
             UserDefaults.standard.set(highRamThreshold, forKey: "highRamThreshold") 
@@ -529,6 +538,40 @@ class MediaKeyManager: ObservableObject {
         set { OverlayStateRelay.shared.showCopyIndicator = newValue }
     }    
     
+    @Published var fanEventId = UUID()
+    // CPU Monitoring
+    @Published var notifyOnHighCpuTemp: Bool = UserDefaults.standard.object(forKey: "notifyOnHighCpuTemp") as? Bool ?? false {
+        didSet { UserDefaults.standard.set(notifyOnHighCpuTemp, forKey: "notifyOnHighCpuTemp") }
+    }
+    @Published var soundOnHighCpuTemp: String = UserDefaults.standard.string(forKey: "soundOnHighCpuTemp") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnHighCpuTemp, forKey: "soundOnHighCpuTemp") }
+    }
+    @Published var highCpuTempThreshold: Double = UserDefaults.standard.object(forKey: "highCpuTempThreshold") as? Double ?? 80.0 {
+        didSet { UserDefaults.standard.set(highCpuTempThreshold, forKey: "highCpuTempThreshold") }
+    }
+    var cpuTemperature: Double {
+        get { OverlayStateRelay.shared.cpuTemperature }
+        set { OverlayStateRelay.shared.cpuTemperature = newValue }
+    }
+    var cpuTempHistory: [Double] {
+        get { OverlayStateRelay.shared.cpuTempHistory }
+        set { OverlayStateRelay.shared.cpuTempHistory = newValue }
+    }
+    var cpuTopProcesses: [(name: String, cpuPercent: Double, icon: NSImage?)] {
+        get { OverlayStateRelay.shared.cpuTopProcesses }
+        set { OverlayStateRelay.shared.cpuTopProcesses = newValue }
+    }
+    var showCpuIndicator: Bool {
+        get { OverlayStateRelay.shared.showCpuIndicator }
+        set { OverlayStateRelay.shared.showCpuIndicator = newValue }
+    }
+    var cpuEventId: UUID {
+        get { OverlayStateRelay.shared.cpuEventId }
+        set { OverlayStateRelay.shared.cpuEventId = newValue }
+    }
+    var hideCpuIndicatorTask: DispatchWorkItem?
+    var cpuAlertTriggered: Bool = false
+    
     // RAM Monitoring
     
 
@@ -729,6 +772,10 @@ class MediaKeyManager: ObservableObject {
     @Published var soundOnWiFiConnect: String = UserDefaults.standard.string(forKey: "soundOnWiFiConnect") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnWiFiConnect, forKey: "soundOnWiFiConnect") }
     }
+    
+    @Published var soundOnDateChange: String = UserDefaults.standard.string(forKey: "soundOnDateChange") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnDateChange, forKey: "soundOnDateChange") }
+    }
     @Published var notifyOnWiFiDisconnect: Bool = UserDefaults.standard.object(forKey: "notifyOnWiFiDisconnect") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnWiFiDisconnect, forKey: "notifyOnWiFiDisconnect") }
     }
@@ -760,6 +807,11 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.showWiFiIndicator }
         set { OverlayStateRelay.shared.showWiFiIndicator = newValue }
     }
+    
+    var showDateIndicator: Bool {
+        get { OverlayStateRelay.shared.showDateIndicator }
+        set { OverlayStateRelay.shared.showDateIndicator = newValue }
+    }
     var wiFiSSID: String {
         get { OverlayStateRelay.shared.wiFiSSID }
         set { OverlayStateRelay.shared.wiFiSSID = newValue }
@@ -772,11 +824,26 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.wiFiIsHotspot }
         set { OverlayStateRelay.shared.wiFiIsHotspot = newValue }
     }    
-    @Published var wiFiIPAddress: String?
-    @Published var wiFiRouterIP: String?
-    @Published var wiFiTxRate: Double?
-    @Published var wiFiChannel: String?
-    @Published var wiFiRSSI: Int?
+    var wiFiIPAddress: String? {
+        get { OverlayStateRelay.shared.wiFiIPAddress }
+        set { OverlayStateRelay.shared.wiFiIPAddress = newValue }
+    }
+    var wiFiRouterIP: String? {
+        get { OverlayStateRelay.shared.wiFiRouterIP }
+        set { OverlayStateRelay.shared.wiFiRouterIP = newValue }
+    }
+    var wiFiTxRate: Double? {
+        get { OverlayStateRelay.shared.wiFiTxRate }
+        set { OverlayStateRelay.shared.wiFiTxRate = newValue }
+    }
+    var wiFiChannel: String? {
+        get { OverlayStateRelay.shared.wiFiChannel }
+        set { OverlayStateRelay.shared.wiFiChannel = newValue }
+    }
+    var wiFiRSSI: Int? {
+        get { OverlayStateRelay.shared.wiFiRSSI }
+        set { OverlayStateRelay.shared.wiFiRSSI = newValue }
+    }
     var wiFiDetailsFetched: Bool {
         get { OverlayStateRelay.shared.wiFiDetailsFetched }
         set { OverlayStateRelay.shared.wiFiDetailsFetched = newValue }
@@ -1509,10 +1576,11 @@ class MediaKeyManager: ObservableObject {
             else if overlayId == "camera" { showCameraIndicator = false }
             else if overlayId == "location" { showLocationIndicator = false }
             else if overlayId == "wifi" { showWiFiIndicator = false }
+            else if overlayId == "date" { showDateIndicator = false }
             else if overlayId.hasPrefix("peripheral") { activePeripheralNotifications.removeAll(where: { "peripheral_\($0.id)" == overlayId }) }
             else if overlayId.hasPrefix("display") { activeDisplayNotifications.removeAll(where: { "display_\($0.id)" == overlayId }) }
-            
             else if overlayId.hasPrefix("ram") { showRamIndicator = false }
+            else if overlayId.hasPrefix("cpu") { showCpuIndicator = false }
 
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
         }
@@ -1964,6 +2032,10 @@ class MediaKeyManager: ObservableObject {
 
     
     var wiFiTimer: Timer?
+    var dateEventId: UUID {
+        get { OverlayStateRelay.shared.dateEventId }
+        set { OverlayStateRelay.shared.dateEventId = newValue }
+    }
     var wiFiEventId: UUID {
         get { OverlayStateRelay.shared.wiFiEventId }
         set { OverlayStateRelay.shared.wiFiEventId = newValue }
@@ -2090,8 +2162,7 @@ class MediaKeyManager: ObservableObject {
             mediaHideTimer?.invalidate(); mediaHideTimer = nil
             mediaTimer?.invalidate(); mediaTimer = nil
         case "ram": hideRamIndicatorTask?.cancel(); hideRamIndicatorTask = nil
-
-        
+        case "cpu": hideCpuIndicatorTask?.cancel(); hideCpuIndicatorTask = nil
         case "theme": themeTimer?.invalidate(); themeTimer = nil
         case "focus": focusTimer?.invalidate(); focusTimer = nil
         case "accessoryBattery": accessoryBatteryTimer?.invalidate(); accessoryBatteryTimer = nil
@@ -2291,6 +2362,7 @@ class MediaKeyManager: ObservableObject {
         loadShortcuts()
         self.bluetoothObserver = BluetoothObserver(manager: self)
         self.audioRouteObserver = AudioRouteObserver(manager: self)
+        self.setupDateTimer()
         self.chargeLimit = readChargeLimit()
         self.batteryObserver = BatteryObserver(manager: self)
         self.wifiObserver = WiFiObserver(manager: self)

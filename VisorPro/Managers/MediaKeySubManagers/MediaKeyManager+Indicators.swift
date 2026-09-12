@@ -277,13 +277,7 @@ extension MediaKeyManager {
                 self.overlayTriggerTimes["ram"] = Date()
             }
             
-            let task = DispatchWorkItem { [weak self] in
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    self?.showRamIndicator = false
-                }
-            }
-            self.hideRamIndicatorTask = task
-            DispatchQueue.main.asyncAfter(deadline: .now() + MediaKeyManager.notificationDuration, execute: task)
+                            self.scheduleOverlayHide(for: "cpu")
         }
         
         if self.showRamIndicator {
@@ -299,4 +293,54 @@ extension MediaKeyManager {
     }
 
 
+    
+    func triggerCpuTempOverlay(temp: Double) {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
+        DispatchQueue.main.async {
+            self.cpuTemperature = temp
+            self.cpuTempHistory.removeFirst()
+            self.cpuTempHistory.append(temp)
+            
+            let threshold = self.highCpuTempThreshold
+            
+            if temp >= threshold {
+                if !self.cpuAlertTriggered {
+                    self.cpuAlertTriggered = true
+                    
+                    if self.notifyOnHighCpuTemp && !self.globalHoveredTypes.contains("cpu") {
+                        self.playNotificationSound(named: self.soundOnHighCpuTemp)
+                        
+                        self.cancelOverlayHide(for: "cpu")
+                        let pos = self.getOverlayPosition(for: "cpuOverlayPosition")
+                        self.dismissCollidingIndicators(newPosition: pos, source: "cpu")
+                        
+                        let executeShow = { [weak self] in
+                            guard let self = self else { return }
+                            self.cpuEventId = UUID()
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                self.showCpuIndicator = true
+                                self.overlayTriggerTimes["cpu"] = Date()
+                                self.notifyOverlayStateChanged()
+                            }
+                            
+                            self.scheduleOverlayHide(for: "cpu")
+                        }
+                        
+                        if self.showCpuIndicator {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                self.showCpuIndicator = false
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: executeShow)
+                        } else {
+                            executeShow()
+                        }
+                    }
+                }
+            } else if temp <= (threshold - 5.0) {
+                self.cpuAlertTriggered = false
+            }
+        }
+    }
 }

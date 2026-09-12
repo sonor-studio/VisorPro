@@ -135,6 +135,7 @@ struct ClipboardSettingsView: View {
                                     
                                     CustomSettingsRow(icon: "eye", iconColor: .blue, title: "Enable Preview", subtitle: "Show preview button for items in history") {
                                         Toggle("", isOn: $clipboardEnablePreview).labelsHidden()
+                                            .disabled(clipboardEnablePreview && !clipboardEnableHistory)
                                     }
                                 }
                                 .toggleStyle(.switch)
@@ -155,6 +156,7 @@ struct ClipboardSettingsView: View {
                                 VStack(spacing: 0) {
                                     CustomSettingsRow(icon: "clock.arrow.circlepath", iconColor: .blue, title: "Enable History", subtitle: "Save copied items to history list") {
                                         Toggle("", isOn: $clipboardEnableHistory).labelsHidden()
+                                            .disabled(clipboardEnableHistory && !clipboardEnablePreview)
                                     }
                                     
                                     if clipboardEnableHistory {

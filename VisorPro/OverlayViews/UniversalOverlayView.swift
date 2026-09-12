@@ -236,8 +236,14 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .opacity(isExpanded ? 1 : 0)
                     .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
-                        if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 0.5 {
-                            expandedHeight = height
+                        if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 2.0 {
+                            if isExpanded {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    expandedHeight = height
+                                }
+                            } else {
+                                expandedHeight = height
+                            }
                         }
                     }
             }

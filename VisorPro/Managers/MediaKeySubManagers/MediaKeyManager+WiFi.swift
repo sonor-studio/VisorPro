@@ -84,13 +84,13 @@ extension MediaKeyManager {
     
     func fetchWiFiDetails() {
         DispatchQueue.global(qos: .userInitiated).async {
-            guard let interface = CWWiFiClient.shared().interface() else { return }
+            let interface = CWWiFiClient.shared().interface()
             
-            let rssi = interface.rssiValue()
-            let txRate = interface.transmitRate()
+            let rssi = interface?.rssiValue() ?? 0
+            let txRate = interface?.transmitRate() ?? 0.0
             
             var channelStr: String? = nil
-            if let channel = interface.wlanChannel() {
+            if let channel = interface?.wlanChannel() {
                 let band: String
                 if channel.channelBand == .band5GHz {
                     band = "5 GHz"
@@ -137,14 +137,11 @@ extension MediaKeyManager {
     
     func fetchDynamicWiFiDetails() {
         DispatchQueue.global(qos: .userInitiated).async {
-            guard let interface = CWWiFiClient.shared().interface() else { 
-                LogManager.shared.log("fetchDynamicWiFiDetails: Wi-Fi interface is nil.", level: "ERROR")
-                return 
-            }
+            let interface = CWWiFiClient.shared().interface()
             
             // Safety check: Do not query details if Wi-Fi is powered off.
             // Querying transmitRate or rssiValue when disconnected can cause EXC_BREAKPOINT in CoreWLAN.
-            if !interface.powerOn() || !self.wiFiIsConnected {
+            if (interface != nil && !interface!.powerOn()) || !self.wiFiIsConnected {
                 LogManager.shared.log("fetchDynamicWiFiDetails: Wi-Fi is disconnected or powered off, skipping detail fetch.", level: "WARNING")
                 DispatchQueue.main.async {
                     self.wiFiRSSI = nil
@@ -155,11 +152,11 @@ extension MediaKeyManager {
                 return
             }
             
-            let rssi = interface.rssiValue()
-            let txRate = interface.transmitRate()
+            let rssi = interface?.rssiValue() ?? 0
+            let txRate = interface?.transmitRate() ?? 0.0
             
             var channelStr: String? = nil
-            if let channel = interface.wlanChannel() {
+            if let channel = interface?.wlanChannel() {
                 let band: String
                 if channel.channelBand == .band5GHz {
                     band = "5 GHz"
@@ -171,7 +168,7 @@ extension MediaKeyManager {
                 channelStr = "Ch \(channel.channelNumber) (\(band))"
             }
             
-            let expectedInterfaceName = interface.interfaceName ?? "en0"
+            let expectedInterfaceName = interface?.interfaceName ?? "en0"
             var ipAddr: String? = nil
             var ifaddr: UnsafeMutablePointer<ifaddrs>?
             if getifaddrs(&ifaddr) == 0 {

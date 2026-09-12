@@ -65,7 +65,8 @@ struct OverlayColorModePicker: View {
                         
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: 12) {
-                            ForEach(["Blue", "Red", "Green", "Yellow", "Orange", "Purple", "Pink", "Teal", "Indigo"], id: \.self) { colorName in
+                            let oneColorList = OverlayColorManager.shared.availableColors.filter { $0 != "White/Black" }
+                            ForEach(oneColorList, id: \.self) { colorName in
                                 ColorModeTile(
                                     title: colorName,
                                     isSelected: mediaKeyManager.globalOverlayColor == colorName,
@@ -141,6 +142,7 @@ struct PresetDetailsSheet: View {
                         ("Keyboard Brightness", ["colorOnKeyboardBrightness"]),
                         ("Keyboard", ["colorOnCapsLock", "colorOnLanguageChange"]),
                         ("Clipboard", ["colorOnCopy", "colorOnCut", "colorOnPaste"]),
+                        ("Date", ["colorOnDateChange"]),
                         ("Media", ["colorMediaStart", "colorMediaPause", "colorMediaResume"]),
                         ("Wi-Fi", ["colorOnWiFiConnect"]),
                         ("Bluetooth", ["colorOnBluetoothConnect"]),

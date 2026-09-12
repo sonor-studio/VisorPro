@@ -115,6 +115,7 @@ class OverlayStateRelay: ObservableObject {
     // MARK: - WiFi runtime
     
     @Published var showWiFiIndicator: Bool = false
+    @Published var showDateIndicator: Bool = false
     @Published var wiFiSSID: String = ""
     @Published var wiFiIsConnected: Bool = false
     @Published var wiFiIsHotspot: Bool = false
@@ -125,6 +126,7 @@ class OverlayStateRelay: ObservableObject {
     @Published var wiFiRSSI: Int?
     @Published var wiFiDetailsFetched: Bool = false
     @Published var wiFiEventId: UUID = UUID()
+    @Published var dateEventId: UUID = UUID()
     
     // MARK: - Media runtime
     
@@ -193,6 +195,12 @@ class OverlayStateRelay: ObservableObject {
     // MARK: - RAM runtime
     
     @Published var showRamIndicator: Bool = false
+    @Published var showCpuIndicator: Bool = false
+    @Published var cpuTemperature: Double = 0.0
+    @Published var cpuTempHistory: [Double] = Array(repeating: 0.0, count: 16)
+    @Published var cpuTopProcesses: [(name: String, cpuPercent: Double, icon: NSImage?)] = []
+    @Published var cpuEventId = UUID()
+
     @Published var ramEventId = UUID()
     @Published var ramUsagePercent: Double = 0.0
     @Published var totalRamGB: Double = 0.0

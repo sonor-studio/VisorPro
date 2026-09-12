@@ -239,6 +239,9 @@ class VisorProWindowManager: ObservableObject {
         let wifiPos = MediaKeyManager.shared.getOverlayPosition(for: "wifiOverlayPosition")
         if relay.showWiFiIndicator { active.append(ActiveOverlay(id: "wifi", type: .wifi, position: wifiPos, notification: nil)) }
         
+        let datePos = MediaKeyManager.shared.getOverlayPosition(for: "dateOverlayPosition")
+        if relay.showDateIndicator { active.append(ActiveOverlay(id: "date", type: .date, position: datePos, notification: nil)) }
+        
         let periPos = MediaKeyManager.shared.getOverlayPosition(for: "peripheralOverlayPosition")
         for notif in relay.activePeripheralNotifications {
             active.append(ActiveOverlay(id: "peripheral_\(notif.id)", type: .peripheral, position: periPos, notification: notif))
@@ -252,6 +255,8 @@ class VisorProWindowManager: ObservableObject {
         
         let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if relay.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
+        let cpuPos = MediaKeyManager.shared.getOverlayPosition(for: "cpuOverlayPosition")
+        if relay.showCpuIndicator { active.append(ActiveOverlay(id: "cpu", type: .cpu, position: cpuPos, notification: nil)) }
         
         let accBatPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
         if relay.showAccessoryBatteryIndicator {
@@ -734,11 +739,12 @@ struct SingleOverlayContainer: View {
         case .camera: CameraOverlayView()
         case .location: LocationOverlayView()
         case .wifi: WiFiOverlayView()
+        case .date: DateOverlayView()
         case .peripheral: PeripheralOverlayView(notification: overlay.notification)
         case .display: DisplayOverlayView(notification: overlay.notification)
         case .ram: RamOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
-
+        case .cpu: CpuTemperatureOverlayView(isPreview: false)
         }
     }
 }

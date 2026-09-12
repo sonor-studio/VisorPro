@@ -7,7 +7,7 @@ class OverlayColorManager: ObservableObject {
     
     @Published var dummyTrigger: Bool = false
     
-    let availableColors = ["Blue", "Red", "Green", "Yellow", "Orange", "Purple", "Pink", "Teal", "Indigo", "White/Black"]
+    let availableColors = ["Blue", "Red", "Green", "Emerald", "Yellow", "Orange", "Purple", "Pink", "Teal", "Indigo", "White/Black"]
     
     struct ColorPreset: Identifiable {
         let id: String
@@ -30,7 +30,7 @@ class OverlayColorManager: ObservableObject {
             "colorMediaStart": "Blue",
             "colorMediaPause": "Red",
             "colorMediaResume": "Green",
-                        "colorOnHighRam": "Red",
+            "colorOnHighRam": "Red",
             "colorOnWiFiConnect": "Teal",
             "colorOnBluetoothConnect": "Indigo",
             "colorOnPeripheralConnect": "Pink",
@@ -38,7 +38,8 @@ class OverlayColorManager: ObservableObject {
             "colorOnCameraOn": "Green",
             "colorOnLocationOn": "Blue",
             "colorOnDisplayConnect": "Teal",
-            "colorOnDisplayModeChange": "Teal"
+            "colorOnDisplayModeChange": "Teal",
+            "colorOnDateChange": "Emerald"
         ]),
         ColorPreset(id: "preset_vibrant", name: "Vibrant", colors: [
             "colorOnVolume": "Blue",
@@ -54,7 +55,7 @@ class OverlayColorManager: ObservableObject {
             "colorMediaStart": "Blue",
             "colorMediaPause": "Orange",
             "colorMediaResume": "Blue",
-                        "colorOnHighRam": "Purple",
+            "colorOnHighRam": "Purple",
             "colorOnWiFiConnect": "Blue",
             "colorOnBluetoothConnect": "Blue",
             "colorOnPeripheralConnect": "Teal",
@@ -62,7 +63,8 @@ class OverlayColorManager: ObservableObject {
             "colorOnCameraOn": "Green",
             "colorOnLocationOn": "Blue",
             "colorOnDisplayConnect": "Teal",
-            "colorOnDisplayModeChange": "Indigo"
+            "colorOnDisplayModeChange": "Indigo",
+            "colorOnDateChange": "Purple"
         ]),
         ColorPreset(id: "preset_warm", name: "Warm", colors: [
             "colorOnVolume": "Orange",
@@ -78,7 +80,7 @@ class OverlayColorManager: ObservableObject {
             "colorMediaStart": "Red",
             "colorMediaPause": "Orange",
             "colorMediaResume": "Red",
-                        "colorOnHighRam": "Orange",
+            "colorOnHighRam": "Orange",
             "colorOnWiFiConnect": "Orange",
             "colorOnBluetoothConnect": "Yellow",
             "colorOnPeripheralConnect": "Orange",
@@ -86,7 +88,8 @@ class OverlayColorManager: ObservableObject {
             "colorOnCameraOn": "Red",
             "colorOnLocationOn": "Yellow",
             "colorOnDisplayConnect": "Orange",
-            "colorOnDisplayModeChange": "Yellow"
+            "colorOnDisplayModeChange": "Yellow",
+            "colorOnDateChange": "Orange"
         ]),
         ColorPreset(id: "preset_ocean", name: "Ocean", colors: [
             "colorOnVolume": "Teal",
@@ -94,7 +97,7 @@ class OverlayColorManager: ObservableObject {
             "colorOnKeyboardBrightness": "Indigo",
             "colorOnCopy": "Teal",
             "colorOnCut": "Indigo",
-            "colorOnPaste": "Green",
+            "colorOnPaste": "Emerald",
             "colorOnCapsLock": "Blue",
             "colorOnLanguageChange": "Teal",
             "colorOnThemeDark": "Indigo",
@@ -110,7 +113,8 @@ class OverlayColorManager: ObservableObject {
             "colorOnCameraOn": "Teal",
             "colorOnLocationOn": "Blue",
             "colorOnDisplayConnect": "Teal",
-            "colorOnDisplayModeChange": "Blue"
+            "colorOnDisplayModeChange": "Blue",
+            "colorOnDateChange": "Teal"
         ]),
         ColorPreset(id: "preset_neon", name: "Neon", colors: [
             "colorOnVolume": "Pink",
@@ -134,7 +138,8 @@ class OverlayColorManager: ObservableObject {
             "colorOnCameraOn": "Purple",
             "colorOnLocationOn": "Pink",
             "colorOnDisplayConnect": "Pink",
-            "colorOnDisplayModeChange": "Purple"
+            "colorOnDisplayModeChange": "Purple",
+            "colorOnDateChange": "Pink"
         ]),
         ColorPreset(id: "preset_nature", name: "Nature", colors: [
             "colorOnVolume": "Green",
@@ -151,14 +156,15 @@ class OverlayColorManager: ObservableObject {
             "colorMediaPause": "Orange",
             "colorMediaResume": "Green",
             "colorOnHighRam": "Green",
-            "colorOnWiFiConnect": "Green",
+            "colorOnWiFiConnect": "Emerald",
             "colorOnBluetoothConnect": "Yellow",
-            "colorOnPeripheralConnect": "Green",
+            "colorOnPeripheralConnect": "Emerald",
             "colorOnMicOn": "Orange",
             "colorOnCameraOn": "Green",
             "colorOnLocationOn": "Yellow",
             "colorOnDisplayConnect": "Green",
-            "colorOnDisplayModeChange": "Yellow"
+            "colorOnDisplayModeChange": "Yellow",
+            "colorOnDateChange": "Emerald"
         ]),
         ColorPreset(id: "preset_monochrome", name: "Monochrome", colors: [
             "colorOnVolume": "White/Black",
@@ -182,7 +188,7 @@ class OverlayColorManager: ObservableObject {
             "colorOnCameraOn": "White/Black",
             "colorOnLocationOn": "White/Black",
             "colorOnDisplayConnect": "White/Black",
-            "colorOnDisplayModeChange": "White/Black"
+            "colorOnDisplayModeChange": "White/Black", "colorOnDateChange": "White/Black"
         ])
     ]
     
@@ -197,6 +203,7 @@ class OverlayColorManager: ObservableObject {
         case "Pink": return Color(red: 0.85, green: 0.15, blue: 0.55) // a more vibrant pink
         case "Teal": return .teal
         case "Indigo": return .indigo
+        case "Emerald": return Color(red: 0.0, green: 0.62, blue: 0.45)
         case "White/Black":
             let theme = UserDefaults.standard.string(forKey: "overlayTheme") ?? "system"
             if theme == "dark" { return .white }
@@ -248,6 +255,7 @@ class OverlayColorManager: ObservableObject {
         "colorOnLocationOn": "Location On",
         "colorOnDisplayConnect": "Display Connected",
         "colorOnDisplayModeChange": "Display Mode Changed"
+        , "colorOnDateChange": "Date Change"
     ]
 }
 

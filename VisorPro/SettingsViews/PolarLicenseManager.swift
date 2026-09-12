@@ -26,6 +26,7 @@ class PolarLicenseManager: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("2026-04", forHTTPHeaderField: "Polar-Version")
         
         let body: [String: String] = [
             "key": key,
@@ -81,6 +82,7 @@ class PolarLicenseManager: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("2026-04", forHTTPHeaderField: "Polar-Version")
         
         let body: [String: String] = [
             "key": key,

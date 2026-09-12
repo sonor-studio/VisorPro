@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FA6B08843048A2EC008824F5 /* SMC in Frameworks */ = {isa = PBXBuildFile; productRef = FA6B08833048A2EC008824F5 /* SMC */; };
+		FA6B08863048A2EC008824F5 /* SMCKit in Frameworks */ = {isa = PBXBuildFile; productRef = FA6B08853048A2EC008824F5 /* SMCKit */; };
 		FA8D1711304634CE0040670D /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D1710304634CE0040670D /* TelemetryDeck */; };
 		FA8D18263046353E0040670D /* TelemetryClient in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D18253046353E0040670D /* TelemetryClient */; };
 /* End PBXBuildFile section */
@@ -57,7 +59,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FA6B08863048A2EC008824F5 /* SMCKit in Frameworks */,
 				FA8D18263046353E0040670D /* TelemetryClient in Frameworks */,
+				FA6B08843048A2EC008824F5 /* SMC in Frameworks */,
 				FA8D1711304634CE0040670D /* TelemetryDeck in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -222,6 +226,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */,
+				FA6B08823048A2EC008824F5 /* XCLocalSwiftPackageReference "SMCKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FA01FF84300BB56700235EBF /* Products */;
@@ -428,7 +433,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 6F78X5RA6P;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -448,12 +453,14 @@
 				INFOPLIST_KEY_NSLocationUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VisorPro uses the microphone to display an audio waveform animation when expanding the microphone overlay.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "VisorPro needs access to your calendar to display upcoming events in the Date overlay.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "VisorPro needs full access to your calendar to display upcoming events in the Date overlay.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sonorstudio.VisorPro;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -484,7 +491,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 6F78X5RA6P;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -504,12 +511,14 @@
 				INFOPLIST_KEY_NSLocationUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VisorPro uses the microphone to display an audio waveform animation when expanding the microphone overlay.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "VisorPro needs access to your calendar to display upcoming events in the Date overlay.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "VisorPro needs full access to your calendar to display upcoming events in the Date overlay.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sonorstudio.VisorPro;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -649,6 +658,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		FA6B08823048A2EC008824F5 /* XCLocalSwiftPackageReference "SMCKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = SMCKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -661,6 +677,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		FA6B08833048A2EC008824F5 /* SMC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FA6B08823048A2EC008824F5 /* XCLocalSwiftPackageReference "SMCKit" */;
+			productName = SMC;
+		};
+		FA6B08853048A2EC008824F5 /* SMCKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FA6B08823048A2EC008824F5 /* XCLocalSwiftPackageReference "SMCKit" */;
+			productName = SMCKit;
+		};
 		FA8D1710304634CE0040670D /* TelemetryDeck */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FA8D170F304634CE0040670D /* XCRemoteSwiftPackageReference "SwiftClient" */;

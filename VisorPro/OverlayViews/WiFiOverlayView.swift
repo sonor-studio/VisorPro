@@ -7,6 +7,7 @@ struct StatRow: View {
     var allowShrink: Bool = false
     var isCopyable: Bool = false
     var disableCopy: Bool = false
+    var actionColor: Color = .green
     var onCopy: (() -> Void)? = nil
     
     @State private var copied: Bool = false
@@ -40,32 +41,32 @@ struct StatRow: View {
                 if isCopyable {
                     Image(systemName: copied ? "checkmark" : "doc.on.doc")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(copied ? .green : .secondary.opacity(0.7))
+                        .foregroundColor(copied ? actionColor : .secondary.opacity(0.7))
                         .frame(width: 14)
                         .transition(.scale.combined(with: .opacity))
                         .id(copied ? "check" : "copy")
                 }
             }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                if isCopyable && !disableCopy {
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(value, forType: .string)
-                    onCopy?()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isCopyable && !disableCopy {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(value, forType: .string)
+                onCopy?()
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    copied = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        copied = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            copied = false
-                        }
+                        copied = false
                     }
                 }
             }
-            .pointingHandCursor()
-            .help((isCopyable && !disableCopy) ? "Copy to clipboard" : "")
         }
+        .conditionalPointingHandCursor(isEnabled: isCopyable && !disableCopy)
+        .help((isCopyable && !disableCopy) ? "Copy to clipboard" : "")
     }
 }
 
@@ -73,8 +74,14 @@ struct WiFiOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("wifiAllowExpansion") private var wifiAllowExpansion: Bool = true
+    @AppStorage("wifiShowSpeedTest") private var wifiShowSpeedTest: Bool = true
+    @AppStorage("wifiShowDetails") private var wifiShowDetails: Bool = true
     @State private var isExpanded: Bool = false
     @State private var refreshTimer: Timer?
+    @State private var isTestingSpeed: Bool = false
+    @State private var speedTestResult: NetworkQualityResult? = nil
+    @State private var showDetails: Bool = false
+    @State private var testFailed: Bool = false
     var isPreview: Bool = false
     var previewIsConnected: Bool = true
     var previewSSID: String = "My Wi-Fi"
@@ -92,7 +99,7 @@ struct WiFiOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsConnected ? .cyan : .secondary
+        actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnWiFiConnect", defaultColor: .blue) : .offStateGray
     }
     
     private var actionTitle: String {
@@ -157,6 +164,11 @@ struct WiFiOverlayView: View {
             expandedContent: {
                 VStack(spacing: 12) {
                     Divider()
+                        .onAppear {
+                            if actualIsConnected && speedTestResult == nil && !testFailed && !isPreview && wifiShowSpeedTest {
+                                startSpeedTest()
+                            }
+                        }
                         .padding(.horizontal, 16)
                         .opacity(0.5)
                     
@@ -166,7 +178,169 @@ struct WiFiOverlayView: View {
                             .frame(height: 50)
                     } else {
                         if actualIsConnected {
-                            statsView
+                            // Speed Test UI
+                            if wifiShowSpeedTest {
+                            VStack(spacing: 8) {
+                                if isTestingSpeed {
+                                    HStack(alignment: .lastTextBaseline) {
+                                        Text("Running Speed Test...")
+                                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        ProgressView()
+                                            .scaleEffect(0.5)
+                                            .frame(width: 12, height: 12)
+                                    }
+                                } else if testFailed {
+                                    HStack(alignment: .center) {
+                                        Text("Speed Test Failed")
+                                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                                            .foregroundColor(.red)
+                                        Spacer()
+                                        Button(action: { startSpeedTest() }) {
+                                            Text("Retry")
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 4)
+                                                .background(actionColor)
+                                                .cornerRadius(6)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .pointingHandCursor()
+                                    }
+                                } else {
+                                    HStack(alignment: .lastTextBaseline) {
+                                        Text(speedTestResult != nil ? "Speed Test Complete" : "Speed Test Ready")
+                                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        if speedTestResult != nil {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(size: 12))
+                                                .foregroundColor(actionColor)
+                                        }
+                                    }
+                                }
+                                
+                                HStack(spacing: 8) {
+                                    // DOWNLOAD
+                                    VStack(alignment: .center, spacing: 4) {
+                                        Text("Download")
+                                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                        
+                                        if let result = speedTestResult {
+                                            let dlMbps = (result.dl_throughput ?? 0) / 1_000_000
+                                            Text("\(String(format: "%.1f", dlMbps))")
+                                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                        } else {
+                                            Text("--")
+                                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                        
+                                        Text("Mbps")
+                                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    
+                                    Divider().frame(height: 24)
+                                    
+                                    // UPLOAD
+                                    VStack(alignment: .center, spacing: 4) {
+                                        Text("Upload")
+                                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                        
+                                        if let result = speedTestResult {
+                                            let ulMbps = (result.ul_throughput ?? 0) / 1_000_000
+                                            Text("\(String(format: "%.1f", ulMbps))")
+                                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                        } else {
+                                            Text("--")
+                                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                        
+                                        Text("Mbps")
+                                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    
+                                    Divider().frame(height: 24)
+                                    
+                                    // PING
+                                    VStack(alignment: .center, spacing: 4) {
+                                        Text("Ping")
+                                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                        
+                                        if let ping = speedTestResult?.base_rtt {
+                                            Text("\(Int(ping))")
+                                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.primary)
+                                                .lineLimit(1)
+                                        } else {
+                                            Text("--")
+                                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                        
+                                        Text("ms")
+                                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                }
+                                .padding(.vertical, 8)
+                                .background(Color.primary.opacity(0.05))
+                                .cornerRadius(8)
+                            }
+                            .padding(.horizontal, 16)
+                            } // End of wifiShowSpeedTest
+                            
+                            if wifiShowSpeedTest && wifiShowDetails {
+                            // Show Details button
+                            HStack {
+                                Spacer()
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        showDetails.toggle()
+                                    }
+                                }) {
+                                    Text(showDetails ? "Hide Details" : "Show Details")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 6)
+                                        .background(Color.primary.opacity(0.1))
+                                        .cornerRadius(12)
+                                }
+                                .buttonStyle(.plain)
+                                .pointingHandCursor()
+                                Spacer()
+                            }
+                            .padding(.top, 4)
+                            
+                            }
+                            if wifiShowDetails {
+                                if !wifiShowSpeedTest || showDetails {
+                                    statsView
+                                }
+                            }
                             
                             HStack(spacing: 8) {
                                 Button(action: {
@@ -189,7 +363,6 @@ struct WiFiOverlayView: View {
                                 .pointingHandCursor()
                             }
                             .padding(.horizontal, 16)
-                            
                             .padding(.top, 4)
                         } else {
                             HStack(spacing: 8) {
@@ -216,7 +389,6 @@ struct WiFiOverlayView: View {
                                 .pointingHandCursor()
                             }
                             .padding(.horizontal, 16)
-                            
                             .padding(.top, 4)
                         }
                     }
@@ -229,6 +401,9 @@ struct WiFiOverlayView: View {
                 refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
                     mediaKeyManager.fetchDynamicWiFiDetails()
                 }
+                if actualIsConnected && speedTestResult == nil && !testFailed && !isPreview {
+                    startSpeedTest()
+                }
             } else {
                 refreshTimer?.invalidate()
                 refreshTimer = nil
@@ -236,17 +411,45 @@ struct WiFiOverlayView: View {
         }
     }
     
+
+    private func startSpeedTest() {
+        guard !isTestingSpeed && !isPreview else { return }
+        isTestingSpeed = true
+        speedTestResult = nil
+        testFailed = false
+        
+        Task {
+            do {
+                let result = try await NetworkSpeedManager.shared.runSpeedTest()
+                DispatchQueue.main.async {
+                    withAnimation(.linear(duration: 0.2)) {
+                        self.speedTestResult = result
+                        self.isTestingSpeed = false
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    withAnimation(.linear(duration: 0.2)) {
+                        self.testFailed = true
+                        self.isTestingSpeed = false
+                    }
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private var statsView: some View {
         VStack(spacing: 8) {
             if let ip = isPreview ? "192.168.1.12" : overlayState.wiFiIPAddress {
-                StatRow(icon: "network", label: "IP Address", value: ip, isCopyable: true, disableCopy: isPreview, onCopy: {
+                StatRow(icon: "network", label: "IP Address", value: ip, isCopyable: true, disableCopy: isPreview, actionColor: actionColor, onCopy: {
                     if !isPreview {
                         mediaKeyManager.pendingClipboardAction = "ignore"
                         mediaKeyManager.pendingClipboardActionTimestamp = Date()
                     }
                 })
             }
+            
             if let txRate = isPreview ? 866.0 : overlayState.wiFiTxRate {
                 StatRow(icon: "bolt.horizontal", label: "Tx Rate", value: "\(Int(txRate)) Mbps")
             }
