@@ -315,8 +315,9 @@ class BatteryObserver {
                     hoursLeft = (capacityNeeded / amperage) * 1.5 // Multiplier for trickle phase
                 }
                 
-                let totalMinutes = Int(hoursLeft * 60)
-                if totalMinutes > 0 && totalMinutes <= 10000 {
+                let totalMinutesDouble = hoursLeft * 60
+                if totalMinutesDouble.isFinite && totalMinutesDouble > 0 && totalMinutesDouble <= 10000 {
+                    let totalMinutes = Int(totalMinutesDouble)
                     let hours = totalMinutes / 60
                     let minutes = totalMinutes % 60
                     let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
@@ -327,8 +328,9 @@ class BatteryObserver {
             if !isPluggedIn {
                 let capacityAvailable = currentCapacity
                 let hoursLeft = capacityAvailable / abs(amperage)
-                let totalMinutes = Int(hoursLeft * 60)
-                if totalMinutes > 0 && totalMinutes <= 10000 {
+                let totalMinutesDouble = hoursLeft * 60
+                if totalMinutesDouble.isFinite && totalMinutesDouble > 0 && totalMinutesDouble <= 10000 {
+                    let totalMinutes = Int(totalMinutesDouble)
                     let hours = totalMinutes / 60
                     let minutes = totalMinutes % 60
                     let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
@@ -375,10 +377,11 @@ class BatteryObserver {
         
         let current_Wh = (currentCapacity * voltage) / 1_000_000.0
         let hoursLeft = current_Wh / systemPowerW
-        let totalMinutes = Int(hoursLeft * 60)
+        let totalMinutesDouble = hoursLeft * 60
         
-        if totalMinutes <= 0 || totalMinutes > 10000 { return "Calculating..." }
+        if !totalMinutesDouble.isFinite || totalMinutesDouble <= 0 || totalMinutesDouble > 10000 { return "Calculating..." }
         
+        let totalMinutes = Int(totalMinutesDouble)
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
         let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
@@ -420,10 +423,11 @@ class BatteryObserver {
             hoursLeft = missing_Wh / netAdapterWatts
         }
         
-        let totalMinutes = Int(hoursLeft * 60)
+        let totalMinutesDouble = hoursLeft * 60
         
-        if totalMinutes <= 0 || totalMinutes > 10000 { return "Calculating..." }
+        if !totalMinutesDouble.isFinite || totalMinutesDouble <= 0 || totalMinutesDouble > 10000 { return "Calculating..." }
         
+        let totalMinutes = Int(totalMinutesDouble)
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
         let timeString = hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"

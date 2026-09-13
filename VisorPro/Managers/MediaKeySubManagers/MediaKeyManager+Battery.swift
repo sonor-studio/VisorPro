@@ -4,11 +4,10 @@ import AppKit
 
 extension MediaKeyManager {
     
-    func triggerLowBatteryWarning() {
+    func triggerBatteryThresholdWarning(percentage: Int, sound: String) {
         if !enableBattery { return }
         startFetchingTopBatteryConsumers()
-        let currentLevel = currentBatteryPercentage
-        playNotificationSound(named: currentLevel <= 10 ? soundOn10Percent : soundOn20Percent)
+        playNotificationSound(named: sound)
         let battPos = self.getOverlayPosition(for: "batteryOverlayPosition")
         dismissCollidingIndicators(newPosition: battPos, source: "battery")
         
@@ -74,7 +73,7 @@ extension MediaKeyManager {
         }
     }
 
-    func triggerAccessoryBatteryIndicator(deviceName: String, percentage: Int, isPluggedIn: Bool, isWarning: Bool) {
+    func triggerAccessoryBatteryIndicator(deviceName: String, percentage: Int, isPluggedIn: Bool, isWarning: Bool, customSound: String? = nil) {
         let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
         if premiumKey.isEmpty { return }
 
@@ -84,7 +83,8 @@ extension MediaKeyManager {
             self.accessoryBatteryLevels[deviceName] = percentage
             self.accessoryBatteryCharging[deviceName] = isPluggedIn
             
-            if !self.enableAccessoryBattery { return }
+            let settings = self.accessorySettings[deviceName] ?? AccessoryDeviceSettings()
+            if !settings.enableOverlay { return }
             
             if !self.accessoryBatteryHistory.contains(deviceName) {
                 self.accessoryBatteryHistory.append(deviceName)
@@ -96,12 +96,8 @@ extension MediaKeyManager {
             self.accessoryBatteryIsPluggedIn = isPluggedIn
             self.accessoryBatteryIsWarning = isWarning
             
-            if percentage == 100 {
-                self.playNotificationSound(named: self.accessorySoundOn100Percent)
-            } else if percentage <= 10 {
-                self.playNotificationSound(named: self.accessorySoundOn10Percent)
-            } else if percentage <= 20 {
-                self.playNotificationSound(named: self.accessorySoundOn20Percent)
+            if let sound = customSound {
+                self.playNotificationSound(named: sound)
             }
             
             self.accessoryBatteryTimer?.invalidate()

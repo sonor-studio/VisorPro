@@ -38,7 +38,7 @@ struct AccessoryBatteryOverlayView: View {
     }
     
     private var batteryColor: Color {
-        if isWarning { return .red }
+        // Don't force red for warning mode, rely on actual percentage
         if percentage <= 20 { return .red }
         if percentage <= 50 { return .yellow }
         return .green
@@ -76,17 +76,21 @@ struct AccessoryBatteryOverlayView: View {
     }
     
     private var statusText: String {
+        var baseStatus = ""
+        if overlayState.accessoryIsConnectionEvent && !isPreview {
+            baseStatus = overlayState.accessoryConnectionIsConnected ? "Connected" : "Disconnected"
+        } else {
+            if isWarning { baseStatus = "Battery Alert" }
+            else if isFullyCharged { baseStatus = "Fully Charged" }
+            else if isPluggedIn { baseStatus = "Charging" }
+            else { baseStatus = "Battery" }
+        }
+        
         // For multi-component devices, show component type in status line
         if let label = componentLabel {
-            if isWarning { return "Low Battery · \(label)" }
-            if isFullyCharged { return "Fully Charged · \(label)" }
-            if isPluggedIn { return "Charging · \(label)" }
-            return "Battery · \(label)"
+            return "\(baseStatus) · \(label)"
         }
-        if isWarning { return "Low Battery" }
-        if isFullyCharged { return "Fully Charged" }
-        if isPluggedIn { return "Charging" }
-        return "Battery"
+        return baseStatus
     }
     
     /// For AirPods components, returns "Left Earbud", "Right Earbud", or "Case"
@@ -122,6 +126,7 @@ struct AccessoryBatteryOverlayView: View {
             isExpandable: true,
             expandUpwards: batPos.hasPrefix("bottom"),
             keepAliveId: "accessoryBattery",
+            disableTimeoutMode: true,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: deviceIcon)
@@ -134,17 +139,11 @@ struct AccessoryBatteryOverlayView: View {
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
                         
-                        if isFullyCharged && hasFinishedChargeAnimation {
-                            MarqueeText(text: baseName, font: .system(size: 13, weight: .bold, design: .rounded), foregroundColor: .primary)
-                        } else {
-                            AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: isPluggedIn)
-                        }
-                        
-                        if !isFullyCharged {
-                            MarqueeText(text: baseName, font: .system(size: 11, weight: .medium, design: .rounded), foregroundColor: .secondary)
-                        }
+                        MarqueeText(text: baseName, font: .system(size: 13, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
                     Spacer(minLength: 8)
+                    
+                    AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: isPluggedIn, customText: "%d%")
                 }
                 .padding(.horizontal, 16 + 4 + 3)
             },

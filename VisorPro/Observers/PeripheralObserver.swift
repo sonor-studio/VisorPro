@@ -7,7 +7,16 @@ class PeripheralObserver {
     private var addedIterator: io_iterator_t = 0
     private var removedIterator: io_iterator_t = 0
     
+    struct ConnectedUSBDevice {
+        var identifier: String
+        var name: String
+        var type: String
+        var icon: String
+        var isAccessory: Bool
+    }
+    
     private var processedRegistryIDs: Set<UInt64> = []
+    private var connectedUSBDevices: [UInt64: ConnectedUSBDevice] = [:]
     
     init(manager: MediaKeyManager) {
         self.manager = manager
@@ -91,14 +100,14 @@ class PeripheralObserver {
                 }
                 
                 if !initial && shouldProcess {
-                    handleDevice(device: device, isConnected: isConnected)
+                    handleDevice(device: device, isConnected: isConnected, entryID: entryID)
                 }
                 IOObjectRelease(device)
             }
         } while device != 0 || IOIteratorIsValid(iterator) == 0
     }
     
-    private func handleDevice(device: io_object_t, isConnected: Bool) {
+    private func handleDevice(device: io_object_t, isConnected: Bool, entryID: UInt64) {
         var nameCString = [CChar](repeating: 0, count: 256)
         let result = IORegistryEntryGetName(device, &nameCString)
         if result == KERN_SUCCESS {
@@ -162,9 +171,14 @@ class PeripheralObserver {
             var type = "USB Device"
             var typeIcon = "cable.connector"
             
-            let isIPhone = nameToCheck.contains("iphone") || lowerName.contains("iphone")
+            let isIPhone = nameToCheck.contains("iphone") || lowerName.contains("iphone") || nameToCheck.contains("apple mobile device") || lowerName.contains("apple mobile device")
             let isIPad = nameToCheck.contains("ipad") || lowerName.contains("ipad")
             let isIPod = nameToCheck.contains("ipod") || lowerName.contains("ipod")
+            let isIOS = isIPhone || isIPad || isIPod
+            
+            if isIOS && details["Serial"] == nil {
+                return
+            }
             
             if let cfClass = IORegistryEntryCreateCFProperty(device, "bDeviceClass" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? NSNumber {
                 let devClass = cfClass.intValue
@@ -231,9 +245,32 @@ class PeripheralObserver {
             let finalIcon = typeIcon
             let deviceIdentifier = details["Serial"] ?? displayName
             
-            if (isIPhone || isIPad || isIPod) && isConnected {
+            if !isConnected {
+                // For disconnects, use the exact cached details from when it connected!
+                if let cached = self.connectedUSBDevices[entryID] {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self = self, let manager = self.manager else { return }
+                        if cached.isAccessory {
+                            manager.triggerAccessoryConnection(deviceName: cached.name, deviceAddress: cached.identifier, isConnected: false)
+                        } else {
+                            manager.triggerPeripheralIndicator(id: cached.identifier, deviceName: cached.name, type: cached.type, typeIcon: cached.icon, isConnected: false, details: nil)
+                        }
+                    }
+                    self.connectedUSBDevices.removeValue(forKey: entryID)
+                }
+                return
+            }
+            
+            // From here on, it's definitely isConnected == true
+            let isKnownAccessory = manager?.accessoryBatteryHistory.contains(displayName) ?? false
+            
+            if isIOS {
                 fetchIOSDeviceInfo { [weak self] marketingName, battery, isCharging in
                     guard let self = self, let manager = self.manager else { return }
+                    
+                    // If the device was unplugged while we were fetching info, abort
+                    if !self.processedRegistryIDs.contains(entryID) { return }
+                    
                     var updatedDetails = details
                     var updatedDisplayName = displayName
                     
@@ -242,19 +279,36 @@ class PeripheralObserver {
                         updatedDisplayName = model
                     }
                     
+                    let hasBattery = true // iOS devices are always accessories!
+                    
                     if let battery = battery {
                         updatedDetails["Battery"] = "\(battery)%" + (isCharging == true ? " (Charging)" : "")
                         updatedDetails["BatteryLevel"] = "\(battery)"
                         updatedDetails["Charging"] = (isCharging == true) ? "Yes" : "No"
                         
                         manager.updateAccessoryState(deviceName: updatedDisplayName, percentage: battery, isPluggedIn: isCharging ?? true)
+                    } else {
+                        manager.updateAccessoryState(deviceName: updatedDisplayName, percentage: nil, isPluggedIn: true)
                     }
                     
-                    manager.triggerPeripheralIndicator(id: deviceIdentifier, deviceName: updatedDisplayName, type: finalType, typeIcon: finalIcon, isConnected: true, details: updatedDetails.isEmpty ? nil : updatedDetails)
+                    manager.peripheralIcons[updatedDisplayName] = finalIcon
+                    manager.triggerAccessoryConnection(deviceName: updatedDisplayName, deviceAddress: deviceIdentifier, isConnected: true)
+                    
+                    self.connectedUSBDevices[entryID] = ConnectedUSBDevice(identifier: deviceIdentifier, name: updatedDisplayName, type: finalType, icon: finalIcon, isAccessory: hasBattery)
                 }
             } else {
+                let hasBattery = details["Battery"] != nil
+                let isAcc = isKnownAccessory || hasBattery
+                self.connectedUSBDevices[entryID] = ConnectedUSBDevice(identifier: deviceIdentifier, name: displayName, type: finalType, icon: finalIcon, isAccessory: isAcc)
+                
                 DispatchQueue.main.async { [weak self] in
-                    self?.manager?.triggerPeripheralIndicator(id: deviceIdentifier, deviceName: displayName, type: finalType, typeIcon: finalIcon, isConnected: isConnected, details: details.isEmpty ? nil : details)
+                    guard let self = self, let manager = self.manager else { return }
+                    if isAcc {
+                        manager.peripheralIcons[displayName] = finalIcon
+                        manager.triggerAccessoryConnection(deviceName: displayName, deviceAddress: deviceIdentifier, isConnected: true)
+                    } else {
+                        manager.triggerPeripheralIndicator(id: deviceIdentifier, deviceName: displayName, type: finalType, typeIcon: finalIcon, isConnected: true, details: details.isEmpty ? nil : details)
+                    }
                 }
             }
         }

@@ -8,6 +8,7 @@ struct SystemSettingsView: View {
     @AppStorage("ramOverlayPosition") private var ramOverlayPosition: String = "top"
     @AppStorage("fanOverlayPosition") private var fanOverlayPosition: String = "bottom"
     @AppStorage("cpuOverlayPosition") private var cpuOverlayPosition: String = "top"
+    @AppStorage("trashOverlayPosition") private var trashOverlayPosition: String = "top"
     
     var body: some View {
         ScrollView {
@@ -25,7 +26,7 @@ struct SystemSettingsView: View {
                             .padding(.leading, 4)
                         
                         VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "cpu", iconColor: .purple, title: "Enable System Module", subtitle: "When disabled, VisorPro will not show system overlays") {
+                            CustomSettingsRow(icon: "cpu", iconColor: .red, title: "Enable System Module", subtitle: "When disabled, VisorPro will not show system overlays") {
                                 Toggle("", isOn: $showSystemModule).labelsHidden()
                             }
                         }
@@ -51,13 +52,11 @@ struct SystemSettingsView: View {
                             ZStack {
                                 PreviewBackgroundView()
                             
-                                VStack(spacing: 20) {
-                                    HStack(spacing: 20) {
-                                        CpuTemperatureOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-                                            .scaleEffect(0.85)
-                                        RamOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-                                            .scaleEffect(0.85)
-                                    }
+                                HStack(spacing: 20) {
+                                    CpuTemperatureOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
+                                        .scaleEffect(0.85)
+                                    RamOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
+                                        .scaleEffect(0.85)
                                 }
                             }
                             .padding(.horizontal)
@@ -84,10 +83,11 @@ struct SystemSettingsView: View {
                                 .padding(.leading, 20)
                         
                             VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "thermometer", iconColor: .orange, title: "High CPU Temp", subtitle: "Show overlay when CPU temperature is high") {
+                                CustomSettingsRow(icon: "thermometer", iconColor: .red, title: "High CPU Temp", subtitle: "Show overlay when CPU temperature is high") {
                                     HStack(spacing: 8) {
                                         if mediaKeyManager.notifyOnHighCpuTemp {
                                             SoundPickerControl(selectedSound: $mediaKeyManager.soundOnHighCpuTemp)
+                                            if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnHighCpuTemp) }
                                         }
                                         Toggle("", isOn: $mediaKeyManager.notifyOnHighCpuTemp).labelsHidden()
                                     }
@@ -195,8 +195,8 @@ struct SystemSettingsView: View {
                                 }
                             }
                             .padding(.horizontal)
+                            
                         }
-
                     }
                 }
             }

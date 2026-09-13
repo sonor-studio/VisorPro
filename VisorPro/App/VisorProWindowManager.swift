@@ -257,6 +257,11 @@ class VisorProWindowManager: ObservableObject {
         if relay.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
         let cpuPos = MediaKeyManager.shared.getOverlayPosition(for: "cpuOverlayPosition")
         if relay.showCpuIndicator { active.append(ActiveOverlay(id: "cpu", type: .cpu, position: cpuPos, notification: nil)) }
+        let trashPos = MediaKeyManager.shared.getOverlayPosition(for: "trashOverlayPosition")
+        if relay.showTrashIndicator { active.append(ActiveOverlay(id: "trash", type: .trash, position: trashPos, notification: nil)) }
+        
+        let fileDeletedPos = MediaKeyManager.shared.getOverlayPosition(for: "fileDeletedOverlayPosition")
+        if relay.showFileDeletedIndicator { active.append(ActiveOverlay(id: "fileDeleted", type: .fileDeleted, position: fileDeletedPos, notification: nil)) }
         
         let accBatPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
         if relay.showAccessoryBatteryIndicator {
@@ -745,6 +750,8 @@ struct SingleOverlayContainer: View {
         case .ram: RamOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
         case .cpu: CpuTemperatureOverlayView(isPreview: false)
+        case .trash: TrashOverlayView()
+        case .fileDeleted: FileDeletedOverlayView()
         }
     }
 }

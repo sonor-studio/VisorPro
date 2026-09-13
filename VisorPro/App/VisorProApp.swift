@@ -36,6 +36,7 @@ struct VisorProApp: App {
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @AppStorage("showSystemModule") private var showSystemModule = true
+    @AppStorage("showTrashModule") private var showTrashModule = true
     
     var body: some Scene {
         let _ = { appDelegate.openSettingsAction = { openSettings() } }()
@@ -75,6 +76,7 @@ struct VisorProApp: App {
                     Toggle("Peripherals", isOn: $mediaKeyManager.enablePeripheral)
                     Toggle("Displays", isOn: $mediaKeyManager.enableDisplay)
                     Toggle("System", isOn: $showSystemModule)
+                    Toggle("Trash", isOn: $showTrashModule)
                 }
             }
             
@@ -199,6 +201,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let _ = VisorProWindowManager.shared
         let _ = CpuObserver.shared
         let _ = RamObserver.shared
+        let _ = TrashObserver.shared
         
         UpdateManager.shared.checkForUpdates()
         

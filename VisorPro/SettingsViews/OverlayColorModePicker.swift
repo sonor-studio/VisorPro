@@ -150,7 +150,8 @@ struct PresetDetailsSheet: View {
                         ("Theme", ["colorOnThemeDark", "colorOnThemeLight"]),
                         ("Peripheral", ["colorOnPeripheralConnect"]),
                         ("Display", ["colorOnDisplayConnect", "colorOnDisplayModeChange"]),
-                        ("System", ["colorOnHighRam"])
+                        ("System", ["colorOnHighRam", "colorOnHighCpuTemp"]),
+                        ("Trash", ["colorOnTrashFull", "colorOnFileDeleted"])
                     ]
                     
                     VStack(spacing: 0) {

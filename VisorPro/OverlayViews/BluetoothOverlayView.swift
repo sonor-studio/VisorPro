@@ -10,6 +10,7 @@ struct BluetoothOverlayView: View {
     @State private var isExpanded: Bool = false
     @State private var showDetails: Bool = false
     var isPreview: Bool = false
+    var previewIsAccessory: Bool = false
     var previewIsConnected: Bool = true
     var previewDeviceName: String = "AirPods Pro"
     var notification: DeviceNotification?
@@ -27,14 +28,17 @@ struct BluetoothOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsConnected ? .indigo : .secondary
+        actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo) : .secondary
     }
     
     private var actionTitle: String {
-        actualIsConnected ? "Bluetooth Connected" : "Bluetooth Disconnected"
+        if (isPreview && previewIsAccessory) || notification?.type == "accessory" {
+            return actualIsConnected ? "Accessory Connected" : "Accessory Disconnected"
+        }
+        return actualIsConnected ? "Bluetooth Connected" : "Bluetooth Disconnected"
     }
     
-    private func iconFor(suffix: String, deviceName: String) -> String {
+    private func iconFor(suffix: String, deviceName: String, fallbackIcon: String? = nil) -> String {
         let lowerSuffix = suffix.lowercased()
         let lowerName = deviceName.lowercased()
         
@@ -44,12 +48,26 @@ struct BluetoothOverlayView: View {
             return "airpodpro.right"
         } else if lowerSuffix.contains("case") || lowerSuffix.contains("etui") {
             return "airpodspro.chargingcase.wireless.fill"
-        } else if lowerName.contains("mouse") || lowerName.contains("mysz") {
+        }
+        
+        if let fallback = fallbackIcon, fallback != "bolt.batteryblock.fill" {
+            return fallback
+        }
+        
+        if lowerName.contains("mouse") || lowerName.contains("mysz") {
             return "magicmouse.fill"
         } else if lowerName.contains("keyboard") || lowerName.contains("klawiatura") {
             return "keyboard.fill"
         } else if lowerName.contains("trackpad") {
             return "magicmouse.fill" 
+        } else if lowerName.contains("iphone") {
+            return "iphone"
+        } else if lowerName.contains("ipad") {
+            return "ipad"
+        } else if lowerName.contains("mac") {
+            return "macbook"
+        } else if lowerName.contains("watch") {
+            return "applewatch"
         } else {
             return "headphones"
         }
@@ -66,7 +84,7 @@ struct BluetoothOverlayView: View {
     var body: some View {
         
         let deviceId = isPreview ? "00:11:22:33:44:55" : (notification?.id ?? "")
-        let hasDetails = isPreview || mediaKeyManager.bluetoothDetails[deviceId] != nil
+        let hasDetails = isPreview ? MediaKeyManager.shared.isBluetoothAccessory(actualDeviceName) : mediaKeyManager.bluetoothDetails[deviceId] != nil
         let systemName = mediaKeyManager.bluetoothDetails[deviceId]?["SystemName"] ?? actualDeviceName
         let deviceBatteries = overlayState.accessoryBatteryLevels.filter { $0.key.hasPrefix(systemName) }
         let effectiveDeviceBatteries: [String: Int] = isPreview ? [
@@ -74,6 +92,21 @@ struct BluetoothOverlayView: View {
             "\(systemName) (Right)": 100,
             "\(systemName) (Case)": 20
         ] : deviceBatteries.reduce(into: [:]) { $0[$1.key] = $1.value }
+        
+        let isAccessoryType = (isPreview && previewIsAccessory) || notification?.type == "accessory"
+        
+        let averageBattery: Int? = {
+            if effectiveDeviceBatteries.isEmpty { return nil }
+            let earbudBatteries = effectiveDeviceBatteries.filter { $0.key.lowercased().contains("left") || $0.key.lowercased().contains("right") || $0.key.lowercased().contains("lewa") || $0.key.lowercased().contains("prawa") }
+            if !earbudBatteries.isEmpty {
+                return earbudBatteries.values.reduce(0, +) / earbudBatteries.count
+            }
+            return effectiveDeviceBatteries.values.reduce(0, +) / effectiveDeviceBatteries.count
+        }()
+        
+        let accessoryBatteryColor: Color = hasDetails 
+            ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo)
+            : OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: .blue)
         
         var rowsCount = 0
         if isPreview {
@@ -102,7 +135,12 @@ struct BluetoothOverlayView: View {
             if nameLower.contains("mouse") { return "magicmouse" }
             if nameLower.contains("keyboard") { return "keyboard" }
             if nameLower.contains("trackpad") { return "magicmouse" }
-            if nameLower.contains("headphone") { return "headphones" }
+            if nameLower.contains("iphone") { return "iphone" }
+            if nameLower.contains("ipad") { return "ipad" }
+            if nameLower.contains("mac") { return "macbook" }
+            if nameLower.contains("watch") { return "applewatch" }
+            if nameLower.contains("controller") || nameLower.contains("pad") { return "gamecontroller.fill" }
+            if nameLower.contains("headphone") || nameLower.contains("słuchawki") || nameLower.contains("buds") || nameLower.contains("ear") { return "headphones" }
             if nameLower.contains("speaker") { return "speaker.wave.2" }
             return "point.3.connected.trianglepath.dotted"
         }()
@@ -113,10 +151,11 @@ struct BluetoothOverlayView: View {
         return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: $isExpanded,
-            showProgressBar: true,
-            hasTimeoutProgress: true,
+            showProgressBar: isAccessoryType ? (actualIsConnected ? averageBattery != nil : true) : true,
+            progress: isAccessoryType && actualIsConnected ? CGFloat(averageBattery ?? 100) / 100.0 : 1.0,
+            hasTimeoutProgress: isAccessoryType ? !actualIsConnected : true,
             timeoutEventId: notification?.timestamp ?? Date(timeIntervalSince1970: 0),
-            barColor: actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .blue) : .offStateGray,
+            barColor: isAccessoryType && actualIsConnected ? accessoryBatteryColor : (actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .blue) : .offStateGray),
             fillCenter: false,
             isMuted: false,
             customWidth: 260,
@@ -129,32 +168,39 @@ struct BluetoothOverlayView: View {
                     }
                 }
             },
-            isExpandable: bluetoothAllowExpansion,
+            isExpandable: bluetoothAllowExpansion && (!isAccessoryType || actualIsConnected || hasDetails),
             expandUpwards: btPos.hasPrefix("bottom"),
             keepAliveId: keepAliveType,
+            disableTimeoutMode: isAccessoryType && actualIsConnected,
             baseContent: {
-                HStack(alignment: .top, spacing: 0) {
+                HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(actualIsConnected ? .primary : .secondary)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16 + 4 + 3)
-                        .padding(.top, 4)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(actionTitle)
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
-                            .padding(.leading, 14)
-                            .padding(.trailing, 16 + 4 + 3)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
                         
                         MarqueeText(text: actualDeviceName.isEmpty ? "Unknown Device" : actualDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                            .padding(.leading, 14)
-                            .padding(.trailing, 16 + 4 + 3)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.trailing, 8)
+                    
+                    if isAccessoryType && actualIsConnected, let bat = averageBattery {
+                        Text("\(bat)%")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundColor(.primary)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
                 }
-                .padding(.vertical, 5)
+                .padding(.leading, 23)
+                .padding(.trailing, isAccessoryType ? 23 : 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
             },
             expandedContent: {
                 VStack(spacing: 12) {
@@ -162,7 +208,7 @@ struct BluetoothOverlayView: View {
                         .padding(.horizontal, 16)
                         .opacity(0.5)
                     
-                    if actualIsConnected && !hasDetails {
+                    if actualIsConnected && !hasDetails && effectiveDeviceBatteries.isEmpty && !isAccessoryType {
                         ProgressView()
                             .scaleEffect(0.6)
                             .frame(height: 50)
@@ -185,7 +231,7 @@ struct BluetoothOverlayView: View {
                                         }()
                                         
                                         VStack(spacing: 6) {
-                                            Image(systemName: iconFor(suffix: suffix, deviceName: systemName))
+                                            Image(systemName: iconFor(suffix: suffix, deviceName: systemName, fallbackIcon: iconName))
                                                 .font(.system(size: 26))
                                                 .foregroundColor(.primary)
                                                 .frame(height: 32)

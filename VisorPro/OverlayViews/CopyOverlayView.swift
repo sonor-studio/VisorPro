@@ -490,7 +490,8 @@ struct ClipboardHistoryRowView: View {
             if item.app == "Xcode" { return "2h" }
             return "5m"
         }
-        let seconds = Int(Date().timeIntervalSince(date))
+        let timeDiff = Date().timeIntervalSince(date)
+        let seconds = (timeDiff.isFinite && timeDiff >= Double(Int.min) && timeDiff <= Double(Int.max)) ? Int(timeDiff) : 0
         if seconds < 60 { return "now" }
         let minutes = seconds / 60
         if minutes < 60 { return "\(minutes)m" }

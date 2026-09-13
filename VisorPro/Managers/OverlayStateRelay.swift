@@ -83,6 +83,8 @@ class OverlayStateRelay: ObservableObject {
     
     @Published var showLanguageIndicator: Bool = false
     @Published var currentKeyboardLanguage: String = ""
+    @Published var currentKeyboardLayoutId: String? = nil
+    @Published var previousKeyboardLayoutId: String? = nil
     @Published var languageEventId: UUID = UUID()
     
     // MARK: - Battery runtime
@@ -208,6 +210,23 @@ class OverlayStateRelay: ObservableObject {
     @Published var ramUsageHistory: [Double] = []
     @Published var ramTopProcesses: [(name: String, ramGB: Double, icon: NSImage?)] = []
     
+    // MARK: - Trash runtime
+    
+    @Published var showTrashIndicator: Bool = false
+    @Published var showFileDeletedIndicator: Bool = false
+    @Published var trashSizeGB: Double = 0.0
+    @Published var trashFileCount: Int = 0
+    @Published var trashFolderCount: Int = 0
+    @Published var trashLargestItemMB: Double = 0.0
+    @Published var trashAutoEmptied: Bool = false
+    @Published var trashFreedSizeGB: Double = 0.0
+    @Published var lastDeletedFileName: String = ""
+    @Published var lastDeletedFileSizeMB: Double = 0.0
+    @Published var lastDeletedFileIcon: NSImage? = nil
+    @Published var lastDeletedFileURL: URL? = nil
+    @Published var overlayTriggerTimes: [String: Date] = [:]
+    @Published var trashEventId = UUID()
+    
     // MARK: - Peripheral runtime
     
     @Published var activePeripheralNotifications: [DeviceNotification] = []
@@ -232,4 +251,6 @@ class OverlayStateRelay: ObservableObject {
     @Published var accessoryBatteryEventId: UUID = UUID()
     @Published var accessoryBatteryLevels: [String: Int] = [:]
     @Published var accessoryBatteryCharging: [String: Bool] = [:]
+    @Published var accessoryConnectionIsConnected: Bool = true
+    @Published var accessoryIsConnectionEvent: Bool = false
 }

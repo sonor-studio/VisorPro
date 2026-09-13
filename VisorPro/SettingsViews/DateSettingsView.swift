@@ -84,9 +84,6 @@ struct DateSettingsView: View {
                                         if mediaKeyManager.overlayColorMode == "custom" {
                                             ColorPickerControl(selectedColor: $mediaKeyManager.colorOnDateChange)
                                         }
-                                        Button("Test") {
-                                            mediaKeyManager.triggerDateIndicator()
-                                        }
                                     }
                                 }
                                 

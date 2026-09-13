@@ -15,16 +15,20 @@ struct AccessoryBatteryRowView: View {
     }
     
     var body: some View {
-        let deviceIcon = mediaKeyManager.peripheralIcons[device] ?? "bolt.batteryblock.fill"
+        let deviceIcon = mediaKeyManager.peripheralIcons[device] ?? MediaKeyManager.fallbackIcon(for: device)
         let percentage = mediaKeyManager.accessoryBatteryLevels[device]
         let isCharging = mediaKeyManager.accessoryBatteryCharging[device] ?? false
         let isBlocked = mediaKeyManager.accessoryBatteryBlocklist.contains(device)
+        let isBluetooth = mediaKeyManager.isBluetoothAccessory(device)
+        let activeColor = isBluetooth 
+            ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo)
+            : OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: .blue)
         
         let subtitleText = isBlocked ? "Tracking disabled" : (percentage != nil ? "Battery: \(percentage!)% \(isCharging ? "⚡️" : "")" : "Tracking enabled")
         
         CustomSettingsRow(
             icon: deviceIcon,
-            iconColor: isBlocked ? .gray : .green,
+            iconColor: isBlocked ? .gray : activeColor,
             title: titleText,
             subtitle: subtitleText
         ) {

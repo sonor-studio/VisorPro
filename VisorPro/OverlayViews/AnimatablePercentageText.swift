@@ -13,7 +13,8 @@ struct AnimatablePercentageText: View, Animatable {
     }
     
     private var displayText: String {
-        let percentage = max(0, min(100, Int(progress * 100)))
+        let p = progress * 100
+        let percentage = (p.isFinite && p >= Double(Int.min) && p <= Double(Int.max)) ? max(0, min(100, Int(p))) : 0
         let statusText = isPluggedIn ? "charged" : "remaining"
         if let customText = customText {
             return customText.replacingOccurrences(of: "%d", with: "\(percentage)")

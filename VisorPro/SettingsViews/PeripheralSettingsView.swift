@@ -95,10 +95,11 @@ struct PeripheralSettingsView: View {
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                         
-                            if !mediaKeyManager.peripheralHistory.isEmpty {
-                                let displayedHistory = isHistoryExpanded ? mediaKeyManager.peripheralHistory : Array(mediaKeyManager.peripheralHistory.prefix(3))
+                            let filteredHistory = mediaKeyManager.peripheralHistory.filter { !mediaKeyManager.accessoryBatteryHistory.contains($0) }
+                            if !filteredHistory.isEmpty {
+                                let displayedHistory = isHistoryExpanded ? filteredHistory : Array(filteredHistory.prefix(3))
                             
-                                Text("Remembered Devices (\(mediaKeyManager.peripheralHistory.count))")
+                                Text("Remembered Devices (\(filteredHistory.count))")
                                     .font(.headline)
                                     .foregroundColor(.secondary)
                                     .padding(.top, 10)

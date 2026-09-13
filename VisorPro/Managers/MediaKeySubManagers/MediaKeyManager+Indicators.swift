@@ -292,6 +292,43 @@ extension MediaKeyManager {
         }
     }
 
+    func triggerTrashOverlay(isManualTrigger: Bool = false) {
+        if !showTrashModule { return }
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+
+        if !isManualTrigger && !notifyOnTrashFull { return }
+        
+        if !isManualTrigger {
+            playNotificationSound(named: self.soundOnTrashFull)
+        }
+        
+        self.hideTrashIndicatorTask?.cancel()
+        let pos = self.getOverlayPosition(for: "trashOverlayPosition")
+        dismissCollidingIndicators(newPosition: pos, source: "trash")
+        
+        let executeShow = { [weak self] in
+            guard let self = self else { return }
+            self.trashEventId = UUID()
+            withAnimation(.easeInOut(duration: 0.15)) {
+                self.showTrashIndicator = true
+                self.notifyOverlayStateChanged()
+                self.overlayTriggerTimes["trash"] = Date()
+            }
+            self.scheduleOverlayHide(for: "trash")
+        }
+        
+        if self.showTrashIndicator {
+            withAnimation(.easeInOut(duration: 0.1)) {
+                self.showTrashIndicator = false
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                executeShow()
+            }
+        } else {
+            executeShow()
+        }
+    }
 
     
     func triggerCpuTempOverlay(temp: Double) {

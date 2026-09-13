@@ -27,9 +27,12 @@ struct SettingsView: View {
         case display
         case feedback
         case macSystem
+        case trash
         case about
+        case accessory(String)
     }
     
+    @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @State private var selection: SidebarItem? = .general
     @State private var window: NSWindow?
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
@@ -164,9 +167,41 @@ struct SettingsView: View {
                     Label {
                             HStack { Text("System"); Spacer(); }
                         } icon: {
-                            SidebarIcon(systemName: "cpu", color: .purple)
+                            SidebarIcon(systemName: "cpu", color: .red)
                         }
                     .tag(SidebarItem.macSystem)
+                    Label {
+                            HStack { Text("Trash"); Spacer(); }
+                        } icon: {
+                            SidebarIcon(systemName: "trash", color: .orange)
+                        }
+                    .tag(SidebarItem.trash)
+                }
+                
+                let accessories = Array(Set(mediaKeyManager.accessoryBatteryHistory.map { name -> String in
+                    if name.hasSuffix(" (Left)") { return String(name.dropLast(7)) }
+                    if name.hasSuffix(" (Right)") { return String(name.dropLast(8)) }
+                    if name.hasSuffix(" (Case)") { return String(name.dropLast(7)) }
+                    return name
+                })).sorted()
+                
+                if !accessories.isEmpty {
+                    Section("Accessories") {
+                        ForEach(accessories, id: \.self) { accessoryName in
+                            Label {
+                                Text(accessoryName)
+                            } icon: {
+                                let deviceIcon = mediaKeyManager.peripheralIcons[accessoryName] ?? MediaKeyManager.fallbackIcon(for: accessoryName)
+                                let isBluetooth = mediaKeyManager.isBluetoothAccessory(accessoryName)
+                                let activeColor = isBluetooth 
+                                    ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo)
+                                    : OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: .teal)
+                                    
+                                SidebarIcon(systemName: deviceIcon, color: activeColor)
+                            }
+                            .tag(SidebarItem.accessory(accessoryName))
+                        }
+                    }
                 }
                 
                 Section("Information") {
@@ -236,6 +271,10 @@ struct SettingsView: View {
                     DisplaySettingsView()
                 case .macSystem:
                     SystemSettingsView()
+                case .trash:
+                    TrashSettingsView()
+                case .accessory(let name):
+                    AccessorySettingsView(deviceName: name)
                     
                 case .none:
                     Text("Select an item")

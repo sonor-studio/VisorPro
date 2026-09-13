@@ -111,10 +111,11 @@ struct BluetoothSettingsView: View {
                                 .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                         )
                     
-                        if !mediaKeyManager.bluetoothHistory.isEmpty {
-                            let displayedHistory = isHistoryExpanded ? mediaKeyManager.bluetoothHistory : Array(mediaKeyManager.bluetoothHistory.prefix(3))
+                        let filteredHistory = mediaKeyManager.bluetoothHistory.filter { !mediaKeyManager.accessoryBatteryHistory.contains($0) }
+                        if !filteredHistory.isEmpty {
+                            let displayedHistory = isHistoryExpanded ? filteredHistory : Array(filteredHistory.prefix(3))
                         
-                            Text("Remembered Devices (\(mediaKeyManager.bluetoothHistory.count))")
+                            Text("Remembered Devices (\(filteredHistory.count))")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
                                 .padding(.top, 10)

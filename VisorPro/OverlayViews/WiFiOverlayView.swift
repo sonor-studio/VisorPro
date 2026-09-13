@@ -110,6 +110,13 @@ struct WiFiOverlayView: View {
         }
     }
     
+    private var actualSpeedTestResult: NetworkQualityResult? {
+        if isPreview {
+            return NetworkQualityResult(dl_throughput: 350_500_000, ul_throughput: 120_200_000, base_rtt: 12.0, dl_responsiveness: nil, ul_responsiveness: nil, error_code: nil)
+        }
+        return speedTestResult
+    }
+    
     var body: some View {
         
         let iconName = actualIsConnected ? (actualIsHotspot ? "personalhotspot" : "wifi") : "wifi.slash"
@@ -127,39 +134,57 @@ struct WiFiOverlayView: View {
             customWidth: 260,
             customHeight: 56,
             supportDragGesture: false,
+            onRightTap: actualIsConnected ? {
+                if !isPreview {
+                    mediaKeyManager.disconnectWiFi()
+                    mediaKeyManager.forceHide(overlayId: "wifi")
+                }
+            } : nil,
             onSimpleTap: {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     if !isExpanded && actualIsConnected && !overlayState.wiFiDetailsFetched {
                         mediaKeyManager.fetchWiFiDetails()
                     }
+                    isExpanded.toggle()
+                }
+                if isExpanded {
+                    mediaKeyManager.keepAlive(for: "wifi", isHovering: true)
                 }
             },
-            isExpandable: wifiAllowExpansion,
+            isExpandable: actualIsConnected || isPreview,
             expandUpwards: wifiPos.hasPrefix("bottom"),
             keepAliveId: "wifi",
             baseContent: {
-                HStack(alignment: .top, spacing: 0) {
+                HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(actualIsConnected ? .primary : .secondary)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16 + 4 + 3)
-                        .padding(.top, 4)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(actionTitle)
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
-                            .padding(.leading, 14)
-                            .padding(.trailing, 16 + 4 + 3)
                         
                         MarqueeText(text: actualSSID.isEmpty ? "No Network" : actualSSID, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                            .padding(.leading, 14)
-                            .padding(.trailing, 16 + 4 + 3)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer(minLength: 0)
+                    
+                    if actualIsConnected {
+                        ZStack {
+                            Circle()
+                                .fill(Color.primary.opacity(0.1))
+                                .frame(width: 32, height: 32)
+                            
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.primary)
+                        }
+                    }
                 }
-                .padding(.vertical, 5)
+                .padding(.leading, 23)
+                .padding(.trailing, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
             },
             expandedContent: {
                 VStack(spacing: 12) {
@@ -231,7 +256,7 @@ struct WiFiOverlayView: View {
                                             .foregroundColor(.secondary)
                                             .lineLimit(1)
                                         
-                                        if let result = speedTestResult {
+                                        if let result = actualSpeedTestResult {
                                             let dlMbps = (result.dl_throughput ?? 0) / 1_000_000
                                             Text("\(String(format: "%.1f", dlMbps))")
                                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -259,7 +284,7 @@ struct WiFiOverlayView: View {
                                             .foregroundColor(.secondary)
                                             .lineLimit(1)
                                         
-                                        if let result = speedTestResult {
+                                        if let result = actualSpeedTestResult {
                                             let ulMbps = (result.ul_throughput ?? 0) / 1_000_000
                                             Text("\(String(format: "%.1f", ulMbps))")
                                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -287,7 +312,7 @@ struct WiFiOverlayView: View {
                                             .foregroundColor(.secondary)
                                             .lineLimit(1)
                                         
-                                        if let ping = speedTestResult?.base_rtt {
+                                        if let ping = actualSpeedTestResult?.base_rtt {
                                             Text("\(Int(ping))")
                                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                                                 .foregroundColor(.primary)
@@ -349,7 +374,7 @@ struct WiFiOverlayView: View {
                                     }
                                 }) {
                                     HStack(spacing: 4) {
-                                        Image(systemName: "wifi.slash")
+                                        Image(systemName: "xmark")
                                         Text("Disconnect")
                                     }
                                     .font(.system(size: 11, weight: .bold))

@@ -40,7 +40,7 @@ struct BatteryOverlayView: View {
         if mediaKeyManager.overlayColorMode == "preset_monochrome" {
             return OverlayColorManager.shared.parseColor("White/Black")
         }
-        if isWarningMode { return .red }
+        // Don't force red for warning mode, rely on actual percentage
         if actualPercentage <= 20 {
             return .red
         } else if actualPercentage <= 50 {
@@ -107,7 +107,7 @@ struct BatteryOverlayView: View {
                                 AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: true)
                             }
                         } else {
-                            Text(isWarningMode ? "Low Battery" : (actualIsPluggedIn ? "Charging" : "Unplugged"))
+                            Text(isWarningMode ? "Battery Alert" : (actualIsPluggedIn ? "Charging" : "Unplugged"))
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
                             AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)

@@ -447,14 +447,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "VisorPro requires Bluetooth access for the on-screen displays.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "VisorPro needs full access to your calendar to display upcoming events in the Date overlay.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "VisorPro needs access to your calendar to display upcoming events in the Date overlay.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VisorPro uses the microphone to display an audio waveform animation when expanding the microphone overlay.";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "VisorPro needs access to your calendar to display upcoming events in the Date overlay.";
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "VisorPro needs full access to your calendar to display upcoming events in the Date overlay.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -505,14 +505,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "VisorPro requires Bluetooth access for the on-screen displays.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "VisorPro needs full access to your calendar to display upcoming events in the Date overlay.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "VisorPro needs access to your calendar to display upcoming events in the Date overlay.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationAlwaysUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VisorPro requires location access to read the current Wi-Fi network name and monitor location services usage.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "VisorPro uses the microphone to display an audio waveform animation when expanding the microphone overlay.";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "VisorPro needs access to your calendar to display upcoming events in the Date overlay.";
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "VisorPro needs full access to your calendar to display upcoming events in the Date overlay.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

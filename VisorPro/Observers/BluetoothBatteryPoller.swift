@@ -165,8 +165,20 @@ class BluetoothBatteryPoller {
                 icon = "keyboard.fill"
             } else if name.lowercased().contains("trackpad") {
                 icon = "magicmouse.fill"
-            } else {
+            } else if name.lowercased().contains("iphone") {
+                icon = "iphone"
+            } else if name.lowercased().contains("ipad") {
+                icon = "ipad"
+            } else if name.lowercased().contains("mac") {
+                icon = "macbook"
+            } else if name.lowercased().contains("watch") {
+                icon = "applewatch"
+            } else if name.lowercased().contains("controller") || name.lowercased().contains("pad") {
+                icon = "gamecontroller.fill"
+            } else if name.lowercased().contains("airpod") || name.lowercased().contains("headphone") || name.lowercased().contains("słuchawki") || name.lowercased().contains("buds") || name.lowercased().contains("ear") {
                 icon = "headphones"
+            } else {
+                icon = "bolt.batteryblock.fill"
             }
             
             self.manager?.peripheralIcons[name] = icon
@@ -179,20 +191,31 @@ class BluetoothBatteryPoller {
             
             let lastBat = self.lastLevels[name]
             
-            if let lastBat = lastBat {
-                let justDroppedTo20 = (lastBat > 20 && battery <= 20)
-                let justDroppedTo10 = (lastBat > 10 && battery <= 10)
-                let justHit100 = (lastBat < 100 && battery == 100)
+            if let lastBat = lastBat, let settings = self.manager?.accessorySettings[name] {
+                var shouldTrigger = false
+                var triggeredSound = settings.soundOn100Percent // Fallback
                 
-                if justDroppedTo20 || justDroppedTo10 || justHit100 {
-                    let isWarning = justDroppedTo20 || justDroppedTo10
+                // 1. Check fixed 100% threshold
+                if lastBat < 100 && battery == 100 && settings.notifyOn100Percent {
+                    shouldTrigger = true
+                    triggeredSound = settings.soundOn100Percent
+                }
+                
+                // 2. Check custom thresholds
+                for threshold in settings.customThresholds where threshold.isEnabled {
+                    let hit = battery == threshold.percentage
+                    let crossedDown = lastBat > threshold.percentage && battery < threshold.percentage
+                    let crossedUp = lastBat < threshold.percentage && battery > threshold.percentage
                     
-                    if (justDroppedTo20 && self.manager?.accessoryNotifyOn20Percent == true) ||
-                       (justDroppedTo10 && self.manager?.accessoryNotifyOn10Percent == true) ||
-                       (justHit100 && self.manager?.accessoryNotifyOn100Percent == true) {
-                        
-                        self.manager?.triggerAccessoryBatteryIndicator(deviceName: name, percentage: battery, isPluggedIn: isPluggedIn, isWarning: isWarning)
+                    if hit || crossedDown || crossedUp {
+                        shouldTrigger = true
+                        triggeredSound = threshold.sound
                     }
+                }
+                
+                if shouldTrigger {
+                    // Pass the triggered sound to the manager so it plays the right one
+                    self.manager?.triggerAccessoryBatteryIndicator(deviceName: name, percentage: battery, isPluggedIn: isPluggedIn, isWarning: false, customSound: triggeredSound)
                 }
             }
             

@@ -296,7 +296,7 @@ struct MediaTimeText: View {
     }
     
     private func formatTime(_ time: Double) -> String {
-        guard !time.isNaN && !time.isInfinite else { return "0:00" }
+        guard time.isFinite, time >= Double(Int.min), time <= Double(Int.max) else { return "0:00" }
         let totalSeconds = Int(time)
         let hours = totalSeconds / 3600
         let minutes = (totalSeconds % 3600) / 60

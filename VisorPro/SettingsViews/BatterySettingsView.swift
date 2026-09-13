@@ -166,24 +166,56 @@ struct BatterySettingsView: View {
     Toggle("", isOn: $mediaKeyManager.notifyOnUnplug).labelsHidden() }
                        
                                 }
-                            Divider().padding(.leading, 48)
-                            CustomSettingsRow(icon: "battery.25", iconColor: .green, title: "Battery drops to 20%", subtitle: "Show low battery warning") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyOn20Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn20Percent) }
-    Toggle("", isOn: $mediaKeyManager.notifyOn20Percent).labelsHidden() }
-                       
+                            ForEach($mediaKeyManager.batteryCustomThresholds) { $threshold in
+                                CustomSettingsRow(icon: "bell", iconColor: .green, title: "Alert at \(threshold.percentage)%", subtitle: "Custom battery threshold") {
+                                    HStack(spacing: 8) {
+                                        Stepper(value: $threshold.percentage, in: 1...99, step: 1) {
+                                            Text("\(threshold.percentage)%")
+                                                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                                .foregroundColor(.primary)
+                                        }
+                                        .frame(width: 80)
+                                        
+                                        if threshold.isEnabled { SoundPickerControl(selectedSound: $threshold.sound) }
+                                        Toggle("", isOn: $threshold.isEnabled).labelsHidden()
+                                        
+                                        Button(action: {
+                                            mediaKeyManager.batteryCustomThresholds.removeAll { $0.id == threshold.id }
+                                        }) {
+                                            Image(systemName: "trash")
+                                                .foregroundColor(.red)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
                                 }
-                            Divider().padding(.leading, 48)
-                            CustomSettingsRow(icon: "battery.0", iconColor: .green, title: "Battery drops to 10%", subtitle: "Show critical battery warning") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyOn10Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn10Percent) }
-    Toggle("", isOn: $mediaKeyManager.notifyOn10Percent).labelsHidden() }
-                       
-                                }
-                            Divider().padding(.leading, 48)
+                                Divider().padding(.leading, 48)
+                            }
                             CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged", subtitle: "Show when reaching full charge") {
                                 HStack(spacing: 8) { if mediaKeyManager.notifyOn100Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn100Percent) }
     Toggle("", isOn: $mediaKeyManager.notifyOn100Percent).labelsHidden() }
                        
                                 }
+                                
+                            Divider().padding(.leading, 48)
+                            
+                            Button(action: {
+                                withAnimation {
+                                    mediaKeyManager.batteryCustomThresholds.append(BatteryThreshold(percentage: 50, sound: "Ping", isEnabled: true))
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Add Custom Alert")
+                                        .font(.system(size: 13, weight: .medium))
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .foregroundColor(.blue)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .pointingHandCursor()
                         }
                         .toggleStyle(.switch)
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -247,147 +279,6 @@ struct BatterySettingsView: View {
                     }
                     .padding(.horizontal)
                 
-                    Divider()
-                
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Accessory Batteries")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                        
-                    
-                        Text("Behavior")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 10)
-                            .padding(.bottom, 4)
-                            .padding(.leading, 4)
-                    
-                        VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "magicmouse.fill", iconColor: .green, title: "Enable Accessory Tracking", subtitle: "Track battery levels for connected mice, keyboards, and headphones") {
-                                Toggle("", isOn: $mediaKeyManager.enableAccessoryBattery).labelsHidden()
-                            }
-                        }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
-                    
-                        if mediaKeyManager.enableAccessoryBattery {
-                            Text("Triggers")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.bottom, 4)
-                                .padding(.leading, 4)
-                        
-                            VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "battery.25", iconColor: .green, title: "Battery drops to 20%", subtitle: "Show low battery warning") {
-                                    HStack(spacing: 8) { if mediaKeyManager.accessoryNotifyOn20Percent { SoundPickerControl(selectedSound: $mediaKeyManager.accessorySoundOn20Percent) }
-                                        Toggle("", isOn: $mediaKeyManager.accessoryNotifyOn20Percent).labelsHidden() }
-                                }
-                                Divider().padding(.leading, 48)
-                                CustomSettingsRow(icon: "battery.0", iconColor: .green, title: "Battery drops to 10%", subtitle: "Show critical battery warning") {
-                                    HStack(spacing: 8) { if mediaKeyManager.accessoryNotifyOn10Percent { SoundPickerControl(selectedSound: $mediaKeyManager.accessorySoundOn10Percent) }
-                                        Toggle("", isOn: $mediaKeyManager.accessoryNotifyOn10Percent).labelsHidden() }
-                                }
-                                Divider().padding(.leading, 48)
-                                CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged", subtitle: "Show when reaching full charge") {
-                                    HStack(spacing: 8) { if mediaKeyManager.accessoryNotifyOn100Percent { SoundPickerControl(selectedSound: $mediaKeyManager.accessorySoundOn100Percent) }
-                                        Toggle("", isOn: $mediaKeyManager.accessoryNotifyOn100Percent).labelsHidden() }
-                                }
-                            }
-                            .toggleStyle(.switch)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(10)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                            )
-                        }
-                    
-                        if !mediaKeyManager.accessoryBatteryHistory.isEmpty && mediaKeyManager.enableAccessoryBattery {
-                            let allGroups = groupAccessoryDevices(mediaKeyManager.accessoryBatteryHistory)
-                            let displayedGroups = isAccessoryHistoryExpanded ? allGroups : Array(allGroups.prefix(3))
-                        
-                            Text("Remembered Devices (\(allGroups.count))")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.leading, 4)
-                        
-                            VStack(spacing: 0) {
-                                ForEach(displayedGroups, id: \.baseName) { group in
-                                    if group.components.count == 1 && group.components[0] == group.baseName {
-                                        AccessoryBatteryRowView(device: group.baseName, isComponent: false)
-                                    } else {
-                                        let allBlocked = group.components.allSatisfy { mediaKeyManager.accessoryBatteryBlocklist.contains($0) }
-                                    
-                                        CustomSettingsRow(
-                                            icon: "earpods",
-                                            iconColor: allBlocked ? .gray : .green,
-                                            title: group.baseName,
-                                            subtitle: allBlocked ? "All components disabled" : "Multi-component device"
-                                        ) {
-                                            Toggle("", isOn: Binding(
-                                                get: { !allBlocked },
-                                                set: { isOn in
-                                                    for comp in group.components {
-                                                        if isOn {
-                                                            mediaKeyManager.accessoryBatteryBlocklist.removeAll { $0 == comp }
-                                                        } else {
-                                                            if !mediaKeyManager.accessoryBatteryBlocklist.contains(comp) {
-                                                                mediaKeyManager.accessoryBatteryBlocklist.append(comp)
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            )).labelsHidden()
-                                        }
-                                    
-                                        ForEach(group.components, id: \.self) { comp in
-                                            Divider().padding(.leading, 80)
-                                            AccessoryBatteryRowView(device: comp, isComponent: true)
-                                        }
-                                    }
-                                
-                                    if group.baseName != displayedGroups.last?.baseName || (allGroups.count > 3) {
-                                        Divider().padding(.leading, 48)
-                                    }
-                                }
-                            
-                                if allGroups.count > 3 {
-                                    Button(action: {
-                                        withAnimation { isAccessoryHistoryExpanded.toggle() }
-                                    }) {
-                                        Text(isAccessoryHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.accessoryBatteryHistory.count - 3) more)")
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundColor(.green)
-                                            .frame(maxWidth: .infinity, alignment: .center)
-                                            .padding(.vertical, 12)
-                                            .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
-                                }
-                            }
-                            .toggleStyle(.switch)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(10)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                            )
-                        }
-                    }
-                    .padding(.horizontal)
-                
                     Spacer()
             
                 } else {
@@ -399,35 +290,5 @@ struct BatterySettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
     }
-    
-    private func groupAccessoryDevices(_ devices: [String]) -> [(baseName: String, components: [String])] {
-        var dict: [String: [String]] = [:]
-        var order: [String] = []
-        
-        for device in devices {
-            let baseName: String
-            if device.hasSuffix(" (Left)") {
-                baseName = String(device.dropLast(7))
-            } else if device.hasSuffix(" (Right)") {
-                baseName = String(device.dropLast(8))
-            } else if device.hasSuffix(" (Case)") {
-                baseName = String(device.dropLast(7))
-            } else {
-                baseName = device
-            }
-            
-            if dict[baseName] == nil {
-                dict[baseName] = []
-                order.append(baseName)
-            }
-            dict[baseName]?.append(device)
-        }
-        return order.map { baseName in
-            var components = dict[baseName]!
-            if components.count > 1, let idx = components.firstIndex(of: baseName) {
-                components.remove(at: idx)
-            }
-            return (baseName: baseName, components: components)
-        }
-    }
+
 }

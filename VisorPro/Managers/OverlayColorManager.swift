@@ -31,6 +31,7 @@ class OverlayColorManager: ObservableObject {
             "colorMediaPause": "Red",
             "colorMediaResume": "Green",
             "colorOnHighRam": "Red",
+            "colorOnHighCpuTemp": "Red",
             "colorOnWiFiConnect": "Teal",
             "colorOnBluetoothConnect": "Indigo",
             "colorOnPeripheralConnect": "Pink",
@@ -39,7 +40,9 @@ class OverlayColorManager: ObservableObject {
             "colorOnLocationOn": "Blue",
             "colorOnDisplayConnect": "Teal",
             "colorOnDisplayModeChange": "Teal",
-            "colorOnDateChange": "Emerald"
+            "colorOnDateChange": "Emerald",
+            "colorOnTrashFull": "Red",
+            "colorOnFileDeleted": "Orange"
         ]),
         ColorPreset(id: "preset_vibrant", name: "Vibrant", colors: [
             "colorOnVolume": "Blue",
@@ -56,6 +59,7 @@ class OverlayColorManager: ObservableObject {
             "colorMediaPause": "Orange",
             "colorMediaResume": "Blue",
             "colorOnHighRam": "Purple",
+            "colorOnHighCpuTemp": "Purple",
             "colorOnWiFiConnect": "Blue",
             "colorOnBluetoothConnect": "Blue",
             "colorOnPeripheralConnect": "Teal",
@@ -64,7 +68,9 @@ class OverlayColorManager: ObservableObject {
             "colorOnLocationOn": "Blue",
             "colorOnDisplayConnect": "Teal",
             "colorOnDisplayModeChange": "Indigo",
-            "colorOnDateChange": "Purple"
+            "colorOnDateChange": "Purple",
+            "colorOnTrashFull": "Red",
+            "colorOnFileDeleted": "Orange"
         ]),
         ColorPreset(id: "preset_warm", name: "Warm", colors: [
             "colorOnVolume": "Orange",
@@ -81,6 +87,7 @@ class OverlayColorManager: ObservableObject {
             "colorMediaPause": "Orange",
             "colorMediaResume": "Red",
             "colorOnHighRam": "Orange",
+            "colorOnHighCpuTemp": "Orange",
             "colorOnWiFiConnect": "Orange",
             "colorOnBluetoothConnect": "Yellow",
             "colorOnPeripheralConnect": "Orange",
@@ -89,7 +96,9 @@ class OverlayColorManager: ObservableObject {
             "colorOnLocationOn": "Yellow",
             "colorOnDisplayConnect": "Orange",
             "colorOnDisplayModeChange": "Yellow",
-            "colorOnDateChange": "Orange"
+            "colorOnDateChange": "Orange",
+            "colorOnTrashFull": "Red",
+            "colorOnFileDeleted": "Yellow"
         ]),
         ColorPreset(id: "preset_ocean", name: "Ocean", colors: [
             "colorOnVolume": "Teal",
@@ -106,6 +115,7 @@ class OverlayColorManager: ObservableObject {
             "colorMediaPause": "Indigo",
             "colorMediaResume": "Teal",
             "colorOnHighRam": "Teal",
+            "colorOnHighCpuTemp": "Teal",
             "colorOnWiFiConnect": "Teal",
             "colorOnBluetoothConnect": "Blue",
             "colorOnPeripheralConnect": "Teal",
@@ -114,7 +124,9 @@ class OverlayColorManager: ObservableObject {
             "colorOnLocationOn": "Blue",
             "colorOnDisplayConnect": "Teal",
             "colorOnDisplayModeChange": "Blue",
-            "colorOnDateChange": "Teal"
+            "colorOnDateChange": "Teal",
+            "colorOnTrashFull": "Blue",
+            "colorOnFileDeleted": "Teal"
         ]),
         ColorPreset(id: "preset_neon", name: "Neon", colors: [
             "colorOnVolume": "Pink",
@@ -131,6 +143,7 @@ class OverlayColorManager: ObservableObject {
             "colorMediaPause": "Pink",
             "colorMediaResume": "Purple",
             "colorOnHighRam": "Pink",
+            "colorOnHighCpuTemp": "Pink",
             "colorOnWiFiConnect": "Pink",
             "colorOnBluetoothConnect": "Purple",
             "colorOnPeripheralConnect": "Pink",
@@ -139,7 +152,9 @@ class OverlayColorManager: ObservableObject {
             "colorOnLocationOn": "Pink",
             "colorOnDisplayConnect": "Pink",
             "colorOnDisplayModeChange": "Purple",
-            "colorOnDateChange": "Pink"
+            "colorOnDateChange": "Pink",
+            "colorOnTrashFull": "Pink",
+            "colorOnFileDeleted": "Purple"
         ]),
         ColorPreset(id: "preset_nature", name: "Nature", colors: [
             "colorOnVolume": "Green",
@@ -164,7 +179,9 @@ class OverlayColorManager: ObservableObject {
             "colorOnLocationOn": "Yellow",
             "colorOnDisplayConnect": "Green",
             "colorOnDisplayModeChange": "Yellow",
-            "colorOnDateChange": "Emerald"
+            "colorOnDateChange": "Emerald",
+            "colorOnTrashFull": "Orange",
+            "colorOnFileDeleted": "Green"
         ]),
         ColorPreset(id: "preset_monochrome", name: "Monochrome", colors: [
             "colorOnVolume": "White/Black",
@@ -181,6 +198,7 @@ class OverlayColorManager: ObservableObject {
             "colorMediaPause": "White/Black",
             "colorMediaResume": "White/Black",
             "colorOnHighRam": "White/Black",
+            "colorOnHighCpuTemp": "White/Black",
             "colorOnWiFiConnect": "White/Black",
             "colorOnBluetoothConnect": "White/Black",
             "colorOnPeripheralConnect": "White/Black",
@@ -188,7 +206,10 @@ class OverlayColorManager: ObservableObject {
             "colorOnCameraOn": "White/Black",
             "colorOnLocationOn": "White/Black",
             "colorOnDisplayConnect": "White/Black",
-            "colorOnDisplayModeChange": "White/Black", "colorOnDateChange": "White/Black"
+            "colorOnDisplayModeChange": "White/Black",
+            "colorOnDateChange": "White/Black",
+            "colorOnTrashFull": "White/Black",
+            "colorOnFileDeleted": "White/Black"
         ])
     ]
     
@@ -247,6 +268,7 @@ class OverlayColorManager: ObservableObject {
         "colorMediaPause": "Media Pause",
         "colorMediaResume": "Media Resume",
                 "colorOnHighRam": "High RAM",
+        "colorOnHighCpuTemp": "High CPU Temp",
         "colorOnWiFiConnect": "Wi-Fi Connected",
         "colorOnBluetoothConnect": "Bluetooth Connected",
         "colorOnPeripheralConnect": "Peripheral Connected",
@@ -254,8 +276,10 @@ class OverlayColorManager: ObservableObject {
         "colorOnCameraOn": "Camera On",
         "colorOnLocationOn": "Location On",
         "colorOnDisplayConnect": "Display Connected",
-        "colorOnDisplayModeChange": "Display Mode Changed"
-        , "colorOnDateChange": "Date Change"
+        "colorOnDisplayModeChange": "Display Mode Changed",
+        "colorOnDateChange": "Date Change",
+        "colorOnTrashFull": "Trash Full",
+        "colorOnFileDeleted": "File Deleted"
     ]
 }
 

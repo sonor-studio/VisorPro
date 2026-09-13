@@ -50,6 +50,7 @@ struct FocusOverlayView: View {
         let iconColor: Color
         let active: Bool
         let modeName: String
+        let isDetailed = UserDefaults.standard.bool(forKey: "focusDetailMode")
         
         if isPreview {
             active = previewIsActive
@@ -87,7 +88,10 @@ struct FocusOverlayView: View {
         if isPreview {
             if UserDefaults.standard.bool(forKey: "focusDetailMode") {
                 let start = Date().addingTimeInterval(-3600)
-                let end = Date().addingTimeInterval(3600)
+                // Fixed dummy date for preview to avoid recalculations
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy/MM/dd HH:mm"
+                let end = formatter.date(from: "2030/01/01 20:00") ?? Date().addingTimeInterval(3600)
                 if active {
                     details = MediaKeyManager.ActiveFocusDetails(startDate: start, endDate: end, source: "com.apple.focus", device: "This Mac", untilLocationLeft: false, endedAt: nil, endedReason: nil)
                     lastEnded = nil
@@ -148,7 +152,7 @@ struct FocusOverlayView: View {
                                         .foregroundColor(.secondary)
                                 }
                             }
-                            MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                            MarqueeText(text: isDetailed ? modeName : "Focus", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                         } else if active && details != nil && !overlayState.isFocusReminder && !overlayState.isFocusSwitched {
                             if let endDate = details?.endDate, let timeStr = getEndDateString(date: endDate) {
                                 HStack(spacing: 4) {
@@ -163,7 +167,7 @@ struct FocusOverlayView: View {
                                         .foregroundColor(.secondary)
                                         .lineLimit(1)
                                 }
-                                MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                                MarqueeText(text: isDetailed ? modeName : "Focus", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             } else if details?.untilLocationLeft == true {
                                 HStack(spacing: 4) {
                                     Text(displayTitle)
@@ -177,18 +181,18 @@ struct FocusOverlayView: View {
                                         .foregroundColor(.secondary)
                                         .lineLimit(1)
                                 }
-                                MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                                MarqueeText(text: isDetailed ? modeName : "Focus", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             } else {
                                 Text(displayTitle)
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
                                     .foregroundColor(.secondary)
-                                MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                                MarqueeText(text: isDetailed ? modeName : "Focus", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             }
                         } else {
                             Text(displayTitle)
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
-                            MarqueeText(text: modeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                            MarqueeText(text: isDetailed ? modeName : "Focus", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                         }
                     }
                     Spacer(minLength: 8)

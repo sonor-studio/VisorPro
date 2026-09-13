@@ -34,6 +34,64 @@ extension Notification.Name {
     static let visorProOverlayStateChanged = Notification.Name("VisorProOverlayStateChanged")
 }
 
+struct BatteryThreshold: Codable, Equatable, Identifiable, Hashable {
+    var id = UUID()
+    var percentage: Int
+    var sound: String
+    var isEnabled: Bool
+}
+
+struct AccessoryDeviceSettings: Codable, Equatable {
+    var enableOverlay: Bool = true
+    var notifyOnConnect: Bool = true
+    var notifyOnDisconnect: Bool = true
+    var soundOnConnect: String = "None"
+    var soundOnDisconnect: String = "None"
+    
+    var notifyOn100Percent: Bool = true
+    var soundOn100Percent: String = "None"
+    
+    // Legacy properties kept for Codable compatibility
+    var notifyOn20Percent: Bool = true
+    var soundOn20Percent: String = "None"
+    var notifyOn10Percent: Bool = true
+    var soundOn10Percent: String = "None"
+    
+    var customThresholds: [BatteryThreshold] = [
+        BatteryThreshold(percentage: 10, sound: "None", isEnabled: true),
+        BatteryThreshold(percentage: 20, sound: "None", isEnabled: true)
+    ]
+    
+    init() {}
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enableOverlay = try container.decodeIfPresent(Bool.self, forKey: .enableOverlay) ?? true
+        notifyOnConnect = try container.decodeIfPresent(Bool.self, forKey: .notifyOnConnect) ?? true
+        notifyOnDisconnect = try container.decodeIfPresent(Bool.self, forKey: .notifyOnDisconnect) ?? true
+        soundOnConnect = try container.decodeIfPresent(String.self, forKey: .soundOnConnect) ?? "None"
+        soundOnDisconnect = try container.decodeIfPresent(String.self, forKey: .soundOnDisconnect) ?? "None"
+        
+        notifyOn100Percent = try container.decodeIfPresent(Bool.self, forKey: .notifyOn100Percent) ?? true
+        soundOn100Percent = try container.decodeIfPresent(String.self, forKey: .soundOn100Percent) ?? "None"
+        
+        notifyOn20Percent = try container.decodeIfPresent(Bool.self, forKey: .notifyOn20Percent) ?? true
+        soundOn20Percent = try container.decodeIfPresent(String.self, forKey: .soundOn20Percent) ?? "None"
+        notifyOn10Percent = try container.decodeIfPresent(Bool.self, forKey: .notifyOn10Percent) ?? true
+        soundOn10Percent = try container.decodeIfPresent(String.self, forKey: .soundOn10Percent) ?? "None"
+        
+        if let decodedThresholds = try container.decodeIfPresent([BatteryThreshold].self, forKey: .customThresholds) {
+            customThresholds = decodedThresholds
+        } else {
+            // Migrate legacy alerts to the new custom thresholds array
+            var migrated: [BatteryThreshold] = []
+            if notifyOn10Percent { migrated.append(BatteryThreshold(percentage: 10, sound: soundOn10Percent, isEnabled: true)) }
+            if notifyOn20Percent { migrated.append(BatteryThreshold(percentage: 20, sound: soundOn20Percent, isEnabled: true)) }
+            customThresholds = migrated
+        }
+    }
+}
+
 class MediaKeyManager: ObservableObject {
     @AppStorage("overlayColorMode") var overlayColorMode: String = "preset_default"
     @AppStorage("globalOverlayColor") var globalOverlayColor: String = "Default"
@@ -52,6 +110,7 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("colorMediaResume") var colorMediaResume: String = "Default"
     @AppStorage("colorMediaEnd") var colorMediaEnd: String = "Default"
     @AppStorage("colorOnHighRam") var colorOnHighRam: String = "Default"
+    @AppStorage("colorOnTrashFull") var colorOnTrashFull: String = "Default"
     @AppStorage("colorOnDateChange") var colorOnDateChange: String = "Default"
     @AppStorage("colorOnWiFiConnect") var colorOnWiFiConnect: String = "Default"
     @AppStorage("colorOnBluetoothConnect") var colorOnBluetoothConnect: String = "Default"
@@ -80,6 +139,7 @@ class MediaKeyManager: ObservableObject {
         colorMediaResume = "Default"
         colorMediaEnd = "Default"
         colorOnHighRam = "Default"
+        colorOnTrashFull = "Default"
         colorOnDateChange = "Default"
         colorOnWiFiConnect = "Default"
         colorOnBluetoothConnect = "Default"
@@ -264,6 +324,41 @@ class MediaKeyManager: ObservableObject {
     @Published var soundOnUnplug: String = UserDefaults.standard.string(forKey: "soundOnUnplug") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnUnplug, forKey: "soundOnUnplug") }
     }
+    
+    @Published var batteryCustomThresholds: [BatteryThreshold] = {
+        if let data = UserDefaults.standard.data(forKey: "batteryCustomThresholds"),
+           let decoded = try? JSONDecoder().decode([BatteryThreshold].self, from: data) {
+            // Check if this was saved before we migrated legacy flags (e.g. if it's empty, we might want to populate defaults)
+            if decoded.isEmpty && !UserDefaults.standard.bool(forKey: "batteryCustomThresholdsMigrated") {
+                UserDefaults.standard.set(true, forKey: "batteryCustomThresholdsMigrated")
+                var migrated: [BatteryThreshold] = []
+                let n10 = UserDefaults.standard.object(forKey: "notifyOn10Percent") as? Bool ?? true
+                let s10 = UserDefaults.standard.string(forKey: "soundOn10Percent") ?? "None"
+                let n20 = UserDefaults.standard.object(forKey: "notifyOn20Percent") as? Bool ?? true
+                let s20 = UserDefaults.standard.string(forKey: "soundOn20Percent") ?? "None"
+                if n10 { migrated.append(BatteryThreshold(percentage: 10, sound: s10, isEnabled: true)) }
+                if n20 { migrated.append(BatteryThreshold(percentage: 20, sound: s20, isEnabled: true)) }
+                return migrated
+            }
+            return decoded
+        }
+        
+        UserDefaults.standard.set(true, forKey: "batteryCustomThresholdsMigrated")
+        var migrated: [BatteryThreshold] = []
+        let n10 = UserDefaults.standard.object(forKey: "notifyOn10Percent") as? Bool ?? true
+        let s10 = UserDefaults.standard.string(forKey: "soundOn10Percent") ?? "None"
+        let n20 = UserDefaults.standard.object(forKey: "notifyOn20Percent") as? Bool ?? true
+        let s20 = UserDefaults.standard.string(forKey: "soundOn20Percent") ?? "None"
+        if n10 { migrated.append(BatteryThreshold(percentage: 10, sound: s10, isEnabled: true)) }
+        if n20 { migrated.append(BatteryThreshold(percentage: 20, sound: s20, isEnabled: true)) }
+        return migrated
+    }() {
+        didSet {
+            if let encoded = try? JSONEncoder().encode(batteryCustomThresholds) {
+                UserDefaults.standard.set(encoded, forKey: "batteryCustomThresholds")
+            }
+        }
+    }
     @Published var notifyOn10Percent: Bool = UserDefaults.standard.object(forKey: "notifyOn10Percent") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOn10Percent, forKey: "notifyOn10Percent") }
     }
@@ -360,23 +455,21 @@ class MediaKeyManager: ObservableObject {
             OverlayStateRelay.shared.currentBatteryPercentage = newValue
             
             if !isBatteryInitialized { return }
-            if !isPluggedIn && oldValue > currentBatteryPercentage {
-                if currentBatteryPercentage <= 20 && currentBatteryPercentage > 10 && oldValue > 20 && notifyOn20Percent {
-                    // Trigger if it crossed the 20% boundary
-                    triggerLowBatteryWarning()
-                } else if currentBatteryPercentage == 20 && notifyOn20Percent {
-                    triggerLowBatteryWarning()
-                } else if currentBatteryPercentage <= 10 && oldValue > 10 && notifyOn10Percent {
-                    // Trigger if it crossed the 10% boundary
-                    triggerLowBatteryWarning()
-                } else if currentBatteryPercentage == 10 && notifyOn10Percent {
-                    triggerLowBatteryWarning()
+            if oldValue != currentBatteryPercentage {
+                for threshold in batteryCustomThresholds where threshold.isEnabled {
+                    let hit = currentBatteryPercentage == threshold.percentage
+                    let crossedDown = oldValue > threshold.percentage && currentBatteryPercentage < threshold.percentage
+                    let crossedUp = oldValue < threshold.percentage && currentBatteryPercentage > threshold.percentage
+                    
+                    if hit || crossedDown || crossedUp {
+                        triggerBatteryThresholdWarning(percentage: currentBatteryPercentage, sound: threshold.sound)
+                    }
                 }
             }
             
             if isPluggedIn && oldValue != currentBatteryPercentage {
                 let reachedFull = currentBatteryPercentage == 100 || (currentBatteryPercentage == chargeLimit && chargeLimit < 100)
-                if reachedFull && notifyOn100Percent {
+                if reachedFull && notifyOn100Percent && oldValue < currentBatteryPercentage {
                     triggerChargingStatus()
                 }
             }
@@ -403,10 +496,10 @@ class MediaKeyManager: ObservableObject {
                         triggerUnplugStatus()
                     } else {
                         hideBatteryOverlay()
-                        if currentBatteryPercentage == 20 && notifyOn20Percent {
-                            triggerLowBatteryWarning()
-                        } else if currentBatteryPercentage == 10 && notifyOn10Percent {
-                            triggerLowBatteryWarning()
+                        for threshold in batteryCustomThresholds where threshold.isEnabled {
+                            if currentBatteryPercentage == threshold.percentage {
+                                triggerBatteryThresholdWarning(percentage: currentBatteryPercentage, sound: threshold.sound)
+                            }
                         }
                     }
                 } else {
@@ -540,6 +633,7 @@ class MediaKeyManager: ObservableObject {
     
     @Published var fanEventId = UUID()
     // CPU Monitoring
+    @AppStorage("colorOnHighCpuTemp") var colorOnHighCpuTemp: String = "Red"
     @Published var notifyOnHighCpuTemp: Bool = UserDefaults.standard.object(forKey: "notifyOnHighCpuTemp") as? Bool ?? false {
         didSet { UserDefaults.standard.set(notifyOnHighCpuTemp, forKey: "notifyOnHighCpuTemp") }
     }
@@ -599,6 +693,100 @@ class MediaKeyManager: ObservableObject {
         set { OverlayStateRelay.shared.ramUsageHistory = newValue }
     }
     @Published var ramTopProcesses: [(name: String, ramGB: Double, icon: NSImage?)] = []
+    
+    // Trash Monitoring
+    @Published var notifyOnTrashFull: Bool = UserDefaults.standard.object(forKey: "notifyOnTrashFull") as? Bool ?? false {
+        didSet { UserDefaults.standard.set(notifyOnTrashFull, forKey: "notifyOnTrashFull") }
+    }
+    @Published var soundOnTrashFull: String = UserDefaults.standard.string(forKey: "soundOnTrashFull") ?? "None" {
+        didSet { UserDefaults.standard.set(soundOnTrashFull, forKey: "soundOnTrashFull") }
+    }
+    @Published var trashSizeThresholdGB: Double = UserDefaults.standard.object(forKey: "trashSizeThresholdGB") as? Double ?? 10.0 {
+        didSet { UserDefaults.standard.set(trashSizeThresholdGB, forKey: "trashSizeThresholdGB") }
+    }
+    @Published var trashAutoEmpty: Bool = UserDefaults.standard.object(forKey: "trashAutoEmpty") as? Bool ?? false {
+        didSet { UserDefaults.standard.set(trashAutoEmpty, forKey: "trashAutoEmpty") }
+    }
+    @AppStorage("trashOverlayPosition") var trashOverlayPosition: String = "top"
+    
+
+    var showFileDeletedIndicator: Bool {
+        get { OverlayStateRelay.shared.showFileDeletedIndicator }
+        set { OverlayStateRelay.shared.showFileDeletedIndicator = newValue }
+    }
+
+    var showTrashIndicator: Bool {
+        get { OverlayStateRelay.shared.showTrashIndicator }
+        set { OverlayStateRelay.shared.showTrashIndicator = newValue }
+    }
+    var trashSizeGB: Double {
+        get { OverlayStateRelay.shared.trashSizeGB }
+        set { OverlayStateRelay.shared.trashSizeGB = newValue }
+    }
+    var trashFileCount: Int {
+        get { OverlayStateRelay.shared.trashFileCount }
+        set { OverlayStateRelay.shared.trashFileCount = newValue }
+    }
+    var trashFolderCount: Int {
+        get { OverlayStateRelay.shared.trashFolderCount }
+        set { OverlayStateRelay.shared.trashFolderCount = newValue }
+    }
+    var trashLargestItemMB: Double {
+        get { OverlayStateRelay.shared.trashLargestItemMB }
+        set { OverlayStateRelay.shared.trashLargestItemMB = newValue }
+    }
+    var trashAutoEmptied: Bool {
+        get { OverlayStateRelay.shared.trashAutoEmptied }
+        set { OverlayStateRelay.shared.trashAutoEmptied = newValue }
+    }
+
+    var lastDeletedFileName: String {
+        get { OverlayStateRelay.shared.lastDeletedFileName }
+        set { OverlayStateRelay.shared.lastDeletedFileName = newValue }
+    }
+    var lastDeletedFileSizeMB: Double {
+        get { OverlayStateRelay.shared.lastDeletedFileSizeMB }
+        set { OverlayStateRelay.shared.lastDeletedFileSizeMB = newValue }
+    }
+    var lastDeletedFileIcon: NSImage? {
+        get { OverlayStateRelay.shared.lastDeletedFileIcon }
+        set { OverlayStateRelay.shared.lastDeletedFileIcon = newValue }
+    }
+    var lastDeletedFileURL: URL? {
+        get { OverlayStateRelay.shared.lastDeletedFileURL }
+        set { OverlayStateRelay.shared.lastDeletedFileURL = newValue }
+    }
+    
+    @AppStorage("showTrashModule") var showTrashModule: Bool = true
+    @AppStorage("notifyOnFileDeleted") var notifyOnFileDeleted: Bool = true
+    @AppStorage("soundOnFileDeleted") var soundOnFileDeleted: String = "None"
+    @AppStorage("fileDeletedOverlayPosition") var fileDeletedOverlayPosition: String = "bottomRight"
+    @AppStorage("colorOnFileDeleted") var colorOnFileDeleted: String = "#ff3b30"
+    
+    func triggerFileDeletedOverlay() {
+        if !showTrashModule { return }
+        if !notifyOnFileDeleted { return }
+        
+        let pos = self.getOverlayPosition(for: "fileDeletedOverlayPosition")
+        dismissCollidingIndicators(newPosition: pos, source: "fileDeleted")
+        playNotificationSound(named: self.soundOnFileDeleted)
+        
+        withAnimation(.easeInOut(duration: 0.15)) {
+            self.showFileDeletedIndicator = true
+            self.notifyOverlayStateChanged()
+            OverlayStateRelay.shared.overlayTriggerTimes["fileDeleted"] = Date()
+        }
+        
+        OverlayStateRelay.shared.trashEventId = UUID()
+        scheduleOverlayHide(for: "fileDeleted")
+    }
+    var trashFreedSizeGB: Double {
+        get { OverlayStateRelay.shared.trashFreedSizeGB }
+        set { OverlayStateRelay.shared.trashFreedSizeGB = newValue }
+    }
+    @Published var trashEventId = UUID()
+    var hideTrashIndicatorTask: DispatchWorkItem?
+    var trashAlertTriggered: Bool = false
 
     var copiedText: String {
         get { OverlayStateRelay.shared.copiedText }
@@ -1242,8 +1430,18 @@ class MediaKeyManager: ObservableObject {
     }
     
     // Accessory Battery
-    @Published var enableAccessoryBattery: Bool = UserDefaults.standard.object(forKey: "enableAccessoryBattery") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(enableAccessoryBattery, forKey: "enableAccessoryBattery") }
+    @Published var accessorySettings: [String: AccessoryDeviceSettings] = {
+        if let data = UserDefaults.standard.data(forKey: "accessorySettings"),
+           let decoded = try? JSONDecoder().decode([String: AccessoryDeviceSettings].self, from: data) {
+            return decoded
+        }
+        return [:]
+    }() {
+        didSet {
+            if let encoded = try? JSONEncoder().encode(accessorySettings) {
+                UserDefaults.standard.set(encoded, forKey: "accessorySettings")
+            }
+        }
     }
     @Published var accessoryBatteryHistory: [String] = (UserDefaults.standard.array(forKey: "accessoryBatteryHistory") as? [String]) ?? [] {
         didSet { UserDefaults.standard.set(accessoryBatteryHistory, forKey: "accessoryBatteryHistory") }
@@ -1252,25 +1450,7 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(accessoryBatteryBlocklist, forKey: "accessoryBatteryBlocklist") }
     }
     
-    // Accessory Triggers
-    @Published var accessoryNotifyOn100Percent: Bool = UserDefaults.standard.object(forKey: "accessoryNotifyOn100Percent") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(accessoryNotifyOn100Percent, forKey: "accessoryNotifyOn100Percent") }
-    }
-    @Published var accessorySoundOn100Percent: String = UserDefaults.standard.string(forKey: "accessorySoundOn100Percent") ?? "None" {
-        didSet { UserDefaults.standard.set(accessorySoundOn100Percent, forKey: "accessorySoundOn100Percent") }
-    }
-    @Published var accessoryNotifyOn20Percent: Bool = UserDefaults.standard.object(forKey: "accessoryNotifyOn20Percent") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(accessoryNotifyOn20Percent, forKey: "accessoryNotifyOn20Percent") }
-    }
-    @Published var accessorySoundOn20Percent: String = UserDefaults.standard.string(forKey: "accessorySoundOn20Percent") ?? "None" {
-        didSet { UserDefaults.standard.set(accessorySoundOn20Percent, forKey: "accessorySoundOn20Percent") }
-    }
-    @Published var accessoryNotifyOn10Percent: Bool = UserDefaults.standard.object(forKey: "accessoryNotifyOn10Percent") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(accessoryNotifyOn10Percent, forKey: "accessoryNotifyOn10Percent") }
-    }
-    @Published var accessorySoundOn10Percent: String = UserDefaults.standard.string(forKey: "accessorySoundOn10Percent") ?? "None" {
-        didSet { UserDefaults.standard.set(accessorySoundOn10Percent, forKey: "accessorySoundOn10Percent") }
-    }
+
     
     var showAccessoryBatteryIndicator: Bool {
         get { OverlayStateRelay.shared.showAccessoryBatteryIndicator }
@@ -1303,6 +1483,14 @@ class MediaKeyManager: ObservableObject {
     var accessoryBatteryCharging: [String: Bool] {
         get { OverlayStateRelay.shared.accessoryBatteryCharging }
         set { OverlayStateRelay.shared.accessoryBatteryCharging = newValue }
+    }
+    var accessoryConnectionIsConnected: Bool {
+        get { OverlayStateRelay.shared.accessoryConnectionIsConnected }
+        set { OverlayStateRelay.shared.accessoryConnectionIsConnected = newValue }
+    }
+    var accessoryIsConnectionEvent: Bool {
+        get { OverlayStateRelay.shared.accessoryIsConnectionEvent }
+        set { OverlayStateRelay.shared.accessoryIsConnectionEvent = newValue }
     }
     var bluetoothDetails: [String: [String: String]] {
         get { OverlayStateRelay.shared.bluetoothDetails }
@@ -1434,8 +1622,22 @@ class MediaKeyManager: ObservableObject {
             if let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
                let id = Unmanaged<AnyObject>.fromOpaque(idPtr).takeUnretainedValue() as? String {
                 if id == idToSelect {
+                    if let oldId = OverlayStateRelay.shared.currentKeyboardLayoutId, oldId != idToSelect {
+                        OverlayStateRelay.shared.previousKeyboardLayoutId = oldId
+                    }
+                    OverlayStateRelay.shared.currentKeyboardLayoutId = idToSelect
+                    
+                    if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName),
+                       let name = Unmanaged<AnyObject>.fromOpaque(ptr).takeUnretainedValue() as? String {
+                        OverlayStateRelay.shared.currentKeyboardLanguage = name
+                    }
+                    
                     isSwitchingLanguageInternally = true
                     TISSelectInputSource(source)
+                    
+                    // Keep the overlay alive when changing language via the button
+                    self.keepAlive(for: "language", isHovering: false)
+                    
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         self.isSwitchingLanguageInternally = false
                     }
@@ -1581,6 +1783,8 @@ class MediaKeyManager: ObservableObject {
             else if overlayId.hasPrefix("display") { activeDisplayNotifications.removeAll(where: { "display_\($0.id)" == overlayId }) }
             else if overlayId.hasPrefix("ram") { showRamIndicator = false }
             else if overlayId.hasPrefix("cpu") { showCpuIndicator = false }
+            else if overlayId.hasPrefix("trash") { showTrashIndicator = false }
+            else if overlayId == "fileDeleted" { showFileDeletedIndicator = false }
 
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
         }
@@ -1916,12 +2120,13 @@ class MediaKeyManager: ObservableObject {
     }
 
     
-    func updateAccessoryState(deviceName: String, percentage: Int, isPluggedIn: Bool) {
+    func updateAccessoryState(deviceName: String, percentage: Int?, isPluggedIn: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.accessoryBatteryLevels[deviceName] = percentage
+            if let pct = percentage {
+                self.accessoryBatteryLevels[deviceName] = pct
+            }
             self.accessoryBatteryCharging[deviceName] = isPluggedIn
-            
             if !self.accessoryBatteryHistory.contains(deviceName) {
                 self.accessoryBatteryHistory.append(deviceName)
             }
@@ -1932,6 +2137,38 @@ class MediaKeyManager: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             self?.bluetoothDetails[deviceName] = details
         }
+    }
+    
+    static func fallbackIcon(for name: String) -> String {
+        let lower = name.lowercased()
+        if lower.hasSuffix("(left)") { return "airpodpro.left" }
+        if lower.hasSuffix("(right)") { return "airpodpro.right" }
+        if lower.hasSuffix("(case)") { return "airpodspro.chargingcase.wireless.fill" }
+        if lower.contains("mouse") || lower.contains("mysz") { return "magicmouse.fill" }
+        if lower.contains("keyboard") || lower.contains("klawiatura") { return "keyboard.fill" }
+        if lower.contains("trackpad") { return "magicmouse.fill" }
+        if lower.contains("airpod") { return "airpods" }
+        if lower.contains("iphone") { return "iphone" }
+        if lower.contains("ipad") { return "ipad" }
+        if lower.contains("mac") { return "macbook" }
+        if lower.contains("watch") { return "applewatch" }
+        return "bolt.batteryblock.fill"
+    }
+    
+    func isBluetoothAccessory(_ name: String) -> Bool {
+        // First check if it exists in bluetoothDetails
+        for (_, details) in bluetoothDetails {
+            if details["SystemName"] == name || details["SystemName"]?.hasPrefix(name) == true {
+                return true
+            }
+        }
+        // Fallback heuristics for devices that might be disconnected
+        let lower = name.lowercased()
+        if lower.contains("airpod") || lower.contains("headphone") || lower.contains("ear") { return true }
+        if lower.contains("iphone") || lower.contains("ipad") || lower.contains("mac") { return false }
+        
+        // Default to bluetooth if unsure (most accessories are BT)
+        return true
     }
 
     
@@ -2163,6 +2400,7 @@ class MediaKeyManager: ObservableObject {
             mediaTimer?.invalidate(); mediaTimer = nil
         case "ram": hideRamIndicatorTask?.cancel(); hideRamIndicatorTask = nil
         case "cpu": hideCpuIndicatorTask?.cancel(); hideCpuIndicatorTask = nil
+        case "trash": hideTrashIndicatorTask?.cancel(); hideTrashIndicatorTask = nil
         case "theme": themeTimer?.invalidate(); themeTimer = nil
         case "focus": focusTimer?.invalidate(); focusTimer = nil
         case "accessoryBattery": accessoryBatteryTimer?.invalidate(); accessoryBatteryTimer = nil
@@ -2407,6 +2645,10 @@ class MediaKeyManager: ObservableObject {
                let name = Unmanaged<AnyObject>.fromOpaque(ptr).takeUnretainedValue() as? String {
                 self.currentKeyboardLanguage = name
             }
+            if let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
+               let idStr = Unmanaged<AnyObject>.fromOpaque(idPtr).takeUnretainedValue() as? String {
+                OverlayStateRelay.shared.currentKeyboardLayoutId = idStr
+            }
         }
         
         DistributedNotificationCenter.default().addObserver(
@@ -2425,6 +2667,16 @@ class MediaKeyManager: ObservableObject {
             guard let self = self else { return }
             if self.isSwitchingLanguageInternally { return }
             if let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() {
+                var newId: String? = nil
+                if let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
+                   let idStr = Unmanaged<AnyObject>.fromOpaque(idPtr).takeUnretainedValue() as? String {
+                    newId = idStr
+                }
+                if let newId = newId, newId != OverlayStateRelay.shared.currentKeyboardLayoutId {
+                    OverlayStateRelay.shared.previousKeyboardLayoutId = OverlayStateRelay.shared.currentKeyboardLayoutId
+                    OverlayStateRelay.shared.currentKeyboardLayoutId = newId
+                }
+                
                 if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName),
                    let name = Unmanaged<AnyObject>.fromOpaque(ptr).takeUnretainedValue() as? String {
                     self.triggerLanguageIndicator(language: name)

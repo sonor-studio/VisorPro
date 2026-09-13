@@ -112,7 +112,7 @@ struct PeripheralOverlayView: View {
     }
     
     var body: some View {
-        let actionColor: Color = isConnected ? Color(red: 0.85, green: 0.15, blue: 0.55) : .secondary
+        let actionColor: Color = isConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: Color(red: 0.85, green: 0.15, blue: 0.55)) : .secondary
         let periPos = MediaKeyManager.shared.getOverlayPosition(for: "peripheralOverlayPosition")
         
         let type = actualNotification?.type ?? ""
@@ -141,28 +141,25 @@ struct PeripheralOverlayView: View {
             expandUpwards: periPos.hasPrefix("bottom"),
             keepAliveId: keepAliveId,
             baseContent: {
-                HStack(alignment: .top, spacing: 0) {
+                HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(isConnected ? .primary : .secondary)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16 + 4 + 3)
-                        .padding(.top, 4)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(isConnected ? "Connected" : "Disconnected")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
-                            .padding(.leading, 14)
-                            .padding(.trailing, 16 + 4 + 3)
                         
                         MarqueeText(text: deviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                            .padding(.leading, 14)
-                            .padding(.trailing, 16 + 4 + 3)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer(minLength: 0)
+                    
                 }
-                .padding(.vertical, 5)
+                .padding(.leading, 23)
+                .padding(.trailing, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
             },
             expandedContent: {
                 if isExpandable {
@@ -194,11 +191,11 @@ struct PeripheralOverlayView: View {
                                             Image(systemName: batteryIcon)
                                                 .font(.system(size: 10))
                                                 .foregroundColor(.secondary)
-                                            if isBatteryCharging {
-                                                Image(systemName: "bolt.fill")
-                                                    .font(.system(size: 8))
-                                                    .foregroundColor(.green)
-                                            }
+//                                             if isBatteryCharging {
+//                                                 Image(systemName: "bolt.fill")
+//                                                     .font(.system(size: 8))
+//                                                     .foregroundColor(.green)
+//                                             }
                                         }
                                             
                                         Text("\(battery)%")
@@ -217,7 +214,7 @@ struct PeripheralOverlayView: View {
                                 if let total = driveTotalSpace, let freeStr = driveFreeSpace, let rawTotal = rawDriveTotal, let rawFree = rawDriveFree, rawTotal > 0 {
                                     let used = rawTotal - rawFree
                                     let percentage = CGFloat(used) / CGFloat(rawTotal)
-                                    let tint: Color = percentage > 0.9 ? .red : (percentage > 0.75 ? .orange : actionColor)
+                                    let tint: Color = actionColor
                                     
                                     VStack(alignment: .leading, spacing: 6) {
                                         HStack(alignment: .lastTextBaseline) {

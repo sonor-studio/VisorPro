@@ -31,7 +31,11 @@ struct LanguageOverlayView: View {
             fillCenter: false,
             customWidth: 260,
             customHeight: 56,
-            supportDragGesture: false,
+            onRightTap: overlayState.previousKeyboardLayoutId != nil || isPreview ? {
+                if let prevId = overlayState.previousKeyboardLayoutId {
+                    mediaKeyManager.selectLanguage(idToSelect: prevId)
+                }
+            } : nil,
             onSimpleTap: {
                 // Languages are now pre-loaded to prevent animation stutter.
             },
@@ -54,8 +58,21 @@ struct LanguageOverlayView: View {
                     }
                     
                     Spacer(minLength: 8)
+                    
+                    if overlayState.previousKeyboardLayoutId != nil || isPreview {
+                        ZStack {
+                            Circle()
+                                .fill(Color.primary.opacity(0.1))
+                                .frame(width: 32, height: 32)
+                            
+                            Image(systemName: "arrow.uturn.backward")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.primary)
+                        }
+                    }
                 }
-                .padding(.horizontal, 16 + 4 + 3)
+                .padding(.leading, 23)
+                .padding(.trailing, 12)
             },
             expandedContent: {
                 VStack(alignment: .leading, spacing: 4) {

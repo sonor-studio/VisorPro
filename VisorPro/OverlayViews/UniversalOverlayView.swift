@@ -47,7 +47,7 @@ struct BendedCornerShape: InsettableShape, Sendable {
         
         let dx = C2_x - cx
         let dy = C2_y - cy
-        let d = sqrt(dx*dx + dy*dy)
+        let d = max(sqrt(dx*dx + dy*dy), 0.001) // Prevent division by zero
         
         let targetR1 = cutoutRadius + insetAmount
         let gap = d - R2
@@ -202,7 +202,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         if onLeftTap != nil {
                             Rectangle()
                                 .fill(Color.clear)
-                                .frame(width: 50)
+                                .frame(width: 60)
                                 .contentShape(Rectangle())
                                 .pointingHandCursor()
                         }
@@ -213,6 +213,16 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 .pointingHandCursor()
                         } else {
                             Spacer()
+                        }
+                        if onRightTap != nil && !supportDragGesture {
+                            Rectangle()
+                                .fill(Color.clear)
+                                .frame(width: 75)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    onRightTap?()
+                                }
+                                .pointingHandCursor()
                         }
                     }
                     .frame(width: width, height: baseHeight)
@@ -359,14 +369,11 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     if !isDragging {
                         let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
                         if !moved {
-                            if value.startLocation.x <= 50 && onLeftTap != nil {
+                            if value.startLocation.x <= 60 && onLeftTap != nil {
                                 onLeftTap?()
+                            } else if value.startLocation.x >= width - 75 && onRightTap != nil && !supportDragGesture {
+                                onRightTap?()
                             } else {
-                                if supportDragGesture {
-                                    onRightTap?()
-                                } else {
-                                    onSimpleTap?()
-                                }
                                 if isExpandable {
                                     if !isAnimating {
                                         isAnimating = true
@@ -377,6 +384,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                             isAnimating = false
                                         }
                                     }
+                                } else if onSimpleTap != nil {
+                                    onSimpleTap?()
                                 }
                             }
                         }

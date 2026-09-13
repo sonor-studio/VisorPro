@@ -9,11 +9,12 @@ struct ContentView: View {
     @AppStorage("keyboardBrightnessOverlayPosition") private var keyboardBrightnessOverlayPosition: String = "top"
     @AppStorage("copyOverlayPosition") private var copyOverlayPosition: String = "bottom"
     @AppStorage("capsLockOverlayPosition") private var capsLockOverlayPosition: String = "bottom"
+    @AppStorage("fileDeletedOverlayPosition") private var fileDeletedOverlayPosition: String = "bottom"
     @State private var overlayWindow: NSWindow? = nil
     @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
-        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, focus, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery, cpu, date
+        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, focus, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery, cpu, date, trash, fileDeleted
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -88,6 +89,12 @@ struct ContentView: View {
         
         let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if mediaKeyManager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }
+        let cpuPos = MediaKeyManager.shared.getOverlayPosition(for: "cpuOverlayPosition")
+        if mediaKeyManager.showCpuIndicator { active.append(ActiveOverlay(id: "cpu", type: .cpu, position: cpuPos, notification: nil)) }
+        let trashPos = MediaKeyManager.shared.getOverlayPosition(for: "trashOverlayPosition")
+        if mediaKeyManager.showTrashIndicator { active.append(ActiveOverlay(id: "trash", type: .trash, position: trashPos, notification: nil)) }
+        let fileDeletedPos = MediaKeyManager.shared.getOverlayPosition(for: "fileDeletedOverlayPosition")
+        if mediaKeyManager.showFileDeletedIndicator { active.append(ActiveOverlay(id: "fileDeleted", type: .fileDeleted, position: fileDeletedPos, notification: nil)) }
         
         if mediaKeyManager.showAccessoryBatteryIndicator {
             active.append(ActiveOverlay(id: "accessoryBattery", type: .accessoryBattery, position: batteryOverlayPosition, notification: nil))
@@ -264,6 +271,8 @@ struct ContentView: View {
         case .ram: RamOverlayView()
         case .cpu: CpuTemperatureOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
+        case .trash: TrashOverlayView()
+        case .fileDeleted: FileDeletedOverlayView()
         }
     }
     

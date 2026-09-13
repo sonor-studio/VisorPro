@@ -124,8 +124,19 @@ struct MicOverlayView: View {
                     }
                     
                     Spacer(minLength: 8)
+                    
+                    if actualIsActive {
+                        let path = isPreview ? "/System/Applications/VoiceMemos.app" : mediaKeyManager.activeMicClientBundleID
+                        CachedAppIconView(
+                            path: path,
+                            fallbackSystemName: isPreview ? "mic.fill" : "app.fill",
+                            fallbackColor: isPreview ? .orange : .secondary,
+                            size: 32
+                        )
+                    }
                 }
-                .padding(.horizontal, 16 + 4 + 3)
+                .padding(.leading, 23)
+                .padding(.trailing, 20)
             },
             expandedContent: {
                 VStack(spacing: 0) {
@@ -137,16 +148,12 @@ struct MicOverlayView: View {
                             HStack(spacing: 12) {
                                 // App Icon
                                 let path = isPreview ? "/System/Applications/VoiceMemos.app" : mediaKeyManager.activeMicClientBundleID
-                                if !path.isEmpty {
-                                    Image(nsImage: NSWorkspace.shared.icon(forFile: path))
-                                        .resizable()
-                                        .frame(width: 32, height: 32)
-                                } else {
-                                    Image(systemName: isPreview ? "mic.fill" : "app.fill")
-                                        .resizable()
-                                        .frame(width: 32, height: 32)
-                                        .foregroundColor(isPreview ? .orange : .secondary)
-                                }
+                                CachedAppIconView(
+                                    path: path,
+                                    fallbackSystemName: isPreview ? "mic.fill" : "app.fill",
+                                    fallbackColor: isPreview ? .orange : .secondary,
+                                    size: 36
+                                )
                                 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Used by:")
@@ -399,8 +406,19 @@ struct CameraOverlayView: View {
                     }
                     
                     Spacer(minLength: 8)
+                    
+                    if actualIsActive {
+                        let path = isPreview ? "/System/Applications/FaceTime.app" : overlayState.activeCameraClientBundleID
+                        CachedAppIconView(
+                            path: path,
+                            fallbackSystemName: isPreview ? "video.fill" : "app.fill",
+                            fallbackColor: isPreview ? .green : .secondary,
+                            size: 32
+                        )
+                    }
                 }
-                .padding(.horizontal, 16 + 4 + 3)
+                .padding(.leading, 23)
+                .padding(.trailing, 20)
             },
             expandedContent: {
                 VStack(spacing: 12) {
@@ -411,16 +429,12 @@ struct CameraOverlayView: View {
                             
                             HStack(spacing: 12) {
                                 let path = isPreview ? "/System/Applications/FaceTime.app" : overlayState.activeCameraClientBundleID
-                                if !path.isEmpty {
-                                    Image(nsImage: NSWorkspace.shared.icon(forFile: path))
-                                        .resizable()
-                                        .frame(width: 32, height: 32)
-                                } else {
-                                    Image(systemName: isPreview ? "video.fill" : "app.fill")
-                                        .resizable()
-                                        .frame(width: 32, height: 32)
-                                        .foregroundColor(isPreview ? .green : .secondary)
-                                }
+                                CachedAppIconView(
+                                    path: path,
+                                    fallbackSystemName: isPreview ? "video.fill" : "app.fill",
+                                    fallbackColor: isPreview ? .green : .secondary,
+                                    size: 36
+                                )
                                 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Used by:")
@@ -550,7 +564,8 @@ struct LocationOverlayView: View {
                     
                     Spacer(minLength: 8)
                 }
-                .padding(.horizontal, 16 + 4 + 3)
+                .padding(.leading, 23)
+                .padding(.trailing, 20)
             },
             expandedContent: {
                 EmptyView()
@@ -560,5 +575,47 @@ struct LocationOverlayView: View {
                 .onDisappear {
             mediaKeyManager.keepAlive(for: "location", isHovering: false)
         }
+    }
+}
+
+struct CachedAppIconView: View {
+    let path: String
+    let fallbackSystemName: String
+    let fallbackColor: Color
+    var size: CGFloat = 28
+    
+    @State private var icon: NSImage? = nil
+    
+    var body: some View {
+        Group {
+            if let icon = icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size, height: size)
+            } else {
+                Image(systemName: fallbackSystemName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size, height: size)
+                    .foregroundColor(fallbackColor)
+            }
+        }
+        .frame(width: size, height: size)
+        .overlay(
+            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                .stroke(Color.primary.opacity(0.15), lineWidth: 0.5)
+        )
+        .shadow(color: Color.black.opacity(0.15), radius: 1, x: 0, y: 1)
+        .onAppear { loadIcon() }
+        .onChange(of: path) { _, _ in loadIcon() }
+    }
+    
+    private func loadIcon() {
+        guard !path.isEmpty else {
+            self.icon = nil
+            return
+        }
+        self.icon = NSWorkspace.shared.icon(forFile: path)
     }
 }
