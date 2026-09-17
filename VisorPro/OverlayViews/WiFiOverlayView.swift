@@ -1,5 +1,6 @@
 import SwiftUI
 
+
 struct StatRow: View {
     let icon: String
     let label: String
@@ -82,6 +83,7 @@ struct WiFiOverlayView: View {
     @State private var speedTestResult: NetworkQualityResult? = nil
     @State private var showDetails: Bool = false
     @State private var testFailed: Bool = false
+    @State private var isDisconnecting: Bool = false
     var isPreview: Bool = false
     var previewIsConnected: Bool = true
     var previewSSID: String = "My Wi-Fi"
@@ -142,9 +144,6 @@ struct WiFiOverlayView: View {
             } : nil,
             onSimpleTap: {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    if !isExpanded && actualIsConnected && !overlayState.wiFiDetailsFetched {
-                        mediaKeyManager.fetchWiFiDetails()
-                    }
                     isExpanded.toggle()
                 }
                 if isExpanded {
@@ -370,18 +369,42 @@ struct WiFiOverlayView: View {
                             HStack(spacing: 8) {
                                 Button(action: {
                                     if !isPreview {
+                                        isDisconnecting = true
                                         mediaKeyManager.disconnectWiFi()
                                     }
                                 }) {
                                     HStack(spacing: 4) {
-                                        Image(systemName: "xmark")
-                                        Text("Disconnect")
+                                        Image(systemName: "xmark.circle.fill")
+                                        Text(isDisconnecting ? "Disconnecting" : "Disconnect")
                                     }
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(.red)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
-                                    .background(Color.red.opacity(0.15))
+                                    .background(Color.red.opacity(0.1))
+                                    .cornerRadius(28 - 4 - 3)
+                                }
+                                .buttonStyle(.plain)
+                                .conditionalPointingHandCursor(isEnabled: !isDisconnecting)
+                                .disabled(isDisconnecting)
+                                
+                                Button(action: {
+                                    if !isPreview {
+                                        mediaKeyManager.openNetworkSettings()
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            isExpanded = false
+                                        }
+                                    }
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "gear")
+                                        Text("Settings")
+                                    }
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.primary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .background(Color.primary.opacity(0.1))
                                     .cornerRadius(28 - 4 - 3)
                                 }
                                 .buttonStyle(.plain)
@@ -423,15 +446,19 @@ struct WiFiOverlayView: View {
         .id(overlayState.wiFiEventId)
         .onChange(of: isExpanded) { _, expanded in
             if expanded {
+                if actualIsConnected && !overlayState.wiFiDetailsFetched && !isPreview {
+                    mediaKeyManager.fetchWiFiDetails()
+                }
                 refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
                     mediaKeyManager.fetchDynamicWiFiDetails()
                 }
-                if actualIsConnected && speedTestResult == nil && !testFailed && !isPreview {
+                if actualIsConnected && speedTestResult == nil && !testFailed && !isPreview && wifiShowSpeedTest {
                     startSpeedTest()
                 }
             } else {
                 refreshTimer?.invalidate()
                 refreshTimer = nil
+                isDisconnecting = false
             }
         }
     }

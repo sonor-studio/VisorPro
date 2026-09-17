@@ -1,4 +1,5 @@
 import Cocoa
+import AudioToolbox
 import ApplicationServices
 import SwiftUI
 import Combine
@@ -39,6 +40,27 @@ struct BatteryThreshold: Codable, Equatable, Identifiable, Hashable {
     var percentage: Int
     var sound: String
     var isEnabled: Bool
+    var color: String = "Default"
+    
+    init(percentage: Int, sound: String, isEnabled: Bool, color: String = "Default") {
+        self.percentage = percentage
+        self.sound = sound
+        self.isEnabled = isEnabled
+        self.color = color
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id, percentage, sound, isEnabled, color
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        percentage = try container.decode(Int.self, forKey: .percentage)
+        sound = try container.decodeIfPresent(String.self, forKey: .sound) ?? "None"
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        color = try container.decodeIfPresent(String.self, forKey: .color) ?? "Default"
+    }
 }
 
 struct AccessoryDeviceSettings: Codable, Equatable {
@@ -50,6 +72,26 @@ struct AccessoryDeviceSettings: Codable, Equatable {
     
     var notifyOn100Percent: Bool = true
     var soundOn100Percent: String = "None"
+    
+    var notifyOnAirPodsANC: Bool = true
+    var soundOnAirPodsANC: String = "None"
+    var notifyOnAirPodsTransparency: Bool = true
+    var soundOnAirPodsTransparency: String = "None"
+    var notifyOnAirPodsAdaptive: Bool = true
+    var soundOnAirPodsAdaptive: String = "None"
+    var notifyOnAirPodsOff: Bool = true
+    var soundOnAirPodsOff: String = "None"
+    var notifyOnCaseOpen: Bool = true
+    var soundOnCaseOpen: String = "None"
+    
+    var colorOnConnect: String = "Default"
+    var colorOnDisconnect: String = "Default"
+    var colorOnCaseOpen: String = "Default"
+    var colorOn100Percent: String = "Default"
+    var colorOnAirPodsANC: String = "Default"
+    var colorOnAirPodsTransparency: String = "Default"
+    var colorOnAirPodsAdaptive: String = "Default"
+    var colorOnAirPodsOff: String = "Default"
     
     // Legacy properties kept for Codable compatibility
     var notifyOn20Percent: Bool = true
@@ -74,6 +116,20 @@ struct AccessoryDeviceSettings: Codable, Equatable {
         
         notifyOn100Percent = try container.decodeIfPresent(Bool.self, forKey: .notifyOn100Percent) ?? true
         soundOn100Percent = try container.decodeIfPresent(String.self, forKey: .soundOn100Percent) ?? "None"
+        
+        colorOnConnect = try container.decodeIfPresent(String.self, forKey: .colorOnConnect) ?? "Default"
+        colorOnDisconnect = try container.decodeIfPresent(String.self, forKey: .colorOnDisconnect) ?? "Default"
+        colorOnCaseOpen = try container.decodeIfPresent(String.self, forKey: .colorOnCaseOpen) ?? "Default"
+        colorOn100Percent = try container.decodeIfPresent(String.self, forKey: .colorOn100Percent) ?? "Default"
+        colorOnAirPodsANC = try container.decodeIfPresent(String.self, forKey: .colorOnAirPodsANC) ?? "Default"
+        colorOnAirPodsTransparency = try container.decodeIfPresent(String.self, forKey: .colorOnAirPodsTransparency) ?? "Default"
+        colorOnAirPodsAdaptive = try container.decodeIfPresent(String.self, forKey: .colorOnAirPodsAdaptive) ?? "Default"
+        colorOnAirPodsOff = try container.decodeIfPresent(String.self, forKey: .colorOnAirPodsOff) ?? "Default"
+        
+        soundOnAirPodsANC = try container.decodeIfPresent(String.self, forKey: .soundOnAirPodsANC) ?? "None"
+        soundOnAirPodsTransparency = try container.decodeIfPresent(String.self, forKey: .soundOnAirPodsTransparency) ?? "None"
+        soundOnAirPodsAdaptive = try container.decodeIfPresent(String.self, forKey: .soundOnAirPodsAdaptive) ?? "None"
+        soundOnAirPodsOff = try container.decodeIfPresent(String.self, forKey: .soundOnAirPodsOff) ?? "None"
         
         notifyOn20Percent = try container.decodeIfPresent(Bool.self, forKey: .notifyOn20Percent) ?? true
         soundOn20Percent = try container.decodeIfPresent(String.self, forKey: .soundOn20Percent) ?? "None"
@@ -290,6 +346,19 @@ class MediaKeyManager: ObservableObject {
             if !enableBluetooth { withAnimation { self.activeBluetoothNotifications.removeAll() } }
         }
     }
+    
+    @Published var notifyOnAirPodsOff: Bool = UserDefaults.standard.object(forKey: "notifyOnAirPodsOff") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnAirPodsOff, forKey: "notifyOnAirPodsOff") }
+    }
+    @Published var notifyOnAirPodsANC: Bool = UserDefaults.standard.object(forKey: "notifyOnAirPodsANC") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnAirPodsANC, forKey: "notifyOnAirPodsANC") }
+    }
+    @Published var notifyOnAirPodsTransparency: Bool = UserDefaults.standard.object(forKey: "notifyOnAirPodsTransparency") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnAirPodsTransparency, forKey: "notifyOnAirPodsTransparency") }
+    }
+    @Published var notifyOnAirPodsAdaptive: Bool = UserDefaults.standard.object(forKey: "notifyOnAirPodsAdaptive") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnAirPodsAdaptive, forKey: "notifyOnAirPodsAdaptive") }
+    }
     @Published var enableWiFi: Bool = UserDefaults.standard.object(forKey: "enableWiFi") as? Bool ?? false {
         didSet { 
             UserDefaults.standard.set(enableWiFi, forKey: "enableWiFi")
@@ -456,7 +525,11 @@ class MediaKeyManager: ObservableObject {
             
             if !isBatteryInitialized { return }
             if oldValue != currentBatteryPercentage {
-                for threshold in batteryCustomThresholds where threshold.isEnabled {
+                var allThresholds = batteryCustomThresholds
+                if notifyOn10Percent { allThresholds.append(BatteryThreshold(percentage: 10, sound: soundOn10Percent, isEnabled: true)) }
+                if notifyOn20Percent { allThresholds.append(BatteryThreshold(percentage: 20, sound: soundOn20Percent, isEnabled: true)) }
+                
+                for threshold in allThresholds where threshold.isEnabled {
                     let hit = currentBatteryPercentage == threshold.percentage
                     let crossedDown = oldValue > threshold.percentage && currentBatteryPercentage < threshold.percentage
                     let crossedUp = oldValue < threshold.percentage && currentBatteryPercentage > threshold.percentage
@@ -496,7 +569,11 @@ class MediaKeyManager: ObservableObject {
                         triggerUnplugStatus()
                     } else {
                         hideBatteryOverlay()
-                        for threshold in batteryCustomThresholds where threshold.isEnabled {
+                        var allThresholds = batteryCustomThresholds
+                        if notifyOn10Percent { allThresholds.append(BatteryThreshold(percentage: 10, sound: soundOn10Percent, isEnabled: true)) }
+                        if notifyOn20Percent { allThresholds.append(BatteryThreshold(percentage: 20, sound: soundOn20Percent, isEnabled: true)) }
+                        
+                        for threshold in allThresholds where threshold.isEnabled {
                             if currentBatteryPercentage == threshold.percentage {
                                 triggerBatteryThresholdWarning(percentage: currentBatteryPercentage, sound: threshold.sound)
                             }
@@ -629,7 +706,7 @@ class MediaKeyManager: ObservableObject {
     var showCopyIndicator: Bool {
         get { OverlayStateRelay.shared.showCopyIndicator }
         set { OverlayStateRelay.shared.showCopyIndicator = newValue }
-    }    
+    }
     
     @Published var fanEventId = UUID()
     // CPU Monitoring
@@ -1308,6 +1385,21 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.activeLocationAppName }
         set { OverlayStateRelay.shared.activeLocationAppName = newValue }
     }
+    
+    var showAirPodsModeIndicator: Bool {
+        get { OverlayStateRelay.shared.showAirPodsModeIndicator }
+        set { OverlayStateRelay.shared.showAirPodsModeIndicator = newValue }
+    }
+    
+    var airPodsModeValue: Int {
+        get { OverlayStateRelay.shared.airPodsModeValue }
+        set { OverlayStateRelay.shared.airPodsModeValue = newValue }
+    }
+    
+    var airPodsModeEventId: UUID {
+        get { OverlayStateRelay.shared.airPodsModeEventId }
+        set { OverlayStateRelay.shared.airPodsModeEventId = newValue }
+    }
     var locationTimer: Timer?
     var currentMicDeviceName: String {
         get { OverlayStateRelay.shared.currentMicDeviceName }
@@ -1449,9 +1541,32 @@ class MediaKeyManager: ObservableObject {
     @Published var accessoryBatteryBlocklist: [String] = (UserDefaults.standard.array(forKey: "accessoryBatteryBlocklist") as? [String]) ?? [] {
         didSet { UserDefaults.standard.set(accessoryBatteryBlocklist, forKey: "accessoryBatteryBlocklist") }
     }
+    func forgetAccessory(name: String) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.accessoryBatteryHistory.removeAll { $0 == name || $0.hasPrefix("\(name) (") }
+            self.bluetoothHistory.removeAll { $0 == name || $0.hasPrefix("\(name) (") }
+            self.peripheralIcons.removeValue(forKey: name)
+            self.accessorySettings.removeValue(forKey: name)
+            self.accessoryBatteryBlocklist.removeAll { $0 == name }
+            var details = self.bluetoothDetails
+            details.removeValue(forKey: name)
+            self.bluetoothDetails = details
+        }
+    }
+
     
 
     
+    var showAirpodsGroupBatteryIndicator: Bool {
+        get { OverlayStateRelay.shared.showAirpodsGroupBatteryIndicator }
+        set { OverlayStateRelay.shared.showAirpodsGroupBatteryIndicator = newValue }
+    }
+    var airpodsGroupBatteryEventId: UUID {
+        get { OverlayStateRelay.shared.airpodsGroupBatteryEventId }
+        set { OverlayStateRelay.shared.airpodsGroupBatteryEventId = newValue }
+    }
+
     var showAccessoryBatteryIndicator: Bool {
         get { OverlayStateRelay.shared.showAccessoryBatteryIndicator }
         set { OverlayStateRelay.shared.showAccessoryBatteryIndicator = newValue }
@@ -1528,6 +1643,7 @@ class MediaKeyManager: ObservableObject {
     var peripheralTimer: Timer?
     private var peripheralObserver: PeripheralObserver?
     private var displayObserver: DisplayObserver?
+    private var airPodsModeObserver: AirPodsModeObserver?
     var currentPlayingSound: NSSound?
     private var soundCache: [String: NSSound] = [:]
     
@@ -1577,7 +1693,23 @@ class MediaKeyManager: ObservableObject {
                 DispatchQueue.main.async {
                     self.currentPlayingSound = sound
                 }
-                sound.play()
+                
+                // We use AudioServicesPlaySystemSound instead of NSSound.play()
+                // because NSSound steals the "Now Playing" media key focus on macOS,
+                // which completely breaks the user's ability to pause Spotify/Music from AirPods!
+                if let url = sound.value(forKey: "url") as? URL {
+                    var soundID: SystemSoundID = 0
+                    let status = AudioServicesCreateSystemSoundID(url as CFURL, &soundID)
+                    if status == kAudioServicesNoError {
+                        AudioServicesPlaySystemSoundWithCompletion(soundID) {
+                            AudioServicesDisposeSystemSoundID(soundID)
+                        }
+                    } else {
+                        sound.play()
+                    }
+                } else {
+                    sound.play()
+                }
             }
         }
     }
@@ -1693,9 +1825,10 @@ class MediaKeyManager: ObservableObject {
             self.playNotificationSound(named: self.soundOnMicOn)
             
             if !self.isMicTimerScheduledInstantly {
-                self.micTimer?.invalidate()
+                self.notificationTimers["mic"]?.invalidate()
+                self.micEventId = UUID()
                 if !self.isMicExpanded {
-                    self.micTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                    self.notificationTimers["mic"] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                         withAnimation(.easeInOut(duration: 0.25)) {
                             self?.showMicIndicator = false
                         }
@@ -1770,6 +1903,7 @@ class MediaKeyManager: ObservableObject {
             else if overlayId.hasPrefix("copy") { showCopyIndicator = false }
             else if overlayId.hasPrefix("capsLock") { showCapsLockIndicator = false }
             else if overlayId.hasPrefix("bluetooth") { activeBluetoothNotifications.removeAll(where: { "bluetooth_\($0.id)" == overlayId }) }
+            else if overlayId == "airpodsMode" { showAirPodsModeIndicator = false }
             else if overlayId == "language" { showLanguageIndicator = false }
             else if overlayId == "media" { showMediaIndicator = false }
             else if overlayId == "theme" { showThemeIndicator = false }
@@ -1787,6 +1921,7 @@ class MediaKeyManager: ObservableObject {
             else if overlayId == "fileDeleted" { showFileDeletedIndicator = false }
 
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
+            else if overlayId.hasPrefix("airpodsGroupBattery") { showAirpodsGroupBatteryIndicator = false }
         }
         notifyOverlayStateChanged()
     }
@@ -1851,7 +1986,10 @@ class MediaKeyManager: ObservableObject {
         if isConnected && !self.notifyOnPeripheralConnect { return }
         if !isConnected && !self.notifyOnPeripheralDisconnect { return }
         
-        if !self.peripheralHistory.contains(deviceName) {
+        let isAccessory = self.isBluetoothAccessory(deviceName) || deviceName.lowercased().contains("airpods")
+        if isAccessory {
+            self.peripheralHistory.removeAll { $0 == deviceName }
+        } else if !self.peripheralHistory.contains(deviceName) {
             self.peripheralHistory.append(deviceName)
         }
         if self.peripheralIcons[deviceName] != typeIcon {
@@ -2152,7 +2290,11 @@ class MediaKeyManager: ObservableObject {
         if lower.contains("ipad") { return "ipad" }
         if lower.contains("mac") { return "macbook" }
         if lower.contains("watch") { return "applewatch" }
-        return "bolt.batteryblock.fill"
+        if lower.contains("headphone") || lower.contains("słuchawki") || lower.contains("headset") || lower.contains("buds") || lower.contains("ear") { return "headphones" }
+        if lower.contains("speaker") || lower.contains("głośnik") { return "speaker.wave.2" }
+        if lower.contains("controller") || lower.contains("pad") || lower.contains("xbox") || lower.contains("dualsense") || lower.contains("dualshock") { return "gamecontroller.fill" }
+        if lower.contains("mx master") || lower.contains("logi ") || lower.contains("razer ") || lower.contains("mouse") || lower.contains("mysz") { return "magicmouse.fill" }
+        return "headphones"
     }
     
     func isBluetoothAccessory(_ name: String) -> Bool {
@@ -2165,17 +2307,43 @@ class MediaKeyManager: ObservableObject {
         // Fallback heuristics for devices that might be disconnected
         let lower = name.lowercased()
         if lower.contains("airpod") || lower.contains("headphone") || lower.contains("ear") { return true }
-        if lower.contains("iphone") || lower.contains("ipad") || lower.contains("mac") { return false }
+        if lower.contains("iphone") || lower.contains("ipad") || lower.contains("ipod") || lower.contains("mac") || lower.contains("apple mobile device") { return false }
         
         // Default to bluetooth if unsure (most accessories are BT)
         return true
     }
 
     
-    func disconnectBluetoothDevice(macAddress: String) {
-        guard let device = IOBluetoothDevice(addressString: macAddress) else { return }
-        if device.isConnected() {
-            device.closeConnection()
+    func disconnectBluetoothDevice(macAddress: String, deviceName: String? = nil) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let macWithDashes = macAddress.replacingOccurrences(of: ":", with: "-").uppercased()
+            let macWithColons = macAddress.replacingOccurrences(of: "-", with: ":").uppercased()
+            
+            if let device = IOBluetoothDevice(addressString: macWithDashes), device.isConnected() {
+                _ = device.closeConnection()
+                return
+            }
+            
+            guard let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] else { return }
+            for device in devices {
+                if device.isConnected() {
+                    let devAddrDashes = device.addressString.uppercased()
+                    let devAddrColons = devAddrDashes.replacingOccurrences(of: "-", with: ":")
+                    
+                    if devAddrDashes == macWithDashes || devAddrColons == macWithColons || device.name == macAddress || device.nameOrAddress == macAddress {
+                        _ = device.closeConnection()
+                        return
+                    }
+                    if let providedName = deviceName, device.name == providedName || device.nameOrAddress == providedName {
+                        _ = device.closeConnection()
+                        return
+                    }
+                    if macAddress == "AIRPODS_CONNECTION" && (device.name?.lowercased().contains("airpods") == true || device.nameOrAddress.lowercased().contains("airpods")) {
+                        _ = device.closeConnection()
+                        return
+                    }
+                }
+            }
         }
     }
 
@@ -2390,7 +2558,7 @@ class MediaKeyManager: ObservableObject {
         case "copy": copyTimer?.invalidate(); copyTimer = nil
         case "capsLock": capsLockTimer?.invalidate(); capsLockTimer = nil
         case "language": languageTimer?.invalidate(); languageTimer = nil
-        case "mic": micTimer?.invalidate(); micTimer = nil
+        case "mic": notificationTimers["mic"]?.invalidate(); notificationTimers.removeValue(forKey: "mic")
         case "camera": cameraTimer?.invalidate(); cameraTimer = nil
         case "location": locationTimer?.invalidate(); locationTimer = nil
         case "bluetooth": bluetoothTimer?.invalidate(); bluetoothTimer = nil
@@ -2403,7 +2571,8 @@ class MediaKeyManager: ObservableObject {
         case "trash": hideTrashIndicatorTask?.cancel(); hideTrashIndicatorTask = nil
         case "theme": themeTimer?.invalidate(); themeTimer = nil
         case "focus": focusTimer?.invalidate(); focusTimer = nil
-        case "accessoryBattery": accessoryBatteryTimer?.invalidate(); accessoryBatteryTimer = nil
+        case "accessoryBattery": notificationTimers["accessoryBattery"]?.invalidate(); notificationTimers.removeValue(forKey: "accessoryBattery")
+        case "airpodsGroupBattery": notificationTimers["airpodsGroupBattery"]?.invalidate(); notificationTimers.removeValue(forKey: "airpodsGroupBattery")
         default: break
         }
     }
@@ -2419,13 +2588,16 @@ class MediaKeyManager: ObservableObject {
             }
         }
         
-        let defaultDelay: TimeInterval = MediaKeyManager.notificationDuration
+        var defaultDelay: TimeInterval = MediaKeyManager.notificationDuration
+        if type == "airpodsGroupBattery" {
+            defaultDelay = 4.0
+        }
         
         // 1. Invalidate any active hide timer/task
         cancelOverlayHide(for: type)
         
         // 2. If finished hovering, schedule auto-hide after defaultDelay
-        if !isHovering {
+        if !isHovering && type != "airpodsGroupBattery" {
             scheduleOverlayHide(for: type, delay: defaultDelay)
         }
     }
@@ -2590,8 +2762,10 @@ class MediaKeyManager: ObservableObject {
     
     init() {
         if !accessoryBatteryHistory.isEmpty {
-            let filtered = accessoryBatteryHistory.filter { !$0.hasSuffix(" (Lewa)") && !$0.hasSuffix(" (Prawa)") && !$0.hasSuffix(" (Etui)") }
-            if filtered.count != accessoryBatteryHistory.count {
+            var filtered = accessoryBatteryHistory.filter { !$0.hasSuffix(" (Lewa)") && !$0.hasSuffix(" (Prawa)") && !$0.hasSuffix(" (Etui)") }
+            filtered = filtered.map { $0.replacingOccurrences(of: "’", with: "'") }
+            filtered = Array(Set(filtered)).sorted()
+            if filtered != accessoryBatteryHistory {
                 accessoryBatteryHistory = filtered
             }
         }
@@ -2609,6 +2783,13 @@ class MediaKeyManager: ObservableObject {
         self.focusObserver = FocusObserver(manager: self)
         self.peripheralObserver = PeripheralObserver(manager: self)
         self.displayObserver = DisplayObserver(manager: self)
+        
+        self.airPodsModeObserver = AirPodsModeObserver(modeChangeCallback: { [weak self] mode in
+            DispatchQueue.main.async {
+                self?.triggerAirPodsModeOverlay(mode: mode)
+            }
+        })
+        self.airPodsModeObserver?.start()
         self.btPoller = BluetoothBatteryPoller(manager: self)
         
         self.lastAction = "Gotowe!"
@@ -2937,10 +3118,18 @@ class MediaKeyManager: ObservableObject {
                 }
                 
                 if keyCode == NX_KEYTYPE_PLAY || keyCode == NX_KEYTYPE_NEXT || keyCode == NX_KEYTYPE_PREVIOUS {
-                    // We let the system handle the key.
-                    // The MediaObserver's helper script will detect the state change
-                    // and automatically trigger the UI via the notification.
-                    return Unmanaged.passRetained(event)
+                    if !isKeyDown {
+                        DispatchQueue.main.async {
+                            if keyCode == NX_KEYTYPE_PLAY {
+                                manager.simulatePlayPause()
+                            } else if keyCode == NX_KEYTYPE_NEXT {
+                                manager.simulateNext()
+                            } else if keyCode == NX_KEYTYPE_PREVIOUS {
+                                manager.simulatePrevious()
+                            }
+                        }
+                    }
+                    return nil
                 }
                 
                 if keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE || keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN {
@@ -3095,7 +3284,17 @@ class MediaKeyManager: ObservableObject {
     func simulatePrevious() {
         sendMediaRemoteCommand(5) // previousTrack
     }
-    
+    func setAirPodsMode(_ mode: Int) {
+        guard !OverlayStateRelay.shared.isChangingAirPodsMode else { return }
+        OverlayStateRelay.shared.isChangingAirPodsMode = true
+        
+        _ = self.airPodsModeObserver?.setMode(mode)
+        
+        // Failsafe: if the hardware doesn't respond within 2 seconds, unlock it
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            OverlayStateRelay.shared.isChangingAirPodsMode = false
+        }
+    }
 
     func simulateSeek(to time: Double) {
         let bundle = CFBundleCreate(kCFAllocatorDefault, NSURL(fileURLWithPath: "/System/Library/PrivateFrameworks/MediaRemote.framework"))

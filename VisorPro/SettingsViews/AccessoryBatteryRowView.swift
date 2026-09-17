@@ -45,6 +45,5 @@ struct AccessoryBatteryRowView: View {
                 }
             )).labelsHidden()
         }
-        .padding(.leading, isComponent ? 30 : 0)
     }
 }

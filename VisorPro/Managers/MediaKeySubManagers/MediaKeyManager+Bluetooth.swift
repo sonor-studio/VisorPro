@@ -51,17 +51,25 @@ extension MediaKeyManager {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
-            if !self.bluetoothHistory.contains(deviceName) {
+            let isAccessory = deviceAddress == "AIRPODS_CONNECTION" || self.isBluetoothAccessory(deviceName) || deviceName.lowercased().contains("airpods")
+            
+            if isAccessory {
+                self.bluetoothHistory.removeAll { $0 == deviceName }
+            } else if !self.bluetoothHistory.contains(deviceName) {
                 self.bluetoothHistory.append(deviceName)
             }
         }
         
-        if isConnected && !notifyOnBluetoothConnect { return }
-        if !isConnected && !notifyOnBluetoothDisconnect { return }
-        if bluetoothBlocklist.contains(deviceName) { return }
+        let isAccessory = deviceAddress == "AIRPODS_CONNECTION" || self.isBluetoothAccessory(deviceName) || deviceName.lowercased().contains("airpods")
+        
+        if isConnected && !notifyOnBluetoothConnect && deviceAddress != "AIRPODS_CONNECTION" { return }
+        if !isConnected && !notifyOnBluetoothDisconnect && deviceAddress != "AIRPODS_CONNECTION" { return }
+        if bluetoothBlocklist.contains(deviceName) && deviceAddress != "AIRPODS_CONNECTION" { return }
+        if isAccessory && deviceAddress != "AIRPODS_CONNECTION" { return }
         
         let now = Date()
         let eventKey = "\(deviceAddress)_\(isConnected ? "connect" : "disconnect")"
+        
         if let lastTime = lastBluetoothEventTimeByDevice[eventKey], now.timeIntervalSince(lastTime) < 2.0 {
             return
         }
@@ -69,6 +77,9 @@ extension MediaKeyManager {
         
         let soundToPlay = isConnected ? soundOnBluetoothConnect : soundOnBluetoothDisconnect
         playNotificationSound(named: soundToPlay)
+        
+        // Dismiss the native macOS Bluetooth connection overlay
+        NativeOverlayDismisser.shared.onSystemEvent(type: .bluetooth)
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -82,8 +93,8 @@ extension MediaKeyManager {
                     self.activeBluetoothNotifications[idx] = newNotif
                 } else {
                     self.activeBluetoothNotifications.append(newNotif)
-                    self.notifyOverlayStateChanged()
                 }
+                self.notifyOverlayStateChanged()
                 self.enforceNotificationLimit()
             }
             
@@ -97,9 +108,10 @@ extension MediaKeyManager {
         }
     }
     
-    func triggerAccessoryConnection(deviceName: String, deviceAddress: String, isConnected: Bool) {
+    func triggerAccessoryConnection(deviceName: String, deviceAddress: String, isConnected: Bool, playSound: Bool = true) {
         let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
         if premiumKey.isEmpty { return }
+        if !self.enableBluetooth { return }
         
         let settings = accessorySettings[deviceName] ?? AccessoryDeviceSettings()
         if !settings.enableOverlay { return }
@@ -113,8 +125,10 @@ extension MediaKeyManager {
         }
         lastBluetoothEventTimeByDevice[eventKey] = now
         
-        let soundToPlay = isConnected ? settings.soundOnConnect : settings.soundOnDisconnect
-        playNotificationSound(named: soundToPlay)
+        let sound = isConnected ? settings.soundOnConnect : settings.soundOnDisconnect
+        if playSound && !sound.isEmpty {
+            playNotificationSound(named: sound)
+        }
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -128,8 +142,8 @@ extension MediaKeyManager {
                     self.activeBluetoothNotifications[idx] = newNotif
                 } else {
                     self.activeBluetoothNotifications.append(newNotif)
-                    self.notifyOverlayStateChanged()
                 }
+                self.notifyOverlayStateChanged()
                 self.enforceNotificationLimit()
             }
             

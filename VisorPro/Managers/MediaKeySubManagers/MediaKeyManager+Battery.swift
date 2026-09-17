@@ -74,16 +74,21 @@ extension MediaKeyManager {
     }
 
     func triggerAccessoryBatteryIndicator(deviceName: String, percentage: Int, isPluggedIn: Bool, isWarning: Bool, customSound: String? = nil) {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
-
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            guard self.enableBluetooth else { return }
             
             self.accessoryBatteryLevels[deviceName] = percentage
             self.accessoryBatteryCharging[deviceName] = isPluggedIn
             
-            let settings = self.accessorySettings[deviceName] ?? AccessoryDeviceSettings()
+            let baseName: String = {
+                if deviceName.hasSuffix(" (Left)") { return String(deviceName.dropLast(7)) }
+                if deviceName.hasSuffix(" (Right)") { return String(deviceName.dropLast(8)) }
+                if deviceName.hasSuffix(" (Case)") { return String(deviceName.dropLast(7)) }
+                return deviceName
+            }()
+            
+            let settings = self.accessorySettings[baseName] ?? AccessoryDeviceSettings()
             if !settings.enableOverlay { return }
             
             if !self.accessoryBatteryHistory.contains(deviceName) {
@@ -91,7 +96,30 @@ extension MediaKeyManager {
             }
             if self.accessoryBatteryBlocklist.contains(deviceName) { return }
             
-            self.accessoryBatteryDeviceName = deviceName
+            let isVisible = self.showAccessoryBatteryIndicator
+            let currentBase: String = {
+                if self.accessoryBatteryDeviceName.hasSuffix(" (Left & Right)") { return String(self.accessoryBatteryDeviceName.dropLast(15)) }
+                if self.accessoryBatteryDeviceName.hasSuffix(" (Left)") { return String(self.accessoryBatteryDeviceName.dropLast(7)) }
+                if self.accessoryBatteryDeviceName.hasSuffix(" (Right)") { return String(self.accessoryBatteryDeviceName.dropLast(8)) }
+                if self.accessoryBatteryDeviceName.hasSuffix(" (Case)") { return String(self.accessoryBatteryDeviceName.dropLast(7)) }
+                return self.accessoryBatteryDeviceName
+            }()
+            
+            if isVisible && currentBase == baseName && self.accessoryBatteryPercentage == percentage {
+                let isCurrentLeft = self.accessoryBatteryDeviceName.hasSuffix(" (Left)")
+                let isCurrentRight = self.accessoryBatteryDeviceName.hasSuffix(" (Right)")
+                let isNewLeft = deviceName.hasSuffix(" (Left)")
+                let isNewRight = deviceName.hasSuffix(" (Right)")
+                
+                if (isCurrentLeft && isNewRight) || (isCurrentRight && isNewLeft) {
+                    self.accessoryBatteryDeviceName = baseName + " (Left & Right)"
+                } else if self.accessoryBatteryDeviceName != deviceName && !self.accessoryBatteryDeviceName.hasSuffix(" (Left & Right)") {
+                    self.accessoryBatteryDeviceName = deviceName
+                }
+            } else {
+                self.accessoryBatteryDeviceName = deviceName
+            }
+            
             self.accessoryBatteryPercentage = percentage
             self.accessoryBatteryIsPluggedIn = isPluggedIn
             self.accessoryBatteryIsWarning = isWarning
@@ -100,7 +128,7 @@ extension MediaKeyManager {
                 self.playNotificationSound(named: sound)
             }
             
-            self.accessoryBatteryTimer?.invalidate()
+            self.notificationTimers["accessoryBattery"]?.invalidate()
             let pos = self.getOverlayPosition(for: "batteryOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "accessoryBattery")
             withAnimation(.easeInOut(duration: 0.15)) {
@@ -111,7 +139,7 @@ extension MediaKeyManager {
             }
             
             let displayTime: TimeInterval = isWarning ? 4.5 : 3.5
-            self.accessoryBatteryTimer = Timer.scheduledTimer(withTimeInterval: displayTime, repeats: false) { [weak self] _ in
+            self.notificationTimers["accessoryBattery"] = Timer.scheduledTimer(withTimeInterval: displayTime, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.showAccessoryBatteryIndicator = false
                 }
@@ -138,6 +166,63 @@ extension MediaKeyManager {
                 }
             } catch {
                 LogManager.shared.log("Error in MediaKeyManager.swift: \(error)", level: "ERROR")
+            }
+        }
+    }
+
+    func dismissAirpodsGroupBatteryIndicator() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if self.showAirpodsGroupBatteryIndicator {
+                self.cancelOverlayHide(for: "airpodsGroupBattery")
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    self.showAirpodsGroupBatteryIndicator = false
+                    self.notifyOverlayStateChanged()
+                }
+            }
+        }
+    }
+    
+    func triggerAirpodsGroupBatteryIndicator(deviceName: String = "AirPods", leftBattery: Int, leftCharging: Bool, rightBattery: Int, rightCharging: Bool, caseBattery: Int, caseCharging: Bool) {
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+        if !self.enableBluetooth { return }
+        
+        let settings = accessorySettings[deviceName] ?? AccessoryDeviceSettings()
+        if !settings.enableOverlay || !settings.notifyOnCaseOpen { return }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            OverlayStateRelay.shared.airpodsDeviceName = deviceName
+            OverlayStateRelay.shared.airpodsLeftBattery = leftBattery
+            OverlayStateRelay.shared.airpodsLeftCharging = leftCharging
+            OverlayStateRelay.shared.airpodsRightBattery = rightBattery
+            OverlayStateRelay.shared.airpodsRightCharging = rightCharging
+            OverlayStateRelay.shared.airpodsCaseBattery = caseBattery
+            OverlayStateRelay.shared.airpodsCaseCharging = caseCharging
+            
+            let wasVisible = self.showAirpodsGroupBatteryIndicator
+            
+            if !wasVisible {
+                self.cancelOverlayHide(for: "airpodsGroupBattery")
+                if !settings.soundOnCaseOpen.isEmpty {
+                    self.playNotificationSound(named: settings.soundOnCaseOpen)
+                }
+            }
+            let pos = self.getOverlayPosition(for: "batteryOverlayPosition")
+            self.dismissCollidingIndicators(newPosition: pos, source: "airpodsGroupBattery")
+            
+            withAnimation(.easeInOut(duration: 0.15)) {
+                if !wasVisible {
+                    self.airpodsGroupBatteryEventId = UUID()
+                    OverlayStateRelay.shared.airpodsGroupBatteryTimerId = UUID()
+                }
+                self.showAirpodsGroupBatteryIndicator = true
+                self.notifyOverlayStateChanged()
+                if !wasVisible {
+                    self.overlayTriggerTimes["airpodsGroupBattery"] = Date()
+                }
             }
         }
     }

@@ -380,4 +380,66 @@ extension MediaKeyManager {
             }
         }
     }
+    
+    // MARK: - AirPods Mode
+    
+    func triggerAirPodsModeOverlay(mode: Int) {
+        if !enableBluetooth { return }
+        
+        let changed = (OverlayStateRelay.shared.airPodsModeValue != mode)
+        if changed {
+            OverlayStateRelay.shared.previousAirPodsModeValue = OverlayStateRelay.shared.airPodsModeValue
+        }
+        
+        var shouldShow = true
+        if mode == 1 { shouldShow = false } // Never show for Off
+        if mode == 2 && !notifyOnAirPodsANC { shouldShow = false }
+        if mode == 4 && !notifyOnAirPodsAdaptive { shouldShow = false }
+        if mode == 3 && !notifyOnAirPodsTransparency { shouldShow = false }
+        
+        // Sounds for listening modes are handled by AirPods themselves
+        
+        let isHovering = globalHoveredTypes.contains("airpodsMode") || actualHoveredTypes.contains("airpodsMode")
+        
+        // External change while visible
+        if showAirPodsModeIndicator && changed && !isHovering {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                OverlayStateRelay.shared.showAirPodsModeIndicator = false
+            }
+            
+            if !shouldShow {
+                OverlayStateRelay.shared.airPodsModeValue = mode
+                return
+            }
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                OverlayStateRelay.shared.airPodsModeValue = mode
+                OverlayStateRelay.shared.airPodsModeEventId = UUID()
+                OverlayStateRelay.shared.showAirPodsModeIndicator = true
+                self.overlayTriggerTimes["airpodsMode"] = Date()
+                self.scheduleOverlayHide(for: "airpodsMode")
+            }
+            return
+        }
+        
+        // If we shouldn't show it and it wasn't an external change while visible
+        if !shouldShow {
+            OverlayStateRelay.shared.airPodsModeValue = mode
+            return 
+        }
+        
+        OverlayStateRelay.shared.airPodsModeValue = mode
+        OverlayStateRelay.shared.airPodsModeEventId = UUID()
+        
+        if showAirPodsModeIndicator {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                // Animation triggers timeout progress bar reset
+            }
+        } else {
+            OverlayStateRelay.shared.showAirPodsModeIndicator = true
+        }
+        
+        self.overlayTriggerTimes["airpodsMode"] = Date()
+        self.scheduleOverlayHide(for: "airpodsMode")
+    }
 }

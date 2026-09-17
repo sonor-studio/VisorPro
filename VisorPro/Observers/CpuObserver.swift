@@ -32,7 +32,7 @@ class CpuObserver: ObservableObject {
     }
     
     private func startObserving() {
-        // Uruchamiamy odpytywanie co 3 sekundy
+        // Poll every 3 seconds
         timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
             self?.updateTemperature()
         }
@@ -40,38 +40,37 @@ class CpuObserver: ObservableObject {
     }
     
     private func updateTemperature() {
-        // Uruchamiamy zadanie asynchroniczne, ponieważ biblioteka korzysta z aktorów (async/await)
+        // Run asynchronous task because SMCKit uses actors (async/await)
         Task {
-            var currentTemp = 45.0 // Wartość domyślna w razie błędu odczytu
+            var currentTemp = 45.0 // Default value in case of read error
             
             do {
                 if let knownKey = workingSensorKey {
-                    // Jeśli już wiemy, który czujnik działa na tym Macu, używamy go od razu
+                    // If we already know which sensor works on this Mac, use it directly
                     let temp: Float = try SMCKit.shared.read(toFourCharCode(knownKey))
                     currentTemp = Double(temp)
                 } else {
-                    // Pierwsze uruchomienie: szukamy działającego czujnika
+                    // First run: find a working sensor
                     for key in sensorKeys {
                         do {
                             let temp: Float = try SMCKit.shared.read(toFourCharCode(key))
-                            if temp > 10.0 { // Upewniamy się, że odczyt jest sensowny (nie 0.0)
+                            if temp > 10.0 { // Ensure the reading is reasonable (not 0.0)
                                 workingSensorKey = key
                                 currentTemp = Double(temp)
                                 break
                             }
                         } catch {
-                            LogManager.shared.log("Error in CpuObserver.swift: \(error)", level: "ERROR")
-                            // Ten czujnik nie istnieje na tym Macu, próbujemy następny
+                            // This sensor doesn't exist on this Mac, try the next one
                             continue
                         }
                     }
                 }
             } catch {
-                LogManager.shared.log("Error in CpuObserver.swift: \(error)", level: "ERROR")
-                workingSensorKey = nil // W razie awarii resetujemy klucz, by poszukał go ponownie
+                LogManager.shared.log("Error in CpuObserver.swift reading sensor: \(error)", level: "ERROR")
+                workingSensorKey = nil // Reset key on failure so it searches again next time
             }
             
-            // Wracamy na wątek główny aby zaktualizować UI
+            // Update UI on main thread
             await MainActor.run {
                 MediaKeyManager.shared.triggerCpuTempOverlay(temp: currentTemp)
             }
@@ -92,7 +91,7 @@ class CpuObserver: ObservableObject {
                 try task.run()
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 if let output = String(data: data, encoding: .utf8) {
-                    // top -l 2 zwraca dwa odczyty. Interesuje nas ten drugi, bo pierwszy jest zazwyczaj niedokładny.
+                    // top -l 2 returns two samples. We are interested in the second one, as the first is usually inaccurate.
                     let components = output.components(separatedBy: "PID    %CPU COMMAND")
                     guard components.count >= 3, let lastBlock = components.last else { return }
                     
@@ -107,7 +106,7 @@ class CpuObserver: ObservableObject {
                         guard parts.count >= 3 else { continue }
                         
                         if let pid = Int32(parts[0]), let pcpu = Double(parts[1]) {
-                            if pcpu > 1.0 { // Pomijamy procesy < 1%
+                            if pcpu > 1.0 { // Skip processes using < 1% CPU
                                 var name = parts[2...].joined(separator: " ")
                                 var icon: NSImage? = nil
                                 
@@ -131,7 +130,7 @@ class CpuObserver: ObservableObject {
                                     } else if name == "kernel_task" || name == "WindowServer" || name == "launchd" {
                                         icon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
                                     } else if name == "top" {
-                                        continue // Nie pokazujemy samego narzędzia diagnostycznego
+                                        continue // Hide the diagnostic tool itself
                                     } else {
                                         icon = NSImage(systemSymbolName: "terminal.fill", accessibilityDescription: nil)
                                     }
@@ -150,8 +149,7 @@ class CpuObserver: ObservableObject {
                     }
                 }
             } catch {
-                LogManager.shared.log("Error in CpuObserver.swift: \(error)", level: "ERROR")
-                print("Błąd top w CPU: \(error)")
+                LogManager.shared.log("Error in CpuObserver.swift running top: \(error)", level: "ERROR")
             }
         }
     }

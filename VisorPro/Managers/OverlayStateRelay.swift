@@ -249,8 +249,27 @@ class OverlayStateRelay: ObservableObject {
     @Published var accessoryBatteryIsPluggedIn: Bool = false
     @Published var accessoryBatteryIsWarning: Bool = false
     @Published var accessoryBatteryEventId: UUID = UUID()
+    @Published var airpodsGroupBatteryEventId: UUID = UUID()
+    @Published var airpodsGroupBatteryTimerId: UUID = UUID()
+    @Published var showAirpodsGroupBatteryIndicator: Bool = false
+    @Published var airpodsDeviceName: String = "AirPods"
+    @Published var airpodsLeftBattery: Int = 0
+    @Published var airpodsLeftCharging: Bool = false
+    @Published var airpodsRightBattery: Int = 0
+    @Published var airpodsRightCharging: Bool = false
+    @Published var airpodsCaseBattery: Int = 0
+    @Published var airpodsCaseCharging: Bool = false
+
     @Published var accessoryBatteryLevels: [String: Int] = [:]
     @Published var accessoryBatteryCharging: [String: Bool] = [:]
     @Published var accessoryConnectionIsConnected: Bool = true
     @Published var accessoryIsConnectionEvent: Bool = false
+    
+    // MARK: - AirPods Mode runtime
+    
+    @Published var showAirPodsModeIndicator: Bool = false
+    @Published var airPodsModeValue: Int = 1
+    @Published var previousAirPodsModeValue: Int? = nil
+    @Published var airPodsModeEventId: UUID = UUID()
+    @Published var isChangingAirPodsMode: Bool = false
 }

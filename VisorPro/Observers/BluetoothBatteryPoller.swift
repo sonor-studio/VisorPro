@@ -146,52 +146,29 @@ class BluetoothBatteryPoller {
         }
     }
     
-    private func processDevice(name: String, battery: Int) {
+    func processDevice(name: String, battery: Int, forcePluggedIn: Bool? = nil) {
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
             // Match icons
-            let icon: String
-            if name.hasSuffix("(Left)") {
-                icon = "airpodpro.left"
-            } else if name.hasSuffix("(Right)") {
-                icon = "airpodpro.right"
-            } else if name.hasSuffix("(Case)") {
-                icon = "airpodspro.chargingcase.wireless.fill"
-            } else if name.lowercased().contains("mouse") || name.lowercased().contains("mysz") {
-                icon = "magicmouse.fill"
-            } else if name.lowercased().contains("keyboard") || name.lowercased().contains("klawiatura") {
-                icon = "keyboard.fill"
-            } else if name.lowercased().contains("trackpad") {
-                icon = "magicmouse.fill"
-            } else if name.lowercased().contains("iphone") {
-                icon = "iphone"
-            } else if name.lowercased().contains("ipad") {
-                icon = "ipad"
-            } else if name.lowercased().contains("mac") {
-                icon = "macbook"
-            } else if name.lowercased().contains("watch") {
-                icon = "applewatch"
-            } else if name.lowercased().contains("controller") || name.lowercased().contains("pad") {
-                icon = "gamecontroller.fill"
-            } else if name.lowercased().contains("airpod") || name.lowercased().contains("headphone") || name.lowercased().contains("słuchawki") || name.lowercased().contains("buds") || name.lowercased().contains("ear") {
-                icon = "headphones"
-            } else {
-                icon = "bolt.batteryblock.fill"
-            }
+            
+            let icon = MediaKeyManager.fallbackIcon(for: name)
             
             self.manager?.peripheralIcons[name] = icon
             
             // Note: system_profiler doesn't easily tell us if it's currently plugged in/charging
             // so we assume isPluggedIn = false for simple wireless accessories.
             // Previously we checked if battery == 100, but that causes false charging states for fully charged headphones.
-            let isPluggedIn = false
+            let isPluggedIn = forcePluggedIn ?? false
             self.manager?.updateAccessoryState(deviceName: name, percentage: battery, isPluggedIn: isPluggedIn)
             
             let lastBat = self.lastLevels[name]
             
-            if let lastBat = lastBat, let settings = self.manager?.accessorySettings[name] {
+            let baseName = BluetoothBatteryPoller.baseName(for: name)
+            let isBlocked = self.manager?.accessoryBatteryBlocklist.contains(name) == true
+            
+            if let lastBat = lastBat, !isBlocked, let settings = self.manager?.accessorySettings[baseName] {
                 var shouldTrigger = false
                 var triggeredSound = settings.soundOn100Percent // Fallback
                 
@@ -203,7 +180,7 @@ class BluetoothBatteryPoller {
                 
                 // 2. Check custom thresholds
                 for threshold in settings.customThresholds where threshold.isEnabled {
-                    let hit = battery == threshold.percentage
+                    let hit = (battery == threshold.percentage) && (lastBat != battery)
                     let crossedDown = lastBat > threshold.percentage && battery < threshold.percentage
                     let crossedUp = lastBat < threshold.percentage && battery > threshold.percentage
                     
@@ -214,8 +191,9 @@ class BluetoothBatteryPoller {
                 }
                 
                 if shouldTrigger {
+                    let isWarn = battery < 100 // Treat all custom thresholds as warnings so the text is "Battery Alert", except 100% which is "Fully Charged"
                     // Pass the triggered sound to the manager so it plays the right one
-                    self.manager?.triggerAccessoryBatteryIndicator(deviceName: name, percentage: battery, isPluggedIn: isPluggedIn, isWarning: false, customSound: triggeredSound)
+                    self.manager?.triggerAccessoryBatteryIndicator(deviceName: name, percentage: battery, isPluggedIn: isPluggedIn, isWarning: isWarn, customSound: triggeredSound)
                 }
             }
             

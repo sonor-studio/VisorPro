@@ -267,6 +267,14 @@ class VisorProWindowManager: ObservableObject {
         if relay.showAccessoryBatteryIndicator {
             active.append(ActiveOverlay(id: "accessoryBattery", type: .accessoryBattery, position: accBatPos, notification: nil))
         }
+        if relay.showAirpodsGroupBatteryIndicator {
+            active.append(ActiveOverlay(id: "airpodsGroupBattery", type: .airpodsGroupBattery, position: accBatPos, notification: nil))
+        }
+        
+        if relay.showAirPodsModeIndicator {
+            let pos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")
+            active.append(ActiveOverlay(id: "airpodsMode", type: .airpodsMode, position: pos, notification: nil))
+        }
         
         let limit = max(1, MediaKeyManager.shared.maxSimultaneousNotifications)
         
@@ -708,6 +716,7 @@ class VisorProOverlayPanel: NSPanel {
 struct SingleOverlayContainer: View {
     let overlay: VisorProWindowManager.ActiveOverlay
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var overlayState: OverlayStateRelay
     
     private var currentOverlay: VisorProWindowManager.ActiveOverlay? {
         VisorProWindowManager.shared.allActiveOverlays.first(where: { $0.id == overlay.id })
@@ -736,6 +745,7 @@ struct SingleOverlayContainer: View {
         case .copy: CopyOverlayView()
         case .capsLock: CapsLockOverlayView()
         case .bluetooth: BluetoothOverlayView(notification: overlay.notification)
+        case .airpodsMode: AirPodsModeOverlayView()
         case .language: LanguageOverlayView()
         case .media: MediaOverlayView()
         case .theme: ThemeOverlayView()
@@ -749,6 +759,7 @@ struct SingleOverlayContainer: View {
         case .display: DisplayOverlayView(notification: overlay.notification)
         case .ram: RamOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
+        case .airpodsGroupBattery: AirPodsGroupBatteryOverlayView()
         case .cpu: CpuTemperatureOverlayView(isPreview: false)
         case .trash: TrashOverlayView()
         case .fileDeleted: FileDeletedOverlayView()

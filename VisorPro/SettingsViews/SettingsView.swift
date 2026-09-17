@@ -185,7 +185,7 @@ struct SettingsView: View {
                     return name
                 })).sorted()
                 
-                if !accessories.isEmpty {
+                if !accessories.isEmpty && mediaKeyManager.enableBluetooth {
                     Section("Accessories") {
                         ForEach(accessories, id: \.self) { accessoryName in
                             Label {
@@ -193,9 +193,7 @@ struct SettingsView: View {
                             } icon: {
                                 let deviceIcon = mediaKeyManager.peripheralIcons[accessoryName] ?? MediaKeyManager.fallbackIcon(for: accessoryName)
                                 let isBluetooth = mediaKeyManager.isBluetoothAccessory(accessoryName)
-                                let activeColor = isBluetooth 
-                                    ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo)
-                                    : OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: .teal)
+                                let activeColor: Color = isBluetooth ? .indigo : .teal
                                     
                                 SidebarIcon(systemName: deviceIcon, color: activeColor)
                             }
@@ -288,6 +286,26 @@ struct SettingsView: View {
         .frame(minWidth: 850, maxWidth: .infinity, minHeight: 500, maxHeight: .infinity)
         .background(WindowAccessor(window: $window))
         .background(VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow).ignoresSafeArea())
+        .onChange(of: mediaKeyManager.accessoryBatteryHistory) { _, newHistory in
+            if case .accessory(let selectedName) = selection {
+                let currentAccessories = Array(Set(newHistory.map { name -> String in
+                    if name.hasSuffix(" (Left)") { return String(name.dropLast(7)) }
+                    if name.hasSuffix(" (Right)") { return String(name.dropLast(8)) }
+                    if name.hasSuffix(" (Case)") { return String(name.dropLast(7)) }
+                    return name
+                }))
+                if !currentAccessories.contains(selectedName) {
+                    selection = .general
+                }
+            }
+        }
+        .onChange(of: mediaKeyManager.enableBluetooth) { _, isEnabled in
+            if !isEnabled {
+                if case .accessory(_) = selection {
+                    selection = .general
+                }
+            }
+        }
         .onChange(of: window) { _, newWindow in
             if let w = newWindow {
                 w.isOpaque = false

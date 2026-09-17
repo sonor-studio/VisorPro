@@ -24,6 +24,7 @@ struct VisorProApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
+        NativeOverlayDismisser.shared.start()
         UserDefaultsMigrator.migrate()
         NSSetUncaughtExceptionHandler { exception in
             LogManager.shared.log("Uncaught Exception: \(exception.name.rawValue) - \(exception.reason ?? "No reason")", level: "FATAL")
@@ -202,6 +203,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let _ = CpuObserver.shared
         let _ = RamObserver.shared
         let _ = TrashObserver.shared
+        let _ = AirPodsBatteryManager.shared
         
         UpdateManager.shared.checkForUpdates()
         

@@ -111,7 +111,9 @@ struct BluetoothSettingsView: View {
                                 .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                         )
                     
-                        let filteredHistory = mediaKeyManager.bluetoothHistory.filter { !mediaKeyManager.accessoryBatteryHistory.contains($0) }
+                        let filteredHistory = mediaKeyManager.bluetoothHistory.filter { device in
+                            !mediaKeyManager.accessoryBatteryHistory.contains { $0.hasPrefix(device) || device.hasPrefix($0) }
+                        }
                         if !filteredHistory.isEmpty {
                             let displayedHistory = isHistoryExpanded ? filteredHistory : Array(filteredHistory.prefix(3))
                         
@@ -201,7 +203,7 @@ struct BluetoothSettingsView: View {
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                         }
-                    
+
                         Text("Behavior")
                             .font(.headline)
                             .foregroundColor(.secondary)

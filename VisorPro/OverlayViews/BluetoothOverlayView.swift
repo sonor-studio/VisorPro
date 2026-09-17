@@ -9,6 +9,8 @@ struct BluetoothOverlayView: View {
     @State private var refreshTimer: Timer?
     @State private var isExpanded: Bool = false
     @State private var showDetails: Bool = false
+    @State private var hasWaitedForDetails: Bool = false
+    @State private var isDisconnecting: Bool = false
     var isPreview: Bool = false
     var previewIsAccessory: Bool = false
     var previewIsConnected: Bool = true
@@ -28,14 +30,54 @@ struct BluetoothOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo) : .secondary
+        if mediaKeyManager.overlayColorMode == "custom", (isPreview && previewIsAccessory) || notification?.type == "accessory" || actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION" {
+            let baseName = actualDeviceName
+            var settings = mediaKeyManager.accessorySettings[baseName]
+            
+            if settings == nil, (actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION") {
+                settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased().contains("airpods") })?.value
+            }
+            if settings == nil {
+                settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased() == baseName.lowercased() })?.value
+            }
+            if settings == nil, let notifName = notification?.deviceName {
+                settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased() == notifName.lowercased() })?.value
+            }
+            
+            let finalSettings = settings ?? AccessoryDeviceSettings()
+            
+            if actualIsConnected && finalSettings.colorOnConnect != "Default" { return OverlayColorManager.shared.parseColor(finalSettings.colorOnConnect) }
+            if !actualIsConnected && finalSettings.colorOnDisconnect != "Default" { return OverlayColorManager.shared.parseColor(finalSettings.colorOnDisconnect) }
+        }
+        return actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo) : .secondary
     }
     
     private var actionTitle: String {
-        if (isPreview && previewIsAccessory) || notification?.type == "accessory" {
-            return actualIsConnected ? "Accessory Connected" : "Accessory Disconnected"
+        let name = actualDeviceName.lowercased()
+        let deviceId = isPreview ? "00:11:22:33:44:55" : (notification?.id ?? "")
+        let typeInfo = isPreview ? (name.contains("mouse") ? "mouse" : (name.contains("keyboard") ? "keyboard" : "headphones")) : (mediaKeyManager.bluetoothDetails[deviceId]?["Typ"]?.lowercased() ?? "")
+        
+        let prefix: String
+        
+        if let notif = notification, notif.id == "AIRPODS_CONNECTION" {
+            prefix = "AirPods"
+        } else if name.contains("airpods") {
+            prefix = "AirPods"
+        } else if name.contains("headphones") || name.contains("słuchawki") || name.contains("headset") || typeInfo.contains("headphones") || typeInfo.contains("słuchawki") {
+            prefix = "Headphones"
+        } else if name.contains("mouse") || name.contains("mysz") || typeInfo.contains("mouse") {
+            prefix = "Mouse"
+        } else if name.contains("keyboard") || name.contains("klawiatura") || typeInfo.contains("keyboard") {
+            prefix = "Keyboard"
+        } else if name.contains("trackpad") || typeInfo.contains("trackpad") {
+            prefix = "Trackpad"
+        } else if (isPreview && previewIsAccessory) || notification?.type == "accessory" {
+            prefix = "Accessory"
+        } else {
+            prefix = "Bluetooth"
         }
-        return actualIsConnected ? "Bluetooth Connected" : "Bluetooth Disconnected"
+        
+        return actualIsConnected ? "\(prefix) Connected" : "\(prefix) Disconnected"
     }
     
     private func iconFor(suffix: String, deviceName: String, fallbackIcon: String? = nil) -> String {
@@ -84,16 +126,46 @@ struct BluetoothOverlayView: View {
     var body: some View {
         
         let deviceId = isPreview ? "00:11:22:33:44:55" : (notification?.id ?? "")
-        let hasDetails = isPreview ? MediaKeyManager.shared.isBluetoothAccessory(actualDeviceName) : mediaKeyManager.bluetoothDetails[deviceId] != nil
-        let systemName = mediaKeyManager.bluetoothDetails[deviceId]?["SystemName"] ?? actualDeviceName
+        let isAirPods = notification?.id == "AIRPODS_CONNECTION" || actualDeviceName.lowercased().contains("airpods")
+        
+        let resolvedDetails: [String: String]? = {
+            if isPreview { 
+                var type = "Device"
+                if actualDeviceName.lowercased().contains("mouse") { type = "Mouse" }
+                else if actualDeviceName.lowercased().contains("keyboard") { type = "Keyboard" }
+                else if actualDeviceName.lowercased().contains("headphones") || actualDeviceName.lowercased().contains("airpods") { type = "Headphones" }
+                return ["MAC": "00:11:22:33:44:55", "Typ": type, "Firmware": "1.0.0", "RSSI": "-45 dBm", "SystemName": actualDeviceName] 
+            }
+            if let directDetails = mediaKeyManager.bluetoothDetails[deviceId] { return directDetails }
+            if isAirPods {
+                if let match = mediaKeyManager.bluetoothDetails.first(where: { $0.value["SystemName"]?.lowercased().contains("airpods") == true }) {
+                    return match.value
+                }
+            }
+            return nil
+        }()
+        
+        let hasDetails = isPreview ? MediaKeyManager.shared.isBluetoothAccessory(actualDeviceName) : resolvedDetails != nil
+        let hasRealDetails = isPreview ? true : (resolvedDetails != nil && !resolvedDetails!.isEmpty)
+        let systemName = resolvedDetails?["SystemName"] ?? actualDeviceName
         let deviceBatteries = overlayState.accessoryBatteryLevels.filter { $0.key.hasPrefix(systemName) }
-        let effectiveDeviceBatteries: [String: Int] = isPreview ? [
+        var effectiveDeviceBatteries: [String: Int] = isPreview ? [
             "\(systemName) (Left)": 85,
             "\(systemName) (Right)": 100,
             "\(systemName) (Case)": 20
         ] : deviceBatteries.reduce(into: [:]) { $0[$1.key] = $1.value }
         
-        let isAccessoryType = (isPreview && previewIsAccessory) || notification?.type == "accessory"
+        if isAirPods && !isPreview {
+            effectiveDeviceBatteries.removeAll()
+            let left = overlayState.airpodsLeftBattery
+            let right = overlayState.airpodsRightBattery
+            let caseBat = overlayState.airpodsCaseBattery
+            if left > 0 { effectiveDeviceBatteries["\(systemName) (Left)"] = left }
+            if right > 0 { effectiveDeviceBatteries["\(systemName) (Right)"] = right }
+            if caseBat > 0 { effectiveDeviceBatteries["\(systemName) (Case)"] = caseBat }
+        }
+        
+        let isAccessoryType = (isPreview && previewIsAccessory) || notification?.type == "accessory" || isAirPods
         
         let averageBattery: Int? = {
             if effectiveDeviceBatteries.isEmpty { return nil }
@@ -101,12 +173,34 @@ struct BluetoothOverlayView: View {
             if !earbudBatteries.isEmpty {
                 return earbudBatteries.values.reduce(0, +) / earbudBatteries.count
             }
+            if isAirPods { return nil }
             return effectiveDeviceBatteries.values.reduce(0, +) / effectiveDeviceBatteries.count
         }()
         
-        let accessoryBatteryColor: Color = hasDetails 
-            ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo)
-            : OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: .blue)
+        let accessoryBatteryColor: Color = {
+            if mediaKeyManager.overlayColorMode == "custom", (isPreview && previewIsAccessory) || notification?.type == "accessory" || actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION" {
+                let baseName = actualDeviceName
+                var settings = mediaKeyManager.accessorySettings[baseName]
+                
+                if settings == nil, (actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION") {
+                    settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased().contains("airpods") })?.value
+                }
+                if settings == nil {
+                    settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased() == baseName.lowercased() })?.value
+                }
+                if settings == nil, let notifName = notification?.deviceName {
+                    settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased() == notifName.lowercased() })?.value
+                }
+                
+                let finalSettings = settings ?? AccessoryDeviceSettings()
+                
+                if actualIsConnected && finalSettings.colorOnConnect != "Default" { return OverlayColorManager.shared.parseColor(finalSettings.colorOnConnect) }
+                if !actualIsConnected && finalSettings.colorOnDisconnect != "Default" { return OverlayColorManager.shared.parseColor(finalSettings.colorOnDisconnect) }
+            }
+            return MediaKeyManager.shared.isBluetoothAccessory(actualDeviceName)
+                ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo)
+                : OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: .blue)
+        }()
         
         var rowsCount = 0
         if isPreview {
@@ -119,6 +213,7 @@ struct BluetoothOverlayView: View {
         }
         
         let nameLower = actualDeviceName.lowercased()
+        let typeInfo = isPreview ? "headphones" : (mediaKeyManager.bluetoothDetails[deviceId]?["Typ"]?.lowercased() ?? "")
         
         let iconName: String = {
             if let customIcon = mediaKeyManager.peripheralIcons[systemName], customIcon != "bolt.batteryblock.fill" {
@@ -132,16 +227,16 @@ struct BluetoothOverlayView: View {
                 return customIcon
             }
             if nameLower.contains("airpods") { return "airpods" }
-            if nameLower.contains("mouse") { return "magicmouse" }
-            if nameLower.contains("keyboard") { return "keyboard" }
-            if nameLower.contains("trackpad") { return "magicmouse" }
-            if nameLower.contains("iphone") { return "iphone" }
-            if nameLower.contains("ipad") { return "ipad" }
-            if nameLower.contains("mac") { return "macbook" }
-            if nameLower.contains("watch") { return "applewatch" }
-            if nameLower.contains("controller") || nameLower.contains("pad") { return "gamecontroller.fill" }
-            if nameLower.contains("headphone") || nameLower.contains("słuchawki") || nameLower.contains("buds") || nameLower.contains("ear") { return "headphones" }
-            if nameLower.contains("speaker") { return "speaker.wave.2" }
+            if nameLower.contains("mouse") || typeInfo.contains("mouse") { return "magicmouse" }
+            if nameLower.contains("keyboard") || typeInfo.contains("keyboard") { return "keyboard" }
+            if nameLower.contains("trackpad") || typeInfo.contains("trackpad") { return "magicmouse" }
+            if nameLower.contains("iphone") || typeInfo.contains("iphone") { return "iphone" }
+            if nameLower.contains("ipad") || typeInfo.contains("ipad") { return "ipad" }
+            if nameLower.contains("mac") || typeInfo.contains("mac") { return "macbook" }
+            if nameLower.contains("watch") || typeInfo.contains("watch") { return "applewatch" }
+            if nameLower.contains("controller") || nameLower.contains("pad") || typeInfo.contains("gamepad") { return "gamecontroller.fill" }
+            if nameLower.contains("headphone") || nameLower.contains("słuchawki") || nameLower.contains("buds") || nameLower.contains("ear") || typeInfo.contains("headphones") || typeInfo.contains("słuchawki") { return "headphones" }
+            if nameLower.contains("speaker") || typeInfo.contains("speaker") { return "speaker.wave.2" }
             return "point.3.connected.trianglepath.dotted"
         }()
         
@@ -151,11 +246,11 @@ struct BluetoothOverlayView: View {
         return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: $isExpanded,
-            showProgressBar: isAccessoryType ? (actualIsConnected ? averageBattery != nil : true) : true,
-            progress: isAccessoryType && actualIsConnected ? CGFloat(averageBattery ?? 100) / 100.0 : 1.0,
-            hasTimeoutProgress: isAccessoryType ? !actualIsConnected : true,
+            showProgressBar: true,
+            progress: (isAccessoryType && actualIsConnected && averageBattery != nil) ? CGFloat(averageBattery!) / 100.0 : 1.0,
+            hasTimeoutProgress: (isAccessoryType && actualIsConnected && averageBattery != nil) ? false : true,
             timeoutEventId: notification?.timestamp ?? Date(timeIntervalSince1970: 0),
-            barColor: isAccessoryType && actualIsConnected ? accessoryBatteryColor : (actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .blue) : .offStateGray),
+            barColor: isAccessoryType && actualIsConnected ? accessoryBatteryColor : (actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo) : .offStateGray),
             fillCenter: false,
             isMuted: false,
             customWidth: 260,
@@ -168,10 +263,10 @@ struct BluetoothOverlayView: View {
                     }
                 }
             },
-            isExpandable: bluetoothAllowExpansion && (!isAccessoryType || actualIsConnected || hasDetails),
+            isExpandable: bluetoothAllowExpansion,
             expandUpwards: btPos.hasPrefix("bottom"),
             keepAliveId: keepAliveType,
-            disableTimeoutMode: isAccessoryType && actualIsConnected,
+            disableTimeoutMode: isAccessoryType && actualIsConnected && averageBattery != nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)
@@ -209,9 +304,16 @@ struct BluetoothOverlayView: View {
                         .opacity(0.5)
                     
                     if actualIsConnected && !hasDetails && effectiveDeviceBatteries.isEmpty && !isAccessoryType {
-                        ProgressView()
-                            .scaleEffect(0.6)
-                            .frame(height: 50)
+                        if hasWaitedForDetails {
+                            Text("No details available")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .padding(.vertical, 12)
+                        } else {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .frame(height: 50)
+                        }
                     } else if actualIsConnected {
                         if !effectiveDeviceBatteries.isEmpty {
                             VStack(spacing: 12) {
@@ -248,34 +350,35 @@ struct BluetoothOverlayView: View {
                                     Spacer()
                                 }
                                 .padding(.vertical, 4)
-                                
-                                Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        showDetails.toggle()
+                                if hasRealDetails {
+                                    Button(action: {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            showDetails.toggle()
+                                        }
+                                    }) {
+                                        Text(showDetails ? "Hide Details" : "Show Details")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundColor(.primary)
+                                            .padding(.horizontal, 14)
+                                            .padding(.vertical, 6)
+                                            .background(Color.primary.opacity(0.1))
+                                            .cornerRadius(12)
                                     }
-                                }) {
-                                    Text(showDetails ? "Hide Details" : "Show Details")
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(.primary)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 6)
-                                        .background(Color.primary.opacity(0.1))
-                                        .cornerRadius(12)
+                                    .buttonStyle(.plain)
+                                    .pointingHandCursor()
                                 }
-                                .buttonStyle(.plain)
-                                .pointingHandCursor()
                             }
                             
-                            if showDetails {
+                            if hasRealDetails && showDetails {
                                 Divider()
                                     .padding(.horizontal, 32)
                                     .opacity(0.3)
                             }
                         }
                         
-                        if showDetails || effectiveDeviceBatteries.isEmpty {
+                        if hasRealDetails && (showDetails || effectiveDeviceBatteries.isEmpty) {
                             VStack(spacing: 8) {
-                                if let details = isPreview ? ["MAC": "00:11:22:33:44:55", "Typ": "Headphones", "Firmware": "1.0.0", "RSSI": "-45 dBm", "SystemName": "AirPods Pro"] : mediaKeyManager.bluetoothDetails[deviceId] {
+                                if let details = resolvedDetails {
                                     if let mac = details["MAC"] {
                                         StatRow(icon: "network", label: "MAC Address", value: mac, allowShrink: true)
                                     }
@@ -299,15 +402,14 @@ struct BluetoothOverlayView: View {
                         if actualIsConnected {
                             Button(action: {
                                 if !isPreview {
-                                    mediaKeyManager.disconnectBluetoothDevice(macAddress: deviceId)
-                                }
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    isExpanded = false
+                                    isDisconnecting = true
+                                    let macToDisconnect = resolvedDetails?["MAC"] ?? deviceId
+                                    mediaKeyManager.disconnectBluetoothDevice(macAddress: macToDisconnect, deviceName: actualDeviceName)
                                 }
                             }) {
                                 HStack(spacing: 4) {
                                     Image(systemName: "xmark.circle.fill")
-                                    Text("Disconnect")
+                                    Text(isDisconnecting ? "Disconnecting" : "Disconnect")
                                 }
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundColor(.red)
@@ -317,7 +419,8 @@ struct BluetoothOverlayView: View {
                                 .cornerRadius(28 - 4 - 3)
                             }
                             .buttonStyle(.plain)
-                            .pointingHandCursor()
+                            .conditionalPointingHandCursor(isEnabled: !isDisconnecting)
+                            .disabled(isDisconnecting)
                         }
                         
                         Button(action: {
@@ -349,7 +452,12 @@ struct BluetoothOverlayView: View {
             }
         )
         .id(notification?.timestamp ?? Date(timeIntervalSince1970: 0))
-                .onChange(of: isExpanded) { _, expanded in
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                hasWaitedForDetails = true
+            }
+        }
+        .onChange(of: isExpanded) { _, expanded in
             if expanded && actualIsConnected {
                 refreshTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
                     mediaKeyManager.fetchBluetoothDetails()
@@ -358,6 +466,7 @@ struct BluetoothOverlayView: View {
                 refreshTimer?.invalidate()
                 refreshTimer = nil
                 showDetails = false
+                isDisconnecting = false
             }
         }
     }

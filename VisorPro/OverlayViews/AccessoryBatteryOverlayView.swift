@@ -38,6 +38,17 @@ struct AccessoryBatteryOverlayView: View {
     }
     
     private var batteryColor: Color {
+        if mediaKeyManager.overlayColorMode == "custom" {
+            let settings = mediaKeyManager.accessorySettings[baseName] ?? AccessoryDeviceSettings()
+            if isFullyCharged {
+                if settings.colorOn100Percent != "Default" { return OverlayColorManager.shared.parseColor(settings.colorOn100Percent) }
+            } else if isWarning {
+                if let thr = settings.customThresholds.first(where: { $0.percentage == percentage }) {
+                    if thr.color != "Default" { return OverlayColorManager.shared.parseColor(thr.color) }
+                }
+            }
+        }
+        
         // Don't force red for warning mode, rely on actual percentage
         if percentage <= 20 { return .red }
         if percentage <= 50 { return .yellow }
@@ -52,19 +63,7 @@ struct AccessoryBatteryOverlayView: View {
             if lower.contains("airpod") || lower.contains("headphone") { return "airpodspro" }
             return "headphones"
         }
-        return mediaKeyManager.peripheralIcons[deviceName] ?? accessoryIconFromName(deviceName)
-    }
-    
-    private func accessoryIconFromName(_ name: String) -> String {
-        let lower = name.lowercased()
-        if lower.hasSuffix("(left)") { return "airpodpro.left" }
-        if lower.hasSuffix("(right)") { return "airpodpro.right" }
-        if lower.hasSuffix("(case)") { return "airpodspro.chargingcase.wireless.fill" }
-        if lower.contains("mouse") || lower.contains("mysz") { return "magicmouse.fill" }
-        if lower.contains("keyboard") || lower.contains("klawiatura") { return "keyboard.fill" }
-        if lower.contains("trackpad") { return "magicmouse.fill" }
-        if lower.contains("airpod") { return "airpodspro" }
-        return "headphones"
+        return mediaKeyManager.peripheralIcons[deviceName] ?? MediaKeyManager.fallbackIcon(for: deviceName)
     }
     
     private var batteryIcon: String {
@@ -83,7 +82,7 @@ struct AccessoryBatteryOverlayView: View {
             if isWarning { baseStatus = "Battery Alert" }
             else if isFullyCharged { baseStatus = "Fully Charged" }
             else if isPluggedIn { baseStatus = "Charging" }
-            else { baseStatus = "Battery" }
+            else { baseStatus = "Unplugged" }
         }
         
         // For multi-component devices, show component type in status line
@@ -95,6 +94,7 @@ struct AccessoryBatteryOverlayView: View {
     
     /// For AirPods components, returns "Left Earbud", "Right Earbud", or "Case"
     private var componentLabel: String? {
+        if deviceName.hasSuffix(" (Left & Right)") { return "Left & Right" }
         if deviceName.hasSuffix(" (Left)") { return "Left" }
         if deviceName.hasSuffix(" (Right)") { return "Right" }
         if deviceName.hasSuffix(" (Case)") { return "Case" }
@@ -103,6 +103,7 @@ struct AccessoryBatteryOverlayView: View {
     
     /// Device name without the component suffix for cleaner display
     private var baseName: String {
+        if deviceName.hasSuffix(" (Left & Right)") { return String(deviceName.dropLast(15)) }
         if deviceName.hasSuffix(" (Left)") { return String(deviceName.dropLast(7)) }
         if deviceName.hasSuffix(" (Right)") { return String(deviceName.dropLast(8)) }
         if deviceName.hasSuffix(" (Case)") { return String(deviceName.dropLast(7)) }
@@ -121,7 +122,7 @@ struct AccessoryBatteryOverlayView: View {
             fillCenter: false,
             isMuted: !isWarning && !isPluggedIn && !isFullyCharged,
             customWidth: 260,
-            customHeight: isFullyCharged ? 56 : 72,
+            customHeight: 56,
             supportDragGesture: false,
             isExpandable: true,
             expandUpwards: batPos.hasPrefix("bottom"),
@@ -138,6 +139,8 @@ struct AccessoryBatteryOverlayView: View {
                         Text(statusText)
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                         
                         MarqueeText(text: baseName, font: .system(size: 13, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
@@ -159,13 +162,14 @@ struct AccessoryBatteryOverlayView: View {
                                 .frame(height: 32)
                             
                             HStack(spacing: 3) {
-                                Image(systemName: batteryIcon)
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.secondary)
                                 if isPluggedIn {
                                     Image(systemName: "bolt.fill")
-                                        .font(.system(size: 8))
-                                        .foregroundColor(.green)
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    Image(systemName: batteryIcon)
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.secondary)
                                 }
                             }
                             
@@ -194,6 +198,7 @@ struct AccessoryBatteryOverlayView: View {
                 animatedBatteryProgress = CGFloat(newValue) / 100.0
             }
         }
+        .id(overlayState.accessoryBatteryEventId)
     }
     
     private func runAnimation() {

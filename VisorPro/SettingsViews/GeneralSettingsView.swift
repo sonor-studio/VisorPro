@@ -13,6 +13,7 @@ struct GeneralSettingsView: View {
     @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = false
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
+    @AppStorage("dismissNativeOverlays") private var dismissNativeOverlays = false
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("globalOverlayPosition") private var globalOverlayPosition: String = "top"
@@ -416,6 +417,69 @@ struct GeneralSettingsView: View {
                                 .padding(.horizontal, 12)
                                 .padding(.leading, 20)
                             }
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
+                
+                
+                // MARK: - Native Overlays
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Native Overlays")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Auto-dismiss system overlays")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.primary)
+                                Text("Automatically dismisses native macOS notification pills (e.g. Focus mode, Bluetooth connection) that would otherwise duplicate VisorPro's overlays.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $dismissNativeOverlays).labelsHidden()
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        
+                        if dismissNativeOverlays {
+                            Divider().padding(.leading, 12)
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Requires Accessibility permission")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.orange)
+                                    Text("VisorPro must be listed in System Settings → Privacy & Security → Accessibility to dismiss system overlays.")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                if checkAXIsProcessTrustedReliably() {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                        .font(.system(size: 16))
+                                } else {
+                                    Button("Open Settings") {
+                                        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+                                        NSWorkspace.shared.open(url)
+                                    }
+                                    .font(.system(size: 12))
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .padding(.leading, 20)
                         }
                     }
                     .toggleStyle(.switch)

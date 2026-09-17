@@ -14,7 +14,7 @@ struct ContentView: View {
     @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
-        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, focus, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery, cpu, date, trash, fileDeleted
+        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, focus, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery, cpu, date, trash, fileDeleted, airpodsMode, airpodsGroupBattery
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -98,6 +98,14 @@ struct ContentView: View {
         
         if mediaKeyManager.showAccessoryBatteryIndicator {
             active.append(ActiveOverlay(id: "accessoryBattery", type: .accessoryBattery, position: batteryOverlayPosition, notification: nil))
+        }
+        if mediaKeyManager.showAirpodsGroupBatteryIndicator {
+            active.append(ActiveOverlay(id: "airpodsGroupBattery", type: .airpodsGroupBattery, position: batteryOverlayPosition, notification: nil))
+        }
+        
+        if mediaKeyManager.showAirPodsModeIndicator {
+            let pos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")
+            active.append(ActiveOverlay(id: "airpodsMode_\(mediaKeyManager.airPodsModeEventId)", type: .airpodsMode, position: pos, notification: nil))
         }
         
         let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)
@@ -257,6 +265,7 @@ struct ContentView: View {
         case .copy: CopyOverlayView()
         case .capsLock: CapsLockOverlayView()
         case .bluetooth: BluetoothOverlayView(notification: overlay.notification)
+        case .airpodsMode: AirPodsModeOverlayView()
         case .language: LanguageOverlayView()
         case .media: MediaOverlayView()
         case .theme: ThemeOverlayView()
@@ -271,6 +280,7 @@ struct ContentView: View {
         case .ram: RamOverlayView()
         case .cpu: CpuTemperatureOverlayView()
         case .accessoryBattery: AccessoryBatteryOverlayView()
+        case .airpodsGroupBattery: AirPodsGroupBatteryOverlayView()
         case .trash: TrashOverlayView()
         case .fileDeleted: FileDeletedOverlayView()
         }

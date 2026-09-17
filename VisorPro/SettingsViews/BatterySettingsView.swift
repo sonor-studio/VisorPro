@@ -166,6 +166,17 @@ struct BatterySettingsView: View {
     Toggle("", isOn: $mediaKeyManager.notifyOnUnplug).labelsHidden() }
                        
                                 }
+                            Divider().padding(.leading, 48)
+                            CustomSettingsRow(icon: "battery.25", iconColor: .orange, title: "Alert at 20%", subtitle: "Low battery warning") {
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOn20Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn20Percent) }
+                                    Toggle("", isOn: $mediaKeyManager.notifyOn20Percent).labelsHidden() }
+                            }
+                            Divider().padding(.leading, 48)
+                            CustomSettingsRow(icon: "battery.0", iconColor: .red, title: "Alert at 10%", subtitle: "Critical battery warning") {
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOn10Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn10Percent) }
+                                    Toggle("", isOn: $mediaKeyManager.notifyOn10Percent).labelsHidden() }
+                            }
+                            Divider().padding(.leading, 48)
                             ForEach($mediaKeyManager.batteryCustomThresholds) { $threshold in
                                 CustomSettingsRow(icon: "bell", iconColor: .green, title: "Alert at \(threshold.percentage)%", subtitle: "Custom battery threshold") {
                                     HStack(spacing: 8) {

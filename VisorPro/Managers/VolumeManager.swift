@@ -13,6 +13,7 @@ class VolumeManager {
     private var isInitialized: Bool = false
     private var pendingTask: DispatchWorkItem?
     private var lastProgrammaticChangeTime: Date = Date.distantPast
+    private var lastRouteChangeTime: Date = Date.distantPast
     
     private var currentOutputDeviceID: AudioDeviceID = 0
     private var volumeListenerBlock: AudioObjectPropertyListenerBlock?
@@ -42,11 +43,16 @@ class VolumeManager {
             DispatchQueue.main
         ) { [weak self] _, _ in
             guard let self = self else { return }
+            self.lastRouteChangeTime = Date()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                let oldName = MediaKeyManager.shared.currentAudioDeviceName
                 let newName = self.getCurrentAudioDeviceName()
                 MediaKeyManager.shared.currentAudioDeviceName = newName
                 MediaKeyManager.shared.audioDevicesChanged = UUID()
                 self.setupVolumeListener()
+                if newName != oldName {
+                    // AirPods connection overlays are now handled exclusively and reliably by AirPodsBatteryManager
+                }
             }
         }
         
@@ -63,6 +69,7 @@ class VolumeManager {
             DispatchQueue.main
         ) { [weak self] _, _ in
             guard let self = self else { return }
+            self.lastRouteChangeTime = Date()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 let newName = self.getCurrentInputDeviceName()
                 MediaKeyManager.shared.currentMicDeviceName = newName
@@ -110,7 +117,7 @@ class VolumeManager {
         var deviceName: CFString? = nil
         var deviceNameSize = UInt32(MemoryLayout<CFString?>.size)
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceNameCFString,
+            mSelector: kAudioObjectPropertyName,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
@@ -172,7 +179,7 @@ class VolumeManager {
             
             if hasOutput {
                 var nameAddress = AudioObjectPropertyAddress(
-                    mSelector: kAudioDevicePropertyDeviceNameCFString,
+                    mSelector: kAudioObjectPropertyName,
                     mScope: kAudioObjectPropertyScopeGlobal,
                     mElement: kAudioObjectPropertyElementMain
                 )
@@ -214,7 +221,7 @@ class VolumeManager {
         var deviceName: CFString? = nil
         var deviceNameSize = UInt32(MemoryLayout<CFString?>.size)
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyDeviceNameCFString,
+            mSelector: kAudioObjectPropertyName,
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
@@ -276,7 +283,7 @@ class VolumeManager {
             
             if hasInput {
                 var nameAddress = AudioObjectPropertyAddress(
-                    mSelector: kAudioDevicePropertyDeviceNameCFString,
+                    mSelector: kAudioObjectPropertyName,
                     mScope: kAudioObjectPropertyScopeGlobal,
                     mElement: kAudioObjectPropertyElementMain
                 )
@@ -775,6 +782,9 @@ class VolumeManager {
     
     private func handleExternalVolumeChange() {
         if Date().timeIntervalSince(lastProgrammaticChangeTime) < 0.5 {
+            return
+        }
+        if Date().timeIntervalSince(lastRouteChangeTime) < 3.0 {
             return
         }
         

@@ -95,7 +95,9 @@ struct PeripheralSettingsView: View {
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                         
-                            let filteredHistory = mediaKeyManager.peripheralHistory.filter { !mediaKeyManager.accessoryBatteryHistory.contains($0) }
+                            let filteredHistory = mediaKeyManager.peripheralHistory.filter { device in
+                                !mediaKeyManager.accessoryBatteryHistory.contains { $0.hasPrefix(device) || device.hasPrefix($0) }
+                            }
                             if !filteredHistory.isEmpty {
                                 let displayedHistory = isHistoryExpanded ? filteredHistory : Array(filteredHistory.prefix(3))
                             

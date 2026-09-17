@@ -58,6 +58,9 @@ extension MediaKeyManager {
         if isActive && !notifyOnFocusOn { return }
         if !isActive && !notifyOnFocusOff { return }
         
+        // Dismiss the native macOS Focus pill overlay (from MenuBarAgent)
+        NativeOverlayDismisser.shared.onSystemEvent(type: .focus)
+        
         playNotificationSound(named: isActive ? soundOnFocusOn : soundOnFocusOff)
         
         DispatchQueue.main.async { [weak self] in

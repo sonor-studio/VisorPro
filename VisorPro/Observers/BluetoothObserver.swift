@@ -57,6 +57,12 @@ class BluetoothObserver: NSObject {
                 .replacingOccurrences(of: " (Right)", with: "")
                 .replacingOccurrences(of: " (Case)", with: "")
         }
+        
+        let lower = name.lowercased()
+        if lower.contains("mouse") || lower.contains("mysz") || lower.contains("keyboard") || lower.contains("klawiatura") || lower.contains("trackpad") {
+            return name
+        }
+        
         return nil
     }
 
@@ -66,6 +72,13 @@ class BluetoothObserver: NSObject {
         guard let rawName = device.name else { return }
         
         let name = rawName.replacingOccurrences(of: "’", with: "'")
+            .replacingOccurrences(of: " (Left)", with: "")
+            .replacingOccurrences(of: " (Right)", with: "")
+            .replacingOccurrences(of: " (Lewa)", with: "")
+            .replacingOccurrences(of: " (Prawa)", with: "")
+            .replacingOccurrences(of: " (Case)", with: "")
+            .replacingOccurrences(of: " (Etui)", with: "")
+            .trimmingCharacters(in: .whitespaces)
         
         if let lastTime = lastConnectedDeviceNames[name], Date().timeIntervalSince(lastTime) < 5.0 {
             return
@@ -76,12 +89,19 @@ class BluetoothObserver: NSObject {
         
         DispatchQueue.main.async {
             if self.manager?.useSystemOSD == false {
-                if let baseName = self.findAccessoryBaseName(name: name, macAddress: macAddress) {
+                if name.lowercased().contains("airpods") {
+                    let timeSinceLidOpen = Date().timeIntervalSince(AirPodsBatteryManager.shared.lastLidOpenTime)
+                    if timeSinceLidOpen > 15.0 {
+                        self.manager?.triggerBluetoothIndicator(deviceName: name, deviceAddress: "AIRPODS_CONNECTION", isConnected: true)
+                        self.manager?.lastAction = "Bluetooth Connected (AirPods): \(name)"
+                    }
+                } else if let baseName = self.findAccessoryBaseName(name: name, macAddress: macAddress) {
                     self.manager?.triggerAccessoryConnection(deviceName: baseName, deviceAddress: macAddress, isConnected: true)
+                    self.manager?.lastAction = "Bluetooth Connected: \(name)"
                 } else {
                     self.manager?.triggerBluetoothIndicator(deviceName: name, deviceAddress: macAddress, isConnected: true)
+                    self.manager?.lastAction = "Bluetooth Connected: \(name)"
                 }
-                self.manager?.lastAction = "Bluetooth Connected: \(name)"
                 self.manager?.fetchBluetoothDetails()
             }
         }
@@ -96,15 +116,30 @@ class BluetoothObserver: NSObject {
         guard let rawName = device.name else { return }
         
         let macAddress = device.addressString.replacingOccurrences(of: "-", with: ":").uppercased()
-        let name = macToDeviceName[macAddress] ?? rawName.replacingOccurrences(of: "’", with: "'")
+        let name = (macToDeviceName[macAddress] ?? rawName.replacingOccurrences(of: "’", with: "'"))
+            .replacingOccurrences(of: " (Left)", with: "")
+            .replacingOccurrences(of: " (Right)", with: "")
+            .replacingOccurrences(of: " (Lewa)", with: "")
+            .replacingOccurrences(of: " (Prawa)", with: "")
+            .replacingOccurrences(of: " (Case)", with: "")
+            .replacingOccurrences(of: " (Etui)", with: "")
+            .trimmingCharacters(in: .whitespaces)
+        
         DispatchQueue.main.async {
             if self.manager?.useSystemOSD == false {
-                if let baseName = self.findAccessoryBaseName(name: name, macAddress: macAddress) {
+                if name.lowercased().contains("airpods") {
+                    let timeSinceLidClose = Date().timeIntervalSince(AirPodsBatteryManager.shared.lastLidCloseTime)
+                    if timeSinceLidClose > 15.0 {
+                        self.manager?.triggerBluetoothIndicator(deviceName: name, deviceAddress: "AIRPODS_CONNECTION", isConnected: false)
+                        self.manager?.lastAction = "Bluetooth Disconnected (AirPods): \(name)"
+                    }
+                } else if let baseName = self.findAccessoryBaseName(name: name, macAddress: macAddress) {
                     self.manager?.triggerAccessoryConnection(deviceName: baseName, deviceAddress: macAddress, isConnected: false)
+                    self.manager?.lastAction = "Bluetooth Disconnected: \(name)"
                 } else {
                     self.manager?.triggerBluetoothIndicator(deviceName: name, deviceAddress: macAddress, isConnected: false)
+                    self.manager?.lastAction = "Bluetooth Disconnected: \(name)"
                 }
-                self.manager?.lastAction = "Bluetooth Disconnected: \(name)"
             }
         }
     }

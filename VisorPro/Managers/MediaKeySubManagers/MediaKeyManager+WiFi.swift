@@ -34,6 +34,7 @@ extension MediaKeyManager {
             self.wiFiSSID = ssid
             self.wiFiIsConnected = isConnected
             self.wiFiIsHotspot = isHotspot
+            self.wiFiDetailsFetched = false
             let executeShow = { [weak self] in
                 guard let self = self else { return }
 
@@ -207,6 +208,7 @@ extension MediaKeyManager {
                 if let newIp = ipAddr {
                     self.wiFiIPAddress = newIp
                 }
+                self.wiFiDetailsFetched = true
             }
         }
     }
