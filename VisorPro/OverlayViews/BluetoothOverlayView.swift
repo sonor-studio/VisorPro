@@ -346,9 +346,9 @@ struct BluetoothOverlayView: View {
                                     let isCharging = mediaKeyManager.accessoryBatteryCharging[key] == true
                                     
                                     HStack(spacing: 16) {
-                                        Image(systemName: iconFor(suffix: suffix, deviceName: systemName, fallbackIcon: iconName))
+                                        Image(systemName: isCharging ? "bolt.fill" : batteryIcon)
                                             .font(.system(size: 20, weight: .regular))
-                                            .foregroundColor(.primary)
+                                            .foregroundColor(isCharging ? .green : (battery <= 20 ? .red : .primary))
                                             .frame(width: 36, height: 36)
                                             .background(Color.secondary.opacity(0.1))
                                             .cornerRadius(8)
@@ -358,16 +358,9 @@ struct BluetoothOverlayView: View {
                                                 .font(.system(size: 13, weight: .medium))
                                                 .foregroundColor(.primary)
                                             
-                                            HStack(spacing: 4) {
-                                                if isCharging {
-                                                    Image(systemName: "bolt.fill").font(.system(size: 10))
-                                                    Text("Charging").font(.system(size: 11))
-                                                } else {
-                                                    Image(systemName: batteryIcon).font(.system(size: 10))
-                                                    Text("Remaining").font(.system(size: 11))
-                                                }
-                                            }
-                                            .foregroundColor(.secondary)
+                                            Text(isCharging ? "Charging" : "Remaining")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.secondary)
                                         }
                                         
                                         Spacer()
