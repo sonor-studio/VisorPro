@@ -330,39 +330,88 @@ struct BluetoothOverlayView: View {
                     } else if actualIsConnected {
                         if !effectiveDeviceBatteries.isEmpty {
                             VStack(spacing: 12) {
-                                HStack(spacing: 24) {
-                                    Spacer()
-                                    let sortedBatteries = effectiveDeviceBatteries.sorted { sortWeight(for: $0.key) < sortWeight(for: $1.key) }
+                                let sortedBatteries = effectiveDeviceBatteries.sorted { sortWeight(for: $0.key) < sortWeight(for: $1.key) }
+                                
+                                if sortedBatteries.count == 1 {
+                                    let key = sortedBatteries[0].key
+                                    let battery = sortedBatteries[0].value
+                                    let suffix = key.replacingOccurrences(of: systemName, with: "").trimmingCharacters(in: .whitespaces)
+                                    let batteryIcon: String = {
+                                        if battery >= 85 { return "battery.100" }
+                                        if battery >= 60 { return "battery.75" }
+                                        if battery >= 35 { return "battery.50" }
+                                        if battery >= 15 { return "battery.25" }
+                                        return "battery.0"
+                                    }()
+                                    let isCharging = mediaKeyManager.accessoryBatteryCharging[key] == true
                                     
-                                    ForEach(sortedBatteries, id: \.key) { key, battery in
-                                        let suffix = key.replacingOccurrences(of: systemName, with: "").trimmingCharacters(in: .whitespaces)
+                                    HStack(spacing: 16) {
+                                        Image(systemName: iconFor(suffix: suffix, deviceName: systemName, fallbackIcon: iconName))
+                                            .font(.system(size: 20, weight: .regular))
+                                            .foregroundColor(.primary)
+                                            .frame(width: 36, height: 36)
+                                            .background(Color.secondary.opacity(0.1))
+                                            .cornerRadius(8)
                                         
-                                        let batteryIcon: String = {
-                                            if battery >= 85 { return "battery.100" }
-                                            if battery >= 60 { return "battery.75" }
-                                            if battery >= 35 { return "battery.50" }
-                                            if battery >= 15 { return "battery.25" }
-                                            return "battery.0"
-                                        }()
-                                        
-                                        VStack(spacing: 6) {
-                                            Image(systemName: iconFor(suffix: suffix, deviceName: systemName, fallbackIcon: iconName))
-                                                .font(.system(size: 26))
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Battery")
+                                                .font(.system(size: 13, weight: .medium))
                                                 .foregroundColor(.primary)
-                                                .frame(height: 32)
-                                                
-                                            Image(systemName: batteryIcon)
-                                                .font(.system(size: 10))
-                                                .foregroundColor(.secondary)
-                                                
-                                            Text("\(battery)%")
-                                                .font(.system(size: 11, weight: .bold))
-                                                .foregroundColor(.primary)
+                                            
+                                            HStack(spacing: 4) {
+                                                if isCharging {
+                                                    Image(systemName: "bolt.fill").font(.system(size: 10))
+                                                    Text("Charging").font(.system(size: 11))
+                                                } else {
+                                                    Image(systemName: batteryIcon).font(.system(size: 10))
+                                                    Text("Remaining").font(.system(size: 11))
+                                                }
+                                            }
+                                            .foregroundColor(.secondary)
                                         }
+                                        
+                                        Spacer()
+                                        
+                                        Text("\(battery)%")
+                                            .font(.system(size: 15, weight: .bold, design: .monospaced))
+                                            .foregroundColor(.primary)
                                     }
-                                    Spacer()
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, 4)
+                                } else {
+                                    HStack(spacing: 24) {
+                                        Spacer()
+                                        
+                                        ForEach(sortedBatteries, id: \.key) { key, battery in
+                                            let suffix = key.replacingOccurrences(of: systemName, with: "").trimmingCharacters(in: .whitespaces)
+                                            
+                                            let batteryIcon: String = {
+                                                if battery >= 85 { return "battery.100" }
+                                                if battery >= 60 { return "battery.75" }
+                                                if battery >= 35 { return "battery.50" }
+                                                if battery >= 15 { return "battery.25" }
+                                                return "battery.0"
+                                            }()
+                                            
+                                            VStack(spacing: 6) {
+                                                Image(systemName: iconFor(suffix: suffix, deviceName: systemName, fallbackIcon: iconName))
+                                                    .font(.system(size: 26))
+                                                    .foregroundColor(.primary)
+                                                    .frame(height: 32)
+                                                    
+                                                Image(systemName: batteryIcon)
+                                                    .font(.system(size: 10))
+                                                    .foregroundColor(.secondary)
+                                                    
+                                                Text("\(battery)%")
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .foregroundColor(.primary)
+                                            }
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 4)
                                 }
-                                .padding(.vertical, 4)
                                 if hasRealDetails {
                                     Button(action: {
                                         withAnimation(.easeInOut(duration: 0.2)) {
