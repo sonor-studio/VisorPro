@@ -431,17 +431,21 @@ if mediaKeyManager.overlayColorMode == "custom" {
                                                 .labelsHidden()
                                                 .onChange(of: settings.notifyOn100Percent) { _, _ in saveSettings() }
                                             
-                                            Image(systemName: "chevron.down")
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .rotationEffect(.degrees(isFullyChargedExpanded ? 180 : 0))
-                                                .foregroundColor(.secondary)
-                                                .frame(width: 20, height: 20)
+                                            if deviceName.lowercased().contains("airpods") {
+                                                Image(systemName: "chevron.down")
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .rotationEffect(.degrees(isFullyChargedExpanded ? 180 : 0))
+                                                    .foregroundColor(.secondary)
+                                                    .frame(width: 20, height: 20)
+                                            }
                                         }
                                     }
                                     .contentShape(Rectangle())
                                     .onTapGesture {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            isFullyChargedExpanded.toggle()
+                                        if deviceName.lowercased().contains("airpods") {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                isFullyChargedExpanded.toggle()
+                                            }
                                         }
                                     }
                                     

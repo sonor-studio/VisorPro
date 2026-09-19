@@ -63,6 +63,10 @@ struct BluetoothOverlayView: View {
             prefix = "AirPods"
         } else if name.contains("airpods") {
             prefix = "AirPods"
+        } else if name.contains("iphone") {
+            prefix = "iPhone"
+        } else if name.contains("ipad") {
+            prefix = "iPad"
         } else if name.contains("headphones") || name.contains("słuchawki") || name.contains("headset") || typeInfo.contains("headphones") || typeInfo.contains("słuchawki") {
             prefix = "Headphones"
         } else if name.contains("mouse") || name.contains("mysz") || typeInfo.contains("mouse") {
@@ -97,16 +101,16 @@ struct BluetoothOverlayView: View {
         }
         
         if lowerName.contains("mouse") || lowerName.contains("mysz") {
-            return "magicmouse.fill"
+            return "magicmouse"
         } else if lowerName.contains("keyboard") || lowerName.contains("klawiatura") {
-            return "keyboard.fill"
+            return "keyboard"
         } else if lowerName.contains("trackpad") {
-            return "magicmouse.fill" 
+            return "magicpad"
         } else if lowerName.contains("iphone") {
             return "iphone"
         } else if lowerName.contains("ipad") {
             return "ipad"
-        } else if lowerName.contains("mac") {
+        } else if lowerName.contains("macbook") {
             return "macbook"
         } else if lowerName.contains("watch") {
             return "applewatch"
@@ -133,7 +137,9 @@ struct BluetoothOverlayView: View {
                 var type = "Device"
                 if actualDeviceName.lowercased().contains("mouse") { type = "Mouse" }
                 else if actualDeviceName.lowercased().contains("keyboard") { type = "Keyboard" }
-                else if actualDeviceName.lowercased().contains("headphones") || actualDeviceName.lowercased().contains("airpods") { type = "Headphones" }
+                else if actualDeviceName.lowercased().contains("iphone") { type = "iPhone" }
+                else if actualDeviceName.lowercased().contains("ipad") { type = "iPad" }
+                else { type = "Headphones" } // Default to headphones for preview
                 return ["MAC": "00:11:22:33:44:55", "Typ": type, "Firmware": "1.0.0", "RSSI": "-45 dBm", "SystemName": actualDeviceName] 
             }
             if let directDetails = mediaKeyManager.bluetoothDetails[deviceId] { return directDetails }
@@ -147,13 +153,20 @@ struct BluetoothOverlayView: View {
         
         let hasDetails = isPreview ? MediaKeyManager.shared.isBluetoothAccessory(actualDeviceName) : resolvedDetails != nil
         let hasRealDetails = isPreview ? true : (resolvedDetails != nil && !resolvedDetails!.isEmpty)
-        let systemName = resolvedDetails?["SystemName"] ?? actualDeviceName
+        
+        let resolvedSystemName = resolvedDetails?["SystemName"] ?? ""
+        let systemName = resolvedSystemName.isEmpty ? actualDeviceName : resolvedSystemName
+        
         let deviceBatteries = overlayState.accessoryBatteryLevels.filter { $0.key.hasPrefix(systemName) }
-        var effectiveDeviceBatteries: [String: Int] = isPreview ? [
-            "\(systemName) (Left)": 85,
-            "\(systemName) (Right)": 100,
-            "\(systemName) (Case)": 20
-        ] : deviceBatteries.reduce(into: [:]) { $0[$1.key] = $1.value }
+        var effectiveDeviceBatteries: [String: Int] = isPreview ? (
+            actualDeviceName.lowercased().contains("airpods") ? [
+                "\(systemName) (Left)": 85,
+                "\(systemName) (Right)": 100,
+                "\(systemName) (Case)": 20
+            ] : [
+                "\(systemName)": 85
+            ]
+        ) : deviceBatteries.reduce(into: [:]) { $0[$1.key] = $1.value }
         
         if isAirPods && !isPreview {
             effectiveDeviceBatteries.removeAll()
