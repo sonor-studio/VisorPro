@@ -707,7 +707,10 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.chargeLimit }
         set { OverlayStateRelay.shared.chargeLimit = newValue }
     }
-    @Published var topBatteryConsumers: [(name: String, power: String, icon: NSImage?)] = []
+    var topBatteryConsumers: [(name: String, power: String, icon: NSImage?)] {
+        get { OverlayStateRelay.shared.topBatteryConsumers }
+        set { OverlayStateRelay.shared.topBatteryConsumers = newValue }
+    }
     var isEffectivelyFullyCharged: Bool {
         get { OverlayStateRelay.shared.isEffectivelyFullyCharged }
         set { 
@@ -793,7 +796,10 @@ class MediaKeyManager: ObservableObject {
         set { OverlayStateRelay.shared.showCopyIndicator = newValue }
     }
     
-    @Published var fanEventId = UUID()
+    var fanEventId: UUID {
+        get { OverlayStateRelay.shared.fanEventId }
+        set { OverlayStateRelay.shared.fanEventId = newValue }
+    }
     // CPU Monitoring
     @AppStorage("colorOnHighCpuTemp") var colorOnHighCpuTemp: String = "Red"
     @Published var notifyOnHighCpuTemp: Bool = UserDefaults.standard.object(forKey: "notifyOnHighCpuTemp") as? Bool ?? false {
@@ -836,7 +842,10 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.showRamIndicator }
         set { OverlayStateRelay.shared.showRamIndicator = newValue }
     }
-    @Published var ramEventId = UUID()
+    var ramEventId: UUID {
+        get { OverlayStateRelay.shared.ramEventId }
+        set { OverlayStateRelay.shared.ramEventId = newValue }
+    }
     var hideRamIndicatorTask: DispatchWorkItem?
     var ramUsagePercent: Double {
         get { OverlayStateRelay.shared.ramUsagePercent }
@@ -854,7 +863,10 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.ramUsageHistory }
         set { OverlayStateRelay.shared.ramUsageHistory = newValue }
     }
-    @Published var ramTopProcesses: [(name: String, ramGB: Double, icon: NSImage?)] = []
+    var ramTopProcesses: [(name: String, ramGB: Double, icon: NSImage?)] {
+        get { OverlayStateRelay.shared.ramTopProcesses }
+        set { OverlayStateRelay.shared.ramTopProcesses = newValue }
+    }
     
     // Trash Monitoring
     @Published var notifyOnTrashFull: Bool = UserDefaults.standard.object(forKey: "notifyOnTrashFull") as? Bool ?? false {
@@ -946,7 +958,10 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.trashFreedSizeGB }
         set { OverlayStateRelay.shared.trashFreedSizeGB = newValue }
     }
-    @Published var trashEventId = UUID()
+    var trashEventId: UUID {
+        get { OverlayStateRelay.shared.trashEventId }
+        set { OverlayStateRelay.shared.trashEventId = newValue }
+    }
     var hideTrashIndicatorTask: DispatchWorkItem?
     var trashAlertTriggered: Bool = false
 
@@ -1472,7 +1487,10 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.isLocationActive }
         set { OverlayStateRelay.shared.isLocationActive = newValue }
     }
-    @Published var locationEventId = UUID()
+    var locationEventId: UUID {
+        get { OverlayStateRelay.shared.locationEventId }
+        set { OverlayStateRelay.shared.locationEventId = newValue }
+    }
     var activeLocationAppName: String {
         get { OverlayStateRelay.shared.activeLocationAppName }
         set { OverlayStateRelay.shared.activeLocationAppName = newValue }

@@ -90,29 +90,29 @@ extension MediaKeyManager {
             let pos = self.getOverlayPosition(for: "bluetoothOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "bluetooth")
             
-            let newNotif = DeviceNotification(id: deviceAddress, deviceName: deviceName, type: "bluetooth", icon: "bluetooth", isConnected: isConnected, timestamp: Date())
+            // By adding the state to the ID, the old window naturally fades out and the new one fades in!
+            let uniqueId = "\(deviceAddress)_\(isConnected ? "connect" : "disconnect")"
+            let newNotif = DeviceNotification(id: uniqueId, deviceName: deviceName, type: "bluetooth", icon: "bluetooth", isConnected: isConnected, timestamp: Date())
             
             withAnimation(.easeInOut(duration: 0.15)) {
+                // Remove the opposite state notification so it triggers the window exit animation
+                self.activeBluetoothNotifications.removeAll(where: { $0.id.hasPrefix(deviceAddress) })
+                self.activeBluetoothNotifications.append(newNotif)
+                
                 // If they just connected to AirPods, replace the Smart Routing transfer indicator immediately
                 if isConnected && deviceName.lowercased().contains("airpods") {
                     OverlayStateRelay.shared.showSmartRoutingIndicator = false
                     OverlayStateRelay.shared.showAirPodsModeIndicator = false
                 }
-                
-                if let idx = self.activeBluetoothNotifications.firstIndex(where: { $0.id == deviceAddress }) {
-                    self.activeBluetoothNotifications[idx] = newNotif
-                } else {
-                    self.activeBluetoothNotifications.append(newNotif)
-                }
                 self.notifyOverlayStateChanged()
                 self.enforceNotificationLimit()
             }
             
-            let timerKey = "bluetooth_\(deviceAddress)"
+            let timerKey = "bluetooth_\(uniqueId)"
             self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
             self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.activeBluetoothNotifications.removeAll(where: { $0.id == deviceAddress })
+                    self?.activeBluetoothNotifications.removeAll(where: { $0.id == uniqueId })
                 }
             }
         }
@@ -152,24 +152,23 @@ extension MediaKeyManager {
             let pos = self.getOverlayPosition(for: "bluetoothOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "bluetooth")
             
-            let newNotif = DeviceNotification(id: deviceAddress, deviceName: deviceName, type: "accessory", icon: "bluetooth", isConnected: isConnected, timestamp: Date())
+            let uniqueId = "\(deviceAddress)_\(isConnected ? "connect" : "disconnect")"
+            let newNotif = DeviceNotification(id: uniqueId, deviceName: deviceName, type: "accessory", icon: "bluetooth", isConnected: isConnected, timestamp: Date())
             
             withAnimation(.easeInOut(duration: 0.15)) {
-                if let idx = self.activeBluetoothNotifications.firstIndex(where: { $0.id == deviceAddress }) {
-                    self.activeBluetoothNotifications[idx] = newNotif
-                } else {
-                    self.activeBluetoothNotifications.append(newNotif)
-                }
+                self.activeBluetoothNotifications.removeAll(where: { $0.id.hasPrefix(deviceAddress) })
+                self.activeBluetoothNotifications.append(newNotif)
+                
                 self.notifyOverlayStateChanged()
                 self.enforceNotificationLimit()
             }
             
-            let timerKey = "bluetooth_\(deviceAddress)"
+            let timerKey = "bluetooth_\(uniqueId)"
             self.notificationTimers[timerKey]?.invalidate()
             self.overlayTriggerTimes[timerKey] = Date()
             self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.activeBluetoothNotifications.removeAll(where: { $0.id == deviceAddress })
+                    self?.activeBluetoothNotifications.removeAll(where: { $0.id == uniqueId })
                 }
             }
         }

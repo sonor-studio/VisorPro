@@ -233,6 +233,7 @@ class OverlayStateRelay: ObservableObject {
     @Published var lastDeletedFileURL: URL? = nil
     @Published var overlayTriggerTimes: [String: Date] = [:]
     @Published var trashEventId = UUID()
+    @Published var fanEventId = UUID()
     
     // MARK: - Peripheral runtime
     

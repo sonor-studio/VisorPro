@@ -5,6 +5,7 @@ import AppKit
 struct PremiumSettingsView: View {
     @State private var showingCheckout = false
     @State private var showingActivation = false
+    @State private var isKeyCopied = false
     @StateObject private var licenseManager = PolarLicenseManager()
     
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
@@ -150,16 +151,24 @@ struct PremiumSettingsView: View {
                                     Button(action: {
                                         NSPasteboard.general.clearContents()
                                         NSPasteboard.general.setString(savedLicenseKey, forType: .string)
+                                        withAnimation {
+                                            isKeyCopied = true
+                                        }
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                            withAnimation {
+                                                isKeyCopied = false
+                                            }
+                                        }
                                     }) {
-                                        Image(systemName: "doc.on.doc")
+                                        Image(systemName: isKeyCopied ? "checkmark" : "doc.on.doc")
                                             .font(.system(size: 12))
-                                            .foregroundColor(.secondary)
+                                            .foregroundColor(isKeyCopied ? .green : .secondary)
                                             .padding(6)
                                             .background(Color.primary.opacity(0.05))
                                             .cornerRadius(6)
                                     }
                                     .buttonStyle(PlainButtonStyle())
-                                    .help("Copy license key")
+                                    .help(isKeyCopied ? "Copied!" : "Copy license key")
                                 }
                                 .padding(12)
                                 .background(Color(NSColor.windowBackgroundColor).opacity(0.4))
@@ -615,7 +624,7 @@ struct PremiumSettingsView: View {
                     }) {
                         HStack(spacing: 6) {
                             Image(systemName: "safari")
-                            Text("Open in Browser")
+                            Text("Open in Browser (For Apple Pay)")
                         }
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.blue)

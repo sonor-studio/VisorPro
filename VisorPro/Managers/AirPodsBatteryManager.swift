@@ -117,12 +117,8 @@ class AirPodsBatteryManager: ObservableObject {
                         }
                     }
                 } else if line.contains("InEar ->") {
-                    if isAnyInEar {
-                        isAnyInEar = false
-                        if self.isAnyAirPodsConnectedToMac() {
-                            MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: self.getCustomAirPodsName(), deviceAddress: "AIRPODS_CONNECTION", isConnected: false)
-                        }
-                    }
+                    isAnyInEar = false
+                    MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: self.getCustomAirPodsName(), deviceAddress: "AIRPODS_CONNECTION", isConnected: false)
                 }
             }
             

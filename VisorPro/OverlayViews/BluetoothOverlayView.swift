@@ -19,22 +19,28 @@ struct BluetoothOverlayView: View {
     
     private var actualIsConnected: Bool {
         if isPreview { return previewIsConnected }
+        if let id = notification?.id, let activeNotif = overlayState.activeBluetoothNotifications.first(where: { $0.id == id }) {
+            return activeNotif.isConnected
+        }
         if let notif = notification { return notif.isConnected }
         return overlayState.bluetoothIsConnected // Fallback if needed
     }
     
     private var actualDeviceName: String {
         if isPreview { return previewDeviceName }
+        if let id = notification?.id, let activeNotif = overlayState.activeBluetoothNotifications.first(where: { $0.id == id }) {
+            return activeNotif.deviceName
+        }
         if let notif = notification { return notif.deviceName }
         return overlayState.bluetoothDeviceName
     }
     
     private var actionColor: Color {
-        if mediaKeyManager.overlayColorMode == "custom", (isPreview && previewIsAccessory) || notification?.type == "accessory" || actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION" {
+        if mediaKeyManager.overlayColorMode == "custom", (isPreview && previewIsAccessory) || notification?.type == "accessory" || actualDeviceName.lowercased().contains("airpods") || notification?.id.hasPrefix("AIRPODS_CONNECTION") == true {
             let baseName = actualDeviceName
             var settings = mediaKeyManager.accessorySettings[baseName]
             
-            if settings == nil, (actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION") {
+            if settings == nil, (actualDeviceName.lowercased().contains("airpods") || notification?.id.hasPrefix("AIRPODS_CONNECTION") == true) {
                 settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased().contains("airpods") })?.value
             }
             if settings == nil {
@@ -59,7 +65,7 @@ struct BluetoothOverlayView: View {
         
         let prefix: String
         
-        if let notif = notification, notif.id == "AIRPODS_CONNECTION" {
+        if let notif = notification, notif.id.hasPrefix("AIRPODS_CONNECTION") {
             prefix = "AirPods"
         } else if name.contains("airpods") {
             prefix = "AirPods"
@@ -130,7 +136,7 @@ struct BluetoothOverlayView: View {
     var body: some View {
         
         let deviceId = isPreview ? "00:11:22:33:44:55" : (notification?.id ?? "")
-        let isAirPods = notification?.id == "AIRPODS_CONNECTION" || actualDeviceName.lowercased().contains("airpods")
+        let isAirPods = notification?.id.hasPrefix("AIRPODS_CONNECTION") == true || actualDeviceName.lowercased().contains("airpods")
         
         let resolvedDetails: [String: String]? = {
             if isPreview { 
@@ -159,7 +165,7 @@ struct BluetoothOverlayView: View {
         
         let currentAccessorySettings: AccessoryDeviceSettings = {
             var settings = mediaKeyManager.accessorySettings[actualDeviceName]
-            if settings == nil, (actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION") {
+            if settings == nil, (actualDeviceName.lowercased().contains("airpods") || notification?.id.hasPrefix("AIRPODS_CONNECTION") == true) {
                 settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased().contains("airpods") })?.value
             }
             if settings == nil {
@@ -205,7 +211,7 @@ struct BluetoothOverlayView: View {
         }()
         
         let accessoryBatteryColor: Color = {
-            if mediaKeyManager.overlayColorMode == "custom", isAccessoryType || actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION" {
+            if mediaKeyManager.overlayColorMode == "custom", isAccessoryType || actualDeviceName.lowercased().contains("airpods") || notification?.id.hasPrefix("AIRPODS_CONNECTION") == true {
                 if actualIsConnected && currentAccessorySettings.colorOnConnect != "Default" { return OverlayColorManager.shared.parseColor(currentAccessorySettings.colorOnConnect) }
                 if !actualIsConnected && currentAccessorySettings.colorOnDisconnect != "Default" { return OverlayColorManager.shared.parseColor(currentAccessorySettings.colorOnDisconnect) }
             }
@@ -255,13 +261,20 @@ struct BluetoothOverlayView: View {
         let btPos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")
         let keepAliveType = notification != nil ? "bluetooth_\(notification!.id)" : "bluetooth"
         
+        let dynamicTimestamp: Date = {
+            if let id = notification?.id, let activeNotif = overlayState.activeBluetoothNotifications.first(where: { $0.id == id }) {
+                return activeNotif.timestamp
+            }
+            return notification?.timestamp ?? Date(timeIntervalSince1970: 0)
+        }()
+        
         return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: $isExpanded,
             showProgressBar: true,
             progress: (isAccessoryType && actualIsConnected && averageBattery != nil) ? CGFloat(averageBattery!) / 100.0 : 1.0,
             hasTimeoutProgress: (isAccessoryType && actualIsConnected && averageBattery != nil) ? false : true,
-            timeoutEventId: notification?.timestamp ?? Date(timeIntervalSince1970: 0),
+            timeoutEventId: dynamicTimestamp,
             barColor: isAccessoryType && actualIsConnected ? accessoryBatteryColor : (actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo) : .offStateGray),
             fillCenter: false,
             isMuted: false,

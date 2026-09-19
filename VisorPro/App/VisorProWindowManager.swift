@@ -13,6 +13,7 @@ class VisorProWindowManager: ObservableObject {
     private var exitingPanels: Set<String> = []
     private var cancellables = Set<AnyCancellable>()
     private var overlayTimestamps: [String: Date] = [:]
+    private var animatingEntryPanels: Set<String> = []
     
     private func assignSlots(overlays: [ActiveOverlay], limit: Int) -> [String: Int] {
         var slotMap: [String: Int] = [:]
@@ -147,12 +148,23 @@ class VisorProWindowManager: ObservableObject {
             }
             .store(in: &cancellables)
         
-        // Also observe OverlayStateRelay for swipe offset changes (high-frequency, overlay-only)
-        OverlayStateRelay.shared.objectWillChange.sink { [weak self] _ in
-            DispatchQueue.main.async {
+        // Only observe swipe-related properties (the only high-frequency state
+        // that VisorProWindowManager needs beyond show/hide notifications).
+        // Previously this was objectWillChange.sink which fired on ALL 177
+        // @Published properties — causing massive UI thrashing.
+        OverlayStateRelay.shared.$swipeOffsets
+            .throttle(for: .milliseconds(16), scheduler: DispatchQueue.main, latest: true)
+            .sink { [weak self] _ in
                 self?.updateWindows()
             }
-        }.store(in: &cancellables)
+            .store(in: &cancellables)
+        
+        OverlayStateRelay.shared.$activeSwipeIds
+            .throttle(for: .milliseconds(16), scheduler: DispatchQueue.main, latest: true)
+            .sink { [weak self] _ in
+                self?.updateWindows()
+            }
+            .store(in: &cancellables)
         
         // Start initial heartbeat — it will auto-stop when no panels are active
         ensureHeartbeatRunning()
@@ -170,7 +182,7 @@ class VisorProWindowManager: ObservableObject {
                     // No active panels — stop the heartbeat to save CPU
                     self.heartbeatTimer?.cancel()
                     self.heartbeatTimer = nil
-                } else {
+                } else if self.animatingEntryPanels.isEmpty {
                     self.updateWindows()
                 }
             }
@@ -509,6 +521,7 @@ class VisorProWindowManager: ObservableObject {
                 if isFirstShow {
                     shownPanels.insert(windowId)
                     targetOrigins[windowId] = targetOrigin
+                    animatingEntryPanels.insert(windowId)
                     
                     let isTop = (targetOrigin.y + currentHeight / 2) > (screenSize.height / 2)
                     let offsetAmount: CGFloat = isTop ? 50 : -50
@@ -521,13 +534,19 @@ class VisorProWindowManager: ObservableObject {
                     panel.contentView?.layoutSubtreeIfNeeded()
                     panel.displayIfNeeded()
                     
-                    NSAnimationContext.runAnimationGroup({ ctx in
-                        ctx.duration = 0.1
-                        ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                        panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
-                        panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
-                    })
-                } else if !MediaKeyManager.shared.isDisplayTransitioning {
+                    DispatchQueue.main.async {
+                        NSAnimationContext.runAnimationGroup({ ctx in
+                            ctx.duration = 0.15
+                            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                            panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
+                            panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
+                        }, completionHandler: { [weak self] in
+                            Task { @MainActor in
+                                self?.animatingEntryPanels.remove(windowId)
+                            }
+                        })
+                    }
+                } else if !MediaKeyManager.shared.isDisplayTransitioning && !animatingEntryPanels.contains(windowId) {
                     let isRescued = rescuedPanels.contains(windowId)
                     let dist = hypot(panel.frame.origin.x - targetOrigin.x, panel.frame.origin.y - targetOrigin.y)
                     
@@ -564,6 +583,8 @@ class VisorProWindowManager: ObservableObject {
             let manager = MediaKeyManager.shared
             let isFullyCharged = manager.currentBatteryPercentage == 100 || manager.isEffectivelyFullyCharged
             h = isFullyCharged ? 56 : 72
+        } else if overlay.type == .airpodsGroupBattery {
+            h = 134
         } else {
             h = 56
         }
@@ -722,21 +743,16 @@ struct SingleOverlayContainer: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
     
-    private var currentOverlay: VisorProWindowManager.ActiveOverlay? {
-        VisorProWindowManager.shared.allActiveOverlays.first(where: { $0.id == overlay.id })
-    }
-    
-    
     var body: some View {
         ZStack {
-            let activeOverlay = currentOverlay ?? overlay
-            overlayView(for: activeOverlay)
+            overlayView(for: overlay)
                 .applyTheme(mediaKeyManager.overlayTheme)
-                .swipeToDismiss(overlayId: activeOverlay.id, isTopPosition: activeOverlay.position.hasPrefix("top"))
+                .swipeToDismiss(overlayId: overlay.id, isTopPosition: overlay.position.hasPrefix("top"))
         }
         .padding(.top, 10)
         .padding(.bottom, 15)
         .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: overlay.position.hasPrefix("bottom") ? .bottom : .top)
     }
     
     @ViewBuilder
