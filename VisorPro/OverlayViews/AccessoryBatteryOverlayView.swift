@@ -148,40 +148,82 @@ struct AccessoryBatteryOverlayView: View {
                     
                     AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: isPluggedIn, customText: "%d%")
                 }
-                .padding(.horizontal, 16 + 4 + 3)
+                .padding(.leading, 23)
+                .padding(.trailing, 23)
+                .frame(maxWidth: .infinity, alignment: .leading)
             },
             expandedContent: {
                 VStack(spacing: 12) {
-                    HStack(spacing: 24) {
-                        Spacer()
-                        
-                        VStack(spacing: 6) {
-                            Image(systemName: deviceIcon)
-                                .font(.system(size: 26))
-                                .foregroundColor(.primary)
-                                .frame(height: 32)
+                    if let _ = componentLabel {
+                        HStack(spacing: 24) {
+                            Spacer()
                             
-                            HStack(spacing: 3) {
-                                if isPluggedIn {
-                                    Image(systemName: "bolt.fill")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.secondary)
-                                } else {
-                                    Image(systemName: batteryIcon)
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.secondary)
+                            let components = ["Left", "Case", "Right"]
+                            ForEach(components, id: \.self) { suffix in
+                                if let data = getComponentBattery(suffix: suffix) {
+                                    let isTrigger = (componentLabel == suffix) || (componentLabel == "Left & Right" && (suffix == "Left" || suffix == "Right"))
+                                    
+                                    VStack(spacing: 6) {
+                                        Image(systemName: self.iconFor(suffix: suffix))
+                                            .font(.system(size: 26))
+                                            .foregroundColor(isTrigger ? batteryColor : .primary)
+                                            .frame(height: 32)
+                                        
+                                        HStack(spacing: 3) {
+                                            if data.isCharging {
+                                                Image(systemName: "bolt.fill")
+                                                    .font(.system(size: 10))
+                                                    .foregroundColor(isTrigger ? batteryColor : .secondary)
+                                            } else {
+                                                Image(systemName: self.batteryIcon(for: data.percentage))
+                                                    .font(.system(size: 10))
+                                                    .foregroundColor(isTrigger ? batteryColor : .secondary)
+                                            }
+                                        }
+                                        
+                                        Text("\(data.percentage)%")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(isTrigger ? batteryColor : .primary)
+                                    }
                                 }
                             }
                             
-                            Text("\(percentage)%")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.primary)
+                            Spacer()
                         }
-                        
-                        Spacer()
+                        .padding(.vertical, 4)
+                        .padding(.top, 8)
+                    } else {
+                        HStack(spacing: 24) {
+                            Spacer()
+                            
+                            VStack(spacing: 6) {
+                                Image(systemName: deviceIcon)
+                                    .font(.system(size: 26))
+                                    .foregroundColor(.primary)
+                                    .frame(height: 32)
+                                
+                                HStack(spacing: 3) {
+                                    if isPluggedIn {
+                                        Image(systemName: "bolt.fill")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.secondary)
+                                    } else {
+                                        Image(systemName: batteryIcon)
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                
+                                Text("\(percentage)%")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.primary)
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding(.vertical, 4)
+                        .padding(.top, 8)
                     }
-                    .padding(.vertical, 4)
-                    .padding(.top, 8)
                 }
             }
         )
@@ -201,16 +243,55 @@ struct AccessoryBatteryOverlayView: View {
         .id(overlayState.accessoryBatteryEventId)
     }
     
+    private var isIncreasing: Bool {
+        if isPreview { return false }
+        return overlayState.accessoryBatteryIsIncreasing
+    }
+    
+    private func getComponentBattery(suffix: String) -> (percentage: Int, isCharging: Bool)? {
+        let fullName = "\(baseName) (\(suffix))"
+        guard let pct = mediaKeyManager.accessoryBatteryLevels[fullName] else {
+            if baseName == overlayState.airpodsDeviceName {
+                if suffix == "Left" && overlayState.airpodsLeftBattery > 0 { return (overlayState.airpodsLeftBattery, overlayState.airpodsLeftCharging) }
+                if suffix == "Right" && overlayState.airpodsRightBattery > 0 { return (overlayState.airpodsRightBattery, overlayState.airpodsRightCharging) }
+                if suffix == "Case" && overlayState.airpodsCaseBattery > 0 { return (overlayState.airpodsCaseBattery, overlayState.airpodsCaseCharging) }
+            }
+            return nil
+        }
+        
+        let isCharging = (baseName == overlayState.airpodsDeviceName) ? {
+            if suffix == "Left" { return overlayState.airpodsLeftCharging }
+            if suffix == "Right" { return overlayState.airpodsRightCharging }
+            return overlayState.airpodsCaseCharging
+        }() : (mediaKeyManager.accessoryBatteryCharging[fullName] == true)
+        
+        return (pct, isCharging)
+    }
+    
+    private func batteryIcon(for pct: Int) -> String {
+        if pct >= 85 { return "battery.100" }
+        if pct >= 60 { return "battery.75" }
+        if pct >= 35 { return "battery.50" }
+        if pct >= 15 { return "battery.25" }
+        return "battery.0"
+    }
+    
+    private func iconFor(suffix: String) -> String {
+        if suffix == "Left" { return "airpodpro.left" }
+        if suffix == "Right" { return "airpodpro.right" }
+        return "airpodspro.chargingcase.wireless.fill"
+    }
+    
     private func runAnimation() {
         let targetProgress = CGFloat(percentage) / 100.0
-        animatedBatteryProgress = isWarning ? 1.0 : 0.0
+        animatedBatteryProgress = isIncreasing ? 0.0 : 1.0
         hasFinishedChargeAnimation = false
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            let distance = isWarning ? (1.0 - targetProgress) : targetProgress
+            let distance = isIncreasing ? targetProgress : (1.0 - targetProgress)
             let actualDuration = isWarning ? 1.2 : (1.5 * Double(distance))
             
-            let animation: Animation
+            var animation: Animation
             if isWarning {
                 animation = Animation.easeOut(duration: actualDuration)
             } else {

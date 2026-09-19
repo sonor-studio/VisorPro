@@ -4,6 +4,7 @@ import IOBluetooth
 
 extension MediaKeyManager {
     func triggerPeripheralIndicator(id: String? = nil, deviceName: String, type: String, typeIcon: String, isConnected: Bool, details: [String: String]? = nil) {
+        self.lastConnectionEventTime = Date()
         let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
         if premiumKey.isEmpty { return }
 
@@ -43,6 +44,7 @@ extension MediaKeyManager {
     }
 
     func triggerBluetoothIndicator(deviceName: String, deviceAddress: String, isConnected: Bool) {
+        self.lastConnectionEventTime = Date()
         let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
         if premiumKey.isEmpty { return }
 
@@ -70,8 +72,15 @@ extension MediaKeyManager {
         let now = Date()
         let eventKey = "\(deviceAddress)_\(isConnected ? "connect" : "disconnect")"
         
-        if let lastTime = lastBluetoothEventTimeByDevice[eventKey], now.timeIntervalSince(lastTime) < 2.0 {
+        // Prevent showing "Connected" repeatedly if it's already connected, and "Disconnected" if already disconnected.
+        let stateKey = deviceAddress
+        if bluetoothConnectionStateByDevice[stateKey] == isConnected {
             return
+        }
+        bluetoothConnectionStateByDevice[stateKey] = isConnected
+        
+        if let lastTime = lastBluetoothEventTimeByDevice[eventKey], now.timeIntervalSince(lastTime) < 2.0 {
+            return // Prevent duplicate notifications within 2 seconds
         }
         lastBluetoothEventTimeByDevice[eventKey] = now
         
@@ -89,6 +98,12 @@ extension MediaKeyManager {
             let newNotif = DeviceNotification(id: deviceAddress, deviceName: deviceName, type: "bluetooth", icon: "bluetooth", isConnected: isConnected, timestamp: Date())
             
             withAnimation(.easeInOut(duration: 0.15)) {
+                // If they just connected to AirPods, replace the Smart Routing transfer indicator immediately
+                if isConnected && deviceName.lowercased().contains("airpods") {
+                    OverlayStateRelay.shared.showSmartRoutingIndicator = false
+                    OverlayStateRelay.shared.showAirPodsModeIndicator = false
+                }
+                
                 if let idx = self.activeBluetoothNotifications.firstIndex(where: { $0.id == deviceAddress }) {
                     self.activeBluetoothNotifications[idx] = newNotif
                 } else {
@@ -109,12 +124,19 @@ extension MediaKeyManager {
     }
     
     func triggerAccessoryConnection(deviceName: String, deviceAddress: String, isConnected: Bool, playSound: Bool = true) {
+        self.lastConnectionEventTime = Date()
         let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
         if premiumKey.isEmpty { return }
         if !self.enableBluetooth { return }
         
         let settings = accessorySettings[deviceName] ?? AccessoryDeviceSettings()
         if !settings.enableOverlay { return }
+        
+        // Suppress disconnect notifications if we are actively forcing a Smart Routing undo reconnect
+        if !isConnected && Date().timeIntervalSince(lastSmartRoutingActionTime) < 5.0 {
+            return
+        }
+        
         if isConnected && !settings.notifyOnConnect { return }
         if !isConnected && !settings.notifyOnDisconnect { return }
         
@@ -156,5 +178,56 @@ extension MediaKeyManager {
                 }
             }
         }
+    }
+    
+    func triggerSmartRouting(texts: [String]) {
+        let overlayState = OverlayStateRelay.shared
+        
+        let title = texts.first ?? "AirPods"
+        let msg = "Audio Transferred"
+        
+        let newText = "\(title)|\(msg)"
+        
+        // Debounce: prevent spam if the same banner is detected repeatedly (e.g. bluetoothd logs it periodically)
+        let timerKey = "smartRouting"
+        let now = Date()
+        if let last = self.overlayTriggerTimes[timerKey], now.timeIntervalSince(last) < 15.0, overlayState.smartRoutingText == newText {
+            self.overlayTriggerTimes[timerKey] = now // Continually push back the suppression window
+            // Update the timer so it stays on screen if it was already showing, but don't re-trigger the animation if it just faded out
+            if overlayState.showSmartRoutingIndicator {
+                self.notificationTimers[timerKey]?.invalidate()
+                self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        overlayState.showSmartRoutingIndicator = false
+                    }
+                    self?.notifyOverlayStateChanged()
+                }
+            }
+            return
+        }
+        
+        self.overlayTriggerTimes[timerKey] = now
+        overlayState.smartRoutingText = newText
+        overlayState.smartRoutingEventId = UUID()
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            overlayState.showSmartRoutingIndicator = true
+        }
+        self.notifyOverlayStateChanged()
+        
+        self.notificationTimers[timerKey]?.invalidate()
+        self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                overlayState.showSmartRoutingIndicator = false
+            }
+            self?.notifyOverlayStateChanged()
+        }
+    }
+    
+    func returnAudioToMac() {
+        let overlayState = OverlayStateRelay.shared
+        let parts = overlayState.smartRoutingText.components(separatedBy: "|")
+        let targetName = parts.first ?? ""
+        NativeOverlayDismisser.shared.clickUndoSmartRouting(targetName: targetName)
     }
 }

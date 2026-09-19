@@ -60,7 +60,9 @@ struct BrightnessOverlayView: View {
                     
                     AnimatablePercentageText(progress: animatedBrightnessProgress, isTopTitle: true, color: .primary, isPluggedIn: false, customText: "%d%")
                 }
-                .padding(.horizontal, 16 + 4 + 3)
+                .padding(.leading, 23)
+                .padding(.trailing, 23)
+                .frame(maxWidth: .infinity, alignment: .leading)
             },
             expandedContent: {
                 EmptyView()

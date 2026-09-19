@@ -73,7 +73,7 @@ extension MediaKeyManager {
         }
     }
 
-    func triggerAccessoryBatteryIndicator(deviceName: String, percentage: Int, isPluggedIn: Bool, isWarning: Bool, customSound: String? = nil) {
+    func triggerAccessoryBatteryIndicator(deviceName: String, percentage: Int, isPluggedIn: Bool, isWarning: Bool, isIncreasing: Bool = false, customSound: String? = nil) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             guard self.enableBluetooth else { return }
@@ -97,6 +97,7 @@ extension MediaKeyManager {
             if self.accessoryBatteryBlocklist.contains(deviceName) { return }
             
             let isVisible = self.showAccessoryBatteryIndicator
+            OverlayStateRelay.shared.accessoryBatteryIsIncreasing = isIncreasing
             let currentBase: String = {
                 if self.accessoryBatteryDeviceName.hasSuffix(" (Left & Right)") { return String(self.accessoryBatteryDeviceName.dropLast(15)) }
                 if self.accessoryBatteryDeviceName.hasSuffix(" (Left)") { return String(self.accessoryBatteryDeviceName.dropLast(7)) }
@@ -184,6 +185,7 @@ extension MediaKeyManager {
     }
     
     func triggerAirpodsGroupBatteryIndicator(deviceName: String = "AirPods", leftBattery: Int, leftCharging: Bool, rightBattery: Int, rightCharging: Bool, caseBattery: Int, caseCharging: Bool) {
+        self.lastConnectionEventTime = Date()
         let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
         if premiumKey.isEmpty { return }
         if !self.enableBluetooth { return }

@@ -35,7 +35,7 @@ class AirPodsBatteryManager: ObservableObject {
             self?.process?.arguments = [
                 "stream", 
                 "--predicate", 
-                "subsystem == \"com.apple.bluetooth\" AND (eventMessage CONTAINS \"Components\" OR eventMessage CONTAINS \"nearbyLidClosed\" OR eventMessage CONTAINS \"primaryInEar\" OR eventMessage CONTAINS \"secondaryInEar\" OR eventMessage CONTAINS \"Batt C\" OR eventMessage CONTAINS \"Setting inEarStateUnified\")"
+                "subsystem == \"com.apple.bluetooth\" AND (eventMessage CONTAINS \"Components\" OR eventMessage CONTAINS \"nearbyLidClosed\" OR eventMessage CONTAINS \"primaryInEar\" OR eventMessage CONTAINS \"secondaryInEar\" OR eventMessage CONTAINS \"Batt C\" OR eventMessage CONTAINS \"Setting inEarStateUnified\" OR eventMessage CONTAINS \"SmartRouting posting device\")"
             ]
             
             self?.pipe = Pipe()
@@ -105,17 +105,23 @@ class AirPodsBatteryManager: ObservableObject {
             // Check for in-ear state changes explicitly
             if line.contains("Setting inEarStateUnified") {
                 if line.contains("-> InEar") {
-                    isAnyInEar = true
-                    MediaKeyManager.shared.dismissAirpodsGroupBatteryIndicator()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        if self.isAnyAirPodsConnectedToMac() {
-                            MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: self.getCustomAirPodsName(), deviceAddress: "AIRPODS_CONNECTION", isConnected: true)
+                    if !isAnyInEar {
+                        isAnyInEar = true
+                        MediaKeyManager.shared.dismissAirpodsGroupBatteryIndicator()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            if self.isAnyAirPodsConnectedToMac() {
+                                // Fallback: if native banner doesn't show (e.g. physical connect via BT menu), this will trigger it.
+                                // If native banner DOES show, NativeOverlayDismisser triggers first and bluetoothConnectionStateByDevice ignores this one.
+                                MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: self.getCustomAirPodsName(), deviceAddress: "AIRPODS_CONNECTION", isConnected: true)
+                            }
                         }
                     }
                 } else if line.contains("InEar ->") {
-                    isAnyInEar = false
-                    if self.isAnyAirPodsConnectedToMac() {
-                        MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: self.getCustomAirPodsName(), deviceAddress: "AIRPODS_CONNECTION", isConnected: false)
+                    if isAnyInEar {
+                        isAnyInEar = false
+                        if self.isAnyAirPodsConnectedToMac() {
+                            MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: self.getCustomAirPodsName(), deviceAddress: "AIRPODS_CONNECTION", isConnected: false)
+                        }
                     }
                 }
             }
@@ -128,7 +134,8 @@ class AirPodsBatteryManager: ObservableObject {
                     updateLidState(closed: true)
                 }
             }
-            // Parse battery updates
+            
+            // Check for explicit battery transitions
             if line.contains("Batt C") {
                 parseAudioAccessoryBatteryLine(line)
             } else if line.contains("Components") {
@@ -159,7 +166,7 @@ class AirPodsBatteryManager: ObservableObject {
         }
     }
     
-    private func triggerOverlay() {
+    func triggerOverlay() {
         MediaKeyManager.shared.triggerAirpodsGroupBatteryIndicator(deviceName: self.getCustomAirPodsName(), 
             leftBattery: OverlayStateRelay.shared.airpodsLeftBattery,
             leftCharging: OverlayStateRelay.shared.airpodsLeftCharging,
@@ -218,10 +225,11 @@ class AirPodsBatteryManager: ObservableObject {
                 }
             }
             
-            let shouldShow = self.wantsBatteryOverlayFromLidOpen
-            if shouldShow {
+            let shouldShow = self.wantsBatteryOverlayFromLidOpen && Date().timeIntervalSince(self.lastLidOpenTime) < 5.0
+            
+            if self.wantsBatteryOverlayFromLidOpen {
                 self.wantsBatteryOverlayFromLidOpen = false
-                if !self.isLidClosed && !self.isAnyInEar {
+                if shouldShow && !self.isLidClosed && !self.isAnyInEar {
                     self.triggerOverlay()
                 }
             } else if didChangeValues {
@@ -293,10 +301,11 @@ class AirPodsBatteryManager: ObservableObject {
                 }
             }
             
-            let shouldShow = self.wantsBatteryOverlayFromLidOpen
-            if shouldShow {
+            let shouldShow = self.wantsBatteryOverlayFromLidOpen && Date().timeIntervalSince(self.lastLidOpenTime) < 5.0
+            
+            if self.wantsBatteryOverlayFromLidOpen {
                 self.wantsBatteryOverlayFromLidOpen = false
-                if !self.isLidClosed && !self.isAnyInEar {
+                if shouldShow && !self.isLidClosed && !self.isAnyInEar {
                     self.triggerOverlay()
                 }
             } else if didChangeValues {

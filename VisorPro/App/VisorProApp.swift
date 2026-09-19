@@ -24,6 +24,10 @@ struct VisorProApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
+        print("========================================")
+        print("🌟 WERSJA TESTOWA: START APLIKACJI 🌟")
+        print("========================================")
+        
         NativeOverlayDismisser.shared.start()
         UserDefaultsMigrator.migrate()
         NSSetUncaughtExceptionHandler { exception in

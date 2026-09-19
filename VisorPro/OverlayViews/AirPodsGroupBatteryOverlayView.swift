@@ -19,12 +19,15 @@ struct AirPodsGroupBatteryOverlayView: View {
     private var rightCharging: Bool { isPreview ? previewRightCharging : overlayState.airpodsRightCharging }
     private var caseBattery: Int { isPreview ? previewCaseBattery : overlayState.airpodsCaseBattery }
     private var caseCharging: Bool { isPreview ? previewCaseCharging : overlayState.airpodsCaseCharging }
-
-    private var customBarColor: Color {
-        if mediaKeyManager.overlayColorMode != "custom" { return .green }
-        let settings = mediaKeyManager.accessorySettings[overlayState.airpodsDeviceName] ?? AccessoryDeviceSettings()
-        if settings.colorOnCaseOpen == "Default" { return .green }
-        return OverlayColorManager.shared.parseColor(settings.colorOnCaseOpen)
+    
+    private var overlayColor: Color {
+        if mediaKeyManager.overlayColorMode == "custom" {
+            let settings = mediaKeyManager.accessorySettings[overlayState.airpodsDeviceName] ?? AccessoryDeviceSettings()
+            return OverlayColorManager.shared.parseColor(settings.colorOnCaseOpen, defaultColor: .green)
+        } else if mediaKeyManager.overlayColorMode == "monochrome" {
+            return .primary
+        }
+        return .green
     }
 
     var body: some View {
@@ -36,9 +39,9 @@ struct AirPodsGroupBatteryOverlayView: View {
             showProgressBar: true,
             progress: 1.0,
             hasTimeoutProgress: false,
-            timeoutDuration: 4.0,
+            timeoutDuration: 6.0,
             timeoutEventId: overlayState.airpodsGroupBatteryTimerId.uuidString,
-            barColor: customBarColor,
+            barColor: overlayColor,
             fillCenter: false,
             customWidth: 260,
             customHeight: 134,

@@ -114,6 +114,13 @@ class OverlayStateRelay: ObservableObject {
     @Published var bluetoothEventId: UUID = UUID()
     @Published var bluetoothDetails: [String: [String: String]] = [:]
     
+    // MARK: - Smart Routing runtime
+    
+    @Published var showSmartRoutingIndicator: Bool = false
+    @Published var smartRoutingText: String = ""
+    @Published var smartRoutingEventId: UUID = UUID()
+    @Published var isSmartRoutingUndoAvailable: Bool = true
+    
     // MARK: - WiFi runtime
     
     @Published var showWiFiIndicator: Bool = false
@@ -248,17 +255,32 @@ class OverlayStateRelay: ObservableObject {
     @Published var accessoryBatteryPercentage: Int = 100
     @Published var accessoryBatteryIsPluggedIn: Bool = false
     @Published var accessoryBatteryIsWarning: Bool = false
+    @Published var accessoryBatteryIsIncreasing: Bool = false
     @Published var accessoryBatteryEventId: UUID = UUID()
     @Published var airpodsGroupBatteryEventId: UUID = UUID()
     @Published var airpodsGroupBatteryTimerId: UUID = UUID()
     @Published var showAirpodsGroupBatteryIndicator: Bool = false
-    @Published var airpodsDeviceName: String = "AirPods"
-    @Published var airpodsLeftBattery: Int = 0
-    @Published var airpodsLeftCharging: Bool = false
-    @Published var airpodsRightBattery: Int = 0
-    @Published var airpodsRightCharging: Bool = false
-    @Published var airpodsCaseBattery: Int = 0
-    @Published var airpodsCaseCharging: Bool = false
+    @Published var airpodsDeviceName: String = UserDefaults.standard.string(forKey: "airpodsDeviceName") ?? "AirPods" {
+        didSet { UserDefaults.standard.set(airpodsDeviceName, forKey: "airpodsDeviceName") }
+    }
+    @Published var airpodsLeftBattery: Int = UserDefaults.standard.integer(forKey: "airpodsLeftBattery") {
+        didSet { UserDefaults.standard.set(airpodsLeftBattery, forKey: "airpodsLeftBattery") }
+    }
+    @Published var airpodsLeftCharging: Bool = UserDefaults.standard.bool(forKey: "airpodsLeftCharging") {
+        didSet { UserDefaults.standard.set(airpodsLeftCharging, forKey: "airpodsLeftCharging") }
+    }
+    @Published var airpodsRightBattery: Int = UserDefaults.standard.integer(forKey: "airpodsRightBattery") {
+        didSet { UserDefaults.standard.set(airpodsRightBattery, forKey: "airpodsRightBattery") }
+    }
+    @Published var airpodsRightCharging: Bool = UserDefaults.standard.bool(forKey: "airpodsRightCharging") {
+        didSet { UserDefaults.standard.set(airpodsRightCharging, forKey: "airpodsRightCharging") }
+    }
+    @Published var airpodsCaseBattery: Int = UserDefaults.standard.integer(forKey: "airpodsCaseBattery") {
+        didSet { UserDefaults.standard.set(airpodsCaseBattery, forKey: "airpodsCaseBattery") }
+    }
+    @Published var airpodsCaseCharging: Bool = UserDefaults.standard.bool(forKey: "airpodsCaseCharging") {
+        didSet { UserDefaults.standard.set(airpodsCaseCharging, forKey: "airpodsCaseCharging") }
+    }
 
     @Published var accessoryBatteryLevels: [String: Int] = [:]
     @Published var accessoryBatteryCharging: [String: Bool] = [:]

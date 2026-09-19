@@ -9,6 +9,8 @@ struct BatterySettingsView: View {
     @AppStorage("batteryAllowExpansion") private var batteryAllowExpansion: Bool = true
     @State private var isAccessoryHistoryExpanded: Bool = false
     @State private var previewType: String = "plugged"
+    @State private var expandedThresholds: Set<UUID> = []
+    @State private var isFullyChargedExpanded: Bool = false
     
     var body: some View {
         ScrollView {
@@ -178,34 +180,77 @@ struct BatterySettingsView: View {
                             }
                             Divider().padding(.leading, 48)
                             ForEach($mediaKeyManager.batteryCustomThresholds) { $threshold in
-                                CustomSettingsRow(icon: "bell", iconColor: .green, title: "Alert at \(threshold.percentage)%", subtitle: "Custom battery threshold") {
-                                    HStack(spacing: 8) {
-                                        Stepper(value: $threshold.percentage, in: 1...99, step: 1) {
-                                            Text("\(threshold.percentage)%")
-                                                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                                .foregroundColor(.primary)
+                                let isExpanded = expandedThresholds.contains(threshold.id)
+                                VStack(spacing: 0) {
+                                    CustomSettingsRow(icon: "bell", iconColor: .green, title: "Alert at \(threshold.percentage)%", subtitle: "Custom battery threshold") {
+                                        HStack(spacing: 8) {
+                                            Stepper(value: $threshold.percentage, in: 1...99, step: 1) {
+                                                Text("\(threshold.percentage)%")
+                                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                                    .foregroundColor(.primary)
+                                            }
+                                            .frame(width: 80)
+                                            
+                                            if threshold.isEnabled { SoundPickerControl(selectedSound: $threshold.sound) }
+                                            Toggle("", isOn: $threshold.isEnabled).labelsHidden()
+                                            
+                                            Button(action: {
+                                                mediaKeyManager.batteryCustomThresholds.removeAll { $0.id == threshold.id }
+                                            }) {
+                                                Image(systemName: "trash")
+                                                    .foregroundColor(.red)
+                                            }
+                                            .buttonStyle(.plain)
+                                            
+                                            Image(systemName: "chevron.down")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                                                .foregroundColor(.secondary)
+                                                .frame(width: 20, height: 20)
                                         }
-                                        .frame(width: 80)
-                                        
-                                        if threshold.isEnabled { SoundPickerControl(selectedSound: $threshold.sound) }
-                                        Toggle("", isOn: $threshold.isEnabled).labelsHidden()
-                                        
-                                        Button(action: {
-                                            mediaKeyManager.batteryCustomThresholds.removeAll { $0.id == threshold.id }
-                                        }) {
-                                            Image(systemName: "trash")
-                                                .foregroundColor(.red)
+                                    }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            if isExpanded { expandedThresholds.remove(threshold.id) }
+                                            else { expandedThresholds.insert(threshold.id) }
                                         }
-                                        .buttonStyle(.plain)
+                                    }
+                                    
+                                    if isExpanded {
+                                        VStack(spacing: 8) {
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text("Trigger Condition")
+                                                        .font(.system(size: 13, weight: .medium))
+                                                        .foregroundColor(.primary)
+                                                    Text("When should this alert activate?")
+                                                        .font(.system(size: 11))
+                                                        .foregroundColor(.secondary)
+                                                }
+                                                Spacer()
+                                                Picker("", selection: $threshold.triggerDirection) {
+                                                    Text("Any").tag("both")
+                                                    Text("Charge").tag("up")
+                                                    Text("Drain").tag("down")
+                                                }
+                                                .pickerStyle(.segmented)
+                                                .fixedSize()
+                                            }
+                                            .padding(.leading, 52)
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.bottom, 12)
                                     }
                                 }
                                 Divider().padding(.leading, 48)
                             }
                             CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged", subtitle: "Show when reaching full charge") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyOn100Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn100Percent) }
-    Toggle("", isOn: $mediaKeyManager.notifyOn100Percent).labelsHidden() }
-                       
+                                HStack(spacing: 8) { 
+                                    if mediaKeyManager.notifyOn100Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn100Percent) }
+                                    Toggle("", isOn: $mediaKeyManager.notifyOn100Percent).labelsHidden() 
                                 }
+                            }
                                 
                             Divider().padding(.leading, 48)
                             

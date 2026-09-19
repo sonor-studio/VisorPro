@@ -144,4 +144,9 @@ class AirPodsModeObserver {
         let err = AudioObjectSetPropertyData(defaultOutputDeviceID, &lstmAddress, 0, nil, size, &targetMode)
         return err == noErr
     }
+    
+    func getCurrentMode() -> Int? {
+        guard defaultOutputDeviceID != 0 else { return nil }
+        return readLstmMode(deviceID: defaultOutputDeviceID, scope: lstmAddress.mScope)
+    }
 }

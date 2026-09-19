@@ -215,6 +215,10 @@ class VisorProWindowManager: ObservableObject {
             active.append(ActiveOverlay(id: "bluetooth_\(notif.id)", type: .bluetooth, position: btPos, notification: notif))
         }
         
+        if relay.showSmartRoutingIndicator {
+            active.append(ActiveOverlay(id: "smartRouting", type: .smartRouting, position: btPos, notification: nil))
+        }
+        
         let langPos = MediaKeyManager.shared.getOverlayPosition(for: "languageOverlayPosition")
         if relay.showLanguageIndicator { active.append(ActiveOverlay(id: "language", type: .language, position: langPos, notification: nil)) }
         
@@ -763,6 +767,7 @@ struct SingleOverlayContainer: View {
         case .cpu: CpuTemperatureOverlayView(isPreview: false)
         case .trash: TrashOverlayView()
         case .fileDeleted: FileDeletedOverlayView()
+        case .smartRouting: SmartRoutingOverlayView()
         }
     }
 }

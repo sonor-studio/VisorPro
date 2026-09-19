@@ -787,6 +787,9 @@ class VolumeManager {
         if Date().timeIntervalSince(lastRouteChangeTime) < 3.0 {
             return
         }
+        if Date().timeIntervalSince(MediaKeyManager.shared.lastSmartRoutingActionTime) < 4.0 {
+            return
+        }
         
         queue.async {
             let (volFloat, isMuted) = self.getSystemVolume()

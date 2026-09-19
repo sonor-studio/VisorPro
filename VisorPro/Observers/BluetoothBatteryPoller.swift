@@ -4,6 +4,7 @@ class BluetoothBatteryPoller {
     private weak var manager: MediaKeyManager?
     private var timer: Timer?
     private var lastLevels: [String: Int] = [:]
+    private var lastTriggeredTimes: [String: [Int: Date]] = [:]
     
     init(manager: MediaKeyManager) {
         self.manager = manager
@@ -171,29 +172,80 @@ class BluetoothBatteryPoller {
             if let lastBat = lastBat, !isBlocked, let settings = self.manager?.accessorySettings[baseName] {
                 var shouldTrigger = false
                 var triggeredSound = settings.soundOn100Percent // Fallback
+                var triggeredThresholdPercentage: Int = battery // Default to actual battery
+                
+                let isLeft = name.hasSuffix("(Left)")
+                let isRight = name.hasSuffix("(Right)")
+                let isCase = name.hasSuffix("(Case)")
+                let isMain = !isLeft && !isRight && !isCase
                 
                 // 1. Check fixed 100% threshold
-                if lastBat < 100 && battery == 100 && settings.notifyOn100Percent {
-                    shouldTrigger = true
-                    triggeredSound = settings.soundOn100Percent
+                if settings.notifyOn100Percent {
+                    let crossedUp = (lastBat < 100 && battery >= 100)
+                    let crossedDown = (lastBat > 100 && battery <= 100) // Normally impossible but added for consistency
+                    let justReached100 = (lastBat != 100 && battery == 100)
+                    
+                    var directionMatches = false
+                    if settings.triggerDirection100Percent == "both" && justReached100 { directionMatches = true }
+                    else if settings.triggerDirection100Percent == "up" && crossedUp { directionMatches = true }
+                    else if settings.triggerDirection100Percent == "down" && crossedDown { directionMatches = true }
+                    
+                    var targetMatches = false
+                    if isLeft && settings.apply100PercentToLeft { targetMatches = true }
+                    if isRight && settings.apply100PercentToRight { targetMatches = true }
+                    if isCase && settings.apply100PercentToCase { targetMatches = true }
+                    if isMain && settings.apply100PercentToMain { targetMatches = true }
+                    
+                    if directionMatches && targetMatches {
+                        shouldTrigger = true
+                        triggeredSound = settings.soundOn100Percent
+                        triggeredThresholdPercentage = 100
+                    }
                 }
+                
                 
                 // 2. Check custom thresholds
                 for threshold in settings.customThresholds where threshold.isEnabled {
-                    let hit = (battery == threshold.percentage) && (lastBat != battery)
-                    let crossedDown = lastBat > threshold.percentage && battery < threshold.percentage
-                    let crossedUp = lastBat < threshold.percentage && battery > threshold.percentage
+                    if isLeft && !threshold.applyToLeft { continue }
+                    if isRight && !threshold.applyToRight { continue }
+                    if isCase && !threshold.applyToCase { continue }
+                    if isMain && !threshold.applyToMain { continue }
                     
-                    if hit || crossedDown || crossedUp {
+                    let hitDown = (battery == threshold.percentage) && (lastBat > battery)
+                    let hitUp = (battery == threshold.percentage) && (lastBat < battery)
+                    let crossedDown = lastBat > threshold.percentage && battery < threshold.percentage && (lastBat - battery) <= 10
+                    let crossedUp = lastBat < threshold.percentage && battery > threshold.percentage && (battery - lastBat) <= 10
+                    
+                    var valid = false
+                    if threshold.triggerDirection == "down" {
+                        if hitDown || crossedDown { valid = true }
+                    } else if threshold.triggerDirection == "up" {
+                        if hitUp || crossedUp { valid = true }
+                    } else { // "both"
+                        if hitDown || hitUp || crossedDown || crossedUp { valid = true }
+                    }
+                    
+                    if valid {
                         shouldTrigger = true
                         triggeredSound = threshold.sound
+                        triggeredThresholdPercentage = threshold.percentage
                     }
                 }
                 
                 if shouldTrigger {
-                    let isWarn = battery < 100 // Treat all custom thresholds as warnings so the text is "Battery Alert", except 100% which is "Fully Charged"
-                    // Pass the triggered sound to the manager so it plays the right one
-                    self.manager?.triggerAccessoryBatteryIndicator(deviceName: name, percentage: battery, isPluggedIn: isPluggedIn, isWarning: isWarn, customSound: triggeredSound)
+                    let now = Date()
+                    let deviceTriggers = self.lastTriggeredTimes[name] ?? [:]
+                    if let lastTime = deviceTriggers[triggeredThresholdPercentage], now.timeIntervalSince(lastTime) < 600 {
+                        // Skip if triggered within the last 10 minutes to avoid fluctuation spam
+                    } else {
+                        self.lastTriggeredTimes[name, default: [:]][triggeredThresholdPercentage] = now
+                        
+                        let isWarn = triggeredThresholdPercentage < 100 // Treat all custom thresholds as warnings so the text is "Battery Alert", except 100% which is "Fully Charged"
+                        let isIncreasing = (battery > lastBat)
+                        
+                        // Pass the triggered sound to the manager so it plays the right one
+                        self.manager?.triggerAccessoryBatteryIndicator(deviceName: name, percentage: triggeredThresholdPercentage, isPluggedIn: isPluggedIn, isWarning: isWarn, isIncreasing: isIncreasing, customSound: triggeredSound)
+                    }
                 }
             }
             

@@ -84,7 +84,9 @@ struct VolumeOverlayView: View {
                     
                     AnimatablePercentageText(progress: animatedVolumeProgress, isTopTitle: true, color: .primary, isPluggedIn: false, customText: "%d%")
                 }
-                .padding(.horizontal, 16 + 4 + 3) // 16 + trackPadding + innerPadding
+                .padding(.leading, 23)
+                .padding(.trailing, 23)
+                .frame(maxWidth: .infinity, alignment: .leading)
             },
             expandedContent: {
                 VStack(alignment: .leading, spacing: 4) {

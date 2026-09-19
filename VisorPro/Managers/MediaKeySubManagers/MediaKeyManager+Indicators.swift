@@ -382,8 +382,13 @@ extension MediaKeyManager {
     }
     
     // MARK: - AirPods Mode
+    func triggerAirPodsModeOverlayFromNativeTrigger() {
+        if let mode = self.airPodsModeObserver?.getCurrentMode() {
+            self.triggerAirPodsModeOverlay(mode: mode)
+        }
+    }
     
-    func triggerAirPodsModeOverlay(mode: Int) {
+    func triggerAirPodsModeOverlay(mode: Int, showOverlay: Bool = true) {
         if !enableBluetooth { return }
         
         let changed = (OverlayStateRelay.shared.airPodsModeValue != mode)
@@ -430,6 +435,14 @@ extension MediaKeyManager {
         
         OverlayStateRelay.shared.airPodsModeValue = mode
         OverlayStateRelay.shared.airPodsModeEventId = UUID()
+        
+        guard showOverlay else { return }
+        
+        // Ensure they are mutually exclusive: hide AirPods Connection overlays if Mode overlay appears
+        withAnimation(.easeInOut(duration: 0.15)) {
+            self.activeBluetoothNotifications.removeAll { $0.id == "AIRPODS_CONNECTION" || $0.deviceName.lowercased().contains("airpods") }
+            self.notifyOverlayStateChanged()
+        }
         
         if showAirPodsModeIndicator {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {

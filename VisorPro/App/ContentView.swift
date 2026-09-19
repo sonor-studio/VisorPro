@@ -14,7 +14,7 @@ struct ContentView: View {
     @State private var geoSize: CGSize = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1920, height: 1080)
     
     enum OverlayType: String, CaseIterable {
-        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, focus, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery, cpu, date, trash, fileDeleted, airpodsMode, airpodsGroupBattery
+        case volume, brightness, keyboardBrightness, battery, copy, capsLock, bluetooth, language, media, theme, focus, mic, camera, location, wifi, peripheral, display, ram, accessoryBattery, cpu, date, trash, fileDeleted, airpodsMode, airpodsGroupBattery, smartRouting
     }
     
     struct ActiveOverlay: Identifiable, Equatable {
@@ -46,6 +46,9 @@ struct ContentView: View {
         let btPos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")
         for notif in mediaKeyManager.activeBluetoothNotifications {
             active.append(ActiveOverlay(id: "bluetooth_\(notif.id)", type: .bluetooth, position: btPos, notification: notif))
+        }
+        if OverlayStateRelay.shared.showSmartRoutingIndicator {
+            active.append(ActiveOverlay(id: "smartRouting", type: .smartRouting, position: btPos, notification: nil))
         }
         
         let langPos = MediaKeyManager.shared.getOverlayPosition(for: "languageOverlayPosition")
@@ -283,6 +286,7 @@ struct ContentView: View {
         case .airpodsGroupBattery: AirPodsGroupBatteryOverlayView()
         case .trash: TrashOverlayView()
         case .fileDeleted: FileDeletedOverlayView()
+        case .smartRouting: SmartRoutingOverlayView()
         }
     }
     

@@ -41,16 +41,26 @@ struct BatteryThreshold: Codable, Equatable, Identifiable, Hashable {
     var sound: String
     var isEnabled: Bool
     var color: String = "Default"
+    var triggerDirection: String = "both" // "up", "down", "both"
+    var applyToLeft: Bool = true
+    var applyToRight: Bool = true
+    var applyToCase: Bool = true
+    var applyToMain: Bool = true
     
-    init(percentage: Int, sound: String, isEnabled: Bool, color: String = "Default") {
+    init(percentage: Int, sound: String, isEnabled: Bool, color: String = "Default", triggerDirection: String = "both", applyToLeft: Bool = true, applyToRight: Bool = true, applyToCase: Bool = true, applyToMain: Bool = true) {
         self.percentage = percentage
         self.sound = sound
         self.isEnabled = isEnabled
         self.color = color
+        self.triggerDirection = triggerDirection
+        self.applyToLeft = applyToLeft
+        self.applyToRight = applyToRight
+        self.applyToCase = applyToCase
+        self.applyToMain = applyToMain
     }
     
     enum CodingKeys: String, CodingKey {
-        case id, percentage, sound, isEnabled, color
+        case id, percentage, sound, isEnabled, color, triggerDirection, applyToLeft, applyToRight, applyToCase, applyToMain
     }
     
     init(from decoder: Decoder) throws {
@@ -60,6 +70,11 @@ struct BatteryThreshold: Codable, Equatable, Identifiable, Hashable {
         sound = try container.decodeIfPresent(String.self, forKey: .sound) ?? "None"
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
         color = try container.decodeIfPresent(String.self, forKey: .color) ?? "Default"
+        triggerDirection = try container.decodeIfPresent(String.self, forKey: .triggerDirection) ?? "both"
+        applyToLeft = try container.decodeIfPresent(Bool.self, forKey: .applyToLeft) ?? true
+        applyToRight = try container.decodeIfPresent(Bool.self, forKey: .applyToRight) ?? true
+        applyToCase = try container.decodeIfPresent(Bool.self, forKey: .applyToCase) ?? true
+        applyToMain = try container.decodeIfPresent(Bool.self, forKey: .applyToMain) ?? true
     }
 }
 
@@ -67,11 +82,17 @@ struct AccessoryDeviceSettings: Codable, Equatable {
     var enableOverlay: Bool = true
     var notifyOnConnect: Bool = true
     var notifyOnDisconnect: Bool = true
+    var notifyOnSmartRouting: Bool = true
     var soundOnConnect: String = "None"
     var soundOnDisconnect: String = "None"
     
     var notifyOn100Percent: Bool = true
     var soundOn100Percent: String = "None"
+    var triggerDirection100Percent: String = "both"
+    var apply100PercentToLeft: Bool = true
+    var apply100PercentToRight: Bool = true
+    var apply100PercentToCase: Bool = true
+    var apply100PercentToMain: Bool = true
     
     var notifyOnAirPodsANC: Bool = true
     var soundOnAirPodsANC: String = "None"
@@ -86,6 +107,7 @@ struct AccessoryDeviceSettings: Codable, Equatable {
     
     var colorOnConnect: String = "Default"
     var colorOnDisconnect: String = "Default"
+    var colorOnSmartRouting: String = "Default"
     var colorOnCaseOpen: String = "Default"
     var colorOn100Percent: String = "Default"
     var colorOnAirPodsANC: String = "Default"
@@ -116,9 +138,16 @@ struct AccessoryDeviceSettings: Codable, Equatable {
         
         notifyOn100Percent = try container.decodeIfPresent(Bool.self, forKey: .notifyOn100Percent) ?? true
         soundOn100Percent = try container.decodeIfPresent(String.self, forKey: .soundOn100Percent) ?? "None"
+        triggerDirection100Percent = try container.decodeIfPresent(String.self, forKey: .triggerDirection100Percent) ?? "both"
+        apply100PercentToLeft = try container.decodeIfPresent(Bool.self, forKey: .apply100PercentToLeft) ?? true
+        apply100PercentToRight = try container.decodeIfPresent(Bool.self, forKey: .apply100PercentToRight) ?? true
+        apply100PercentToCase = try container.decodeIfPresent(Bool.self, forKey: .apply100PercentToCase) ?? true
+        apply100PercentToMain = try container.decodeIfPresent(Bool.self, forKey: .apply100PercentToMain) ?? true
         
         colorOnConnect = try container.decodeIfPresent(String.self, forKey: .colorOnConnect) ?? "Default"
         colorOnDisconnect = try container.decodeIfPresent(String.self, forKey: .colorOnDisconnect) ?? "Default"
+        notifyOnSmartRouting = try container.decodeIfPresent(Bool.self, forKey: .notifyOnSmartRouting) ?? true
+        colorOnSmartRouting = try container.decodeIfPresent(String.self, forKey: .colorOnSmartRouting) ?? "Default"
         colorOnCaseOpen = try container.decodeIfPresent(String.self, forKey: .colorOnCaseOpen) ?? "Default"
         colorOn100Percent = try container.decodeIfPresent(String.self, forKey: .colorOn100Percent) ?? "Default"
         colorOnAirPodsANC = try container.decodeIfPresent(String.self, forKey: .colorOnAirPodsANC) ?? "Default"
@@ -219,6 +248,9 @@ class MediaKeyManager: ObservableObject {
         let val = UserDefaults.standard.double(forKey: "notificationDuration")
         return val == 0 ? 3.0 : val
     }
+    
+    var lastConnectionEventTime: Date = Date.distantPast
+    @Published var latestTipiDeviceName: String = "iPhone"
     
     var lastAction: String {
         get { OverlayStateRelay.shared.lastAction }
@@ -450,6 +482,10 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(soundOn100Percent, forKey: "soundOn100Percent") }
     }
     
+    @Published var triggerDirection100Percent: String = UserDefaults.standard.string(forKey: "triggerDirection100Percent") ?? "both" {
+        didSet { UserDefaults.standard.set(triggerDirection100Percent, forKey: "triggerDirection100Percent") }
+    }
+    
 
     
     
@@ -516,6 +552,8 @@ class MediaKeyManager: ObservableObject {
     @Published var soundOnCapsLock: String = UserDefaults.standard.string(forKey: "soundOnCapsLock") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnCapsLock, forKey: "soundOnCapsLock") }
     }
+    
+    var lastSystemBatteryTriggeredTimes: [Int: Date] = [:]
 
     var currentBatteryPercentage: Int {
         get { OverlayStateRelay.shared.currentBatteryPercentage }
@@ -530,19 +568,44 @@ class MediaKeyManager: ObservableObject {
                 if notifyOn20Percent { allThresholds.append(BatteryThreshold(percentage: 20, sound: soundOn20Percent, isEnabled: true)) }
                 
                 for threshold in allThresholds where threshold.isEnabled {
-                    let hit = currentBatteryPercentage == threshold.percentage
-                    let crossedDown = oldValue > threshold.percentage && currentBatteryPercentage < threshold.percentage
-                    let crossedUp = oldValue < threshold.percentage && currentBatteryPercentage > threshold.percentage
+                    let hitDown = (currentBatteryPercentage == threshold.percentage) && (oldValue > currentBatteryPercentage)
+                    let hitUp = (currentBatteryPercentage == threshold.percentage) && (oldValue < currentBatteryPercentage)
+                    let crossedDown = oldValue > threshold.percentage && currentBatteryPercentage < threshold.percentage && (oldValue - currentBatteryPercentage) <= 10
+                    let crossedUp = oldValue < threshold.percentage && currentBatteryPercentage > threshold.percentage && (currentBatteryPercentage - oldValue) <= 10
                     
-                    if hit || crossedDown || crossedUp {
-                        triggerBatteryThresholdWarning(percentage: currentBatteryPercentage, sound: threshold.sound)
+                    var valid = false
+                    if threshold.triggerDirection == "down" {
+                        if hitDown || crossedDown { valid = true }
+                    } else if threshold.triggerDirection == "up" {
+                        if hitUp || crossedUp { valid = true }
+                    } else { // "both"
+                        if hitDown || hitUp || crossedDown || crossedUp { valid = true }
+                    }
+                    
+                    if valid {
+                        let now = Date()
+                        if let lastTime = lastSystemBatteryTriggeredTimes[threshold.percentage], now.timeIntervalSince(lastTime) < 600 {
+                            // Skip if triggered within the last 10 minutes
+                        } else {
+                            lastSystemBatteryTriggeredTimes[threshold.percentage] = now
+                            triggerBatteryThresholdWarning(percentage: threshold.percentage, sound: threshold.sound)
+                        }
                     }
                 }
             }
             
-            if isPluggedIn && oldValue != currentBatteryPercentage {
-                let reachedFull = currentBatteryPercentage == 100 || (currentBatteryPercentage == chargeLimit && chargeLimit < 100)
-                if reachedFull && notifyOn100Percent && oldValue < currentBatteryPercentage {
+            if oldValue != currentBatteryPercentage && notifyOn100Percent {
+                let targetFull = (chargeLimit < 100) ? chargeLimit : 100
+                let crossedUp = (oldValue < targetFull && currentBatteryPercentage >= targetFull)
+                let crossedDown = (oldValue > targetFull && currentBatteryPercentage <= targetFull)
+                let justReached = (oldValue != targetFull && currentBatteryPercentage == targetFull)
+                
+                var directionMatches = false
+                if triggerDirection100Percent == "both" && justReached { directionMatches = true }
+                else if triggerDirection100Percent == "up" && crossedUp { directionMatches = true }
+                else if triggerDirection100Percent == "down" && crossedDown { directionMatches = true }
+                
+                if directionMatches {
                     triggerChargingStatus()
                 }
             }
@@ -575,7 +638,14 @@ class MediaKeyManager: ObservableObject {
                         
                         for threshold in allThresholds where threshold.isEnabled {
                             if currentBatteryPercentage == threshold.percentage {
-                                triggerBatteryThresholdWarning(percentage: currentBatteryPercentage, sound: threshold.sound)
+                                if threshold.triggerDirection == "up" { continue }
+                                let now = Date()
+                                if let lastTime = lastSystemBatteryTriggeredTimes[threshold.percentage], now.timeIntervalSince(lastTime) < 600 {
+                                    // Skip
+                                } else {
+                                    lastSystemBatteryTriggeredTimes[threshold.percentage] = now
+                                    triggerBatteryThresholdWarning(percentage: threshold.percentage, sound: threshold.sound)
+                                }
                             }
                         }
                     }
@@ -639,7 +709,16 @@ class MediaKeyManager: ObservableObject {
             OverlayStateRelay.shared.isEffectivelyFullyCharged = newValue
             
             if !isBatteryInitialized { return }
-            if isEffectivelyFullyCharged && !oldValue && notifyOn100Percent {
+            let crossedUp = (newValue && !oldValue)
+            let crossedDown = (!newValue && oldValue)
+            let changed = (newValue != oldValue)
+            
+            var directionMatches = false
+            if triggerDirection100Percent == "both" && changed { directionMatches = true }
+            else if triggerDirection100Percent == "up" && crossedUp { directionMatches = true }
+            else if triggerDirection100Percent == "down" && crossedDown { directionMatches = true }
+            
+            if directionMatches && notifyOn100Percent {
                 triggerChargingStatus()
             }
         
@@ -1415,6 +1494,9 @@ class MediaKeyManager: ObservableObject {
     }
     var micTimer: Timer?
     var isMicTimerScheduledInstantly = false
+    var lastMediaKeyTapTime: Date = Date.distantPast
+    var lastSmartRoutingActionTime: Date = Date.distantPast
+    private var eventMonitor: Any?
     var lastMicEventTime: Date = Date.distantPast
     
     var showCameraIndicator: Bool {
@@ -1639,11 +1721,12 @@ class MediaKeyManager: ObservableObject {
         set { OverlayStateRelay.shared.peripheralEventId = newValue }
     }    
     var lastBluetoothEventTimeByDevice: [String: Date] = [:]
+    var bluetoothConnectionStateByDevice: [String: Bool] = [:]
     
     var peripheralTimer: Timer?
     private var peripheralObserver: PeripheralObserver?
     private var displayObserver: DisplayObserver?
-    private var airPodsModeObserver: AirPodsModeObserver?
+    var airPodsModeObserver: AirPodsModeObserver?
     var currentPlayingSound: NSSound?
     private var soundCache: [String: NSSound] = [:]
     
@@ -1922,6 +2005,7 @@ class MediaKeyManager: ObservableObject {
 
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
             else if overlayId.hasPrefix("airpodsGroupBattery") { showAirpodsGroupBatteryIndicator = false }
+            else if overlayId == "smartRouting" { OverlayStateRelay.shared.showSmartRoutingIndicator = false }
         }
         notifyOverlayStateChanged()
     }
@@ -2786,7 +2870,7 @@ class MediaKeyManager: ObservableObject {
         
         self.airPodsModeObserver = AirPodsModeObserver(modeChangeCallback: { [weak self] mode in
             DispatchQueue.main.async {
-                self?.triggerAirPodsModeOverlay(mode: mode)
+                self?.triggerAirPodsModeOverlay(mode: mode, showOverlay: false)
             }
         })
         self.airPodsModeObserver?.start()

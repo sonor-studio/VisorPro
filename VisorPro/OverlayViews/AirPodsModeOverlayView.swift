@@ -65,11 +65,6 @@ struct AirPodsModeOverlayView: View {
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(overlayState.isChangingAirPodsMode ? .secondary : .primary)
                         }
-                    } else {
-                        Image(systemName: "chevron.up")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.secondary.opacity(0.5))
-                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
                     }
                 }
                 .padding(.leading, 23)

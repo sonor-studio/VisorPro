@@ -116,7 +116,9 @@ struct BatteryOverlayView: View {
                     }
                     Spacer(minLength: 8)
                 }
-                .padding(.horizontal, 16 + 4 + 3)
+                .padding(.leading, 23)
+                .padding(.trailing, 23)
+                .frame(maxWidth: .infinity, alignment: .leading)
             },
             expandedContent: {
                 VStack(spacing: 12) {
