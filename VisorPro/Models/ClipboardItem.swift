@@ -7,4 +7,5 @@ struct ClipboardItem: Identifiable, Codable, Equatable {
     var folder: String?
     var size: String
     var timestamp: Date
+    var isMasked: Bool?
 }

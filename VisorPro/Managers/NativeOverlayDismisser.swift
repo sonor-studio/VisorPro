@@ -229,6 +229,9 @@ final class NativeOverlayDismisser {
 
         if isVolume && MediaKeyManager.shared.enableVolume {
             shouldIntercept = true
+            DispatchQueue.main.async {
+                MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
+            }
         }
         
         if preventIntercept {

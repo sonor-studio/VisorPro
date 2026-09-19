@@ -1,0 +1,9 @@
+Found role: AXWindow
+    Found role: AXGroup
+      Found role: AXImage
+      Found role: AXStaticText
+      Found role: AXStaticText
+      Found role: AXButton
+      Button subrole: 'nil'
+      Clicking Undo Button (not a close button)!
+Found button? true

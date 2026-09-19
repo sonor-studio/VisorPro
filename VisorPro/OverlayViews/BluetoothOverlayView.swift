@@ -157,6 +157,20 @@ struct BluetoothOverlayView: View {
         let resolvedSystemName = resolvedDetails?["SystemName"] ?? ""
         let systemName = resolvedSystemName.isEmpty ? actualDeviceName : resolvedSystemName
         
+        let currentAccessorySettings: AccessoryDeviceSettings = {
+            var settings = mediaKeyManager.accessorySettings[actualDeviceName]
+            if settings == nil, (actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION") {
+                settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased().contains("airpods") })?.value
+            }
+            if settings == nil {
+                settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased() == actualDeviceName.lowercased() })?.value
+            }
+            if settings == nil, let notifName = notification?.deviceName {
+                settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased() == notifName.lowercased() })?.value
+            }
+            return settings ?? AccessoryDeviceSettings()
+        }()
+        
         let deviceBatteries = overlayState.accessoryBatteryLevels.filter { $0.key.hasPrefix(systemName) }
         var effectiveDeviceBatteries: [String: Int] = isPreview ? (
             actualDeviceName.lowercased().contains("airpods") ? [
@@ -191,24 +205,9 @@ struct BluetoothOverlayView: View {
         }()
         
         let accessoryBatteryColor: Color = {
-            if mediaKeyManager.overlayColorMode == "custom", (isPreview && previewIsAccessory) || notification?.type == "accessory" || actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION" {
-                let baseName = actualDeviceName
-                var settings = mediaKeyManager.accessorySettings[baseName]
-                
-                if settings == nil, (actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION") {
-                    settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased().contains("airpods") })?.value
-                }
-                if settings == nil {
-                    settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased() == baseName.lowercased() })?.value
-                }
-                if settings == nil, let notifName = notification?.deviceName {
-                    settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased() == notifName.lowercased() })?.value
-                }
-                
-                let finalSettings = settings ?? AccessoryDeviceSettings()
-                
-                if actualIsConnected && finalSettings.colorOnConnect != "Default" { return OverlayColorManager.shared.parseColor(finalSettings.colorOnConnect) }
-                if !actualIsConnected && finalSettings.colorOnDisconnect != "Default" { return OverlayColorManager.shared.parseColor(finalSettings.colorOnDisconnect) }
+            if mediaKeyManager.overlayColorMode == "custom", isAccessoryType || actualDeviceName.lowercased().contains("airpods") || notification?.id == "AIRPODS_CONNECTION" {
+                if actualIsConnected && currentAccessorySettings.colorOnConnect != "Default" { return OverlayColorManager.shared.parseColor(currentAccessorySettings.colorOnConnect) }
+                if !actualIsConnected && currentAccessorySettings.colorOnDisconnect != "Default" { return OverlayColorManager.shared.parseColor(currentAccessorySettings.colorOnDisconnect) }
             }
             return MediaKeyManager.shared.isBluetoothAccessory(actualDeviceName)
                 ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo)
@@ -328,7 +327,7 @@ struct BluetoothOverlayView: View {
                                 .frame(height: 50)
                         }
                     } else if actualIsConnected {
-                        if !effectiveDeviceBatteries.isEmpty {
+                        if !effectiveDeviceBatteries.isEmpty && currentAccessorySettings.showBattery {
                             VStack(spacing: 12) {
                                 let sortedBatteries = effectiveDeviceBatteries.sorted { sortWeight(for: $0.key) < sortWeight(for: $1.key) }
                                 
@@ -405,7 +404,7 @@ struct BluetoothOverlayView: View {
                                     }
                                     .padding(.vertical, 4)
                                 }
-                                if hasRealDetails {
+                                if hasRealDetails && currentAccessorySettings.showDetails {
                                     Button(action: {
                                         withAnimation(.easeInOut(duration: 0.2)) {
                                             showDetails.toggle()
@@ -424,14 +423,14 @@ struct BluetoothOverlayView: View {
                                 }
                             }
                             
-                            if hasRealDetails && showDetails {
+                            if hasRealDetails && currentAccessorySettings.showDetails && showDetails {
                                 Divider()
                                     .padding(.horizontal, 32)
                                     .opacity(0.3)
                             }
                         }
                         
-                        if hasRealDetails && (showDetails || effectiveDeviceBatteries.isEmpty) {
+                        if hasRealDetails && currentAccessorySettings.showDetails && (showDetails || (effectiveDeviceBatteries.isEmpty || !currentAccessorySettings.showBattery)) {
                             VStack(spacing: 8) {
                                 if let details = resolvedDetails {
                                     if let mac = details["MAC"] {
@@ -450,6 +449,24 @@ struct BluetoothOverlayView: View {
                             }
                             .padding(.horizontal, 16)
                             .padding(.top, effectiveDeviceBatteries.isEmpty ? 0 : 4)
+                        }
+                    } else {
+                        if hasRealDetails && currentAccessorySettings.showDetails {
+                            VStack(spacing: 8) {
+                                if let details = resolvedDetails {
+                                    if let mac = details["MAC"] {
+                                        StatRow(icon: "network", label: "MAC Address", value: mac, allowShrink: true)
+                                    }
+                                    if let type = details["Typ"] {
+                                        StatRow(icon: "tag", label: "Type", value: type)
+                                    }
+                                    if let fw = details["Firmware"] {
+                                        StatRow(icon: "cpu", label: "Firmware", value: fw)
+                                    }
+                                    // RSSI is not relevant when disconnected
+                                }
+                            }
+                            .padding(.horizontal, 16)
                         }
                     }
                     

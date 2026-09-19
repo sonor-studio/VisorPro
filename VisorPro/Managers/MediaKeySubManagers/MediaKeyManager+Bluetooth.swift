@@ -69,11 +69,9 @@ extension MediaKeyManager {
         let now = Date()
         let eventKey = "\(deviceAddress)_\(isConnected ? "connect" : "disconnect")"
         
-        // Prevent showing "Connected" repeatedly if it's already connected, and "Disconnected" if already disconnected.
+        // Prevent showing duplicate notifications within 2 seconds. We no longer strictly return if the state matches, 
+        // to prevent getting stuck if a disconnect event was missed.
         let stateKey = deviceAddress
-        if bluetoothConnectionStateByDevice[stateKey] == isConnected {
-            return
-        }
         bluetoothConnectionStateByDevice[stateKey] = isConnected
         
         if let lastTime = lastBluetoothEventTimeByDevice[eventKey], now.timeIntervalSince(lastTime) < 2.0 {

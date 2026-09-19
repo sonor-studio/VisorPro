@@ -226,6 +226,36 @@ struct AccessorySettingsView: View {
                     .padding(.bottom, 16)
                     
                     VStack(alignment: .leading, spacing: 16) {
+                        Text("Overlay Content")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                            
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Show Battery", subtitle: "Display battery percentage in the expanded overlay") {
+                                Toggle("", isOn: $settings.showBattery)
+                                    .labelsHidden()
+                                    .disabled(settings.showBattery && !settings.showDetails)
+                                    .onChange(of: settings.showBattery) { _, _ in saveSettings() }
+                            }
+                            
+                            Divider().padding(.leading, 40)
+                            
+                            CustomSettingsRow(icon: "info.circle", iconColor: .blue, title: "Show Details", subtitle: "Display device details like MAC address and firmware in the expanded overlay") {
+                                Toggle("", isOn: $settings.showDetails)
+                                    .labelsHidden()
+                                    .disabled(settings.showDetails && !settings.showBattery)
+                                    .onChange(of: settings.showDetails) { _, _ in saveSettings() }
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                    }
+                    .padding(.bottom, 16)
+                    
+                    VStack(alignment: .leading, spacing: 16) {
                         Text("Overlay Triggers")
                             .font(.headline)
                             .foregroundColor(.secondary)

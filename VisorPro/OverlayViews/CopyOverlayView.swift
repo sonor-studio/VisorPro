@@ -1,18 +1,39 @@
 import SwiftUI
 
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value += nextValue()
+    }
+}
+
 struct CopyOverlayView: View {
     @State private var isExpanded: Bool = false
     @State private var previewItemId: UUID? = nil
+    @State private var scrollOffset: CGFloat = 0
     @State private var textNeedsExpansion: Bool = false
     @AppStorage("copyAllowExpansion") private var copyAllowExpansion: Bool = true
     @AppStorage("clipboardEnableHistory") var clipboardEnableHistory: Bool = true
     @AppStorage("clipboardEnablePreview") var clipboardEnablePreview: Bool = true
     @AppStorage("clipboardKeepExpandedOnPaste") var clipboardKeepExpandedOnPaste: Bool = false
+    @AppStorage("clipboardShowPasswordToggle") private var clipboardShowPasswordToggle: Bool = true
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
     var isPreview: Bool = false
     var previewAction: String? = nil
+    
+    private func masked(_ text: String) -> String {
+        guard clipboardShowPasswordToggle else { return text }
+        let isCurrentlyMasked: Bool
+        if let pid = activePreviewId, let item = currentHistory.first(where: { $0.id == pid }) {
+            isCurrentlyMasked = item.isMasked ?? false
+        } else {
+            isCurrentlyMasked = false
+        }
+        guard isCurrentlyMasked else { return text }
+        return "••••••••"
+    }
     
     private static let mockHistory: [ClipboardItem] = [
         ClipboardItem(id: UUID(), text: "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg", app: "Safari", folder: nil, size: "128 bytes", timestamp: Date()),
@@ -106,7 +127,7 @@ struct CopyOverlayView: View {
 
     var body: some View {
         let canExpand = (clipboardEnableHistory && !currentHistory.isEmpty) || (textNeedsExpansion && clipboardEnablePreview)
-        let trackWidth: CGFloat = 260 - 8
+
         let copyPos = MediaKeyManager.shared.getOverlayPosition(for: "copyOverlayPosition")
         
 
@@ -114,11 +135,8 @@ struct CopyOverlayView: View {
             isPreview: isPreview,
             isExpanded: $isExpanded,
             showProgressBar: true,
-            progress: 1.0,
-            customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || mediaKeyManager.globalHoveredTypes.contains("copy"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
-                    .id(overlayState.clipboardEventId)
-            ),
+            hasTimeoutProgress: true,
+            timeoutEventId: overlayState.clipboardEventId,
             barColor: OverlayColorManager.shared.getOverlayColor(for: actualAction == "copy" ? "colorOnCopy" : (actualAction == "cut" ? "colorOnCut" : "colorOnPaste"), defaultColor: actionColor),
             fillCenter: false, // The original uses strokeBorder
             isMuted: false,
@@ -130,26 +148,25 @@ struct CopyOverlayView: View {
             expandUpwards: copyPos.hasPrefix("bottom"),
             keepAliveId: "copy",
             baseContent: {
-                HStack(alignment: .top, spacing: 0) {
+                HStack(alignment: .center, spacing: 0) {
                     Image(systemName: actionIcon)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16 + 4 + 3)
-                        .padding(.top, 4)
+                        .padding(.leading, 23)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(actionTitle)
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.secondary)
                         
-                        MarqueeText(text: displayedItemText, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                            
+                        MarqueeText(text: masked(displayedItemText), font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             .frame(height: 18)
+                            .id("marquee-\(isExpanded)")
                             .opacity((isExpanded && textNeedsExpansion && clipboardEnablePreview) ? 0 : 1)
                     }
-                    .padding(.leading, 14)
-                    .padding(.trailing, 16 + 4 + 3)
+                    .padding(.leading, 12)
+                    .padding(.trailing, 20)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.vertical, 5)
@@ -161,7 +178,7 @@ struct CopyOverlayView: View {
         .onAppear {
             updateTextExpansion()
         }
-        .onChange(of: displayedItemText) { _, _ in
+        .onChange(of: masked(displayedItemText)) { _, _ in
             updateTextExpansion()
         }
         .onChange(of: clipboardEnableHistory) { _, _ in
@@ -170,8 +187,9 @@ struct CopyOverlayView: View {
     }
 
     private func updateTextExpansion() {
+        let textToMeasure = masked(displayedItemText)
         let font = NSFont.systemFont(ofSize: 14, weight: .semibold)
-        let rect = (displayedItemText as NSString).boundingRect(
+        let rect = (textToMeasure as NSString).boundingRect(
             with: CGSize(width: 228, height: CGFloat.greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             attributes: [.font: font],
@@ -225,17 +243,72 @@ struct CopyOverlayView: View {
                             VStack(spacing: 12) {
                                 if textNeedsExpansion {
                                     ScrollView(showsIndicators: true) {
-                                        Text(displayedItemText)
+                                        Text(String(repeating: " ", count: 15) + masked(displayedItemText))
                                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                                             .foregroundColor(.primary)
                                             .frame(maxWidth: .infinity, alignment: .leading)
-                                            .padding(.leading, 16)
-                                            .padding(.trailing, 8)
-                                            .padding(.top, 12)
-                                            .frame(width: 252, alignment: .leading)
+                                            .padding(.horizontal, 12)
+                                            .padding(.top, 0)
+                                            .padding(.bottom, 4)
+                                            .background(
+                                                GeometryReader { geo in
+                                                    Color.clear.preference(key: ScrollOffsetPreferenceKey.self, value: geo.frame(in: .named("scroll")).minY)
+                                                }
+                                            )
+                                            .contentShape(Rectangle())
+                                            .onTapGesture {
+                                                withAnimation(.easeInOut(duration: 0.2)) {
+                                                    isExpanded = false
+                                                }
+                                            }
                                     }
+                                    .coordinateSpace(name: "scroll")
+                                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                                        scrollOffset = value
+                                    }
+                                    .mask(
+                                        HStack(spacing: 0) {
+                                            // LEWA STRONA (obszar ikony)
+                                            VStack(spacing: 0) {
+                                                Color.clear.frame(height: 14) // Kwadrat obcinający głębiej pod ikoną, zwiększający "margines zasłony"
+                                                LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
+                                                    .frame(height: 8) // Krótszy Fade pod kwadratem
+                                                Color.black
+                                            }
+                                            .frame(width: 61)
+                                            
+                                            // ŚRODEK (dynamicznie obcinający tekst proporcjonalnie do ruchu scrolla)
+                                            ZStack(alignment: .top) {
+                                                // Maska obcinająca wyrównana do poziomu lewego cięcia ikony (docelowy stan po przesunięciu)
+                                                VStack(spacing: 0) {
+                                                    Color.clear.frame(height: 14)
+                                                    LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
+                                                        .frame(height: 8)
+                                                    Color.black
+                                                }
+                                                
+                                                // Maska górna w spoczynku (by nie obcinać pierwszej linii)
+                                                // Zanika progresywnie, odsłaniając ucięcie, proporcjonalnie do offsetu przewijania (od 0 do -15 pikseli)
+                                                VStack(spacing: 0) {
+                                                    LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
+                                                        .frame(height: 6)
+                                                    Color.black
+                                                }
+                                                .opacity(max(0, min(1, 1.0 + (scrollOffset / 15.0))))
+                                            }
+                                            
+                                            // PRAWY MARGINES OKNA (wyłącza z obcinania boczny pasek przewijania - scrollbar)
+                                            VStack(spacing: 0) {
+                                                LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
+                                                    .frame(height: 6)
+                                                Color.black
+                                            }
+                                            .frame(width: 20)
+                                        }
+                                    )
                                     .frame(maxHeight: 128)
-                                    .padding(.trailing, 8)
+                                    .offset(y: -28)
+                                    .padding(.bottom, -28)
                                     .onHover { hovering in
                                         DispatchQueue.main.async {
                                             if OverlayStateRelay.shared.isHoveringScrollView != hovering {
@@ -310,7 +383,6 @@ struct CopyOverlayView: View {
                                 .padding(.horizontal, 16)
                                 .padding(.bottom, 12)
                             }
-                            .padding(.top, textNeedsExpansion ? -16 : 0)
                         } else {
                             EmptyView()
                         }
@@ -321,7 +393,6 @@ struct CopyOverlayView: View {
                             }
                             
                             ScrollView {
-                                
                                 LazyVStack(spacing: 4) {
                                     ForEach(currentHistory) { item in
                                         ClipboardHistoryRowView(
@@ -329,6 +400,8 @@ struct CopyOverlayView: View {
                                             isActive: item.id == activePreviewId,
                                             showPreviewButton: clipboardEnablePreview,
                                             isPreview: isPreview,
+                                            isTextMasked: item.isMasked ?? false,
+                                            showPasswordToggle: clipboardShowPasswordToggle,
                                             onPreview: {
                                                 withAnimation {
                                                     previewItemId = item.id
@@ -336,6 +409,17 @@ struct CopyOverlayView: View {
                                             },
                                             onDelete: {
                                                 handleHistoryItemDelete(item)
+                                            },
+                                            onToggleMask: {
+                                                if !isPreview {
+                                                    withAnimation {
+                                                        if let idx = mediaKeyManager.clipboardHistory.firstIndex(where: { $0.id == item.id }) {
+                                                            var updatedItem = mediaKeyManager.clipboardHistory[idx]
+                                                            updatedItem.isMasked = !(updatedItem.isMasked ?? false)
+                                                            mediaKeyManager.clipboardHistory[idx] = updatedItem
+                                                        }
+                                                    }
+                                                }
                                             }
                                         )
                                         .onTapGesture {
@@ -344,10 +428,10 @@ struct CopyOverlayView: View {
                                     }
                                 }
                                 .padding(.vertical, 8)
-                                .frame(width: 252)
+                                .padding(.leading, 12)
+                                .padding(.trailing, 4)
                             }
                             .frame(maxHeight: 128)
-                            .padding(.trailing, 8)
                             .onHover { hovering in
                                 DispatchQueue.main.async {
                                     if OverlayStateRelay.shared.isHoveringScrollView != hovering {
@@ -369,15 +453,19 @@ struct ClipboardHistoryRowView: View {
     var isActive: Bool = false
     var showPreviewButton: Bool = true
     var isPreview: Bool = false
+    var isTextMasked: Bool = false
+    var showPasswordToggle: Bool = true
     var onPreview: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
+    var onToggleMask: (() -> Void)? = nil
     @State private var isHovering = false
     @State private var isHoveringEye = false
+    @State private var isHoveringLock = false
     @State private var isHoveringTrash = false
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 6) {
             if showPreviewButton {
                 Button(action: {
                     onPreview?()
@@ -385,7 +473,7 @@ struct ClipboardHistoryRowView: View {
                     Image(systemName: "eye")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(isActive ? .primary : (isHoveringEye ? .primary : .secondary))
-                        .frame(width: 24, height: 24)
+                        .frame(width: 20, height: 24)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -394,25 +482,43 @@ struct ClipboardHistoryRowView: View {
                 }
                 .pointingHandCursor()
             }
+            
+            if showPasswordToggle {
+                Button(action: {
+                    onToggleMask?()
+                }) {
+                    Image(systemName: isTextMasked ? "lock.fill" : "lock.open.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(isTextMasked ? .primary : (isHoveringLock ? .primary : .secondary))
+                        .frame(width: 20, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(PlainButtonStyle())
+                .onHover { hovering in
+                    isHoveringLock = hovering
+                }
+                .pointingHandCursor()
+            }
 
             if let icon = getAppIcon(appName: item.app) {
                 Image(nsImage: icon)
                     .resizable()
-                    .frame(width: 16, height: 16)
+                    .frame(width: 14, height: 14)
             } else {
                 Image(systemName: "app.fill")
                     .resizable()
-                    .frame(width: 16, height: 16)
+                    .frame(width: 14, height: 14)
                     .foregroundColor(.secondary)
             }
             
-            Text(item.text.replacingOccurrences(of: "\n", with: " "))
+            Text((isTextMasked && showPasswordToggle) ? "••••••••" : item.text.replacingOccurrences(of: "\n", with: " "))
                 .font(.system(size: 12, weight: .regular, design: .rounded))
                 .foregroundColor(.primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
+                .padding(.leading, 2)
             
-            Spacer(minLength: 8)
+            Spacer(minLength: 0)
             
             Text(timeAgo(from: item.timestamp))
                 .font(.system(size: 10, weight: .regular, design: .rounded))
@@ -434,13 +540,12 @@ struct ClipboardHistoryRowView: View {
             .pointingHandCursor()
         }
         .padding(.vertical, 8)
-        .padding(.horizontal, 4)
+        .padding(.leading, 10)
+        .padding(.trailing, 4)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(isActive ? (colorScheme == .dark ? Color.white.opacity(0.15) : Color.black.opacity(0.1)) : (isHovering ? Color.secondary.opacity(0.1) : Color.clear))
         )
-        .padding(.leading, 12)
-        .padding(.trailing, 4)
         .contentShape(Rectangle())
         .onHover { hovering in
             isHovering = hovering

@@ -47,6 +47,186 @@ struct ChangelogSettingsView: View {
                 Divider()
                     .padding(.bottom, 32)
                 
+                // Version 1.2.0 Area
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("VisorPro 1.2.0")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.primary)
+                    
+                    Text("Massive update for AirPods & Accessories, custom battery alerts, Date & Trash overlays, and a cleaner system UI.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 8)
+                    
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)], spacing: 32) {
+                        
+                        ChangelogCard(
+                            icon: "airpodspro",
+                            title: "Apple AirPods",
+                            description: "Unprecedented support for AirPods. Detailed component-level battery alerts, case open overlays, and Listening Mode controls.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.blue.opacity(0.05))
+                                
+                                ZStack {
+                                    // Background tilted block
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.blue.opacity(0.15))
+                                        .frame(width: 80, height: 60)
+                                        .rotationEffect(.degrees(10))
+                                        .offset(x: -12, y: -5)
+                                        
+                                    // Main card
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .frame(width: 80, height: 60)
+                                        .rotationEffect(.degrees(-5))
+                                        .shadow(color: .black.opacity(0.12), radius: 5, y: 3)
+                                        .overlay(
+                                            Image(systemName: "airpodspro")
+                                                .font(.system(size: 28))
+                                                .foregroundColor(.blue)
+                                                .rotationEffect(.degrees(-5))
+                                        )
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "magicmouse.fill",
+                            title: "Bluetooth Accessories",
+                            description: "Devices that report battery life now get their own dedicated settings, distinct from regular Bluetooth or peripheral connections.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.teal.opacity(0.05))
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 10).fill(Color(NSColor.controlBackgroundColor)).frame(width: 40, height: 54).shadow(color: .black.opacity(0.1), radius: 2)
+                                        Image(systemName: "magicmouse.fill").foregroundColor(.teal).font(.system(size: 22))
+                                    }
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)).frame(width: 56, height: 40).shadow(color: .black.opacity(0.1), radius: 2)
+                                        Image(systemName: "keyboard.fill").foregroundColor(.teal).font(.system(size: 22))
+                                    }
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "battery.100.bolt",
+                            title: "Custom Battery Alerts",
+                            description: "Set your own percentage thresholds for low or full battery alerts on your Mac, accessories, or even specific AirPods components.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.05))
+                                VStack(spacing: 12) {
+                                    // Slider mock
+                                    ZStack(alignment: .leading) {
+                                        RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.2)).frame(width: 130, height: 8)
+                                        RoundedRectangle(cornerRadius: 4).fill(Color.green.opacity(0.6)).frame(width: 90, height: 8)
+                                        Circle().fill(Color.white).frame(width: 18, height: 18).shadow(color: .black.opacity(0.2), radius: 2).offset(x: 81)
+                                    }
+                                    HStack {
+                                        Image(systemName: "battery.75").font(.system(size: 16)).foregroundColor(.green)
+                                        Text("70%").font(.system(size: 16, weight: .bold)).foregroundColor(.green)
+                                    }
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "eye.slash.fill",
+                            title: "System Overlays Hidden",
+                            description: "No more overlapping! We've successfully engineered a way to hide all duplicating native macOS overlays, keeping your screen clean.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.purple.opacity(0.05))
+                                
+                                VStack(spacing: 0) {
+                                    // Screen
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.secondary.opacity(0.4), lineWidth: 2)
+                                            .background(RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)))
+                                            .frame(width: 120, height: 75)
+                                        
+                                        // macOS Native Mock (inside the screen, no slash)
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.15)).frame(width: 40, height: 40)
+                                            VStack(spacing: 4) {
+                                                Image(systemName: "speaker.wave.3.fill").font(.system(size: 14)).foregroundColor(.secondary.opacity(0.5))
+                                                HStack(spacing: 2) {
+                                                    ForEach(0..<6, id: \.self) { _ in
+                                                        RoundedRectangle(cornerRadius: 1).fill(Color.secondary.opacity(0.4)).frame(width: 3, height: 3)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Stand
+                                    RoundedRectangle(cornerRadius: 1).fill(Color.secondary.opacity(0.4)).frame(width: 4, height: 10)
+                                    // Base
+                                    RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.4)).frame(width: 30, height: 3)
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "sparkles.square.filled.on.square",
+                            title: "New Overlays",
+                            description: "Introducing beautiful new overlays for Date changes, Trash capacity & deletion events, and precise CPU Temperature monitoring.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.orange.opacity(0.05))
+                                HStack(spacing: -12) {
+                                    // Trash (Left)
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)).frame(width: 45, height: 50).shadow(color: .black.opacity(0.1), radius: 2)
+                                        VStack(spacing: 6) {
+                                            Image(systemName: "trash.fill").foregroundColor(.gray).font(.system(size: 18))
+                                            
+                                            ZStack(alignment: .leading) {
+                                                RoundedRectangle(cornerRadius: 1.5).fill(Color.secondary.opacity(0.2)).frame(width: 24, height: 3)
+                                                RoundedRectangle(cornerRadius: 1.5).fill(Color.gray).frame(width: 16, height: 3)
+                                            }
+                                        }
+                                    }.rotationEffect(.degrees(-12)).offset(y: 8)
+                                    
+                                    // Date (Center, ON TOP)
+                                    ZStack(alignment: .top) {
+                                        RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)).frame(width: 55, height: 60).shadow(color: .black.opacity(0.15), radius: 4)
+                                        VStack(spacing: 4) {
+                                            ZStack {
+                                                RoundedRectangle(cornerRadius: 0).fill(Color.red.opacity(0.8)).frame(width: 55, height: 16)
+                                                HStack(spacing: 16) {
+                                                    Circle().fill(Color.white.opacity(0.5)).frame(width: 4, height: 4)
+                                                    Circle().fill(Color.white.opacity(0.5)).frame(width: 4, height: 4)
+                                                }
+                                            }
+                                            Text("15").font(.system(size: 20, weight: .bold)).foregroundColor(.primary).padding(.top, 2)
+                                        }
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    }.zIndex(1)
+                                    
+                                    // Temperature (Right)
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)).frame(width: 45, height: 50).shadow(color: .black.opacity(0.1), radius: 2)
+                                        VStack(spacing: 5) {
+                                            Image(systemName: "thermometer.medium").foregroundColor(.orange).font(.system(size: 18))
+                                            HStack(alignment: .bottom, spacing: 2) {
+                                                RoundedRectangle(cornerRadius: 1).fill(Color.orange.opacity(0.4)).frame(width: 4, height: 6)
+                                                RoundedRectangle(cornerRadius: 1).fill(Color.orange.opacity(0.7)).frame(width: 4, height: 10)
+                                                RoundedRectangle(cornerRadius: 1).fill(Color.red.opacity(0.9)).frame(width: 4, height: 14)
+                                                RoundedRectangle(cornerRadius: 1).fill(Color.orange.opacity(0.8)).frame(width: 4, height: 8)
+                                            }
+                                        }
+                                    }.rotationEffect(.degrees(12)).offset(y: 8)
+                                }
+                            }
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Divider()
+                    .padding(.vertical, 32)
+                
                 // Version 1.1.0 Area
                 VStack(alignment: .leading, spacing: 16) {
                     Text("VisorPro 1.1.0")

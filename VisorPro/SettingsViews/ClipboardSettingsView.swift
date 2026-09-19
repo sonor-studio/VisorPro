@@ -10,6 +10,7 @@ struct ClipboardSettingsView: View {
     @AppStorage("clipboardKeepExpandedOnPaste") private var clipboardKeepExpandedOnPaste: Bool = false
     @AppStorage("clipboardHistoryLimit") private var clipboardHistoryLimit: Int = 30
     @AppStorage("clipboardHistoryRetention") private var clipboardHistoryRetention: String = "24h"
+    @AppStorage("clipboardShowPasswordToggle") private var clipboardShowPasswordToggle: Bool = true
             
     var body: some View {
         ScrollView {
@@ -136,6 +137,27 @@ struct ClipboardSettingsView: View {
                                     CustomSettingsRow(icon: "eye", iconColor: .blue, title: "Enable Preview", subtitle: "Show preview button for items in history") {
                                         Toggle("", isOn: $clipboardEnablePreview).labelsHidden()
                                             .disabled(clipboardEnablePreview && !clipboardEnableHistory)
+                                    }
+                                    
+                                    Divider().padding(.leading, 40)
+                                    
+                                    CustomSettingsRow(icon: "asterisk", iconColor: .blue, title: "Password Mask Toggle", subtitle: "Show a toggle in the overlay to mask copied text") {
+                                        Toggle("", isOn: $clipboardShowPasswordToggle).labelsHidden()
+                                            .onChange(of: clipboardShowPasswordToggle) { _, newValue in
+                                                if !newValue {
+                                                    var modifiedHistory = mediaKeyManager.clipboardHistory
+                                                    var changed = false
+                                                    for i in 0..<modifiedHistory.count {
+                                                        if modifiedHistory[i].isMasked == true {
+                                                            modifiedHistory[i].isMasked = false
+                                                            changed = true
+                                                        }
+                                                    }
+                                                    if changed {
+                                                        mediaKeyManager.clipboardHistory = modifiedHistory
+                                                    }
+                                                }
+                                            }
                                     }
                                 }
                                 .toggleStyle(.switch)

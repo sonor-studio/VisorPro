@@ -89,6 +89,35 @@ struct WiFiSettingsView: View {
                         PremiumLockedView()
                     } else {
                     VStack(alignment: .leading, spacing: 12) {
+                        Text("Overlay Content")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                            
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "gauge.with.dots.needle.bottom.50percent", iconColor: .green, title: "Speedtest", subtitle: "Show speedtest results in the expanded overlay") {
+                                Toggle("", isOn: $mediaKeyManager.wifiShowSpeedTest)
+                                    .labelsHidden()
+                                    .disabled(mediaKeyManager.wifiShowSpeedTest && !mediaKeyManager.wifiShowDetails)
+                            }
+                            
+                            Divider().padding(.leading, 40)
+                            
+                            CustomSettingsRow(icon: "info.circle", iconColor: .blue, title: "Detailed Data", subtitle: "Display network details like IP address and security type in the expanded overlay") {
+                                Toggle("", isOn: $mediaKeyManager.wifiShowDetails)
+                                    .labelsHidden()
+                                    .disabled(mediaKeyManager.wifiShowDetails && !mediaKeyManager.wifiShowSpeedTest)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                    }
+                    .padding(.bottom, 16)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Overlay Triggers")
                             .font(.headline)
                             .foregroundColor(.secondary)

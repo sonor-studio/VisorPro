@@ -141,9 +141,10 @@ class AudioRouteObserver {
             mgr.isMuted = muted
             mgr.currentAudioDeviceName = VolumeManager.shared.getCurrentAudioDeviceName()
             
-            if timeSinceRoute > 2.5 {
-                mgr.triggerVolumeIndicator()
-            }
+            // Nakładka nie jest wywoływana przy zewnętrznych, programowych zmianach głośności.
+            // if timeSinceRoute > 2.5 {
+            //     mgr.triggerVolumeIndicator()
+            // }
         }
     }
 }

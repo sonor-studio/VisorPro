@@ -196,7 +196,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         let trackPadding: CGFloat = 3
         let innerRadius: CGFloat = max(0, outerRadius - trackPadding)
         let innerPadding: CGFloat = 3
-        let cutoutSize: CGFloat = 11
+        let cutoutSize: CGFloat = 12
         let trackWidth: CGFloat = width - (trackPadding * 2)
         
         ZStack(alignment: .topLeading) {
@@ -276,7 +276,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         }
                     )
                     .frame(height: isExpanded ? (fixedExpandedHeight ?? expandedHeight) : 0, alignment: .top)
-                    .clipped()
                     .opacity(isExpanded ? 1 : 0)
                     .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
@@ -349,17 +348,17 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 
                 ZStack {
                     Color.clear.background(.thinMaterial)
-                        .clipShape(BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight))
+                        .clipShape(BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight))
                     
                     if colorScheme == .dark {
-                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
                             .fill(Color.white.opacity(0.08))
                     } else {
-                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
                             .fill(Color.white.opacity(0.25))
                     }
                     
-                    BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: 19, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                    BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
                         .strokeBorder(Color.glassBorder, style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
                 }
                 .padding(trackPadding + innerPadding)

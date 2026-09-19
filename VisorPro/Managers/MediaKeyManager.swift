@@ -115,6 +115,9 @@ struct AccessoryDeviceSettings: Codable, Equatable {
     var colorOnAirPodsAdaptive: String = "Default"
     var colorOnAirPodsOff: String = "Default"
     
+    var showBattery: Bool = true
+    var showDetails: Bool = true
+    
     // Legacy properties kept for Codable compatibility
     var notifyOn20Percent: Bool = true
     var soundOn20Percent: String = "None"
@@ -159,6 +162,9 @@ struct AccessoryDeviceSettings: Codable, Equatable {
         soundOnAirPodsTransparency = try container.decodeIfPresent(String.self, forKey: .soundOnAirPodsTransparency) ?? "None"
         soundOnAirPodsAdaptive = try container.decodeIfPresent(String.self, forKey: .soundOnAirPodsAdaptive) ?? "None"
         soundOnAirPodsOff = try container.decodeIfPresent(String.self, forKey: .soundOnAirPodsOff) ?? "None"
+        
+        showBattery = try container.decodeIfPresent(Bool.self, forKey: .showBattery) ?? true
+        showDetails = try container.decodeIfPresent(Bool.self, forKey: .showDetails) ?? true
         
         notifyOn20Percent = try container.decodeIfPresent(Bool.self, forKey: .notifyOn20Percent) ?? true
         soundOn20Percent = try container.decodeIfPresent(String.self, forKey: .soundOn20Percent) ?? "None"
@@ -1112,6 +1118,16 @@ class MediaKeyManager: ObservableObject {
     @Published var notifyOnWiFiConnect: Bool = UserDefaults.standard.object(forKey: "notifyOnWiFiConnect") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnWiFiConnect, forKey: "notifyOnWiFiConnect") }
     }
+    @Published var notifyOnWiFiDisconnect: Bool = UserDefaults.standard.object(forKey: "notifyOnWiFiDisconnect") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(notifyOnWiFiDisconnect, forKey: "notifyOnWiFiDisconnect") }
+    }
+    
+    @Published var wifiShowSpeedTest: Bool = UserDefaults.standard.object(forKey: "wifiShowSpeedTest") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(wifiShowSpeedTest, forKey: "wifiShowSpeedTest") }
+    }
+    @Published var wifiShowDetails: Bool = UserDefaults.standard.object(forKey: "wifiShowDetails") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(wifiShowDetails, forKey: "wifiShowDetails") }
+    }
 
     @Published var soundOnWiFiConnect: String = UserDefaults.standard.string(forKey: "soundOnWiFiConnect") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnWiFiConnect, forKey: "soundOnWiFiConnect") }
@@ -1119,9 +1135,6 @@ class MediaKeyManager: ObservableObject {
     
     @Published var soundOnDateChange: String = UserDefaults.standard.string(forKey: "soundOnDateChange") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnDateChange, forKey: "soundOnDateChange") }
-    }
-    @Published var notifyOnWiFiDisconnect: Bool = UserDefaults.standard.object(forKey: "notifyOnWiFiDisconnect") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(notifyOnWiFiDisconnect, forKey: "notifyOnWiFiDisconnect") }
     }
 
     @Published var soundOnWiFiDisconnect: String = UserDefaults.standard.string(forKey: "soundOnWiFiDisconnect") ?? "None" {
