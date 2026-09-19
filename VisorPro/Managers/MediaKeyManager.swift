@@ -2870,7 +2870,11 @@ class MediaKeyManager: ObservableObject {
         
         self.airPodsModeObserver = AirPodsModeObserver(modeChangeCallback: { [weak self] mode in
             DispatchQueue.main.async {
-                self?.triggerAirPodsModeOverlay(mode: mode, showOverlay: false)
+                // If VisorPro is not the one causing the change (e.g., user squeezed the stem),
+                // we should trigger the overlay because macOS might just update the existing banner's text
+                // instead of creating a new one, which NativeOverlayDismisser would miss.
+                let show = !OverlayStateRelay.shared.isChangingAirPodsMode
+                self?.triggerAirPodsModeOverlay(mode: mode, showOverlay: show)
             }
         })
         self.airPodsModeObserver?.start()
