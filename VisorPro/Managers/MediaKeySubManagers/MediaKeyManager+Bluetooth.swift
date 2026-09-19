@@ -62,12 +62,9 @@ extension MediaKeyManager {
             }
         }
         
-        let isAccessory = deviceAddress == "AIRPODS_CONNECTION" || self.isBluetoothAccessory(deviceName) || deviceName.lowercased().contains("airpods")
-        
         if isConnected && !notifyOnBluetoothConnect && deviceAddress != "AIRPODS_CONNECTION" { return }
         if !isConnected && !notifyOnBluetoothDisconnect && deviceAddress != "AIRPODS_CONNECTION" { return }
         if bluetoothBlocklist.contains(deviceName) && deviceAddress != "AIRPODS_CONNECTION" { return }
-        if isAccessory && deviceAddress != "AIRPODS_CONNECTION" { return }
         
         let now = Date()
         let eventKey = "\(deviceAddress)_\(isConnected ? "connect" : "disconnect")"
