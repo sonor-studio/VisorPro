@@ -62,13 +62,13 @@ struct AccessorySettingsView: View {
                     .padding(.bottom, 10)
                     
                     let hasComponents = mediaKeyManager.accessoryBatteryHistory.contains { $0.hasPrefix(deviceName) && $0 != deviceName }
-                    if hasComponents {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Components Overview")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.leading, 4)
-                            
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(hasComponents ? "Components Overview" : "Component Overview")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        if hasComponents {
                             HStack {
                                 Spacer()
                                 VStack(spacing: 8) {
@@ -108,7 +108,7 @@ struct AccessorySettingsView: View {
                                         .font(.system(size: 44, weight: .light))
                                         .foregroundColor(.primary)
                                         .frame(height: 50)
-                                    
+                                        
                                     VStack(spacing: 4) {
                                         Text("Case")
                                             .font(.system(size: 13, weight: .medium))
@@ -170,9 +170,60 @@ struct AccessorySettingsView: View {
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                             .cornerRadius(10)
                             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                        } else {
+                            HStack(spacing: 16) {
+                                let iconName = mediaKeyManager.peripheralIcons[deviceName] ?? MediaKeyManager.fallbackIcon(for: deviceName)
+                                Image(systemName: iconName)
+                                    .font(.system(size: 24, weight: .regular))
+                                    .foregroundColor(.primary)
+                                    .frame(width: 48, height: 48)
+                                    .background(Color.secondary.opacity(0.1))
+                                    .cornerRadius(12)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(deviceName)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                    
+                                    if let pct = mediaKeyManager.accessoryBatteryLevels[deviceName] {
+                                        let isCharging = mediaKeyManager.accessoryBatteryCharging[deviceName] == true
+                                        HStack(spacing: 4) {
+                                            if isCharging {
+                                                Image(systemName: "bolt.fill").font(.system(size: 10))
+                                                Text("Charging").font(.system(size: 12))
+                                            } else {
+                                                Image(systemName: batteryIcon(for: pct)).font(.system(size: 10))
+                                                Text("Battery").font(.system(size: 12))
+                                            }
+                                        }
+                                        .foregroundColor(.secondary)
+                                    } else {
+                                        Text("Status unknown")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                if let pct = mediaKeyManager.accessoryBatteryLevels[deviceName] {
+                                    Text("\(pct)%")
+                                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.primary)
+                                } else {
+                                    Text("--%")
+                                        .font(.system(size: 18, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.secondary.opacity(0.3))
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
                         }
-                        .padding(.bottom, 16)
                     }
+                    .padding(.bottom, 16)
                     
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Overlay Triggers")
@@ -337,28 +388,30 @@ if mediaKeyManager.overlayColorMode == "custom" {
                                                 }
                                                 .padding(.leading, 52)
                                                 
-                                                HStack {
-                                                    VStack(alignment: .leading, spacing: 2) {
-                                                        Text("Target Devices")
-                                                            .font(.system(size: 13, weight: .medium))
-                                                            .foregroundColor(.primary)
-                                                        Text("Which components trigger this alert?")
-                                                            .font(.system(size: 11))
-                                                            .foregroundColor(.secondary)
+                                                if deviceName.lowercased().contains("airpods") {
+                                                    HStack {
+                                                        VStack(alignment: .leading, spacing: 2) {
+                                                            Text("Target Devices")
+                                                                .font(.system(size: 13, weight: .medium))
+                                                                .foregroundColor(.primary)
+                                                            Text("Which components trigger this alert?")
+                                                                .font(.system(size: 11))
+                                                                .foregroundColor(.secondary)
+                                                        }
+                                                        Spacer()
+                                                        HStack(spacing: 12) {
+                                                            Toggle("Left", isOn: $threshold.applyToLeft)
+                                                            Toggle("Case", isOn: $threshold.applyToCase)
+                                                            Toggle("Right", isOn: $threshold.applyToRight)
+                                                        }
+                                                        .toggleStyle(.checkbox)
+                                                        .font(.system(size: 11))
+                                                        .onChange(of: threshold.applyToLeft) { _, _ in saveSettings() }
+                                                        .onChange(of: threshold.applyToRight) { _, _ in saveSettings() }
+                                                        .onChange(of: threshold.applyToCase) { _, _ in saveSettings() }
                                                     }
-                                                    Spacer()
-                                                    HStack(spacing: 12) {
-                                                        Toggle("Left", isOn: $threshold.applyToLeft)
-                                                        Toggle("Case", isOn: $threshold.applyToCase)
-                                                        Toggle("Right", isOn: $threshold.applyToRight)
-                                                    }
-                                                    .toggleStyle(.checkbox)
-                                                    .font(.system(size: 11))
-                                                    .onChange(of: threshold.applyToLeft) { _, _ in saveSettings() }
-                                                    .onChange(of: threshold.applyToRight) { _, _ in saveSettings() }
-                                                    .onChange(of: threshold.applyToCase) { _, _ in saveSettings() }
+                                                    .padding(.leading, 52)
                                                 }
-                                                .padding(.leading, 52)
                                             }
                                             .padding(.horizontal, 12)
                                             .padding(.bottom, 12)
@@ -395,28 +448,30 @@ if mediaKeyManager.overlayColorMode == "custom" {
                                     if isFullyChargedExpanded {
                                         VStack(spacing: 8) {
 
-                                            HStack {
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text("Target Devices")
-                                                        .font(.system(size: 13, weight: .medium))
-                                                        .foregroundColor(.primary)
-                                                    Text("Which components trigger this alert?")
-                                                        .font(.system(size: 11))
-                                                        .foregroundColor(.secondary)
+                                            if deviceName.lowercased().contains("airpods") {
+                                                HStack {
+                                                    VStack(alignment: .leading, spacing: 2) {
+                                                        Text("Target Devices")
+                                                            .font(.system(size: 13, weight: .medium))
+                                                            .foregroundColor(.primary)
+                                                        Text("Which components trigger this alert?")
+                                                            .font(.system(size: 11))
+                                                            .foregroundColor(.secondary)
+                                                    }
+                                                    Spacer()
+                                                    HStack(spacing: 12) {
+                                                        Toggle("Left", isOn: $settings.apply100PercentToLeft)
+                                                        Toggle("Case", isOn: $settings.apply100PercentToCase)
+                                                        Toggle("Right", isOn: $settings.apply100PercentToRight)
+                                                    }
+                                                    .toggleStyle(.checkbox)
+                                                    .font(.system(size: 11))
+                                                    .onChange(of: settings.apply100PercentToLeft) { _, _ in saveSettings() }
+                                                    .onChange(of: settings.apply100PercentToRight) { _, _ in saveSettings() }
+                                                    .onChange(of: settings.apply100PercentToCase) { _, _ in saveSettings() }
                                                 }
-                                                Spacer()
-                                                HStack(spacing: 12) {
-                                                    Toggle("Left", isOn: $settings.apply100PercentToLeft)
-                                                    Toggle("Case", isOn: $settings.apply100PercentToCase)
-                                                    Toggle("Right", isOn: $settings.apply100PercentToRight)
-                                                }
-                                                .toggleStyle(.checkbox)
-                                                .font(.system(size: 11))
-                                                .onChange(of: settings.apply100PercentToLeft) { _, _ in saveSettings() }
-                                                .onChange(of: settings.apply100PercentToRight) { _, _ in saveSettings() }
-                                                .onChange(of: settings.apply100PercentToCase) { _, _ in saveSettings() }
+                                                .padding(.leading, 52)
                                             }
-                                            .padding(.leading, 52)
                                         }
                                         .padding(.horizontal, 12)
                                         .padding(.bottom, 12)
