@@ -47,6 +47,37 @@ struct BatteryThreshold: Codable, Equatable, Identifiable, Hashable {
     var applyToCase: Bool = true
     var applyToMain: Bool = true
     
+    static func nextAvailablePercentage(existing: [Int]) -> Int {
+        let taken = Set(existing)
+        for p in 50...99 {
+            if !taken.contains(p) { return p }
+        }
+        for p in (1...49).reversed() {
+            if !taken.contains(p) { return p }
+        }
+        return 50 // fallback
+    }
+    
+    static func nextIncrement(current: Int, existing: [Int]) -> Int {
+        let taken = Set(existing)
+        var next = current + 1
+        while next <= 99 {
+            if !taken.contains(next) { return next }
+            next += 1
+        }
+        return current
+    }
+    
+    static func nextDecrement(current: Int, existing: [Int]) -> Int {
+        let taken = Set(existing)
+        var prev = current - 1
+        while prev >= 1 {
+            if !taken.contains(prev) { return prev }
+            prev -= 1
+        }
+        return current
+    }
+    
     init(percentage: Int, sound: String, isEnabled: Bool, color: String = "Default", triggerDirection: String = "both", applyToLeft: Bool = true, applyToRight: Bool = true, applyToCase: Bool = true, applyToMain: Bool = true) {
         self.percentage = percentage
         self.sound = sound
@@ -183,6 +214,37 @@ struct AccessoryDeviceSettings: Codable, Equatable {
     }
 }
 
+
+let standardEventTapCallbackSafeObj: @convention(c) (CGEventTapProxy, CGEventType, CGEvent?, UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? = { proxy, type, event, refcon in
+    let manager = MediaKeyManager.shared
+    
+    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+        if let tap = manager.getStandardKeyTap() {
+            if manager.isTrusted {
+                CGEvent.tapEnable(tap: tap, enable: true)
+            }
+        }
+        return event != nil ? Unmanaged.passRetained(event!) : nil
+    }
+    
+    guard let event = event else { return nil }
+    
+    guard type == .keyDown || type == .flagsChanged else {
+        return Unmanaged.passRetained(event)
+    }
+    
+    guard let nsEvent = NSEvent(cgEvent: event) else {
+        return Unmanaged.passRetained(event)
+    }
+    
+    let passthrough = manager.handleStandardKeyEvent(nsEvent, cgEvent: event)
+    if !passthrough {
+        return nil
+    }
+    
+    return Unmanaged.passRetained(event)
+}
+
 class MediaKeyManager: ObservableObject {
     @AppStorage("overlayColorMode") var overlayColorMode: String = "preset_default"
     @AppStorage("globalOverlayColor") var globalOverlayColor: String = "Default"
@@ -251,10 +313,12 @@ class MediaKeyManager: ObservableObject {
 
     static let shared = MediaKeyManager()
     static var notificationDuration: TimeInterval {
+        if UserDefaults.standard.bool(forKey: "recordingModePermanentOverlays") {
+            return 86400.0
+        }
         let val = UserDefaults.standard.double(forKey: "notificationDuration")
         return val == 0 ? 3.0 : val
     }
-    
     var lastConnectionEventTime: Date = Date.distantPast
     @Published var latestTipiDeviceName: String = "iPhone"
     
@@ -433,32 +497,35 @@ class MediaKeyManager: ObservableObject {
     }
     
     @Published var batteryCustomThresholds: [BatteryThreshold] = {
+        var thresholds: [BatteryThreshold] = []
         if let data = UserDefaults.standard.data(forKey: "batteryCustomThresholds"),
            let decoded = try? JSONDecoder().decode([BatteryThreshold].self, from: data) {
-            // Check if this was saved before we migrated legacy flags (e.g. if it's empty, we might want to populate defaults)
-            if decoded.isEmpty && !UserDefaults.standard.bool(forKey: "batteryCustomThresholdsMigrated") {
-                UserDefaults.standard.set(true, forKey: "batteryCustomThresholdsMigrated")
-                var migrated: [BatteryThreshold] = []
-                let n10 = UserDefaults.standard.object(forKey: "notifyOn10Percent") as? Bool ?? true
-                let s10 = UserDefaults.standard.string(forKey: "soundOn10Percent") ?? "None"
-                let n20 = UserDefaults.standard.object(forKey: "notifyOn20Percent") as? Bool ?? true
-                let s20 = UserDefaults.standard.string(forKey: "soundOn20Percent") ?? "None"
-                if n10 { migrated.append(BatteryThreshold(percentage: 10, sound: s10, isEnabled: true)) }
-                if n20 { migrated.append(BatteryThreshold(percentage: 20, sound: s20, isEnabled: true)) }
-                return migrated
-            }
-            return decoded
+            thresholds = decoded
         }
         
-        UserDefaults.standard.set(true, forKey: "batteryCustomThresholdsMigrated")
-        var migrated: [BatteryThreshold] = []
-        let n10 = UserDefaults.standard.object(forKey: "notifyOn10Percent") as? Bool ?? true
-        let s10 = UserDefaults.standard.string(forKey: "soundOn10Percent") ?? "None"
-        let n20 = UserDefaults.standard.object(forKey: "notifyOn20Percent") as? Bool ?? true
-        let s20 = UserDefaults.standard.string(forKey: "soundOn20Percent") ?? "None"
-        if n10 { migrated.append(BatteryThreshold(percentage: 10, sound: s10, isEnabled: true)) }
-        if n20 { migrated.append(BatteryThreshold(percentage: 20, sound: s20, isEnabled: true)) }
-        return migrated
+        if !UserDefaults.standard.bool(forKey: "batteryCustomThresholdsMigratedV2") {
+            UserDefaults.standard.set(true, forKey: "batteryCustomThresholdsMigratedV2")
+            
+            let n10 = UserDefaults.standard.object(forKey: "notifyOn10Percent") as? Bool ?? true
+            let s10 = UserDefaults.standard.string(forKey: "soundOn10Percent") ?? "None"
+            if n10 && !thresholds.contains(where: { $0.percentage == 10 }) {
+                thresholds.append(BatteryThreshold(percentage: 10, sound: s10, isEnabled: true))
+            }
+            
+            let n20 = UserDefaults.standard.object(forKey: "notifyOn20Percent") as? Bool ?? true
+            let s20 = UserDefaults.standard.string(forKey: "soundOn20Percent") ?? "None"
+            if n20 && !thresholds.contains(where: { $0.percentage == 20 }) {
+                thresholds.append(BatteryThreshold(percentage: 20, sound: s20, isEnabled: true))
+            }
+            
+            thresholds.sort { $0.percentage > $1.percentage }
+            
+            if let encoded = try? JSONEncoder().encode(thresholds) {
+                UserDefaults.standard.set(encoded, forKey: "batteryCustomThresholds")
+            }
+        }
+        
+        return thresholds
     }() {
         didSet {
             if let encoded = try? JSONEncoder().encode(batteryCustomThresholds) {
@@ -466,20 +533,7 @@ class MediaKeyManager: ObservableObject {
             }
         }
     }
-    @Published var notifyOn10Percent: Bool = UserDefaults.standard.object(forKey: "notifyOn10Percent") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(notifyOn10Percent, forKey: "notifyOn10Percent") }
-    }
 
-    @Published var soundOn10Percent: String = UserDefaults.standard.string(forKey: "soundOn10Percent") ?? "None" {
-        didSet { UserDefaults.standard.set(soundOn10Percent, forKey: "soundOn10Percent") }
-    }
-    @Published var notifyOn20Percent: Bool = UserDefaults.standard.object(forKey: "notifyOn20Percent") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(notifyOn20Percent, forKey: "notifyOn20Percent") }
-    }
-
-    @Published var soundOn20Percent: String = UserDefaults.standard.string(forKey: "soundOn20Percent") ?? "None" {
-        didSet { UserDefaults.standard.set(soundOn20Percent, forKey: "soundOn20Percent") }
-    }
     @Published var notifyOn100Percent: Bool = UserDefaults.standard.object(forKey: "notifyOn100Percent") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOn100Percent, forKey: "notifyOn100Percent") }
     }
@@ -570,8 +624,6 @@ class MediaKeyManager: ObservableObject {
             if !isBatteryInitialized { return }
             if oldValue != currentBatteryPercentage {
                 var allThresholds = batteryCustomThresholds
-                if notifyOn10Percent { allThresholds.append(BatteryThreshold(percentage: 10, sound: soundOn10Percent, isEnabled: true)) }
-                if notifyOn20Percent { allThresholds.append(BatteryThreshold(percentage: 20, sound: soundOn20Percent, isEnabled: true)) }
                 
                 for threshold in allThresholds where threshold.isEnabled {
                     let hitDown = (currentBatteryPercentage == threshold.percentage) && (oldValue > currentBatteryPercentage)
@@ -639,8 +691,6 @@ class MediaKeyManager: ObservableObject {
                     } else {
                         hideBatteryOverlay()
                         var allThresholds = batteryCustomThresholds
-                        if notifyOn10Percent { allThresholds.append(BatteryThreshold(percentage: 10, sound: soundOn10Percent, isEnabled: true)) }
-                        if notifyOn20Percent { allThresholds.append(BatteryThreshold(percentage: 20, sound: soundOn20Percent, isEnabled: true)) }
                         
                         for threshold in allThresholds where threshold.isEnabled {
                             if currentBatteryPercentage == threshold.percentage {
@@ -1942,7 +1992,7 @@ class MediaKeyManager: ObservableObject {
                 self.notificationTimers["mic"]?.invalidate()
                 self.micEventId = UUID()
                 if !self.isMicExpanded {
-                    self.notificationTimers["mic"] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                    self.notificationTimers["mic"] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                         withAnimation(.easeInOut(duration: 0.25)) {
                             self?.showMicIndicator = false
                         }
@@ -1981,7 +2031,7 @@ class MediaKeyManager: ObservableObject {
             if !self.isCameraTimerScheduledInstantly {
                 self.cameraTimer?.invalidate()
                 if !self.isCameraExpanded {
-                    self.cameraTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                    self.cameraTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                         withAnimation(.easeInOut(duration: 0.25)) {
                             self?.showCameraIndicator = false
                         }
@@ -2001,11 +2051,33 @@ class MediaKeyManager: ObservableObject {
     private var testOriginalPercentage = 0
     private var testOriginalPluggedIn = false
     
+    @Published var canShowLastOverlay: Bool = false
+    @Published var lastOverlayShortcutString: String = UserDefaults.standard.string(forKey: "lastOverlayShortcut") ?? "" { didSet { UserDefaults.standard.set(lastOverlayShortcutString, forKey: "lastOverlayShortcut") } }
+    @Published var isRecordingLastOverlayShortcut: Bool = false
+
+    
+    
+    func updateCanShowLastOverlay() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let hasActive = !VisorProWindowManager.shared.allActiveOverlays.isEmpty
+            let hasHistory = !self.overlayTriggerTimes.isEmpty
+            let newValue = !hasActive && hasHistory
+            if self.canShowLastOverlay != newValue {
+                self.canShowLastOverlay = newValue
+            }
+        }
+    }
+
     /// Posts a targeted notification that only VisorProWindowManager listens to.
     /// This replaces the overly-broad objectWillChange.sink pattern.
     func notifyOverlayStateChanged() {
         NotificationCenter.default.post(name: .visorProOverlayStateChanged, object: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.updateCanShowLastOverlay()
+        }
     }
+    
     
     @MainActor
     func forceHide(overlayId: String) {
@@ -2041,20 +2113,51 @@ class MediaKeyManager: ObservableObject {
         notifyOverlayStateChanged()
     }
     
+    /// Hides the overlay without any animation — used after the SwiftUI dismiss
+    /// animation has already completed inside UniversalOverlayView, so the
+    /// window manager can remove the panel instantly without a conflicting exit animation.
+    func silentHide(overlayId: String) {
+        if overlayId == "volume" { showVolumeIndicator = false }
+        else if overlayId == "brightness" { showBrightnessIndicator = false }
+        else if overlayId == "keyboardBrightness" { showKeyboardBrightnessIndicator = false }
+        else if overlayId.hasPrefix("battery") { showChargingStatus = false; showLowBatteryWarning = false; showUnpluggedStatus = false }
+        else if overlayId.hasPrefix("copy") { showCopyIndicator = false }
+        else if overlayId.hasPrefix("capsLock") { showCapsLockIndicator = false }
+        else if overlayId.hasPrefix("bluetooth") { activeBluetoothNotifications.removeAll(where: { "bluetooth_\($0.id)" == overlayId }) }
+        else if overlayId == "airpodsMode" { showAirPodsModeIndicator = false }
+        else if overlayId == "language" { showLanguageIndicator = false }
+        else if overlayId == "media" { showMediaIndicator = false }
+        else if overlayId == "theme" { showThemeIndicator = false }
+        else if overlayId == "focus" { showFocusIndicator = false }
+        else if overlayId == "mic" { showMicIndicator = false }
+        else if overlayId == "camera" { showCameraIndicator = false }
+        else if overlayId == "location" { showLocationIndicator = false }
+        else if overlayId == "wifi" { showWiFiIndicator = false }
+        else if overlayId == "date" { showDateIndicator = false }
+        else if overlayId.hasPrefix("peripheral") { activePeripheralNotifications.removeAll(where: { "peripheral_\($0.id)" == overlayId }) }
+        else if overlayId.hasPrefix("display") { activeDisplayNotifications.removeAll(where: { "display_\($0.id)" == overlayId }) }
+        else if overlayId.hasPrefix("ram") { showRamIndicator = false }
+        else if overlayId.hasPrefix("cpu") { showCpuIndicator = false }
+        else if overlayId.hasPrefix("trash") { showTrashIndicator = false }
+        else if overlayId == "fileDeleted" { showFileDeletedIndicator = false }
+        else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
+        else if overlayId.hasPrefix("airpodsGroupBattery") { showAirpodsGroupBatteryIndicator = false }
+        else if overlayId == "smartRouting" { OverlayStateRelay.shared.showSmartRoutingIndicator = false }
+        notifyOverlayStateChanged()
+    }
+    
     func hideBatteryOverlay() {
         DispatchQueue.main.async {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self.showChargingStatus = false
-                self.showLowBatteryWarning = false
-                self.showUnpluggedStatus = false
-                self.notifyOverlayStateChanged()
-            }
+            NotificationCenter.default.post(name: NSNotification.Name("DismissOverlay_battery"), object: nil)
             if self.isTestingBattery {
-                self.isBatteryInitialized = false
-                self.currentBatteryPercentage = self.testOriginalPercentage
-                self.isPluggedIn = self.testOriginalPluggedIn
-                self.isBatteryInitialized = true
-                self.isTestingBattery = false
+                // Delay testing state reset until after the exit animation finishes
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    self.isBatteryInitialized = false
+                    self.currentBatteryPercentage = self.testOriginalPercentage
+                    self.isPluggedIn = self.testOriginalPluggedIn
+                    self.isBatteryInitialized = true
+                    self.isTestingBattery = false
+                }
             }
         }
     }
@@ -2090,7 +2193,7 @@ class MediaKeyManager: ObservableObject {
             }
         }
         
-        chargingTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+        chargingTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             self?.hideBatteryOverlay()
         }
     }
@@ -2122,7 +2225,7 @@ class MediaKeyManager: ObservableObject {
             if let idx = self.activePeripheralNotifications.firstIndex(where: { $0.id == notifId }) {
                 self.activePeripheralNotifications[idx] = newNotif
             } else {
-                self.activePeripheralNotifications.append(newNotif)
+                self.activePeripheralNotifications.append(newNotif); OverlayStateRelay.shared.notificationHistory["peripheral_\(newNotif.id)"] = newNotif
                 self.notifyOverlayStateChanged()
             }
             self.enforceNotificationLimit()
@@ -2130,7 +2233,7 @@ class MediaKeyManager: ObservableObject {
         
         let timerKey = "peripheral_\(notifId)"
         self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
-        self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+        self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 self?.activePeripheralNotifications.removeAll(where: { $0.id == notifId })
             }
@@ -2180,14 +2283,14 @@ class MediaKeyManager: ObservableObject {
                     self.notificationTimers["display_\(oldId)"]?.invalidate()
                     self.activeDisplayNotifications[0] = newNotif
                 } else {
-                    self.activeDisplayNotifications.append(newNotif)
+                    self.activeDisplayNotifications.append(newNotif); OverlayStateRelay.shared.notificationHistory["display_\(newNotif.id)"] = newNotif
                     self.notifyOverlayStateChanged()
                 }
             }
             
             let timerKey = "display_\(id)"
             self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
-            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+            self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.2)) {
                     self?.activeDisplayNotifications.removeAll(where: { $0.id == id })
                 }
@@ -2634,9 +2737,9 @@ class MediaKeyManager: ObservableObject {
                 self.notifyOverlayStateChanged()
                 self.mediaHideTimer?.invalidate()
                 if !self.globalHoveredTypes.contains("media") {
-                    self.mediaHideTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
+                    self.mediaHideTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
                         withAnimation {
-                            self.showMediaIndicator = false
+                            self.showMediaIndicator = false; self.notifyOverlayStateChanged()
                         }
                     }
                 }
@@ -2647,10 +2750,8 @@ class MediaKeyManager: ObservableObject {
     func scheduleOverlayHide(for overlayId: String, delay: TimeInterval = MediaKeyManager.notificationDuration) {
         cancelOverlayHide(for: overlayId)
         
-        let timer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-            DispatchQueue.main.async {
+        let timer = Timer.scheduledTimerInCommonModes(withTimeInterval: delay, repeats: false) { [weak self] _ in
                 self?.forceHide(overlayId: overlayId)
-            }
         }
         overlayHideTimers[overlayId] = timer
     }
@@ -2832,7 +2933,7 @@ class MediaKeyManager: ObservableObject {
     func startFetchingTopBatteryConsumers() {
         fetchTopBatteryConsumers()
         topBatteryConsumersTimer?.invalidate()
-        topBatteryConsumersTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        topBatteryConsumersTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             guard let self = self, self.showLowBatteryWarning else {
                 self?.topBatteryConsumersTimer?.invalidate()
                 return
@@ -2864,8 +2965,10 @@ class MediaKeyManager: ObservableObject {
     
     private var mediaKeyTap: CFMachPort?
     private var mediaKeyRunLoopSource: CFRunLoopSource?
-    private var globalKeyMonitor: Any?
-    private var localKeyMonitor: Any?
+    private var standardKeyTap: CFMachPort?
+    private var standardKeyRunLoopSource: CFRunLoopSource?
+    private var standardKeyRunLoop: CFRunLoop?
+    private var standardKeyThread: Thread?
     private var hasStarted = false
     private var audioRouteObserver: AudioRouteObserver?
     private var batteryObserver: BatteryObserver?
@@ -2886,6 +2989,7 @@ class MediaKeyManager: ObservableObject {
         }
         
         checkAccessibility()
+
         loadShortcuts()
         self.bluetoothObserver = BluetoothObserver(manager: self)
         self.audioRouteObserver = AudioRouteObserver(manager: self)
@@ -3011,6 +3115,7 @@ class MediaKeyManager: ObservableObject {
     }
     
     func checkAccessibility() {
+
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         self.isTrusted = AXIsProcessTrustedWithOptions(options)
     }
@@ -3037,30 +3142,59 @@ class MediaKeyManager: ObservableObject {
     func start() {
         if !self.isTrusted {
             checkAccessibility()
+
             if !self.isTrusted {
                 return
             }
         }
         
-
+        startHardwareKeyPolling()
         
-        let handleKeyEvent: (NSEvent) -> Void = { [weak self] event in
-            guard let self = self else { return }
-            
+        hasStarted = true
+        setupMediaKeyTap()
+        setupStandardKeyTap()
+    }
+    
+    func getStandardKeyTap() -> CFMachPort? {
+        return self.standardKeyTap
+    }
+    
+    func handleStandardKeyEvent(_ event: NSEvent, cgEvent: CGEvent) -> Bool {
+        return DispatchQueue.main.sync {
             if event.type == .flagsChanged {
                 if event.keyCode == 57 { // 57 to kVK_CapsLock
-                    if !self.enableKeyboard { return }
+                    if !self.enableKeyboard { return true }
                     let isCapsOn = event.modifierFlags.contains(.capsLock)
-                    DispatchQueue.main.async {
-                        if !self.useSystemOSD {
-                            self.lastAction = "Caps Lock: \(isCapsOn ? "On" : "Off")"
-                        }
-                        self.triggerCapsLockIndicator(isOn: isCapsOn)
+                    if !self.useSystemOSD {
+                        self.lastAction = "Caps Lock: \(isCapsOn ? "On" : "Off")"
                     }
+                    self.triggerCapsLockIndicator(isOn: isCapsOn)
                 }
             } else if event.type == .keyDown {
                 let eventModifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
                 let char = event.charactersIgnoringModifiers?.lowercased() ?? ""
+                
+                if self.isRecordingLastOverlayShortcut {
+                    var str = ""
+                    if eventModifiers.contains(.command) { str += "@" }
+                    if eventModifiers.contains(.control) { str += "^" }
+                    if eventModifiers.contains(.option) { str += "~" }
+                    if eventModifiers.contains(.shift) { str += "$" }
+                    if char != "" { str += char }
+                    self.lastOverlayShortcutString = str
+                    self.isRecordingLastOverlayShortcut = false
+                    return false // block event
+                }
+                
+                if !self.lastOverlayShortcutString.isEmpty {
+                    let shortcut = self.parseShortcut(self.lastOverlayShortcutString)
+                    if eventModifiers == shortcut.modifiers && char == shortcut.character.lowercased() {
+                        if self.canShowLastOverlay {
+                            self.showLastViewedOverlay()
+                        }
+                        return false // block event
+                    }
+                }
                 
                 if self.enableKeyboard {
                     let isCustomCopy = (eventModifiers == self.copyShortcut.modifiers && char == self.copyShortcut.character.lowercased())
@@ -3084,48 +3218,95 @@ class MediaKeyManager: ObservableObject {
                         let hasCustomPaste = !(self.pasteShortcut.character == "v" && self.pasteShortcut.modifiers == .command)
                         
                         if isFile {
-                            if !isNativePaste { return }
+                            if !isNativePaste { return true }
                         } else {
                             if hasCustomPaste {
-                                if !isCustomPaste { return }
+                                if !isCustomPaste { return true }
                             }
                         }
                         
                         if !self.canPasteInFrontmostApp() {
-                            return
+                            return true
                         }
                         
                         self.pendingClipboardAction = "paste"
                         self.pendingClipboardActionTimestamp = Date()
-                        DispatchQueue.main.async {
-                            let data = self.processClipboardData(for: "paste")
-                            self.triggerClipboardIndicator(text: data.text, action: "paste", app: data.app, folder: data.folder, size: data.size)
-                        }
+                        let data = self.processClipboardData(for: "paste")
+                        self.triggerClipboardIndicator(text: data.text, action: "paste", app: data.app, folder: data.folder, size: data.size)
                     } else if isCustomCut || isNativeCut {
                         self.pendingClipboardAction = "cut"
                         self.pendingClipboardActionTimestamp = Date()
                     }
                 }
             }
+            
+            return true
         }
-        
-        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
-            handleKeyEvent(event)
-        }
-        
-        localKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { event in
-            handleKeyEvent(event)
-            return event
-        }
-        
-
-        
-        
-        startHardwareKeyPolling()
-        
-        hasStarted = true
-        setupMediaKeyTap()
     }
+    
+    func setupStandardKeyTap() {
+        guard hasStarted else { return }
+        
+        if let tap = standardKeyTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
+        }
+        
+        let runLoopToStop = self.standardKeyRunLoop
+        let sourceToRemove = self.standardKeyRunLoopSource
+        
+        self.standardKeyTap = nil
+        self.standardKeyRunLoopSource = nil
+        self.standardKeyRunLoop = nil
+        
+        if let runLoop = runLoopToStop {
+            if let source = sourceToRemove {
+                CFRunLoopRemoveSource(runLoop, source, .defaultMode)
+            }
+            CFRunLoopStop(runLoop)
+        }
+        
+        guard self.isTrusted else { return }
+        
+        let eventMask = CGEventMask((1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.flagsChanged.rawValue))
+        
+        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        let callback = unsafeBitCast(standardEventTapCallbackSafeObj, to: CGEventTapCallBack.self)
+        guard let tap = CGEvent.tapCreate(
+            tap: .cghidEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: eventMask,
+            callback: callback,
+            userInfo: selfPtr
+        ) else {
+            return
+        }
+        
+        self.standardKeyTap = tap
+        
+        self.standardKeyThread = Thread { [weak self] in
+            let currentRunLoop = CFRunLoopGetCurrent()
+            let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+            
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if self.standardKeyTap == tap {
+                    self.standardKeyRunLoop = currentRunLoop
+                    self.standardKeyRunLoopSource = source
+                }
+            }
+            
+            if let source = source {
+                CFRunLoopAddSource(currentRunLoop, source, .defaultMode)
+                CGEvent.tapEnable(tap: tap, enable: true)
+                CFRunLoopRun()
+            }
+        }
+        self.standardKeyThread?.name = "VisorProStandardKeyTapThread"
+        self.standardKeyThread?.start()
+    }
+
 
     
     func enforceNotificationLimit() {
@@ -3175,7 +3356,7 @@ class MediaKeyManager: ObservableObject {
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         let mediaEventMask = 1 << CGEventType(rawValue: UInt32(NX_SYSDEFINED))!.rawValue
         
-        let mediaCallback: CGEventTapCallBack = { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
+        let mediaCallbackSafeObj: @convention(c) (CGEventTapProxy, CGEventType, CGEvent?, UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? = { proxy, type, event, refcon in
             let manager = Unmanaged<MediaKeyManager>.fromOpaque(refcon!).takeUnretainedValue()
             
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
@@ -3188,8 +3369,10 @@ class MediaKeyManager: ObservableObject {
                         }
                     }
                 }
-                return Unmanaged.passRetained(event)
+                return event != nil ? Unmanaged.passRetained(event!) : nil
             }
+            
+            guard let event = event else { return nil }
             
             guard type == CGEventType(rawValue: UInt32(NX_SYSDEFINED))! else { return Unmanaged.passRetained(event) }
             guard let nsEvent = NSEvent(cgEvent: event), nsEvent.type == .systemDefined else { return Unmanaged.passRetained(event) }
@@ -3323,12 +3506,13 @@ class MediaKeyManager: ObservableObject {
             return Unmanaged.passRetained(event)
         }
         
+        let callback = unsafeBitCast(mediaCallbackSafeObj, to: CGEventTapCallBack.self)
         mediaKeyTap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
             eventsOfInterest: CGEventMask(mediaEventMask),
-            callback: mediaCallback,
+            callback: callback,
             userInfo: selfPtr
         )
         
@@ -3350,17 +3534,25 @@ class MediaKeyManager: ObservableObject {
         if let source = mediaKeyRunLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         }
-        if let monitor = globalKeyMonitor {
-            NSEvent.removeMonitor(monitor)
-            globalKeyMonitor = nil
-        }
-        if let monitor = localKeyMonitor {
-            NSEvent.removeMonitor(monitor)
-            localKeyMonitor = nil
-        }
         mediaKeyTap = nil
         mediaKeyRunLoopSource = nil
         
+        if let tap = standardKeyTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+        }
+        let runLoopToStop = self.standardKeyRunLoop
+        let sourceToRemove = self.standardKeyRunLoopSource
+        
+        self.standardKeyTap = nil
+        self.standardKeyRunLoopSource = nil
+        self.standardKeyRunLoop = nil
+        
+        if let runLoop = runLoopToStop {
+            if let source = sourceToRemove {
+                CFRunLoopRemoveSource(runLoop, source, .defaultMode)
+            }
+            CFRunLoopStop(runLoop)
+        }
     }
     
     func sendMediaRemoteCommand(_ commandId: Int32) {
@@ -3440,5 +3632,14 @@ class MediaKeyManager: ObservableObject {
                 NSWorkspace.shared.openApplication(at: url, configuration: configuration)
             }
         }
+    }
+}
+import Foundation
+
+extension Timer {
+    @discardableResult
+    static func scheduledTimerInCommonModes(withTimeInterval interval: TimeInterval, repeats: Bool, block: @escaping (Timer) -> Void) -> Timer {
+        let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: repeats, block: block)
+        return timer
     }
 }

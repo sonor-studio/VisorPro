@@ -481,7 +481,7 @@ struct PeripheralOverlayView: View {
                 let currentIsDrive = currentType == "USB Drive" || currentIcon == "externaldrive" || currentType == "USB Device" || currentType == "CD/DVD Drive"
                 
                 if expanded && currentIsDrive && isConnected {
-                    refreshTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
+                    refreshTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 3.0, repeats: true) { _ in
                         fetchDriveCapacity(type: currentType, typeIcon: currentIcon)
                     }
                 } else {

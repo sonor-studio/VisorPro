@@ -61,7 +61,7 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.5, repeats: true) { _ in
                 self.pollWiFi()
             }
             self.pathMonitor = NWPathMonitor(requiredInterfaceType: .wifi)

@@ -22,7 +22,7 @@ class RamObserver: ObservableObject {
     
     func startMonitoring() {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
         tick()

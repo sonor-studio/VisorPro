@@ -33,7 +33,7 @@ class CpuObserver: ObservableObject {
     
     private func startObserving() {
         // Poll every 3 seconds
-        timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
             self?.updateTemperature()
         }
         updateTemperature()

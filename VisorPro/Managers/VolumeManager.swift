@@ -501,7 +501,7 @@ class VolumeManager {
         if muteEnforcerTimer == nil {
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
-                self.muteEnforcerTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                self.muteEnforcerTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                     guard let self = self else { return }
                     if self.isMicMuted {
                         self.applyMicVolumeAndMute(volume: 0, mute: true)

@@ -85,6 +85,19 @@ struct VisorProApp: App {
                 }
             }
             
+            if let keyEquiv = mediaKeyManager.lastOverlayShortcutString.keyEquivalent {
+                Button("Show Last Overlay") {
+                    mediaKeyManager.showLastViewedOverlay()
+                }
+                .keyboardShortcut(keyEquiv, modifiers: mediaKeyManager.lastOverlayShortcutString.eventModifiers)
+                .disabled(!mediaKeyManager.canShowLastOverlay)
+            } else {
+                Button("Show Last Overlay") {
+                    mediaKeyManager.showLastViewedOverlay()
+                }
+                .disabled(!mediaKeyManager.canShowLastOverlay)
+            }
+            
             Divider()
             
             Button("Dashboard") {

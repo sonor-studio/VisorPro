@@ -169,27 +169,25 @@ struct BatterySettingsView: View {
                        
                                 }
                             Divider().padding(.leading, 48)
-                            CustomSettingsRow(icon: "battery.25", iconColor: .orange, title: "Alert at 20%", subtitle: "Low battery warning") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyOn20Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn20Percent) }
-                                    Toggle("", isOn: $mediaKeyManager.notifyOn20Percent).labelsHidden() }
-                            }
-                            Divider().padding(.leading, 48)
-                            CustomSettingsRow(icon: "battery.0", iconColor: .red, title: "Alert at 10%", subtitle: "Critical battery warning") {
-                                HStack(spacing: 8) { if mediaKeyManager.notifyOn10Percent { SoundPickerControl(selectedSound: $mediaKeyManager.soundOn10Percent) }
-                                    Toggle("", isOn: $mediaKeyManager.notifyOn10Percent).labelsHidden() }
-                            }
-                            Divider().padding(.leading, 48)
+
                             ForEach($mediaKeyManager.batteryCustomThresholds) { $threshold in
                                 let isExpanded = expandedThresholds.contains(threshold.id)
                                 VStack(spacing: 0) {
                                     CustomSettingsRow(icon: "bell", iconColor: .green, title: "Alert at \(threshold.percentage)%", subtitle: "Custom battery threshold") {
                                         HStack(spacing: 8) {
-                                            Stepper(value: $threshold.percentage, in: 1...99, step: 1) {
+                                            Stepper(onIncrement: {
+                                                let existing = mediaKeyManager.batteryCustomThresholds.filter { $0.id != threshold.id }.map { $0.percentage }
+                                                $threshold.wrappedValue.percentage = BatteryThreshold.nextIncrement(current: threshold.percentage, existing: existing)
+                                            }, onDecrement: {
+                                                let existing = mediaKeyManager.batteryCustomThresholds.filter { $0.id != threshold.id }.map { $0.percentage }
+                                                $threshold.wrappedValue.percentage = BatteryThreshold.nextDecrement(current: threshold.percentage, existing: existing)
+                                            }) {
                                                 Text("\(threshold.percentage)%")
                                                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                                                     .foregroundColor(.primary)
                                             }
                                             .frame(width: 80)
+                                            .disabled(mediaKeyManager.batteryCustomThresholds.count >= 99)
                                             
                                             if threshold.isEnabled { SoundPickerControl(selectedSound: $threshold.sound) }
                                             Toggle("", isOn: $threshold.isEnabled).labelsHidden()
@@ -254,9 +252,13 @@ struct BatterySettingsView: View {
                                 
                             Divider().padding(.leading, 48)
                             
+                            let isMaxReached = mediaKeyManager.batteryCustomThresholds.count >= 99
+                            
                             Button(action: {
                                 withAnimation {
-                                    mediaKeyManager.batteryCustomThresholds.append(BatteryThreshold(percentage: 50, sound: "Ping", isEnabled: true))
+                                    let existing = mediaKeyManager.batteryCustomThresholds.map { $0.percentage }
+                                    let nextPct = BatteryThreshold.nextAvailablePercentage(existing: existing)
+                                    mediaKeyManager.batteryCustomThresholds.append(BatteryThreshold(percentage: nextPct, sound: "Ping", isEnabled: true))
                                 }
                             }) {
                                 HStack {
@@ -267,10 +269,11 @@ struct BatterySettingsView: View {
                                 }
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 12)
-                                .foregroundColor(.blue)
+                                .foregroundColor(isMaxReached ? .gray : .blue)
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .disabled(isMaxReached)
                             .pointingHandCursor()
                         }
                         .toggleStyle(.switch)

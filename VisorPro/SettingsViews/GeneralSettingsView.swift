@@ -543,6 +543,62 @@ struct GeneralSettingsView: View {
                 }
                 .padding(.horizontal)
 
+                // MARK: - Shortcuts
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Shortcuts")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Show Last Overlay")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    Text("Keyboard shortcut to immediately re-show the last active overlay.")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                HStack {
+                                    if mediaKeyManager.isRecordingLastOverlayShortcut {
+                                        Text("Press any key...")
+                                            .foregroundColor(.secondary)
+                                            .frame(width: 120, alignment: .trailing)
+                                    } else {
+                                        Button(action: {
+                                            mediaKeyManager.isRecordingLastOverlayShortcut = true
+                                        }) {
+                                            Text(mediaKeyManager.lastOverlayShortcutString.isEmpty ? "Click to record" : mediaKeyManager.lastOverlayShortcutString.displayString)
+                                                .frame(minWidth: 100)
+                                        }
+                                        if !mediaKeyManager.lastOverlayShortcutString.isEmpty {
+                                            Button(action: {
+                                                mediaKeyManager.lastOverlayShortcutString = ""
+                                            }) {
+                                                Image(systemName: "xmark.circle.fill")
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                    }
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
+                
                 // MARK: - Overlay Position
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Overlay Position")

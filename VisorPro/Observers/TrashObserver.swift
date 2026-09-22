@@ -20,7 +20,7 @@ class TrashObserver: ObservableObject {
     
     func startMonitoring() {
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.tick()
         }
         tick() // Initial check

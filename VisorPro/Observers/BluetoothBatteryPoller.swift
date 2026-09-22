@@ -13,7 +13,7 @@ class BluetoothBatteryPoller {
     
     func startPolling() {
         // Poll every 30 seconds to avoid high CPU usage
-        timer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
             DispatchQueue.global(qos: .background).async {
                 self?.forcePoll()
             }

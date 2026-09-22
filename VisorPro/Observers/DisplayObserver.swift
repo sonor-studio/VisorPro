@@ -84,7 +84,7 @@ class DisplayObserver {
 
     @objc private func handleScreenChange() {
         debounceTimer?.invalidate()
-        debounceTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+        debounceTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
             self?.processStateChange()
         }
     }

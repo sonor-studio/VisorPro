@@ -112,7 +112,7 @@ class AVObserver {
                     self.manager?.triggerMicIndicator(isActive: true, deviceName: activeDeviceName)
                 }
             } else {
-                self.micDebounceTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+                self.micDebounceTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
                     if self?.manager?.isMicActive == true {
                         self?.manager?.triggerMicIndicator(isActive: false, deviceName: "")
                     }
@@ -189,7 +189,7 @@ class AVObserver {
                 }
             } else {
                 if self.cameraDebounceTimer == nil {
-                    self.cameraDebounceTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+                    self.cameraDebounceTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
                         guard let self = self else { return }
                         if self.manager?.isCameraActive == true {
                             self.manager?.triggerCameraIndicator(isActive: false, deviceName: "")

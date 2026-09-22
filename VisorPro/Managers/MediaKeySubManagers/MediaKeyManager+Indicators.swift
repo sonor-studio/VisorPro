@@ -22,7 +22,7 @@ extension MediaKeyManager {
         self.overlayTriggerTimes["volume"] = Date()
         
         if !globalHoveredTypes.contains("volume") {
-            volumeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+            volumeTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.showVolumeIndicator = false
                 }
@@ -49,7 +49,7 @@ extension MediaKeyManager {
         self.overlayTriggerTimes["brightness"] = Date()
         
         if !globalHoveredTypes.contains("brightness") {
-            brightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+            brightnessTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.showBrightnessIndicator = false
                 }
@@ -75,7 +75,7 @@ extension MediaKeyManager {
         }
         self.overlayTriggerTimes["keyboardBrightness"] = Date()
         
-        keyboardBrightnessTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+        keyboardBrightnessTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 self?.showKeyboardBrightnessIndicator = false
             }
@@ -109,7 +109,7 @@ extension MediaKeyManager {
 
                 }
 
-                self.capsLockTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                self.capsLockTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
 
                     withAnimation(.easeInOut(duration: 0.25)) {
 
@@ -156,7 +156,7 @@ extension MediaKeyManager {
 
                 }
 
-                self.themeTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                self.themeTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
 
                     withAnimation(.easeInOut(duration: 0.25)) {
 
@@ -221,7 +221,7 @@ extension MediaKeyManager {
 
                 }
 
-                self.languageTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                self.languageTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
 
                     withAnimation(.easeInOut(duration: 0.25)) {
 
@@ -353,8 +353,8 @@ extension MediaKeyManager {
                         let pos = self.getOverlayPosition(for: "cpuOverlayPosition")
                         self.dismissCollidingIndicators(newPosition: pos, source: "cpu")
                         
-                        let executeShow = { [weak self] in
-                            guard let self = self else { return }
+                        let executeShow = { 
+
                             self.cpuEventId = UUID()
                             withAnimation(.easeInOut(duration: 0.15)) {
                                 self.showCpuIndicator = true
@@ -455,4 +455,86 @@ extension MediaKeyManager {
         self.overlayTriggerTimes["airpodsMode"] = Date()
         self.scheduleOverlayHide(for: "airpodsMode")
     }
+
+    func showLastViewedOverlay() {
+        guard let last = self.overlayTriggerTimes.max(by: { $0.value < $1.value }) else { return }
+        let overlayId = last.key
+        
+        let relay = OverlayStateRelay.shared
+        
+        switch overlayId {
+        case "volume": triggerVolumeIndicator(playSound: false)
+        case "brightness": triggerBrightnessIndicator(playSound: false)
+        case "keyboardBrightness": triggerKeyboardBrightnessIndicator(playSound: false)
+        case "battery_charging", "battery_warning", "battery": 
+            if relay.showLowBatteryWarning || !relay.isPluggedIn {
+                triggerBatteryThresholdWarning(percentage: relay.currentBatteryPercentage, sound: "None")
+            } else {
+                triggerChargingStatus()
+            }
+        case "capsLock": triggerCapsLockIndicator(isOn: self.isCapsLockOn)
+        case "theme": triggerThemeIndicator(isDark: self.isDarkMode)
+        case "language": triggerLanguageIndicator(language: self.currentKeyboardLanguage)
+        case "ram": triggerRamOverlay()
+        case "trash": triggerTrashOverlay(isManualTrigger: true)
+        case "cpu": triggerCpuTempOverlay(temp: self.cpuTemperature)
+        case "mic": triggerMicIndicator(isActive: relay.isMicActive)
+        case "camera": triggerCameraIndicator(isActive: relay.isCameraActive)
+        case "location": triggerLocationIndicator()
+        case "date": triggerDateIndicator()
+        case "wifi": triggerWiFiIndicator(ssid: relay.wiFiSSID, isConnected: relay.wiFiIsConnected)
+        case "copy", "cut", "paste": 
+            withAnimation(.easeInOut(duration: 0.15)) {
+                self.showCopyIndicator = true
+                self.overlayTriggerTimes["copy"] = Date()
+                self.notifyOverlayStateChanged()
+            }
+            self.scheduleOverlayHide(for: "copy")
+        case "accessoryBattery":
+            triggerAccessoryBatteryIndicator(
+                deviceName: relay.accessoryBatteryDeviceName,
+                percentage: relay.accessoryBatteryPercentage,
+                isPluggedIn: relay.accessoryBatteryIsPluggedIn,
+                isWarning: relay.accessoryBatteryIsWarning,
+                isIncreasing: relay.accessoryBatteryIsIncreasing
+            )
+        case "airpodsGroupBattery":
+            triggerAirpodsGroupBatteryIndicator(
+                deviceName: relay.airpodsDeviceName,
+                leftBattery: relay.airpodsLeftBattery,
+                leftCharging: relay.airpodsLeftCharging,
+                rightBattery: relay.airpodsRightBattery,
+                rightCharging: relay.airpodsRightCharging,
+                caseBattery: relay.airpodsCaseBattery,
+                caseCharging: relay.airpodsCaseCharging
+            )
+        default:
+            if overlayId.hasPrefix("bluetooth_") || overlayId.hasPrefix("peripheral_") || overlayId.hasPrefix("display_") {
+                if let notif = relay.notificationHistory[overlayId] {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        if overlayId.hasPrefix("bluetooth_") {
+                            if !self.activeBluetoothNotifications.contains(where: { $0.id == notif.id }) { self.activeBluetoothNotifications.append(notif) }
+                        } else if overlayId.hasPrefix("peripheral_") {
+                            if !self.activePeripheralNotifications.contains(where: { $0.id == notif.id }) { self.activePeripheralNotifications.append(notif) }
+                        } else if overlayId.hasPrefix("display_") {
+                            if !self.activeDisplayNotifications.contains(where: { $0.id == notif.id }) { self.activeDisplayNotifications.append(notif) }
+                        }
+                        self.overlayTriggerTimes[overlayId] = Date()
+                        self.notifyOverlayStateChanged()
+                    }
+                    self.scheduleOverlayHide(for: overlayId)
+                }
+            } else if overlayId == "media" {
+                withAnimation(.easeInOut) { self.showMediaIndicator = true }
+                self.overlayTriggerTimes["media"] = Date(); self.notifyOverlayStateChanged()
+                self.scheduleOverlayHide(for: "media")
+            } else if overlayId == "smartRouting" {
+                withAnimation(.easeInOut) { relay.showSmartRoutingIndicator = true }
+                self.overlayTriggerTimes["smartRouting"] = Date(); self.notifyOverlayStateChanged()
+                self.scheduleOverlayHide(for: "smartRouting")
+            }
+            break
+        }
+    }
 }
+

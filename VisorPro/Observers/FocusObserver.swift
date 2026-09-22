@@ -86,7 +86,7 @@ class FocusObserver {
                 self.manager?.activeFocusDetails = details
             }
             
-            self.timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
                 self?.pollFocusStatus()
             }
         }

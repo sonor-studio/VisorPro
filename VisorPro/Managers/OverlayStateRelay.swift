@@ -238,6 +238,8 @@ class OverlayStateRelay: ObservableObject {
     // MARK: - Peripheral runtime
     
     @Published var activePeripheralNotifications: [DeviceNotification] = []
+    @Published var notificationHistory: [String: DeviceNotification] = [:]
+
     @Published var showPeripheralIndicator: Bool = false
     @Published var peripheralDeviceName: String = ""
     @Published var peripheralDeviceType: String = ""

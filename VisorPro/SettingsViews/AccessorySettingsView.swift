@@ -354,12 +354,19 @@ if mediaKeyManager.overlayColorMode == "custom" {
                                     VStack(spacing: 0) {
                                         CustomSettingsRow(icon: "bell", iconColor: .green, title: "Alert at \(threshold.percentage)%", subtitle: "Custom battery threshold") {
                                             HStack(spacing: 8) {
-                                                Stepper(value: $threshold.percentage, in: 1...99, step: 1) {
+                                                Stepper(onIncrement: {
+                                                    let existing = settings.customThresholds.filter { $0.id != threshold.id }.map { $0.percentage }
+                                                    $threshold.wrappedValue.percentage = BatteryThreshold.nextIncrement(current: threshold.percentage, existing: existing)
+                                                }, onDecrement: {
+                                                    let existing = settings.customThresholds.filter { $0.id != threshold.id }.map { $0.percentage }
+                                                    $threshold.wrappedValue.percentage = BatteryThreshold.nextDecrement(current: threshold.percentage, existing: existing)
+                                                }) {
                                                     Text("\(threshold.percentage)%")
                                                         .font(.system(size: 13, weight: .medium, design: .monospaced))
                                                         .foregroundColor(.primary)
                                                 }
                                                 .frame(width: 80)
+                                                .disabled(settings.customThresholds.count >= 99)
                                                 .onChange(of: threshold.percentage) { _, _ in saveSettings() }
                                                 
                                                 if threshold.isEnabled {
@@ -514,9 +521,13 @@ if mediaKeyManager.overlayColorMode == "custom" {
                                 
                                 Divider().padding(.leading, 40)
                                 
+                                let isMaxReached = settings.customThresholds.count >= 99
+                                
                                 Button(action: {
                                     withAnimation {
-                                        settings.customThresholds.append(BatteryThreshold(percentage: 50, sound: "None", isEnabled: true))
+                                        let existing = settings.customThresholds.map { $0.percentage }
+                                        let nextPct = BatteryThreshold.nextAvailablePercentage(existing: existing)
+                                        settings.customThresholds.append(BatteryThreshold(percentage: nextPct, sound: "None", isEnabled: true))
                                         saveSettings()
                                     }
                                 }) {
@@ -528,10 +539,11 @@ if mediaKeyManager.overlayColorMode == "custom" {
                                     }
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 12)
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(isMaxReached ? .gray : .blue)
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
+                                .disabled(isMaxReached)
                                 .pointingHandCursor()
                             }
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))

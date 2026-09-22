@@ -49,7 +49,7 @@ extension MediaKeyManager {
                 self.overlayTriggerTimes["copy"] = Date()
             }
             
-            self.copyTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+            self.copyTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.showCopyIndicator = false
                 }
@@ -155,7 +155,7 @@ extension MediaKeyManager {
     
     internal func startHardwareKeyPolling() {
         hardwareKeyPollingTimer?.invalidate()
-        hardwareKeyPollingTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        hardwareKeyPollingTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             guard let self = self, self.enableClipboard, self.isTrusted else { return }
             
             // Cmd (lewy lub prawy)

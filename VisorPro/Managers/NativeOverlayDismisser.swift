@@ -332,7 +332,7 @@ final class NativeOverlayDismisser {
     
     private func startSmartRoutingBannerTracker(for element: AXUIElement) {
         smartRoutingTrackerTimer?.invalidate()
-        smartRoutingTrackerTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
+        smartRoutingTrackerTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
             var roleRef: CFTypeRef?
             let error = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
             

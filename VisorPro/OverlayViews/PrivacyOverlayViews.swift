@@ -30,7 +30,7 @@ struct MicWaveformView: View {
         .frame(height: 44)
         .onAppear {
             if isPreview {
-                timer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
+                timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.15, repeats: true) { _ in
                     let baseVolume = CGFloat(previewVolume) / 100.0
                     for i in 0..<previewLevels.count {
                         if isMuted {

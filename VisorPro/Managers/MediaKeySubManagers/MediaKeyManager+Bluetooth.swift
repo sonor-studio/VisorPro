@@ -17,7 +17,7 @@ extension MediaKeyManager {
             let debounceKey = "peripheral_debounce_\(notifId)"
             if !isConnected {
                 self.notificationTimers[debounceKey]?.invalidate()
-                self.notificationTimers[debounceKey] = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+                self.notificationTimers[debounceKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
                     self?.notificationTimers.removeValue(forKey: debounceKey)
                     self?.showPeripheralOverlay(id: notifId, deviceName: deviceName, type: type, typeIcon: typeIcon, isConnected: false, details: details)
                 }
@@ -97,7 +97,7 @@ extension MediaKeyManager {
             withAnimation(.easeInOut(duration: 0.15)) {
                 // Remove the opposite state notification so it triggers the window exit animation
                 self.activeBluetoothNotifications.removeAll(where: { $0.id.hasPrefix(deviceAddress) })
-                self.activeBluetoothNotifications.append(newNotif)
+                self.activeBluetoothNotifications.append(newNotif); OverlayStateRelay.shared.notificationHistory["bluetooth_\(newNotif.id)"] = newNotif
                 
                 // If they just connected to AirPods, replace the Smart Routing transfer indicator immediately
                 if isConnected && deviceName.lowercased().contains("airpods") {
@@ -110,7 +110,7 @@ extension MediaKeyManager {
             
             let timerKey = "bluetooth_\(uniqueId)"
             self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
-            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+            self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.activeBluetoothNotifications.removeAll(where: { $0.id == uniqueId })
                 }
@@ -157,7 +157,7 @@ extension MediaKeyManager {
             
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.activeBluetoothNotifications.removeAll(where: { $0.id.hasPrefix(deviceAddress) })
-                self.activeBluetoothNotifications.append(newNotif)
+                self.activeBluetoothNotifications.append(newNotif); OverlayStateRelay.shared.notificationHistory["bluetooth_\(newNotif.id)"] = newNotif
                 
                 self.notifyOverlayStateChanged()
                 self.enforceNotificationLimit()
@@ -166,7 +166,7 @@ extension MediaKeyManager {
             let timerKey = "bluetooth_\(uniqueId)"
             self.notificationTimers[timerKey]?.invalidate()
             self.overlayTriggerTimes[timerKey] = Date()
-            self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+            self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.activeBluetoothNotifications.removeAll(where: { $0.id == uniqueId })
                 }
@@ -190,7 +190,7 @@ extension MediaKeyManager {
             // Update the timer so it stays on screen if it was already showing, but don't re-trigger the animation if it just faded out
             if overlayState.showSmartRoutingIndicator {
                 self.notificationTimers[timerKey]?.invalidate()
-                self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                     withAnimation(.easeInOut(duration: 0.25)) {
                         overlayState.showSmartRoutingIndicator = false
                     }
@@ -210,7 +210,7 @@ extension MediaKeyManager {
         self.notifyOverlayStateChanged()
         
         self.notificationTimers[timerKey]?.invalidate()
-        self.notificationTimers[timerKey] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+        self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             withAnimation(.easeInOut(duration: 0.25)) {
                 overlayState.showSmartRoutingIndicator = false
             }

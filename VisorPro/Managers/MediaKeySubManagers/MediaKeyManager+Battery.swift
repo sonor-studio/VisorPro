@@ -31,7 +31,7 @@ extension MediaKeyManager {
         
         chargingTimer?.invalidate()
         batteryTimer?.invalidate()
-        batteryTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+        batteryTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             self?.hideBatteryOverlay()
         }
     }
@@ -68,7 +68,7 @@ extension MediaKeyManager {
             }
         }
         
-        chargingTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+        chargingTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
             self?.hideBatteryOverlay()
         }
     }
@@ -109,12 +109,23 @@ extension MediaKeyManager {
             if isVisible && currentBase == baseName && self.accessoryBatteryPercentage == percentage {
                 let isCurrentLeft = self.accessoryBatteryDeviceName.hasSuffix(" (Left)")
                 let isCurrentRight = self.accessoryBatteryDeviceName.hasSuffix(" (Right)")
+                let isCurrentLeftRight = self.accessoryBatteryDeviceName.hasSuffix(" (Left & Right)")
                 let isNewLeft = deviceName.hasSuffix(" (Left)")
                 let isNewRight = deviceName.hasSuffix(" (Right)")
+                let isNewCase = deviceName.hasSuffix(" (Case)")
+                let isCurrentCase = self.accessoryBatteryDeviceName.hasSuffix(" (Case)")
                 
-                if (isCurrentLeft && isNewRight) || (isCurrentRight && isNewLeft) {
+                // Never merge Case with earbuds — Case always gets its own overlay
+                if isNewCase && (isCurrentLeft || isCurrentRight || isCurrentLeftRight) {
+                    // Case arrived while earbuds are showing — replace with Case
+                    self.accessoryBatteryDeviceName = deviceName
+                } else if (isNewLeft || isNewRight) && isCurrentCase {
+                    // Earbud arrived while Case is showing — replace with earbud
+                    self.accessoryBatteryDeviceName = deviceName
+                } else if (isCurrentLeft && isNewRight) || (isCurrentRight && isNewLeft) {
+                    // Merge Left + Right earbuds only
                     self.accessoryBatteryDeviceName = baseName + " (Left & Right)"
-                } else if self.accessoryBatteryDeviceName != deviceName && !self.accessoryBatteryDeviceName.hasSuffix(" (Left & Right)") {
+                } else if self.accessoryBatteryDeviceName != deviceName && !isCurrentLeftRight {
                     self.accessoryBatteryDeviceName = deviceName
                 }
             } else {
@@ -140,10 +151,8 @@ extension MediaKeyManager {
             }
             
             let displayTime: TimeInterval = isWarning ? 4.5 : 3.5
-            self.notificationTimers["accessoryBattery"] = Timer.scheduledTimer(withTimeInterval: displayTime, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showAccessoryBatteryIndicator = false
-                }
+            self.notificationTimers["accessoryBattery"] = Timer.scheduledTimerInCommonModes(withTimeInterval: displayTime, repeats: false) { [weak self] _ in
+                NotificationCenter.default.post(name: NSNotification.Name("DismissOverlay_accessoryBattery"), object: nil)
             }
         }
     }
@@ -176,10 +185,8 @@ extension MediaKeyManager {
             guard let self = self else { return }
             if self.showAirpodsGroupBatteryIndicator {
                 self.cancelOverlayHide(for: "airpodsGroupBattery")
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showAirpodsGroupBatteryIndicator = false
-                    self.notifyOverlayStateChanged()
-                }
+                self.showAirpodsGroupBatteryIndicator = false
+                self.notifyOverlayStateChanged()
             }
         }
     }

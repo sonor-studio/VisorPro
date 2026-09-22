@@ -95,7 +95,7 @@ struct MarqueeText: View {
         }
         
         // Recurring loop
-        timer = Timer.scheduledTimer(withTimeInterval: totalCycle, repeats: true) { _ in
+        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: totalCycle, repeats: true) { _ in
             guard animationId == currentId else { return }
             marqueeState = .idle
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {

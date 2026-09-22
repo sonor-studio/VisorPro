@@ -449,7 +449,7 @@ struct WiFiOverlayView: View {
                 if actualIsConnected && !overlayState.wiFiDetailsFetched && !isPreview {
                     mediaKeyManager.fetchWiFiDetails()
                 }
-                refreshTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { _ in
+                refreshTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 1.5, repeats: true) { _ in
                     mediaKeyManager.fetchDynamicWiFiDetails()
                 }
                 if actualIsConnected && speedTestResult == nil && !testFailed && !isPreview && wifiShowSpeedTest {

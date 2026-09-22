@@ -9,7 +9,7 @@ extension MediaKeyManager {
         
         if enableFocus && enableFocusReminder && isFocusModeActive {
             let interval = TimeInterval(focusReminderInterval * 60)
-            focusReminderTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            focusReminderTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: interval, repeats: true) { [weak self] _ in
                 guard let self = self else { return }
                 
                 // Show reminder without playing a sound (or play a subtle sound if requested, but default is visual)
@@ -28,7 +28,7 @@ extension MediaKeyManager {
                             self.notifyOverlayStateChanged()
                             self.overlayTriggerTimes["focus"] = Date()
                         }
-                        self.focusTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
+                        self.focusTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
                             withAnimation(.easeInOut(duration: 0.25)) {
                                 self.showFocusIndicator = false
                             }
@@ -100,7 +100,7 @@ extension MediaKeyManager {
                     self.notifyOverlayStateChanged()
                     self.overlayTriggerTimes["focus"] = Date()
                 }
-                self.focusTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                self.focusTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                     withAnimation(.easeInOut(duration: 0.25)) {
                         self?.showFocusIndicator = false
                     }
@@ -136,7 +136,7 @@ extension MediaKeyManager {
                 
                 if self.showMicIndicator && !self.isMicExpanded {
                     self.isMicTimerScheduledInstantly = true
-                    self.micTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                    self.micTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                         withAnimation(.easeInOut(duration: 0.25)) {
                             self?.showMicIndicator = false
                         }
@@ -181,7 +181,7 @@ extension MediaKeyManager {
             }
             
             if !self.isMicExpanded {
-                self.micTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                self.micTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                     withAnimation(.easeInOut(duration: 0.25)) {
                         self?.showMicIndicator = false
                     }
@@ -205,7 +205,7 @@ extension MediaKeyManager {
                 
                 if self.showCameraIndicator && !self.isCameraExpanded {
                     self.isCameraTimerScheduledInstantly = true
-                    self.cameraTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                    self.cameraTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                         withAnimation(.easeInOut(duration: 0.25)) {
                             self?.showCameraIndicator = false
                         }
@@ -249,7 +249,7 @@ extension MediaKeyManager {
             if !camAllow { self.isCameraExpanded = false }
             
             if !self.isCameraExpanded {
-                self.cameraTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                self.cameraTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                     withAnimation(.easeInOut(duration: 0.25)) {
                         self?.showCameraIndicator = false
                     }
@@ -285,7 +285,7 @@ extension MediaKeyManager {
             }
             
             if !self.isLocationExpanded {
-                self.locationTimer = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                self.locationTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                     withAnimation(.easeInOut(duration: 0.25)) {
                         self?.showLocationIndicator = false
                         self?.isLocationActive = false

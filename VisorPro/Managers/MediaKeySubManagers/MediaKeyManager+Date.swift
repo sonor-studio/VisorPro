@@ -63,7 +63,7 @@ extension MediaKeyManager {
                 }
                 
                 self.notificationTimers["date"]?.invalidate()
-                self.notificationTimers["date"] = Timer.scheduledTimer(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                self.notificationTimers["date"] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
                     withAnimation(.easeInOut(duration: 0.25)) {
                         self?.showDateIndicator = false
                     }
