@@ -130,6 +130,19 @@ struct ExpandedHeightPreferenceKey: PreferenceKey {
     }
 }
 
+struct BouncyHeightModifier: AnimatableModifier {
+    var height: CGFloat
+    
+    var animatableData: CGFloat {
+        get { height }
+        set { height = newValue }
+    }
+    
+    func body(content: Content) -> some View {
+        content.frame(height: max(0, height), alignment: .top)
+    }
+}
+
 struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @Environment(\.colorScheme) var colorScheme
@@ -210,53 +223,26 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         
                     HStack(spacing: 0) {
                         if onLeftTap != nil {
-                            Button(action: {
-                                onLeftTap?()
-                            }) {
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .frame(width: 60)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .pointingHandCursor()
+                            Rectangle()
+                                .fill(Color.clear)
+                                .frame(width: 60)
+                                .contentShape(Rectangle())
+                                .pointingHandCursor()
                         }
                         if (!isExpandable && onSimpleTap != nil) || isExpandable {
-                            Button(action: {
-                                if isExpandable {
-                                    if !isAnimating {
-                                        isAnimating = true
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            isExpanded.toggle()
-                                        }
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                            isAnimating = false
-                                        }
-                                    }
-                                } else {
-                                    onSimpleTap?()
-                                }
-                            }) {
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .pointingHandCursor()
+                            Rectangle()
+                                .fill(Color.clear)
+                                .contentShape(Rectangle())
+                                .pointingHandCursor()
                         } else {
                             Spacer()
                         }
                         if onRightTap != nil && !supportDragGesture {
-                            Button(action: {
-                                onRightTap?()
-                            }) {
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .frame(width: 50)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            .pointingHandCursor()
+                            Rectangle()
+                                .fill(Color.clear)
+                                .frame(width: 50)
+                                .contentShape(Rectangle())
+                                .pointingHandCursor()
                         }
                     }
                     .frame(width: width, height: baseHeight)
@@ -275,7 +261,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                             }
                         }
                     )
-                    .frame(height: isExpanded ? (fixedExpandedHeight ?? expandedHeight) : 0, alignment: .top)
+                    .modifier(BouncyHeightModifier(height: isExpanded ? (fixedExpandedHeight ?? expandedHeight) : 0))
                     .opacity(isExpanded ? 1 : 0)
                     .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
@@ -366,7 +352,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         )
         .contentShape(RoundedRectangle(cornerRadius: outerRadius))
         .gesture(
-            DragGesture(minimumDistance: 3)
+            DragGesture(minimumDistance: 0)
                 .onChanged { value in
                     if isPreview { return }
                     if supportDragGesture {
@@ -402,15 +388,24 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     if !isDragging {
                         let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
                         if !moved {
-                            if isExpandable {
-                                if !isAnimating {
-                                    isAnimating = true
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        isExpanded.toggle()
+                            let locX = value.startLocation.x
+                            if onLeftTap != nil && locX <= 60 {
+                                onLeftTap?()
+                            } else if onRightTap != nil && !supportDragGesture && locX >= width - 50 {
+                                onRightTap?()
+                            } else {
+                                if isExpandable {
+                                    if !isAnimating {
+                                        isAnimating = true
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                            isExpanded.toggle()
+                                        }
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                            isAnimating = false
+                                        }
                                     }
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                        isAnimating = false
-                                    }
+                                } else {
+                                    onSimpleTap?()
                                 }
                             }
                         }
@@ -463,7 +458,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         }
         .onChange(of: isExpandable) { _, newValue in
             if !newValue && isExpanded {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                     isExpanded = false
                 }
             }

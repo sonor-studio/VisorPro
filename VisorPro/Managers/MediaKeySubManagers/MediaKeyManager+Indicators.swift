@@ -408,22 +408,18 @@ extension MediaKeyManager {
         
         // External change while visible
         if showAirPodsModeIndicator && changed && !isHovering {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                OverlayStateRelay.shared.showAirPodsModeIndicator = false
-            }
-            
             if !shouldShow {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    OverlayStateRelay.shared.showAirPodsModeIndicator = false
+                }
                 OverlayStateRelay.shared.airPodsModeValue = mode
                 return
             }
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                OverlayStateRelay.shared.airPodsModeValue = mode
-                OverlayStateRelay.shared.airPodsModeEventId = UUID()
-                OverlayStateRelay.shared.showAirPodsModeIndicator = true
-                self.overlayTriggerTimes["airpodsMode"] = Date()
-                self.scheduleOverlayHide(for: "airpodsMode")
-            }
+            OverlayStateRelay.shared.airPodsModeValue = mode
+            OverlayStateRelay.shared.airPodsModeEventId = UUID()
+            self.overlayTriggerTimes["airpodsMode"] = Date()
+            self.scheduleOverlayHide(for: "airpodsMode")
             return
         }
         

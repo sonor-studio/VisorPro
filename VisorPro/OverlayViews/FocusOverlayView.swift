@@ -128,7 +128,7 @@ struct FocusOverlayView: View {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: displayIcon)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(displayColor)
+                        .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {

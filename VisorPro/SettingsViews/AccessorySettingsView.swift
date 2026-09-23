@@ -10,6 +10,11 @@ struct AccessorySettingsView: View {
     @State private var expandedThresholds: Set<UUID> = []
     @State private var isFullyChargedExpanded: Bool = false
     
+    private var isHeadphones: Bool {
+        let lower = deviceName.lowercased()
+        return lower.contains("airpod") || lower.contains("headphone") || lower.contains("ear") || lower.contains("słuchawki") || lower.contains("buds") || lower.contains("headset")
+    }
+    
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -272,12 +277,14 @@ struct AccessorySettingsView: View {
                                 CustomSettingsRow(icon: "link", iconColor: .blue, title: "On Connect", subtitle: "Show overlay and play sound when connected") {
                                     HStack(spacing: 8) {
                                         if settings.notifyOnConnect {
-if mediaKeyManager.overlayColorMode == "custom" {
+                                            if mediaKeyManager.overlayColorMode == "custom" {
                                                 ColorPickerControl(selectedColor: $settings.colorOnConnect)
                                                     .onChange(of: settings.colorOnConnect) { _, _ in saveSettings() }
                                             }
-                                            SoundPickerControl(selectedSound: $settings.soundOnConnect)
-                                                .onChange(of: settings.soundOnConnect) { _, _ in saveSettings() }
+                                            if !isHeadphones {
+                                                SoundPickerControl(selectedSound: $settings.soundOnConnect)
+                                                    .onChange(of: settings.soundOnConnect) { _, _ in saveSettings() }
+                                            }
                                         }
                                         Toggle("", isOn: $settings.notifyOnConnect)
                                             .labelsHidden()
@@ -290,9 +297,10 @@ if mediaKeyManager.overlayColorMode == "custom" {
                                 CustomSettingsRow(icon: "link.badge.plus", iconColor: .orange, title: "On Disconnect", subtitle: "Show overlay and play sound when disconnected") {
                                     HStack(spacing: 8) {
                                         if settings.notifyOnDisconnect {
-
-                                            SoundPickerControl(selectedSound: $settings.soundOnDisconnect)
-                                                .onChange(of: settings.soundOnDisconnect) { _, _ in saveSettings() }
+                                            if !isHeadphones {
+                                                SoundPickerControl(selectedSound: $settings.soundOnDisconnect)
+                                                    .onChange(of: settings.soundOnDisconnect) { _, _ in saveSettings() }
+                                            }
                                         }
                                         Toggle("", isOn: $settings.notifyOnDisconnect)
                                             .labelsHidden()

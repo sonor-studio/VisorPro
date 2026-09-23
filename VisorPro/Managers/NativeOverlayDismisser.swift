@@ -214,6 +214,7 @@ final class NativeOverlayDismisser {
                 // We just manually pull the current lstm and show it
                 MediaKeyManager.shared.triggerAirPodsModeOverlayFromNativeTrigger()
             }
+            self.startListeningModeBannerTracker(for: element, initialText: allText)
             shouldIntercept = true
         }
         
@@ -329,6 +330,7 @@ final class NativeOverlayDismisser {
     }
     
     private var smartRoutingTrackerTimer: Timer?
+    private var listeningModeBannerTrackerTimer: Timer?
     
     private func startSmartRoutingBannerTracker(for element: AXUIElement) {
         smartRoutingTrackerTimer?.invalidate()
@@ -347,6 +349,43 @@ final class NativeOverlayDismisser {
                 timer.invalidate()
                 if self?.lastSmartRoutingBanner != nil {
                     self?.lastSmartRoutingBanner = nil
+                }
+            }
+        }
+    }
+    
+    private func startListeningModeBannerTracker(for element: AXUIElement, initialText: String) {
+        listeningModeBannerTrackerTimer?.invalidate()
+        var lastText = initialText
+        
+        listeningModeBannerTrackerTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.2, repeats: true) { [weak self] timer in
+            var roleRef: CFTypeRef?
+            let error = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
+            
+            if error != .success {
+                timer.invalidate()
+                return
+            }
+            
+            var currentText = ""
+            func extractText(_ el: AXUIElement) {
+                var val: CFTypeRef?
+                if AXUIElementCopyAttributeValue(el, kAXValueAttribute as CFString, &val) == .success, let s = val as? String { currentText += s + " | " }
+                if AXUIElementCopyAttributeValue(el, kAXTitleAttribute as CFString, &val) == .success, let s = val as? String { currentText += s + " | " }
+                if AXUIElementCopyAttributeValue(el, kAXDescriptionAttribute as CFString, &val) == .success, let s = val as? String { currentText += s + " | " }
+                
+                var childrenRef: CFTypeRef?
+                if AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &childrenRef) == .success, let children = childrenRef as? [AXUIElement] {
+                    for child in children { extractText(child) }
+                }
+            }
+            extractText(element)
+            
+            if !lastText.isEmpty && !currentText.isEmpty && currentText != lastText {
+                print("🚀 [ListeningMode] Native banner text changed: \(currentText)")
+                lastText = currentText
+                DispatchQueue.main.async {
+                    MediaKeyManager.shared.triggerAirPodsModeOverlayFromNativeTrigger()
                 }
             }
         }

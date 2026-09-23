@@ -11,6 +11,7 @@ struct EarlyAdopterNoticeSheet: View {
     @State private var showingCheckout = false
     @State private var showingActivation = false
     @StateObject private var licenseManager = PolarLicenseManager()
+    @AppStorage("hasWaitedForPaywall") private var hasWaitedForPaywall = false
     
     var body: some View {
         VStack(spacing: 20) {
@@ -148,6 +149,7 @@ struct EarlyAdopterNoticeSheet: View {
                         .buttonStyle(PlainButtonStyle())
                         
                         Button(action: {
+                            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "lastRemindMeLaterDate")
                             isPresented = false
                         }) {
                             Text("Remind me later")
@@ -163,13 +165,21 @@ struct EarlyAdopterNoticeSheet: View {
         .padding(26)
         .frame(width: 440)
         .onAppear {
-            Task {
-                while countdown > 0 {
-                    try? await Task.sleep(nanoseconds: 1_000_000_000)
-                    await MainActor.run {
-                        countdown -= 1
-                        if countdown == 0 {
-                            canProceed = true
+            if hasWaitedForPaywall {
+                countdown = 0
+                canProceed = true
+            } else {
+                countdown = 5
+                canProceed = false
+                Task {
+                    while countdown > 0 {
+                        try? await Task.sleep(nanoseconds: 1_000_000_000)
+                        await MainActor.run {
+                            countdown -= 1
+                            if countdown == 0 {
+                                canProceed = true
+                                hasWaitedForPaywall = true
+                            }
                         }
                     }
                 }

@@ -78,7 +78,7 @@ class TrashObserver: ObservableObject {
                             DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 3.5) {
                                 if !self.isCalculatingSize {
                                     self.isCalculatingSize = true
-                                    self.updateTrashStats()
+                                    self.updateTrashStats(didAddItems: true)
                                     self.isCalculatingSize = false
                                 }
                             }
@@ -87,7 +87,7 @@ class TrashObserver: ObservableObject {
                         // File was removed (emptied or restored)
                         if !self.isCalculatingSize {
                             self.isCalculatingSize = true
-                            self.updateTrashStats()
+                            self.updateTrashStats(didAddItems: false)
                             self.isCalculatingSize = false
                         }
                     }
@@ -95,7 +95,7 @@ class TrashObserver: ObservableObject {
             } else {
                 if !self.isCalculatingSize {
                     self.isCalculatingSize = true
-                    self.updateTrashStats()
+                    self.updateTrashStats(didAddItems: false)
                     self.isCalculatingSize = false
                 }
             }
@@ -103,7 +103,7 @@ class TrashObserver: ObservableObject {
         }
     }
     
-    private func updateTrashStats() {
+    private func updateTrashStats(didAddItems: Bool = false) {
         let (size, count, folders, largestMB) = self.calculateTrashSizeAndCount(at: self.trashURL)
         let sizeGB = Double(size) / 1_000_000_000.0
         
@@ -116,7 +116,7 @@ class TrashObserver: ObservableObject {
             let threshold = MediaKeyManager.shared.trashSizeThresholdGB
             
             if sizeGB >= threshold && sizeGB > 0 {
-                if !self.hasTriggeredAlert || (sizeGB > self.lastAlertSizeGB) {
+                if !self.hasTriggeredAlert || (sizeGB > self.lastAlertSizeGB) || didAddItems {
                     self.hasTriggeredAlert = true
                     self.lastAlertSizeGB = sizeGB
                     

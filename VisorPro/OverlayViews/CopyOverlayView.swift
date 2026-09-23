@@ -428,8 +428,7 @@ struct CopyOverlayView: View {
                                     }
                                 }
                                 .padding(.vertical, 8)
-                                .padding(.leading, 12)
-                                .padding(.trailing, 4)
+                                .padding(.horizontal, 12)
                             }
                             .frame(maxHeight: 128)
                             .onHover { hovering in
@@ -540,8 +539,7 @@ struct ClipboardHistoryRowView: View {
             .pointingHandCursor()
         }
         .padding(.vertical, 8)
-        .padding(.leading, 10)
-        .padding(.trailing, 4)
+        .padding(.horizontal, 10)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(isActive ? (colorScheme == .dark ? Color.white.opacity(0.15) : Color.black.opacity(0.1)) : (isHovering ? Color.secondary.opacity(0.1) : Color.clear))

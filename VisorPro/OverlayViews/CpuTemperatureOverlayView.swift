@@ -14,10 +14,10 @@ struct CpuTemperatureOverlayView: View {
         // Celsjusze
         let tempString = String(format: "%.1f°C", temp)
         
-        let themeColor = OverlayColorManager.shared.getOverlayColor(for: "colorOnHighRam", defaultColor: .red)
+        let themeColor = OverlayColorManager.shared.getOverlayColor(for: "colorOnHighCpuTemp", defaultColor: .red)
         let chartColor: Color = themeColor
         let barColor: Color = themeColor
-        let trackWidth: CGFloat = 260 - 8
+        let trackWidth: CGFloat = 260 - 6
         let cpuPos = MediaKeyManager.shared.getOverlayPosition(for: "cpuOverlayPosition")
         
         return UniversalOverlayView(

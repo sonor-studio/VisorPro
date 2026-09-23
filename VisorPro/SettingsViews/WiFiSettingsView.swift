@@ -115,6 +115,7 @@ struct WiFiSettingsView: View {
                         .cornerRadius(10)
                         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
                     }
+                    .padding(.horizontal)
                     .padding(.bottom, 16)
                     
                     VStack(alignment: .leading, spacing: 12) {

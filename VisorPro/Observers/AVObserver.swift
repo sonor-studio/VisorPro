@@ -390,7 +390,12 @@ class CameraClientObserver {
                 }
                 
                 if let logs = logs {
-                    if let lastLog = logs.last {
+                    let validLog = logs.reversed().first { log in
+                        guard let path = log["processImagePath"] as? String else { return true }
+                        return !path.lowercased().contains("corespeechd")
+                    } ?? logs.last
+                    
+                    if let lastLog = validLog {
                         var appName = ""
                         var iconPath = ""
                         var pid: Int? = nil

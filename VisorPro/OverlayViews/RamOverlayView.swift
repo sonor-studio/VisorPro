@@ -29,7 +29,7 @@ struct RamOverlayView: View {
             ("Terminal", 0.2, getIcon("com.apple.Terminal"))
         ] : overlayState.ramTopProcesses
         
-        let trackWidth: CGFloat = 260 - 8
+        let trackWidth: CGFloat = 260 - 6
         let themeColor = OverlayColorManager.shared.getOverlayColor(for: "colorOnHighRam", defaultColor: .red)
         
         return UniversalOverlayView(

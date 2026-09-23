@@ -55,8 +55,10 @@ struct SystemSettingsView: View {
                                 HStack(spacing: 20) {
                                     CpuTemperatureOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
                                         .scaleEffect(0.85)
+                                        .id("\(mediaKeyManager.colorOnHighCpuTemp)_\(mediaKeyManager.overlayColorMode)")
                                     RamOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
                                         .scaleEffect(0.85)
+                                        .id("\(mediaKeyManager.colorOnHighRam)_\(mediaKeyManager.overlayColorMode)")
                                 }
                             }
                             .padding(.horizontal)

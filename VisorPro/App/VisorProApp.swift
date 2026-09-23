@@ -80,8 +80,27 @@ struct VisorProApp: App {
                     Toggle("Focus Mode", isOn: $mediaKeyManager.enableFocus)
                     Toggle("Peripherals", isOn: $mediaKeyManager.enablePeripheral)
                     Toggle("Displays", isOn: $mediaKeyManager.enableDisplay)
+                    Toggle("Date & Time", isOn: $mediaKeyManager.enableDate)
                     Toggle("System", isOn: $showSystemModule)
                     Toggle("Trash", isOn: $showTrashModule)
+                    Toggle("File Deleted", isOn: $mediaKeyManager.notifyOnFileDeleted)
+                    
+                    if !mediaKeyManager.accessorySettings.isEmpty {
+                        Divider()
+                        Menu("Accessories") {
+                            ForEach(Array(mediaKeyManager.accessorySettings.keys.sorted()), id: \.self) { key in
+                                Toggle(key, isOn: Binding(
+                                    get: { mediaKeyManager.accessorySettings[key]?.enableOverlay ?? true },
+                                    set: { newValue in
+                                        if var settings = mediaKeyManager.accessorySettings[key] {
+                                            settings.enableOverlay = newValue
+                                            mediaKeyManager.accessorySettings[key] = settings
+                                        }
+                                    }
+                                ))
+                            }
+                        }
+                    }
                 }
             }
             
@@ -235,9 +254,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let isTrusted = checkAXIsProcessTrustedReliably()
         
         let savedLicenseKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        let hasSeenEarlyAdopterNotice = UserDefaults.standard.bool(forKey: "hasSeenEarlyAdopterNoticeV2")
-        let needsEarlyAdopterNotice = hasCompletedWelcome && savedLicenseKey.isEmpty && !hasSeenEarlyAdopterNotice
+        let hasSeenEarlyAdopterNotice = UserDefaults.standard.bool(forKey: "hasSeenEarlyAdopterNoticeV3")
+        let lastRemindDate = Date(timeIntervalSince1970: UserDefaults.standard.double(forKey: "lastRemindMeLaterDate"))
+        let isRemindedToday = Calendar.current.isDateInToday(lastRemindDate)
         
+        let needsEarlyAdopterNotice = hasCompletedWelcome && savedLicenseKey.isEmpty && !hasShownNoticeThisSession && !hasSeenEarlyAdopterNotice && !isRemindedToday
         if !hasCompletedWelcome || !isTrusted || needsEarlyAdopterNotice {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 let _ = self.handleReopen(forceDashboard: needsEarlyAdopterNotice)

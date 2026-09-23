@@ -114,8 +114,9 @@ struct BluetoothSettingsView: View {
                         let filteredHistory = mediaKeyManager.bluetoothHistory.filter { device in
                             !mediaKeyManager.accessoryBatteryHistory.contains { $0.hasPrefix(device) || device.hasPrefix($0) }
                         }
-                        if !filteredHistory.isEmpty {
-                            let displayedHistory = isHistoryExpanded ? filteredHistory : Array(filteredHistory.prefix(3))
+                        let reversedHistory = Array(filteredHistory.reversed())
+                        if !reversedHistory.isEmpty {
+                            let displayedHistory = isHistoryExpanded ? reversedHistory : Array(reversedHistory.prefix(3))
                         
                             Text("Remembered Devices (\(filteredHistory.count))")
                                 .font(.headline)
@@ -168,12 +169,12 @@ struct BluetoothSettingsView: View {
                                             }
                                         }
                                     }
-                                    if device != displayedHistory.last || (mediaKeyManager.bluetoothHistory.count > 3) {
+                                    if device != displayedHistory.last || (reversedHistory.count > 3) {
                                         Divider().padding(.leading, 40)
                                     }
                                 }
                             
-                                if mediaKeyManager.bluetoothHistory.count > 3 {
+                                if reversedHistory.count > 3 {
                                     Button(action: {
                                         withAnimation(.easeInOut) {
                                             isHistoryExpanded.toggle()
@@ -181,7 +182,7 @@ struct BluetoothSettingsView: View {
                                     }) {
                                         HStack(spacing: 6) {
                                             Spacer()
-                                            Text(isHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.bluetoothHistory.count - 3) more)")
+                                            Text(isHistoryExpanded ? "Show Less" : "Show All (\(reversedHistory.count - 3) more)")
                                                 .font(.system(size: 12, weight: .semibold))
                                                 .foregroundColor(.accentColor)
                                             Image(systemName: isHistoryExpanded ? "chevron.up" : "chevron.down")

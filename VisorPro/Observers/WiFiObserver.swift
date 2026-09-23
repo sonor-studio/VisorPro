@@ -17,8 +17,6 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
     private let pathQueue = DispatchQueue(label: "PathMonitorQueue")
     private var isCurrentlyHotspot: Bool = false
     
-    private var lastNetworkSetupPoll: Date = .distantPast
-    private var cachedNetworkSetupSSID: String?
     private var isInitialLoad: Bool = true
     
     init(manager: MediaKeyManager) {
@@ -61,7 +59,7 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.5, repeats: true) { _ in
+            self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 1.5, repeats: true) { _ in
                 self.pollWiFi()
             }
             self.pathMonitor = NWPathMonitor(requiredInterfaceType: .wifi)
@@ -85,12 +83,11 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
         }
     }
     
-    private var isFetchingNetworkSetup: Bool = false
-    
     @objc private func pollWiFi() {
+        guard let manager = self.manager, manager.enableWiFi else { return }
+
         let interface = CWWiFiClient.shared().interface()
         
-        // If interface is nil, assume power is on to allow networksetup fallback
         let powerOn = interface?.powerOn() ?? true
         if !powerOn {
             inactiveCounter = 0
@@ -98,67 +95,12 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             return
         }
         
-        var currentSSID: String? = nil
-        if canUseSSIDAPI() {
-            currentSSID = interface?.ssid()
-        } else {
-            LogManager.shared.log("WiFiObserver: Missing Location permissions. Skipping CoreWLAN ssid() to prevent crash. Falling back to networksetup.", level: "WARNING")
-        }
-        
-        if let ssid = currentSSID, !ssid.isEmpty {
+        if canUseSSIDAPI(), let ssid = interface?.ssid(), !ssid.isEmpty {
             inactiveCounter = 0
-            cachedNetworkSetupSSID = ssid
             handleFinalState(isConnected: true, ssid: ssid)
         } else {
-            // Asynchronous fetch via networksetup to avoid blocking main thread
-            if Date().timeIntervalSince(lastNetworkSetupPoll) > 3.0 && !isFetchingNetworkSetup {
-                isFetchingNetworkSetup = true
-                lastNetworkSetupPoll = Date()
-                
-                let interfaceName = interface?.interfaceName ?? "en0"
-                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                    let process = Process()
-                    process.executableURL = URL(fileURLWithPath: "/usr/sbin/networksetup")
-                    process.arguments = ["-getairportnetwork", interfaceName]
-                    let pipe = Pipe()
-                    process.standardOutput = pipe
-                    
-                    var foundSSID: String? = nil
-                    do {
-                        try process.run()
-                        process.waitUntilExit()
-                        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                        if let output = String(data: data, encoding: .utf8) {
-                            let lines = output.components(separatedBy: .newlines)
-                            for line in lines {
-                                // Check for colon to split, ignore "not associated" messages in any language if possible
-                                if line.contains(":") && !line.lowercased().contains("not associated") {
-                                    let parts = line.split(separator: ":", maxSplits: 1)
-                                    if parts.count == 2 {
-                                        let parsed = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
-                                        if parsed != "null" && !parsed.isEmpty {
-                                            foundSSID = parsed
-                                            break
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } catch {
-                        LogManager.shared.log("Error in WiFiObserver.swift: \(error)", level: "ERROR")
-                    }
-                    
-                    DispatchQueue.main.async {
-                        guard let self = self else { return }
-                        self.isFetchingNetworkSetup = false
-                        self.cachedNetworkSetupSSID = foundSSID
-                        self.processSSIDResult(foundSSID)
-                    }
-                }
-            } else {
-                // Use cached result while fetching or waiting
-                processSSIDResult(cachedNetworkSetupSSID)
-            }
+            // Location access denied or no network connected
+            processSSIDResult(nil)
         }
     }
     

@@ -175,8 +175,8 @@ struct WiFiOverlayView: View {
                                 .fill(Color.primary.opacity(0.1))
                                 .frame(width: 32, height: 32)
                             
-                            Image(systemName: "xmark")
-                                .font(.system(size: 14, weight: .semibold))
+                            Image(systemName: "wifi.slash")
+                                .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(.primary)
                         }
                     }
@@ -374,7 +374,7 @@ struct WiFiOverlayView: View {
                                     }
                                 }) {
                                     HStack(spacing: 4) {
-                                        Image(systemName: "xmark.circle.fill")
+                                        Image(systemName: "wifi.slash")
                                         Text(isDisconnecting ? "Disconnecting" : "Disconnect")
                                     }
                                     .font(.system(size: 11, weight: .bold))

@@ -413,7 +413,7 @@ class VisorProWindowManager: ObservableObject {
                         let offsetAmount: CGFloat = isTop ? 50 : -50 
                         
                         NSAnimationContext.runAnimationGroup({ ctx in
-                            ctx.duration = 0.1
+                            ctx.duration = 0.2
                             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                             var finalFrame = window.frame
                             finalFrame.origin.y += offsetAmount

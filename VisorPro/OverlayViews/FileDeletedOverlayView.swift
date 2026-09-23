@@ -29,7 +29,7 @@ struct FileDeletedOverlayView: View {
     var body: some View {
         let overlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "fileDeletedOverlayPosition")
         let themeColor = OverlayColorManager.shared.getOverlayColor(for: "colorOnFileDeleted", defaultColor: .orange)
-        let trackWidth: CGFloat = 260 - 8
+        let trackWidth: CGFloat = 260 - 6
         
         let fileName = isPreview ? "Presentation.key" : overlayState.lastDeletedFileName
         let fileSizeMB = isPreview ? 24.5 : overlayState.lastDeletedFileSizeMB

@@ -2201,8 +2201,6 @@ class MediaKeyManager: ObservableObject {
     
     func showPeripheralOverlay(id: String? = nil, deviceName: String, type: String, typeIcon: String, isConnected: Bool, details: [String: String]? = nil) {
         let notifId = id ?? deviceName
-        if isConnected && !self.notifyOnPeripheralConnect { return }
-        if !isConnected && !self.notifyOnPeripheralDisconnect { return }
         
         let isAccessory = self.isBluetoothAccessory(deviceName) || deviceName.lowercased().contains("airpods")
         if isAccessory {
@@ -2210,6 +2208,13 @@ class MediaKeyManager: ObservableObject {
         } else if !self.peripheralHistory.contains(deviceName) {
             self.peripheralHistory.append(deviceName)
         }
+        
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+        if !self.enablePeripheral { return }
+        
+        if isConnected && !self.notifyOnPeripheralConnect { return }
+        if !isConnected && !self.notifyOnPeripheralDisconnect { return }
         if self.peripheralIcons[deviceName] != typeIcon {
             self.peripheralIcons[deviceName] = typeIcon
         }
@@ -2516,11 +2521,8 @@ class MediaKeyManager: ObservableObject {
     }
     
     func isBluetoothAccessory(_ name: String) -> Bool {
-        // First check if it exists in bluetoothDetails
-        for (_, details) in bluetoothDetails {
-            if details["SystemName"] == name || details["SystemName"]?.hasPrefix(name) == true {
-                return true
-            }
+        if self.accessoryBatteryHistory.contains(where: { $0 == name || $0.hasPrefix("\(name) (") || name.hasPrefix("\($0) (") }) {
+            return true
         }
         // Fallback heuristics for devices that might be disconnected
         let lower = name.lowercased()

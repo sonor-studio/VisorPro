@@ -5,12 +5,9 @@ import IOBluetooth
 extension MediaKeyManager {
     func triggerPeripheralIndicator(id: String? = nil, deviceName: String, type: String, typeIcon: String, isConnected: Bool, details: [String: String]? = nil) {
         self.lastConnectionEventTime = Date()
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
-
+        
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            if !self.enablePeripheral { return }
             
             let notifId = id ?? deviceName
             // Fix for USB bus resets: delay disconnects by 3s. If reconnect happens within 3s, ignore both.
@@ -35,6 +32,9 @@ extension MediaKeyManager {
                 self.showPeripheralOverlay(id: notifId, deviceName: deviceName, type: type, typeIcon: typeIcon, isConnected: true, details: details)
             }
         }
+        
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
     }
 
     func fetchBluetoothDetails() {
@@ -43,24 +43,21 @@ extension MediaKeyManager {
         }
     }
 
-    func triggerBluetoothIndicator(deviceName: String, deviceAddress: String, isConnected: Bool) {
+    func triggerBluetoothIndicator(deviceName: String, deviceAddress: String, isConnected: Bool, showOverlay: Bool = true) {
         self.lastConnectionEventTime = Date()
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
-
-        if !enableBluetooth { return }
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
-            let isAccessory = deviceAddress == "AIRPODS_CONNECTION" || self.isBluetoothAccessory(deviceName) || deviceName.lowercased().contains("airpods")
-            
-            if isAccessory {
-                self.bluetoothHistory.removeAll { $0 == deviceName }
-            } else if !self.bluetoothHistory.contains(deviceName) {
+            if !self.bluetoothHistory.contains(deviceName) {
                 self.bluetoothHistory.append(deviceName)
             }
         }
+        
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+        if !enableBluetooth { return }
+        if !showOverlay { return }
         
         if isConnected && !notifyOnBluetoothConnect && deviceAddress != "AIRPODS_CONNECTION" { return }
         if !isConnected && !notifyOnBluetoothDisconnect && deviceAddress != "AIRPODS_CONNECTION" { return }
@@ -120,6 +117,14 @@ extension MediaKeyManager {
     
     func triggerAccessoryConnection(deviceName: String, deviceAddress: String, isConnected: Bool, playSound: Bool = true) {
         self.lastConnectionEventTime = Date()
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if !self.bluetoothHistory.contains(deviceName) {
+                self.bluetoothHistory.append(deviceName)
+            }
+        }
+        
         let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
         if premiumKey.isEmpty { return }
         if !self.enableBluetooth { return }

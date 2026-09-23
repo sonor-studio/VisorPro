@@ -37,7 +37,7 @@ struct SettingsView: View {
     @State private var window: NSWindow?
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
-    @AppStorage("hasSeenEarlyAdopterNoticeV2") private var hasSeenEarlyAdopterNotice = false
+    @AppStorage("hasSeenEarlyAdopterNoticeV3") private var hasSeenEarlyAdopterNotice = false
     @State private var showingEarlyAdopterNotice = false
     @Environment(\.colorScheme) var colorScheme
     
@@ -372,11 +372,14 @@ struct SettingsView: View {
     }
     
     private func checkAndShowEarlyAdopterNotice() {
-        if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice && !hasShownNoticeThisSession {
+        let lastRemindDate = Date(timeIntervalSince1970: UserDefaults.standard.double(forKey: "lastRemindMeLaterDate"))
+        let isRemindedToday = Calendar.current.isDateInToday(lastRemindDate)
+        
+        if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasShownNoticeThisSession && !hasSeenEarlyAdopterNotice && !isRemindedToday {
             // Prevent spamming if it's already showing
             guard !showingEarlyAdopterNotice else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasSeenEarlyAdopterNotice && !hasShownNoticeThisSession {
+                if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasShownNoticeThisSession && !hasSeenEarlyAdopterNotice && !isRemindedToday {
                     showingEarlyAdopterNotice = true
                     hasShownNoticeThisSession = true
                 }

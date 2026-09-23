@@ -801,8 +801,13 @@ class VolumeManager {
                 
                 MediaKeyManager.shared.currentVolume = volInt
                 MediaKeyManager.shared.isMuted = isMuted
-                // Nakładka nie jest wywoływana przy zewnętrznych, programowych zmianach głośności.
-                // MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
+                
+                if OverlayStateRelay.shared.showVolumeIndicator {
+                    MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
+                } else {
+                    // Nakładka nie jest wywoływana przy zewnętrznych, programowych zmianach głośności.
+                    // MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
+                }
             }
         }
     }

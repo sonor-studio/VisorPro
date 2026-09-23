@@ -39,9 +39,11 @@ class TrackingNSView: NSView {
     var cursor: NSCursor?
     private var trackingArea: NSTrackingArea?
     private var lastHoverState: Bool?
+    private var hoverCheckTimer: Timer?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        hoverCheckTimer?.invalidate()
         if self.window == nil {
             if lastHoverState == true {
                 lastHoverState = false
@@ -51,6 +53,10 @@ class TrackingNSView: NSView {
             }
         } else {
             checkHoverState()
+            hoverCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+                self?.checkHoverState()
+            }
+            RunLoop.main.add(hoverCheckTimer!, forMode: .common)
         }
     }
     

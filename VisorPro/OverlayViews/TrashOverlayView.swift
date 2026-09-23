@@ -12,7 +12,7 @@ struct TrashOverlayView: View {
         let threshold = isPreview ? 10.0 : mediaKeyManager.trashSizeThresholdGB
         let percent = (!isPreview && overlayState.trashAutoEmptied) ? 0.0 : min(currentSize / max(threshold, 0.1), 1.0)
         
-        let trackWidth: CGFloat = 260 - 8
+        let trackWidth: CGFloat = 260 - 6
         let themeColor = OverlayColorManager.shared.getOverlayColor(for: "colorOnTrashFull", defaultColor: .primary)
         
         return UniversalOverlayView(
