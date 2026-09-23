@@ -9,6 +9,7 @@ class VisorProWindowManager: ObservableObject {
     
     private var windows: [String: NSPanel] = [:]
     private var targetOrigins: [String: NSPoint] = [:]
+    private var cachedScreens: [NSScreen] = NSScreen.screens
     private var shownPanels: Set<String> = []
     private var exitingPanels: Set<String> = []
     private var cancellables = Set<AnyCancellable>()
@@ -137,6 +138,11 @@ class VisorProWindowManager: ObservableObject {
     private var heartbeatTimer: AnyCancellable?
     
     private init() {
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.cachedScreens = NSScreen.screens
+            self?.updateWindows()
+        }
+        
         // Listen for overlay state changes (show/hide) via targeted notification.
         // This replaces the overly-broad objectWillChange.sink which fired on EVERY
         // MediaKeyManager property change (including settings edits in the dashboard).
@@ -336,7 +342,7 @@ class VisorProWindowManager: ObservableObject {
         let active = allActiveOverlays
         var uniqueScreens: [NSScreen] = []
         var seenOrigins = Set<String>()
-        for screen in NSScreen.screens {
+        for screen in cachedScreens {
             let originKey = "\(Int(screen.frame.origin.x)),\(Int(screen.frame.origin.y))"
             if !seenOrigins.contains(originKey) {
                 seenOrigins.insert(originKey)
@@ -384,7 +390,7 @@ class VisorProWindowManager: ObservableObject {
                 if isOverlayStillActive {
                     // Screen vanished. Hide immediately so macOS doesn't snap the orphaned window to the main display.
                     window.orderOut(nil)
-                    window.alphaValue = 0
+                    window.contentView = nil
                     window.close()
                     windows.removeValue(forKey: id)
                     targetOrigins.removeValue(forKey: id)
@@ -399,6 +405,8 @@ class VisorProWindowManager: ObservableObject {
                             window.animator().alphaValue = 0.0
                         }, completionHandler: {
                             Task { @MainActor in
+                                window.orderOut(nil)
+                                window.contentView = nil
                                 window.close()
                                 MediaKeyManager.shared.swipeOffsets[overlayId] = 0
                                 self.windows.removeValue(forKey: id)
@@ -408,7 +416,7 @@ class VisorProWindowManager: ObservableObject {
                             }
                         })
                     } else {
-                        let screenHeight = NSScreen.screens.first?.frame.height ?? 800
+                        let screenHeight = cachedScreens.first?.frame.height ?? 800
                         let isTop = (window.frame.origin.y + window.frame.height / 2) > (screenHeight / 2)
                         let offsetAmount: CGFloat = isTop ? 50 : -50 
                         
@@ -422,6 +430,8 @@ class VisorProWindowManager: ObservableObject {
                         }, completionHandler: {
                             Task { @MainActor in
                                 if self.exitingPanels.contains(id) {
+                                    window.orderOut(nil)
+                                    window.contentView = nil
                                     window.close()
                                     self.windows.removeValue(forKey: id)
                                     self.targetOrigins.removeValue(forKey: id)

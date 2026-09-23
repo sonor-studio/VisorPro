@@ -18,19 +18,21 @@ class PowerChimeManager {
     }
     
     private static func executeShellCommand(_ command: String) {
-        let task = Process()
-        let pipe = Pipe()
-        
-        task.standardOutput = pipe
-        task.standardError = pipe
-        task.arguments = ["-c", command]
-        task.launchPath = "/bin/zsh"
-        
-        do {
-            try task.run()
-            task.waitUntilExit()
-        } catch {
-            LogManager.shared.log("Error in PowerChimeManager.swift: \(error)", level: "ERROR")
+        DispatchQueue.global(qos: .utility).async {
+            let task = Process()
+            let pipe = Pipe()
+            
+            task.standardOutput = pipe
+            task.standardError = pipe
+            task.arguments = ["-c", command]
+            task.launchPath = "/bin/zsh"
+            
+            do {
+                try task.run()
+                task.waitUntilExit()
+            } catch {
+                LogManager.shared.log("Error in PowerChimeManager.swift: \(error)", level: "ERROR")
+            }
         }
     }
 }

@@ -155,7 +155,7 @@ extension MediaKeyManager {
     
     internal func startHardwareKeyPolling() {
         hardwareKeyPollingTimer?.invalidate()
-        hardwareKeyPollingTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        hardwareKeyPollingTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             guard let self = self, self.enableClipboard, self.isTrusted else { return }
             
             // Cmd (lewy lub prawy)

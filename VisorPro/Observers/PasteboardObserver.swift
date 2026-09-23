@@ -12,8 +12,8 @@ class PasteboardObserver {
     }
     
     func startObserving() {
-        // Observe pasteboard every 0.1 seconds for immediate reaction
-        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        // Observe pasteboard every 0.5 seconds
+        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkPasteboard()
         }
     }

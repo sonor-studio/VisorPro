@@ -53,7 +53,7 @@ class TrackingNSView: NSView {
             }
         } else {
             checkHoverState()
-            hoverCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            hoverCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
                 self?.checkHoverState()
             }
             RunLoop.main.add(hoverCheckTimer!, forMode: .common)

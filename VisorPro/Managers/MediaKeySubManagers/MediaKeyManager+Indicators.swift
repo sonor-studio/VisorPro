@@ -392,6 +392,13 @@ extension MediaKeyManager {
         if !enableBluetooth { return }
         
         let changed = (OverlayStateRelay.shared.airPodsModeValue != mode)
+        
+        if !changed {
+            if let lastTrigger = self.overlayTriggerTimes["airpodsMode"], Date().timeIntervalSince(lastTrigger) < 5.0 {
+                print("🎧 [AirPods] Ignored redundant trigger for same mode within cooldown.")
+                return
+            }
+        }
         if changed {
             OverlayStateRelay.shared.previousAirPodsModeValue = OverlayStateRelay.shared.airPodsModeValue
         }

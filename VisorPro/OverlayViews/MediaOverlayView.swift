@@ -34,7 +34,7 @@ struct MediaOverlayView: View {
     }
     
     @State private var localElapsed: Double = 0
-    let timer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
+    let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     
     private var actualAction: String {
         isPreview ? "start" : overlayState.mediaAction
@@ -278,7 +278,7 @@ struct MediaOverlayView: View {
         }
         .onReceive(timer) { _ in
             if actualIsPlaying && actualAction != "end" {
-                localElapsed += 0.1
+                localElapsed += 0.5
             }
         }
     }

@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import CoreGraphics
 import Combine
+import QuartzCore
 
 class MicLevelMonitor: ObservableObject {
     static let shared = MicLevelMonitor()
@@ -16,6 +17,7 @@ class MicLevelMonitor: ObservableObject {
     private var configChangeWorkItem: DispatchWorkItem?
     private var gracefulStopWorkItem: DispatchWorkItem?
     private var lastEngineStartTime: Date = .distantPast
+    private var lastLevelDispatchTime: CFTimeInterval = 0
     
     private init() {
         NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: nil, queue: .main) { [weak self] _ in
@@ -254,6 +256,11 @@ class MicLevelMonitor: ObservableObject {
                 max(0.1, boostedLevel * CGFloat.random(in: 0.2...0.4)),
                 max(0.1, boostedLevel * CGFloat.random(in: 0.1...0.3))
             ]
+            
+            // Throttle UI updates to ~30 FPS (every 33ms) to avoid flooding main queue
+            let now = CACurrentMediaTime()
+            guard now - self.lastLevelDispatchTime >= 0.033 else { return }
+            self.lastLevelDispatchTime = now
             
             DispatchQueue.main.async {
                 self.levels = newLevels

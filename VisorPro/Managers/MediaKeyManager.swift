@@ -266,6 +266,8 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("colorOnTrashFull") var colorOnTrashFull: String = "Default"
     @AppStorage("colorOnDateChange") var colorOnDateChange: String = "Default"
     @AppStorage("colorOnWiFiConnect") var colorOnWiFiConnect: String = "Default"
+    
+    @Published var capsLockExpectedDesync: Bool = false
     @AppStorage("colorOnBluetoothConnect") var colorOnBluetoothConnect: String = "Default"
     @AppStorage("colorOnPeripheralConnect") var colorOnPeripheralConnect: String = "Default"
     @AppStorage("colorOnMicOn") var colorOnMicOn: String = "Default"
@@ -1942,19 +1944,58 @@ class MediaKeyManager: ObservableObject {
             }
         }
     }
-
-    func toggleCapsLock() {
+    
+    func getCurrentCapsLockState() -> Bool {
         var connect: io_connect_t = 0
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(kIOHIDSystemClass))
+        if service == 0 { return false }
         IOServiceOpen(service, mach_task_self_, UInt32(kIOHIDParamConnectType), &connect)
         var state: Bool = false
         IOHIDGetModifierLockState(connect, Int32(kIOHIDCapsLockState), &state)
-        let newState = !state
-        IOHIDSetModifierLockState(connect, Int32(kIOHIDCapsLockState), newState)
         IOServiceClose(connect)
-        
-        DispatchQueue.main.async { [weak self] in
-            self?.triggerCapsLockIndicator(isOn: newState)
+        return state
+    }
+
+    func toggleCapsLock(isCatchup: Bool = false) {
+        print("🔧 [CapsLock] Programmatic toggle requested by UI (isCatchup: \(isCatchup))")
+        var connect: io_connect_t = 0
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(kIOHIDSystemClass))
+        if service != 0 {
+            IOServiceOpen(service, mach_task_self_, UInt32(kIOHIDParamConnectType), &connect)
+            var state: Bool = false
+            IOHIDGetModifierLockState(connect, Int32(kIOHIDCapsLockState), &state)
+            let newState = !state
+            print("🔧 [CapsLock] Hardware state was: \(state), setting hardware LED to: \(newState)")
+            IOHIDSetModifierLockState(connect, Int32(kIOHIDCapsLockState), newState)
+            IOServiceClose(connect)
+            
+            let src = CGEventSource(stateID: .hidSystemState)
+            
+            var currentFlags = CGEventSource.flagsState(.hidSystemState)
+            if newState {
+                currentFlags.insert(.maskAlphaShift)
+            } else {
+                currentFlags.remove(.maskAlphaShift)
+            }
+            
+            // DOWN EVENT
+            let eventDown = CGEvent(keyboardEventSource: src, virtualKey: 57, keyDown: true)
+            eventDown?.type = .flagsChanged
+            eventDown?.flags = currentFlags
+            eventDown?.setIntegerValueField(.eventSourceUserData, value: 12345)
+            eventDown?.post(tap: .cghidEventTap)
+            
+            // UP EVENT
+            let eventUp = CGEvent(keyboardEventSource: src, virtualKey: 57, keyDown: false)
+            eventUp?.type = .flagsChanged
+            eventUp?.flags = currentFlags
+            eventUp?.setIntegerValueField(.eventSourceUserData, value: 12345)
+            eventUp?.post(tap: .cghidEventTap)
+            
+            if !isCatchup {
+                self.capsLockExpectedDesync = true
+                print("🔧 [CapsLock] Set capsLockExpectedDesync = true")
+            }
         }
     }
 
@@ -2051,7 +2092,10 @@ class MediaKeyManager: ObservableObject {
     private var testOriginalPercentage = 0
     private var testOriginalPluggedIn = false
     
-    @Published var canShowLastOverlay: Bool = false
+    var canShowLastOverlay: Bool {
+        get { OverlayStateRelay.shared.canShowLastOverlay }
+        set { OverlayStateRelay.shared.canShowLastOverlay = newValue }
+    }
     @Published var lastOverlayShortcutString: String = UserDefaults.standard.string(forKey: "lastOverlayShortcut") ?? "" { didSet { UserDefaults.standard.set(lastOverlayShortcutString, forKey: "lastOverlayShortcut") } }
     @Published var isRecordingLastOverlayShortcut: Bool = false
 
@@ -3166,10 +3210,26 @@ class MediaKeyManager: ObservableObject {
             if event.type == .flagsChanged {
                 if event.keyCode == 57 { // 57 to kVK_CapsLock
                     if !self.enableKeyboard { return true }
+                    
+                    if cgEvent.getIntegerValueField(.eventSourceUserData) == 12345 {
+                        print("⌨️ [CapsLock] Ignored our injected .flagsChanged event.")
+                        return true
+                    }
+                    
                     let isCapsOn = event.modifierFlags.contains(.capsLock)
+                    print("⌨️ [CapsLock] Intercepted PHYSICAL .flagsChanged for Caps Lock. OS maskAlphaShift is now: \(isCapsOn)")
+                    
+                    if self.capsLockExpectedDesync && isCapsOn == self.isCapsLockOn {
+                        print("⌨️ [CapsLock] Detected REDUNDANT hardware event! HID driver is catching up. Forcing programmatic toggle.")
+                        self.capsLockExpectedDesync = false
+                        self.toggleCapsLock(isCatchup: true)
+                        return true
+                    }
+                    
                     if !self.useSystemOSD {
                         self.lastAction = "Caps Lock: \(isCapsOn ? "On" : "Off")"
                     }
+                    self.capsLockExpectedDesync = false
                     self.triggerCapsLockIndicator(isOn: isCapsOn)
                 }
             } else if event.type == .keyDown {

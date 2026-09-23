@@ -280,13 +280,15 @@ final class NativeOverlayDismisser {
                                 if let pointValue = AXValueCreate(.cgPoint, &newPoint) {
                                     AXUIElementSetAttributeValue(banner, kAXPositionAttribute as CFString, pointValue)
                                 }
-                                Thread.sleep(forTimeInterval: 0.05) // Just enough for hit-testing to register it on-screen
-                                AXUIElementPerformAction(element, kAXPressAction as CFString)
-                                
-                                // Move it back to 0, 99999 immediately
-                                var hiddenPoint = CGPoint(x: 0, y: 99999)
-                                if let hiddenValue = AXValueCreate(.cgPoint, &hiddenPoint) {
-                                    AXUIElementSetAttributeValue(banner, kAXPositionAttribute as CFString, hiddenValue)
+                                // Brief delay for hit-testing to register it on-screen
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                    AXUIElementPerformAction(element, kAXPressAction as CFString)
+                                    
+                                    // Move it back to 0, 99999 immediately
+                                    var hiddenPoint = CGPoint(x: 0, y: 99999)
+                                    if let hiddenValue = AXValueCreate(.cgPoint, &hiddenPoint) {
+                                        AXUIElementSetAttributeValue(banner, kAXPositionAttribute as CFString, hiddenValue)
+                                    }
                                 }
                             } else {
                                 // Fallback

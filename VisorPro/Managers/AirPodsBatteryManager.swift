@@ -21,31 +21,38 @@ class AirPodsBatteryManager: ObservableObject {
     func startMonitoring() {
         // Clean up any orphaned log stream processes from previous app runs (e.g. after Xcode rebuilds)
         // Orphaned log streams can cause severe macOS Bluetooth and audio lag.
-        let killTask = Process()
-        killTask.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        killTask.arguments = ["-f", "subsystem == \"com.apple.bluetooth\" AND \\(eventMessage CONTAINS \"Components\""]
-        try? killTask.run()
-        killTask.waitUntilExit()
-        
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let killTask = Process()
+            killTask.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+            killTask.arguments = ["-f", "subsystem == \"com.apple.bluetooth\" AND \\(eventMessage CONTAINS \"Components\""]
+            try? killTask.run()
+            killTask.waitUntilExit()
+            
+            self?.launchLogStream()
+        }
+    }
+    
+    private func launchLogStream() {
         DispatchQueue.global(qos: .background).async { [weak self] in
-            self?.process = Process()
-            self?.process?.executableURL = URL(fileURLWithPath: "/usr/bin/log")
+            guard let self = self else { return }
+            self.process = Process()
+            self.process?.executableURL = URL(fileURLWithPath: "/usr/bin/log")
             
             // Only fetch nearbyLidClosed for case open/close, and Batt C / Components / lidClosed for battery and in-ear status
-            self?.process?.arguments = [
+            self.process?.arguments = [
                 "stream", 
                 "--predicate", 
                 "subsystem == \"com.apple.bluetooth\" AND (eventMessage CONTAINS \"Components\" OR eventMessage CONTAINS \"nearbyLidClosed\" OR eventMessage CONTAINS \"primaryInEar\" OR eventMessage CONTAINS \"secondaryInEar\" OR eventMessage CONTAINS \"Batt C\" OR eventMessage CONTAINS \"Setting inEarStateUnified\" OR eventMessage CONTAINS \"SmartRouting posting device\")"
             ]
             
-            self?.pipe = Pipe()
-            self?.process?.standardOutput = self?.pipe
+            self.pipe = Pipe()
+            self.process?.standardOutput = self.pipe
             
             let errPipe = Pipe()
-            self?.process?.standardError = errPipe
+            self.process?.standardError = errPipe
             
-            let fileHandle = self?.pipe!.fileHandleForReading
-            fileHandle?.readabilityHandler = { [weak self] handle in
+            let fileHandle = self.pipe!.fileHandleForReading
+            fileHandle.readabilityHandler = { [weak self] handle in
                 let data = handle.availableData
                 if data.isEmpty { return }
                 if let str = String(data: data, encoding: .utf8) {
@@ -54,7 +61,7 @@ class AirPodsBatteryManager: ObservableObject {
             }
             
             do {
-                try self?.process?.run()
+                try self.process?.run()
                 print("AirPodsBatteryManager started monitoring.")
             } catch {
                 print("Failed to start AirPodsBatteryManager: \(error)")

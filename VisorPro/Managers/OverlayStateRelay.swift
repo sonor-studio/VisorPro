@@ -297,4 +297,7 @@ class OverlayStateRelay: ObservableObject {
     @Published var previousAirPodsModeValue: Int? = nil
     @Published var airPodsModeEventId: UUID = UUID()
     @Published var isChangingAirPodsMode: Bool = false
+    
+    // MARK: - Last overlay state (moved from MediaKeyManager to avoid dashboard re-renders)
+    @Published var canShowLastOverlay: Bool = false
 }
