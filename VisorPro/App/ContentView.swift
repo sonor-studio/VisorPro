@@ -88,7 +88,7 @@ struct ContentView: View {
             active.append(ActiveOverlay(id: "display_\(notif.id)", type: .display, position: displayPos, notification: notif))
         }
         
-        let fanPos = MediaKeyManager.shared.getOverlayPosition(for: "fanOverlayPosition")
+
         
         let ramPos = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
         if mediaKeyManager.showRamIndicator { active.append(ActiveOverlay(id: "ram", type: .ram, position: ramPos, notification: nil)) }

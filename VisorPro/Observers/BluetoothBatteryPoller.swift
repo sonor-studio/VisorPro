@@ -41,7 +41,6 @@ class BluetoothBatteryPoller {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             parseBluetoothXML(data)
         } catch {
-            LogManager.shared.log("Error in BluetoothBatteryPoller.swift: \(error)", level: "ERROR")
         }
     }
     
@@ -143,7 +142,6 @@ class BluetoothBatteryPoller {
                 }
             }
         } catch {
-            LogManager.shared.log("Error in BluetoothBatteryPoller.swift: \(error)", level: "ERROR")
         }
     }
     

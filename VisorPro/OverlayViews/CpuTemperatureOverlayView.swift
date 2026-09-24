@@ -47,7 +47,7 @@ struct CpuTemperatureOverlayView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(.primary)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16)
+                        .padding(.leading, 23)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text("CPU Temp")

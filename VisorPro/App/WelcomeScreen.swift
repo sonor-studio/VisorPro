@@ -633,14 +633,12 @@ struct WelcomeScreen: View {
                             try SMAppService.mainApp.register()
                             launchAtLogin = true
                         } catch {
-                            print("Error registering app for login: \(error)")
                         }
                     } else {
                         do {
                             try SMAppService.mainApp.unregister()
                             launchAtLogin = false
                         } catch {
-                            print("Error unregistering app for login: \(error)")
                         }
                     }
                     goForward = true

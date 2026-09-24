@@ -13,7 +13,7 @@ struct AirPodsModeOverlayView: View {
         }
         let settings = mediaKeyManager.accessorySettings[overlayState.airpodsDeviceName] ?? AccessoryDeviceSettings()
         switch overlayState.airPodsModeValue {
-        case 1: return settings.colorOnAirPodsOff != "Default" ? OverlayColorManager.shared.parseColor(settings.colorOnAirPodsOff) : .gray
+        case 1: return settings.colorOnAirPodsOff != "Default" ? OverlayColorManager.shared.parseColor(settings.colorOnAirPodsOff) : .offStateGray
         case 2: return settings.colorOnAirPodsANC != "Default" ? OverlayColorManager.shared.parseColor(settings.colorOnAirPodsANC) : .blue
         case 3: return settings.colorOnAirPodsTransparency != "Default" ? OverlayColorManager.shared.parseColor(settings.colorOnAirPodsTransparency) : .blue
         case 4: return settings.colorOnAirPodsAdaptive != "Default" ? OverlayColorManager.shared.parseColor(settings.colorOnAirPodsAdaptive) : .blue

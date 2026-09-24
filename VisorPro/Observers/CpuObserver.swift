@@ -9,10 +9,10 @@ class CpuObserver: ObservableObject {
     
     private var timer: Timer?
     
-    // Zapiszemy tu klucz, który zadziała na danym Macu
+    // We will save the key that works on a given Mac here
     private var workingSensorKey: String? 
     
-    // Lista popularnych czujników. Najpierw Apple Silicon, potem klucze z układów Intel
+    // List of popular sensors. Apple Silicon first, then Intel chips
     private let sensorKeys = [
         "Tp09", "Tp05", "Tp01", // M-Series (Apple Silicon)
         "TC0P", "TC0D", "TC0E", "TC0F" // Intel (Proximity, Die, etc.)
@@ -22,7 +22,7 @@ class CpuObserver: ObservableObject {
         startObserving()
     }
     
-    // Helper do konwersji Stringa na FourCharCode (UInt32), którego wymaga biblioteka SMCKit
+    // Helper for converting String to FourCharCode (UInt32) required by SMCKit library
     private func toFourCharCode(_ str: String) -> UInt32 {
         var result: UInt32 = 0
         for char in str.utf8 {
@@ -66,7 +66,6 @@ class CpuObserver: ObservableObject {
                     }
                 }
             } catch {
-                LogManager.shared.log("Error in CpuObserver.swift reading sensor: \(error)", level: "ERROR")
                 workingSensorKey = nil // Reset key on failure so it searches again next time
             }
             
@@ -149,7 +148,6 @@ class CpuObserver: ObservableObject {
                     }
                 }
             } catch {
-                LogManager.shared.log("Error in CpuObserver.swift running top: \(error)", level: "ERROR")
             }
         }
     }

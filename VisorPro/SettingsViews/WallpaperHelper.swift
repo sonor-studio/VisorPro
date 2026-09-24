@@ -118,7 +118,6 @@ struct WallpaperHelper {
             let size = NSSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height))
             return NSImage(cgImage: cgImage, size: size)
         } catch {
-            LogManager.shared.log("Error in WallpaperHelper.swift: \(error)", level: "ERROR")
             return nil
         }
     }

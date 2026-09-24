@@ -128,7 +128,6 @@ class AudioRouteObserver {
     func handleVolumeChanged() {
         guard let manager = manager, !manager.useSystemOSD else { return }
         
-        let timeSinceRoute = Date().timeIntervalSince(lastRouteChangeTime)
         
         VolumeManager.shared.fetchCurrentVolume { [weak manager] vol, muted in
             guard let mgr = manager else { return }
@@ -141,7 +140,7 @@ class AudioRouteObserver {
             mgr.isMuted = muted
             mgr.currentAudioDeviceName = VolumeManager.shared.getCurrentAudioDeviceName()
             
-            // Nakładka nie jest wywoływana przy zewnętrznych, programowych zmianach głośności.
+            // The overlay is not triggered by external, programmatic volume changes.
             // if timeSinceRoute > 2.5 {
             //     mgr.triggerVolumeIndicator()
             // }

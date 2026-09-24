@@ -30,8 +30,6 @@ class EnvReader {
                 }
             }
         } catch {
-            LogManager.shared.log("Error in EnvReader.swift: \(error)", level: "ERROR")
-            print("Failed to read .env file: \(error)")
         }
     }
     

@@ -267,7 +267,6 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("colorOnDateChange") var colorOnDateChange: String = "Default"
     @AppStorage("colorOnWiFiConnect") var colorOnWiFiConnect: String = "Default"
     
-    @Published var capsLockExpectedDesync: Bool = false
     @AppStorage("colorOnBluetoothConnect") var colorOnBluetoothConnect: String = "Default"
     @AppStorage("colorOnPeripheralConnect") var colorOnPeripheralConnect: String = "Default"
     @AppStorage("colorOnMicOn") var colorOnMicOn: String = "Default"
@@ -625,7 +624,7 @@ class MediaKeyManager: ObservableObject {
             
             if !isBatteryInitialized { return }
             if oldValue != currentBatteryPercentage {
-                var allThresholds = batteryCustomThresholds
+                let allThresholds = batteryCustomThresholds
                 
                 for threshold in allThresholds where threshold.isEnabled {
                     let hitDown = (currentBatteryPercentage == threshold.percentage) && (oldValue > currentBatteryPercentage)
@@ -692,7 +691,7 @@ class MediaKeyManager: ObservableObject {
                         triggerUnplugStatus()
                     } else {
                         hideBatteryOverlay()
-                        var allThresholds = batteryCustomThresholds
+                        let allThresholds = batteryCustomThresholds
                         
                         for threshold in allThresholds where threshold.isEnabled {
                             if currentBatteryPercentage == threshold.percentage {
@@ -1953,11 +1952,11 @@ class MediaKeyManager: ObservableObject {
         var state: Bool = false
         IOHIDGetModifierLockState(connect, Int32(kIOHIDCapsLockState), &state)
         IOServiceClose(connect)
+        IOObjectRelease(service)
         return state
     }
 
     func toggleCapsLock(isCatchup: Bool = false) {
-        print("🔧 [CapsLock] Programmatic toggle requested by UI (isCatchup: \(isCatchup))")
         var connect: io_connect_t = 0
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(kIOHIDSystemClass))
         if service != 0 {
@@ -1965,9 +1964,11 @@ class MediaKeyManager: ObservableObject {
             var state: Bool = false
             IOHIDGetModifierLockState(connect, Int32(kIOHIDCapsLockState), &state)
             let newState = !state
-            print("🔧 [CapsLock] Hardware state was: \(state), setting hardware LED to: \(newState)")
             IOHIDSetModifierLockState(connect, Int32(kIOHIDCapsLockState), newState)
             IOServiceClose(connect)
+            IOObjectRelease(service)
+            
+            self.isCapsLockOn = newState
             
             let src = CGEventSource(stateID: .hidSystemState)
             
@@ -1978,24 +1979,19 @@ class MediaKeyManager: ObservableObject {
                 currentFlags.remove(.maskAlphaShift)
             }
             
-            // DOWN EVENT
             let eventDown = CGEvent(keyboardEventSource: src, virtualKey: 57, keyDown: true)
             eventDown?.type = .flagsChanged
             eventDown?.flags = currentFlags
             eventDown?.setIntegerValueField(.eventSourceUserData, value: 12345)
             eventDown?.post(tap: .cghidEventTap)
             
-            // UP EVENT
             let eventUp = CGEvent(keyboardEventSource: src, virtualKey: 57, keyDown: false)
             eventUp?.type = .flagsChanged
             eventUp?.flags = currentFlags
             eventUp?.setIntegerValueField(.eventSourceUserData, value: 12345)
             eventUp?.post(tap: .cghidEventTap)
             
-            if !isCatchup {
-                self.capsLockExpectedDesync = true
-                print("🔧 [CapsLock] Set capsLockExpectedDesync = true")
-            }
+            self.triggerCapsLockIndicator(isOn: newState)
         }
     }
 
@@ -2502,7 +2498,6 @@ class MediaKeyManager: ObservableObject {
                 task.waitUntilExit()
                 DispatchQueue.main.async { completion(task.terminationStatus == 0, deviceNode) }
             } catch {
-                LogManager.shared.log("Error in MediaKeyManager.swift: \(error)", level: "ERROR")
                 DispatchQueue.main.async { completion(false, nil) }
             }
         }
@@ -2518,7 +2513,6 @@ class MediaKeyManager: ObservableObject {
                 task.waitUntilExit()
                 DispatchQueue.main.async { completion(task.terminationStatus == 0) }
             } catch {
-                LogManager.shared.log("Error in MediaKeyManager.swift: \(error)", level: "ERROR")
                 DispatchQueue.main.async { completion(false) }
             }
         }
@@ -2557,8 +2551,8 @@ class MediaKeyManager: ObservableObject {
         if lower.contains("ipad") { return "ipad" }
         if lower.contains("mac") { return "macbook" }
         if lower.contains("watch") { return "applewatch" }
-        if lower.contains("headphone") || lower.contains("słuchawki") || lower.contains("headset") || lower.contains("buds") || lower.contains("ear") { return "headphones" }
-        if lower.contains("speaker") || lower.contains("głośnik") { return "speaker.wave.2" }
+        if lower.contains("headphone") || lower.contains("headset") || lower.contains("buds") || lower.contains("ear") { return "headphones" }
+        if lower.contains("speaker") { return "speaker.wave.2" }
         if lower.contains("controller") || lower.contains("pad") || lower.contains("xbox") || lower.contains("dualsense") || lower.contains("dualshock") { return "gamecontroller.fill" }
         if lower.contains("mx master") || lower.contains("logi ") || lower.contains("razer ") || lower.contains("mouse") || lower.contains("mysz") { return "magicmouse.fill" }
         return "headphones"
@@ -3016,6 +3010,7 @@ class MediaKeyManager: ObservableObject {
     private var standardKeyRunLoop: CFRunLoop?
     private var standardKeyThread: Thread?
     private var hasStarted = false
+    private var rawHIDManager: IOHIDManager?
     private var audioRouteObserver: AudioRouteObserver?
     private var batteryObserver: BatteryObserver?
     private var wifiObserver: WiFiObserver?
@@ -3197,6 +3192,7 @@ class MediaKeyManager: ObservableObject {
         startHardwareKeyPolling()
         
         hasStarted = true
+        setupRawCapsLockDetection()
         setupMediaKeyTap()
         setupStandardKeyTap()
     }
@@ -3208,29 +3204,15 @@ class MediaKeyManager: ObservableObject {
     func handleStandardKeyEvent(_ event: NSEvent, cgEvent: CGEvent) -> Bool {
         return DispatchQueue.main.sync {
             if event.type == .flagsChanged {
+                // DIAGNOSTICS: Logging all flag changes (even Shift, Cmd) to catch the "invisible" Caps Lock
+                if event.keyCode != 57 {
+                    let capsState = event.modifierFlags.contains(.capsLock) ? "ON" : "OFF"
+                }
+                
                 if event.keyCode == 57 { // 57 to kVK_CapsLock
-                    if !self.enableKeyboard { return true }
-                    
-                    if cgEvent.getIntegerValueField(.eventSourceUserData) == 12345 {
-                        print("⌨️ [CapsLock] Ignored our injected .flagsChanged event.")
-                        return true
-                    }
-                    
-                    let isCapsOn = event.modifierFlags.contains(.capsLock)
-                    print("⌨️ [CapsLock] Intercepted PHYSICAL .flagsChanged for Caps Lock. OS maskAlphaShift is now: \(isCapsOn)")
-                    
-                    if self.capsLockExpectedDesync && isCapsOn == self.isCapsLockOn {
-                        print("⌨️ [CapsLock] Detected REDUNDANT hardware event! HID driver is catching up. Forcing programmatic toggle.")
-                        self.capsLockExpectedDesync = false
-                        self.toggleCapsLock(isCatchup: true)
-                        return true
-                    }
-                    
-                    if !self.useSystemOSD {
-                        self.lastAction = "Caps Lock: \(isCapsOn ? "On" : "Off")"
-                    }
-                    self.capsLockExpectedDesync = false
-                    self.triggerCapsLockIndicator(isOn: isCapsOn)
+                    // Caps Lock events are now fully handled by RAW-HID (setupRawCapsLockDetection)
+                    // which bypasses the issue of dropping flagsChanged events due to desynchronized system kernel.
+                    return true
                 }
             } else if event.type == .keyDown {
                 let eventModifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
@@ -3303,6 +3285,76 @@ class MediaKeyManager: ObservableObject {
             }
             
             return true
+        }
+    }
+    
+    func setupRawCapsLockDetection() {
+        guard self.isTrusted else { return }
+        
+        rawHIDManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
+        guard let manager = rawHIDManager else { return }
+        
+        let deviceMatch: [String: Any] = [
+            kIOHIDDeviceUsagePageKey: 0x01, // Generic Desktop
+            kIOHIDDeviceUsageKey: 0x06      // Keyboard
+        ]
+        
+        IOHIDManagerSetDeviceMatching(manager, deviceMatch as CFDictionary)
+        
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        
+        // Protection against sleeping/disconnecting keyboards (hot-plug)
+        let matchCallback: IOHIDDeviceCallback = { context, result, sender, device in
+        }
+        let removeCallback: IOHIDDeviceCallback = { context, result, sender, device in
+        }
+        IOHIDManagerRegisterDeviceMatchingCallback(manager, matchCallback, context)
+        IOHIDManagerRegisterDeviceRemovalCallback(manager, removeCallback, context)
+        
+        IOHIDManagerRegisterInputValueCallback(manager, { context, result, sender, value in
+            guard let context = context else { return }
+            let selfObj = Unmanaged<MediaKeyManager>.fromOpaque(context).takeUnretainedValue()
+            
+            let element = IOHIDValueGetElement(value)
+            let usagePage = IOHIDElementGetUsagePage(element)
+            let usage = IOHIDElementGetUsage(element)
+            let intValue = IOHIDValueGetIntegerValue(value)
+            
+            // 0x07 = Keyboard/Keypad, 0x39 = Caps Lock
+            if usagePage == 0x07 {
+                if usage == 0x39 {
+                    if intValue == 1 {
+                        DispatchQueue.main.async {
+                            selfObj.handleRawCapsLockPress()
+                        }
+                    }
+                }
+            }
+        }, context)
+        
+        IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+        let result = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
+        if result == kIOReturnSuccess {
+        } else {
+        }
+        
+        // Inicjalna synchronizacja stanu
+        self.isCapsLockOn = self.getCurrentCapsLockState()
+    }
+    
+    func handleRawCapsLockPress() {
+        if !self.enableKeyboard { return }
+        
+        // Increased delay from 0.05s to 0.15s to give Bluetooth keyboards time to light up the LED
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            let actualHardwareState = self.getCurrentCapsLockState()
+            
+            
+            if !self.useSystemOSD {
+                self.lastAction = "Caps Lock: \(actualHardwareState ? "On" : "Off")"
+            }
+            
+            self.triggerCapsLockIndicator(isOn: actualHardwareState)
         }
     }
     
@@ -3409,7 +3461,7 @@ class MediaKeyManager: ObservableObject {
         mediaKeyTap = nil
         mediaKeyRunLoopSource = nil
         
-        // i nie korzystamy z systemowego OSD
+        // and we do not use system OSD
         guard (enableVolume || enableBrightness || enableKeyboardBrightness || enableMediaNotification) && !useSystemOSD && self.isTrusted else {
             return
         }
@@ -3463,15 +3515,15 @@ class MediaKeyManager: ObservableObject {
                 let isVolumeKey = (keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE)
                 let isBrightnessKey = (keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN)
                 
-                // --- Passthrough: Volume wyłączony ---
+                // --- Passthrough: Volume disabled ---
                 if isVolumeKey && !manager.enableVolume {
                     return Unmanaged.passRetained(event)
                 }
                 
-                // --- Passthrough: Brightness wyłączony ---
+                // --- Passthrough: Brightness disabled ---
                 if isBrightnessKey && !manager.enableBrightness {
-                    // Jeśli keyboard brightness jest włączony i modifier jest wciśnięty,
-                    // nie robimy passthrough — niech main handler obsłuży keyboard brightness
+                    // If keyboard brightness is enabled and modifier is pressed,
+                    // we do not passthrough — let main handler handle keyboard brightness
                     let hasModifier = (manager.keyboardBrightnessModifier == "command" && isCommand) ||
                                       (manager.keyboardBrightnessModifier == "option" && isOption) ||
                                       (manager.keyboardBrightnessModifier == "control" && isControl)
@@ -3561,7 +3613,7 @@ class MediaKeyManager: ObservableObject {
                         return nil
                     }
                     
-                    // Przepuszczamy zdarzenie puszczenia klawisza (KeyUp) do systemu!
+                    // Passthrough the key up event to the system!
                     return Unmanaged.passRetained(event)
                 }
             }

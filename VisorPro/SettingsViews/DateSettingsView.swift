@@ -167,7 +167,7 @@ struct DateSettingsView: View {
                                         Toggle("", isOn: $showCalendarEvents)
                                             .toggleStyle(SwitchToggleStyle(tint: .accentColor))
                                             .labelsHidden()
-                                            .onChange(of: showCalendarEvents) { newValue in
+                                            .onChange(of: showCalendarEvents) { _, newValue in
                                                 if newValue {
                                                     CalendarEventManager.shared.requestAccess { granted in
                                                         if !granted {

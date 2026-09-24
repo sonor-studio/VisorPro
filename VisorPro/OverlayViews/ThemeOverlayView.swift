@@ -92,7 +92,6 @@ struct ThemeOverlayView: View {
             do {
                 try process.run()
             } catch {
-                print("Failed to toggle theme: \(error)")
             }
         }
     }

@@ -73,7 +73,7 @@ struct BluetoothOverlayView: View {
             prefix = "iPhone"
         } else if name.contains("ipad") {
             prefix = "iPad"
-        } else if name.contains("headphones") || name.contains("słuchawki") || name.contains("headset") || typeInfo.contains("headphones") || typeInfo.contains("słuchawki") {
+        } else if name.contains("headphones") || name.contains("headset") || typeInfo.contains("headphones") {
             prefix = "Headphones"
         } else if name.contains("mouse") || name.contains("mysz") || typeInfo.contains("mouse") {
             prefix = "Mouse"
@@ -253,7 +253,7 @@ struct BluetoothOverlayView: View {
             if nameLower.contains("mac") || typeInfo.contains("mac") { return "macbook" }
             if nameLower.contains("watch") || typeInfo.contains("watch") { return "applewatch" }
             if nameLower.contains("controller") || nameLower.contains("pad") || typeInfo.contains("gamepad") { return "gamecontroller.fill" }
-            if nameLower.contains("headphone") || nameLower.contains("słuchawki") || nameLower.contains("buds") || nameLower.contains("ear") || typeInfo.contains("headphones") || typeInfo.contains("słuchawki") { return "headphones" }
+            if nameLower.contains("headphone") || nameLower.contains("buds") || nameLower.contains("ear") || typeInfo.contains("headphones") { return "headphones" }
             if nameLower.contains("speaker") || typeInfo.contains("speaker") { return "speaker.wave.2" }
             return "point.3.connected.trianglepath.dotted"
         }()
@@ -347,7 +347,6 @@ struct BluetoothOverlayView: View {
                                 if sortedBatteries.count == 1 {
                                     let key = sortedBatteries[0].key
                                     let battery = sortedBatteries[0].value
-                                    let suffix = key.replacingOccurrences(of: systemName, with: "").trimmingCharacters(in: .whitespaces)
                                     let batteryIcon: String = {
                                         if battery >= 85 { return "battery.100" }
                                         if battery >= 60 { return "battery.75" }

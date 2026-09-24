@@ -270,16 +270,16 @@ struct CopyOverlayView: View {
                                         HStack(spacing: 0) {
                                             // LEWA STRONA (obszar ikony)
                                             VStack(spacing: 0) {
-                                                Color.clear.frame(height: 14) // Kwadrat obcinający głębiej pod ikoną, zwiększający "margines zasłony"
+                                                Color.clear.frame(height: 14) // Deeper cutting square under the icon, increasing "curtain margin"
                                                 LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
-                                                    .frame(height: 8) // Krótszy Fade pod kwadratem
+                                                    .frame(height: 8) // Shorter fade under the square
                                                 Color.black
                                             }
                                             .frame(width: 61)
                                             
-                                            // ŚRODEK (dynamicznie obcinający tekst proporcjonalnie do ruchu scrolla)
+                                            // CENTER (dynamically clipping text proportionally to scroll movement)
                                             ZStack(alignment: .top) {
-                                                // Maska obcinająca wyrównana do poziomu lewego cięcia ikony (docelowy stan po przesunięciu)
+                                                // Clipping mask aligned to the left edge of the icon (target state after scrolling)
                                                 VStack(spacing: 0) {
                                                     Color.clear.frame(height: 14)
                                                     LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
@@ -287,8 +287,8 @@ struct CopyOverlayView: View {
                                                     Color.black
                                                 }
                                                 
-                                                // Maska górna w spoczynku (by nie obcinać pierwszej linii)
-                                                // Zanika progresywnie, odsłaniając ucięcie, proporcjonalnie do offsetu przewijania (od 0 do -15 pikseli)
+                                                // Top mask at rest (to avoid clipping the first line)
+                                                // Fades progressively, revealing the cut, proportionally to scroll offset (from 0 to -15 pixels)
                                                 VStack(spacing: 0) {
                                                     LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
                                                         .frame(height: 6)
@@ -297,7 +297,7 @@ struct CopyOverlayView: View {
                                                 .opacity(max(0, min(1, 1.0 + (scrollOffset / 15.0))))
                                             }
                                             
-                                            // PRAWY MARGINES OKNA (wyłącza z obcinania boczny pasek przewijania - scrollbar)
+                                            // RIGHT MARGIN OF THE WINDOW (excludes the scrollbar from clipping)
                                             VStack(spacing: 0) {
                                                 LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
                                                     .frame(height: 6)

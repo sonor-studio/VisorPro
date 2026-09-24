@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		DD23EEF12E662D8D5B79FD35 /* NativeOverlayDismisser.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD71230FDB72A8A890057CB /* NativeOverlayDismisser.swift */; };
 		FA6B08843048A2EC008824F5 /* SMC in Frameworks */ = {isa = PBXBuildFile; productRef = FA6B08833048A2EC008824F5 /* SMC */; };
 		FA6B08863048A2EC008824F5 /* SMCKit in Frameworks */ = {isa = PBXBuildFile; productRef = FA6B08853048A2EC008824F5 /* SMCKit */; };
 		FA8D1711304634CE0040670D /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = FA8D1710304634CE0040670D /* TelemetryDeck */; };
@@ -272,7 +271,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DD23EEF12E662D8D5B79FD35 /* NativeOverlayDismisser.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -149,6 +149,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     
     var isPreview: Bool = false
     @Binding var isExpanded: Bool    
+    @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
+
     var showProgressBar: Bool = false
     var progress: CGFloat = 0
     var customProgressMask: AnyView? = nil
@@ -211,6 +213,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         let innerPadding: CGFloat = 3
         let cutoutSize: CGFloat = 12
         let trackWidth: CGFloat = width - (trackPadding * 2)
+        let effectiveBarColor: Color = isMuted ? Color.offStateGray.opacity(0.95) : barColor.opacity(0.95)
         
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
@@ -291,11 +294,11 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     ZStack {
                         if fillCenter {
                             BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
-                                .fill(isMuted ? Color.secondary.opacity(0.85) : barColor.opacity(0.95))
+                                .fill(effectiveBarColor)
                                 .padding(trackPadding)
                         } else {
                             BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
-                                .strokeBorder(isMuted ? Color.secondary.opacity(0.85) : barColor.opacity(0.95), style: StrokeStyle(lineWidth: innerPadding, lineCap: .round, lineJoin: .round))
+                                .strokeBorder(effectiveBarColor, style: StrokeStyle(lineWidth: innerPadding, lineCap: .round, lineJoin: .round))
                                 .padding(trackPadding)
                         }
                     }
@@ -397,8 +400,14 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 if isExpandable {
                                     if !isAnimating {
                                         isAnimating = true
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                            isExpanded.toggle()
+                                        if enableBouncyExpansion {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                                isExpanded.toggle()
+                                            }
+                                        } else {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                isExpanded.toggle()
+                                            }
                                         }
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                             isAnimating = false

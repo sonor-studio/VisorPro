@@ -278,7 +278,6 @@ struct FeedbackSettingsView: View {
                     ) {
                         errorMessage = "No internet connection. Please try again later."
                     } else {
-                        LogManager.shared.log("Feedback Error: \(error)", level: "ERROR")
                         errorMessage = "An error occurred. Please try again."
                     }
                 } else if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {

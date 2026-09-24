@@ -6,7 +6,7 @@ class PolarLicenseManager: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
     
-    // UWAGA: Musisz podmienić to na swoje Organization ID!
+    // NOTE: You must replace this with your Organization ID!
     private let organizationId = "f7948fb8-7aba-48ea-802d-cba2602e7d50"
     
     func activateKey(key: String) async -> String? {
@@ -50,7 +50,6 @@ class PolarLicenseManager: ObservableObject {
                 return "activated_without_id" // Fallback if parsing fails
             } else {
                 if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    print("POLAR API ERROR: \(errorJson)")
                     let errorDetail = errorJson["detail"] as? String ?? ""
                     DispatchQueue.main.async {
                         if errorDetail.contains("limit") || errorDetail.contains("Activation limit") {

@@ -159,7 +159,7 @@ class RamObserver: ObservableObject {
                                     // Fallback text replacements for common technical names
                                     if name.hasPrefix("com.apple.WebKit.") {
                                         name = name.replacingOccurrences(of: "com.apple.WebKit.", with: "Safari ")
-                                        // Spróbujmy znaleźć Safari
+                                        // Let's try to find Safari
                                         if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
                                             icon = NSWorkspace.shared.icon(forFile: url.path)
                                         }
@@ -187,7 +187,6 @@ class RamObserver: ObservableObject {
                     }
                 }
             } catch {
-                LogManager.shared.log("Error in RamObserver.swift: \(error)", level: "ERROR")
             }
         }
     }

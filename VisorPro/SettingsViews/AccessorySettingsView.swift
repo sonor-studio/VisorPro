@@ -12,7 +12,7 @@ struct AccessorySettingsView: View {
     
     private var isHeadphones: Bool {
         let lower = deviceName.lowercased()
-        return lower.contains("airpod") || lower.contains("headphone") || lower.contains("ear") || lower.contains("słuchawki") || lower.contains("buds") || lower.contains("headset")
+        return lower.contains("airpod") || lower.contains("headphone") || lower.contains("ear") || lower.contains("buds") || lower.contains("headset")
     }
     
     var body: some View {

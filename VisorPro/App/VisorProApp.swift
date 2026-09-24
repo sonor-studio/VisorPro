@@ -24,14 +24,10 @@ struct VisorProApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
-        print("========================================")
-        print("🌟 WERSJA TESTOWA: START APLIKACJI 🌟")
-        print("========================================")
         
         NativeOverlayDismisser.shared.start()
         UserDefaultsMigrator.migrate()
         NSSetUncaughtExceptionHandler { exception in
-            LogManager.shared.log("Uncaught Exception: \(exception.name.rawValue) - \(exception.reason ?? "No reason")", level: "FATAL")
             fflush(stdout)
         }
     }
@@ -198,7 +194,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        LogManager.shared.log("VisorPro initialization started", level: "INFO")
 
         
         let configuration = TelemetryManagerConfiguration(appID: "F983579F-8CAB-4235-B6FE-B6CE1CE3119A")
@@ -271,7 +266,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationWillTerminate(_ notification: Notification) {
-        LogManager.shared.log("VisorPro will terminate", level: "INFO")
         MediaKeyManager.shared.stopEventTaps()
         PowerChimeManager.enableChargingSound()
     }

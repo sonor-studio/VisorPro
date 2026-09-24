@@ -68,8 +68,8 @@ struct MicOverlayView: View {
     }
     
     private var actionColor: Color {
-        if currentVolume == 0 { return .secondary }
-        return actualIsActive ? OverlayColorManager.shared.getOverlayColor(for: "colorOnMicOn", defaultColor: Color(red: 1.0, green: 0.65, blue: 0.0)) : .secondary
+        if currentVolume == 0 { return .offStateGray }
+        return actualIsActive ? OverlayColorManager.shared.getOverlayColor(for: "colorOnMicOn", defaultColor: Color(red: 1.0, green: 0.65, blue: 0.0)) : .offStateGray
     }
     
     private var actionTitle: String {
@@ -112,7 +112,7 @@ struct MicOverlayView: View {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsActive ? "mic.fill" : "mic.slash.fill")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsActive ? .primary : .secondary)
+                        .foregroundColor(actualIsActive ? .primary : .offStateGray)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -130,7 +130,7 @@ struct MicOverlayView: View {
                         CachedAppIconView(
                             path: path,
                             fallbackSystemName: isPreview ? "mic.fill" : "app.fill",
-                            fallbackColor: isPreview ? .orange : .secondary,
+                            fallbackColor: isPreview ? .orange : .offStateGray,
                             size: 32
                         )
                     }
@@ -151,7 +151,7 @@ struct MicOverlayView: View {
                                 CachedAppIconView(
                                     path: path,
                                     fallbackSystemName: isPreview ? "mic.fill" : "app.fill",
-                                    fallbackColor: isPreview ? .orange : .secondary,
+                                    fallbackColor: isPreview ? .orange : .offStateGray,
                                     size: 36
                                 )
                                 
@@ -328,7 +328,7 @@ struct CameraEffectButton: View {
                 
                 Text(title)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundColor(isOn ? .primary : .secondary)
+                    .foregroundColor(isOn ? .primary : .offStateGray)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .frame(height: 26, alignment: .top)
@@ -365,7 +365,7 @@ struct CameraOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsActive ? OverlayColorManager.shared.getOverlayColor(for: "colorOnCameraOn", defaultColor: .green) : .secondary
+        actualIsActive ? OverlayColorManager.shared.getOverlayColor(for: "colorOnCameraOn", defaultColor: .green) : .offStateGray
     }
     
     private var actionTitle: String {
@@ -394,7 +394,7 @@ struct CameraOverlayView: View {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsActive ? "video.fill" : "video.slash.fill")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsActive ? .primary : .secondary)
+                        .foregroundColor(actualIsActive ? .primary : .offStateGray)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -412,7 +412,7 @@ struct CameraOverlayView: View {
                         CachedAppIconView(
                             path: path,
                             fallbackSystemName: isPreview ? "video.fill" : "app.fill",
-                            fallbackColor: isPreview ? .green : .secondary,
+                            fallbackColor: isPreview ? .green : .offStateGray,
                             size: 32
                         )
                     }
@@ -432,7 +432,7 @@ struct CameraOverlayView: View {
                                 CachedAppIconView(
                                     path: path,
                                     fallbackSystemName: isPreview ? "video.fill" : "app.fill",
-                                    fallbackColor: isPreview ? .green : .secondary,
+                                    fallbackColor: isPreview ? .green : .offStateGray,
                                     size: 36
                                 )
                                 
@@ -520,7 +520,7 @@ struct LocationOverlayView: View {
     }
     
     private var actionColor: Color {
-        actualIsActive ? OverlayColorManager.shared.getOverlayColor(for: "colorOnLocationOn", defaultColor: Color(red: 0.0, green: 0.45, blue: 0.9)) : .secondary
+        actualIsActive ? OverlayColorManager.shared.getOverlayColor(for: "colorOnLocationOn", defaultColor: Color(red: 0.0, green: 0.45, blue: 0.9)) : .offStateGray
     }
     
     private var actionTitle: String {
@@ -550,7 +550,7 @@ struct LocationOverlayView: View {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsActive ? "location.fill" : "location.slash.fill")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsActive ? .primary : .secondary)
+                        .foregroundColor(actualIsActive ? .primary : .offStateGray)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {

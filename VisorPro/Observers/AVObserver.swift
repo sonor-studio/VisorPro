@@ -344,7 +344,6 @@ class CameraClientObserver {
                     }
                 }
             } catch {
-                LogManager.shared.log("Error in AVObserver.swift: \(error)", level: "ERROR")
             }
         }
     }
@@ -454,6 +453,5 @@ class CameraClientObserver {
                 }
             }
         } catch {
-            LogManager.shared.log("Error in AVObserver.swift: \(error)", level: "ERROR")
         }
     }}

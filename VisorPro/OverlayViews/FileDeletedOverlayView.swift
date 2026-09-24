@@ -33,7 +33,7 @@ struct FileDeletedOverlayView: View {
         
         let fileName = isPreview ? "Presentation.key" : overlayState.lastDeletedFileName
         let fileSizeMB = isPreview ? 24.5 : overlayState.lastDeletedFileSizeMB
-        let fileIcon = isPreview ? NSWorkspace.shared.icon(forFileType: "key") : overlayState.lastDeletedFileIcon
+        let fileIcon = isPreview ? NSWorkspace.shared.icon(forFile: "/System/Applications/TextEdit.app") : overlayState.lastDeletedFileIcon
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -205,7 +205,6 @@ struct FileDeletedOverlayView: View {
                 var error: NSDictionary?
                 script.executeAndReturnError(&error)
                 if let err = error {
-                    print("Failed to restore file: \(err)")
                 }
             }
         }
@@ -217,7 +216,6 @@ struct FileDeletedOverlayView: View {
             do {
                 try FileManager.default.removeItem(at: url)
             } catch {
-                print("Failed to permanently delete: \(error)")
             }
         }
     }

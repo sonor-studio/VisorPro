@@ -151,7 +151,7 @@ extension MediaKeyManager {
             }
             
             let displayTime: TimeInterval = isWarning ? 4.5 : 3.5
-            self.notificationTimers["accessoryBattery"] = Timer.scheduledTimerInCommonModes(withTimeInterval: displayTime, repeats: false) { [weak self] _ in
+            self.notificationTimers["accessoryBattery"] = Timer.scheduledTimerInCommonModes(withTimeInterval: displayTime, repeats: false) { _ in
                 NotificationCenter.default.post(name: NSNotification.Name("DismissOverlay_accessoryBattery"), object: nil)
             }
         }
@@ -175,7 +175,6 @@ extension MediaKeyManager {
                     self.parseTopOutput(output)
                 }
             } catch {
-                LogManager.shared.log("Error in MediaKeyManager.swift: \(error)", level: "ERROR")
             }
         }
     }

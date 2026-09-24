@@ -805,7 +805,7 @@ class VolumeManager {
                 if OverlayStateRelay.shared.showVolumeIndicator {
                     MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
                 } else {
-                    // Nakładka nie jest wywoływana przy zewnętrznych, programowych zmianach głośności.
+                    // The overlay is not triggered by external, programmatic volume changes.
                     // MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
                 }
             }

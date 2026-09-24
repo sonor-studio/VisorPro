@@ -3,12 +3,12 @@ import SwiftUI
 extension MediaKeyManager {
     
     func setupDateTimer() {
-        // Obserwacja natywnej zmiany dnia (działa niezawodnie po północy)
+        // Observation of native day change (works reliably after midnight)
         NotificationCenter.default.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
             self?.handleDayChange(isStartup: false)
         }
         
-        // Sprawdzenie przy uruchomieniu aplikacji, czy minęła północ, gdy aplikacja była wyłączona
+        // Checking on app launch if midnight passed while the app was closed
         handleDayChange(isStartup: true)
     }
     
@@ -22,11 +22,11 @@ extension MediaKeyManager {
         if todayStr != lastTriggeredStr {
             UserDefaults.standard.set(todayStr, forKey: "lastTriggeredDateOverlay")
             
-            // Jeżeli aplikacja jest uruchamiana i wykryje nowy dzień - pokazujemy.
-            // Jeżeli dzień się zmienił w trakcie działania (np. z 23:59 na 00:00) - pokazujemy.
-            // UWAGA: Ignorujemy cofnięcie czasu (np. przy testowaniu zmiany daty do tyłu), aby nie wyświetlać fałszywych alarmów przed północą.
+            // If the app is launched and detects a new day - we show it.
+            // If the day changed while running (e.g. from 23:59 to 00:00) - we show it.
+            // NOTE: We ignore time backwards (e.g. testing date change backwards) to avoid false alarms before midnight.
             if todayStr > lastTriggeredStr || lastTriggeredStr.isEmpty {
-                // Jeśli aplikacja właśnie się włączyła, możemy lekko opóźnić pokazanie nakładki
+                // If the app just started, we can slightly delay showing the overlay
                 if isStartup {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
                         self?.triggerDateIndicator()
@@ -41,7 +41,7 @@ extension MediaKeyManager {
     func triggerDateIndicator() {
         if !enableDate { return }
         
-        // Zawsze odświeżajmy eventy przy wywołaniu nakładki (na wypadek, gdyby widok był już w pamięci)
+        // Always refresh events when overlay is triggered (in case the view is already in memory)
         CalendarEventManager.shared.fetchTodaysEvents()
         
         playNotificationSound(named: soundOnDateChange)

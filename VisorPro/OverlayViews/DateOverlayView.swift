@@ -248,7 +248,7 @@ struct DateOverlayView: View {
                                                 }
                                             }
                                         }
-                                        .frame(height: 80) // ok. 4 elementy (16-18px każdy + spacing 4)
+                                        .frame(height: 80) // approx. 4 items (16-18px each + 4px spacing)
                                         .onHover { hovering in
                                             DispatchQueue.main.async {
                                                 if OverlayStateRelay.shared.isHoveringScrollView != hovering {

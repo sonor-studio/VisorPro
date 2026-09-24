@@ -114,7 +114,6 @@ class AirPodsModeObserver {
             }
         }
         if err != noErr {
-            LogManager.shared.log("Failed to add lstm listener: \(err)", level: "ERROR")
         }
     }
     

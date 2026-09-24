@@ -62,9 +62,7 @@ class AirPodsBatteryManager: ObservableObject {
             
             do {
                 try self.process?.run()
-                print("AirPodsBatteryManager started monitoring.")
             } catch {
-                print("Failed to start AirPodsBatteryManager: \(error)")
             }
         }
     }
@@ -186,7 +184,6 @@ class AirPodsBatteryManager: ObservableObject {
         let parts = battStr.components(separatedBy: ";").map { $0.trimmingCharacters(in: .whitespaces) }
         
         DispatchQueue.main.async {
-            var startedCharging = false
             var didChangeValues = false
             for part in parts {
                 if part.hasPrefix("L ") {
@@ -195,7 +192,7 @@ class AirPodsBatteryManager: ObservableObject {
                         let isCharging = (sign == "+")
                         if OverlayStateRelay.shared.airpodsLeftBattery != val || OverlayStateRelay.shared.airpodsLeftCharging != isCharging {
                             didChangeValues = true
-                            if !OverlayStateRelay.shared.airpodsLeftCharging && isCharging { startedCharging = true }
+                            
                             OverlayStateRelay.shared.airpodsLeftBattery = val
                             OverlayStateRelay.shared.airpodsLeftCharging = isCharging
                             MediaKeyManager.shared.btPoller?.processDevice(name: self.getCustomAirPodsName() + " (Left)", battery: val, forcePluggedIn: isCharging)
@@ -207,7 +204,7 @@ class AirPodsBatteryManager: ObservableObject {
                         let isCharging = (sign == "+")
                         if OverlayStateRelay.shared.airpodsRightBattery != val || OverlayStateRelay.shared.airpodsRightCharging != isCharging {
                             didChangeValues = true
-                            if !OverlayStateRelay.shared.airpodsRightCharging && isCharging { startedCharging = true }
+                            
                             OverlayStateRelay.shared.airpodsRightBattery = val
                             OverlayStateRelay.shared.airpodsRightCharging = isCharging
                             MediaKeyManager.shared.btPoller?.processDevice(name: self.getCustomAirPodsName() + " (Right)", battery: val, forcePluggedIn: isCharging)
@@ -219,7 +216,7 @@ class AirPodsBatteryManager: ObservableObject {
                         let isCharging = (sign == "+")
                         if OverlayStateRelay.shared.airpodsCaseBattery != val || OverlayStateRelay.shared.airpodsCaseCharging != isCharging {
                             didChangeValues = true
-                            if !OverlayStateRelay.shared.airpodsCaseCharging && isCharging { startedCharging = true }
+                            
                             OverlayStateRelay.shared.airpodsCaseBattery = val
                             OverlayStateRelay.shared.airpodsCaseCharging = isCharging
                             MediaKeyManager.shared.btPoller?.processDevice(name: self.getCustomAirPodsName() + " (Case)", battery: val, forcePluggedIn: isCharging)
@@ -273,14 +270,13 @@ class AirPodsBatteryManager: ObservableObject {
         let caseComp = extractComponent(name: "Case", from: line)
         
         DispatchQueue.main.async {
-            var startedCharging = false
             var didChangeValues = false
             
             if let l = leftComp {
                 let isCharging = (l.sign == "+")
                 if OverlayStateRelay.shared.airpodsLeftBattery != l.value || OverlayStateRelay.shared.airpodsLeftCharging != isCharging {
                     didChangeValues = true
-                    if !OverlayStateRelay.shared.airpodsLeftCharging && isCharging { startedCharging = true }
+                    
                     OverlayStateRelay.shared.airpodsLeftBattery = l.value
                     OverlayStateRelay.shared.airpodsLeftCharging = isCharging
                 }
@@ -289,7 +285,7 @@ class AirPodsBatteryManager: ObservableObject {
                 let isCharging = (r.sign == "+")
                 if OverlayStateRelay.shared.airpodsRightBattery != r.value || OverlayStateRelay.shared.airpodsRightCharging != isCharging {
                     didChangeValues = true
-                    if !OverlayStateRelay.shared.airpodsRightCharging && isCharging { startedCharging = true }
+                    
                     OverlayStateRelay.shared.airpodsRightBattery = r.value
                     OverlayStateRelay.shared.airpodsRightCharging = isCharging
                 }
@@ -298,7 +294,7 @@ class AirPodsBatteryManager: ObservableObject {
                 let isCharging = (c.sign == "+")
                 if OverlayStateRelay.shared.airpodsCaseBattery != c.value || OverlayStateRelay.shared.airpodsCaseCharging != isCharging {
                     didChangeValues = true
-                    if !OverlayStateRelay.shared.airpodsCaseCharging && isCharging { startedCharging = true }
+                    
                     OverlayStateRelay.shared.airpodsCaseBattery = c.value
                     OverlayStateRelay.shared.airpodsCaseCharging = isCharging
                 }

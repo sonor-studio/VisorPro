@@ -22,7 +22,12 @@ class CalendarEventManager: ObservableObject {
     
     func checkAccess() {
         let status = EKEventStore.authorizationStatus(for: .event)
-        self.hasAccess = (status == .authorized || status == .fullAccess)
+        if #available(macOS 14.0, *) {
+            self.hasAccess = (status == .fullAccess || status == .writeOnly)
+        } else {
+            // Fallback on earlier versions
+            self.hasAccess = (status == .authorized)
+        }
     }
     
     func requestAccess(completion: @escaping (Bool) -> Void) {

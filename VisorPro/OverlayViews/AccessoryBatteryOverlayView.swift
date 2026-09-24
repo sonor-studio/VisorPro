@@ -150,7 +150,7 @@ struct AccessoryBatteryOverlayView: View {
                         AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: isPluggedIn, customText: "%d%")
                     }
                 }
-                .padding(.leading, 26)
+                .padding(.leading, 23)
                 .padding(.trailing, 23)
                 .frame(maxWidth: .infinity, alignment: .leading)
             },

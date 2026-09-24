@@ -139,8 +139,11 @@ class VisorProWindowManager: ObservableObject {
     
     private init() {
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.cachedScreens = NSScreen.screens
-            self?.updateWindows()
+            guard let self = self else { return }
+            Task { @MainActor in
+                self.cachedScreens = NSScreen.screens
+                self.updateWindows()
+            }
         }
         
         // Listen for overlay state changes (show/hide) via targeted notification.
@@ -550,9 +553,9 @@ class VisorProWindowManager: ObservableObject {
                             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                             panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
                             panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
-                        }, completionHandler: { [weak self] in
+                        }, completionHandler: {
                             Task { @MainActor in
-                                self?.animatingEntryPanels.remove(windowId)
+                                self.animatingEntryPanels.remove(windowId)
                             }
                         })
                     }

@@ -9,7 +9,7 @@ final class NativeOverlayDismisser {
     static let shared = NativeOverlayDismisser()
     
     var enabled: Bool {
-        UserDefaults.standard.object(forKey: "dismissNativeOverlays") as? Bool ?? false
+        return true
     }
     
     var dismissFocusPill: Bool {
@@ -36,7 +36,6 @@ final class NativeOverlayDismisser {
     
     /// Starts the event-driven observer (zero CPU usage while idle)
     func start() {
-        print("🚀 [NativeOverlayDismisser] Starting instant AXObserver (Zero-battery mode)")
         setupInstantObservers()
     }
     
@@ -81,13 +80,11 @@ final class NativeOverlayDismisser {
             AXObserverAddNotification(obs, appElement, kAXWindowCreatedNotification as CFString, refcon)
             CFRunLoopAddSource(RunLoop.main.getCFRunLoop(), AXObserverGetRunLoopSource(obs), .defaultMode)
             axObservers[pid] = obs
-            print("👁️ [NativeOverlayDismisser] Active AXObserver attached to PID \(pid)")
         }
     }
     
     func handleWindowCreated(_ element: AXUIElement) {
         let identifier = getStringAttribute(element, kAXIdentifierAttribute as String)?.lowercased() ?? ""
-        let isBannerID = identifier.contains("banner") || identifier.contains("toast") || identifier.contains("notification")
         
         var isShapeMatch = false
         var sizeRef: CFTypeRef?
@@ -130,7 +127,6 @@ final class NativeOverlayDismisser {
         let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier?.lowercased() ?? ""
         let isControlCenter = bundleID.contains("controlcenter")
         // ---------------------
-        print("🔍 [WindowCreated] PID=\(pid) bundle=\(bundleID) id='\(identifier)' text='\(allText)'")
         
         var shouldIntercept = false
         
@@ -201,7 +197,7 @@ final class NativeOverlayDismisser {
             } else if !isListeningMode {
                 // It's a connection banner! Show the generic connection overlay!
                 MediaKeyManager.shared.lastSmartRoutingActionTime = Date() // Suppress volume overlay since audio is coming back to Mac
-                let deviceName = texts.first(where: { !$0.isEmpty && Int($0.replacingOccurrences(of: "%", with: "")) == nil && !$0.lowercased().contains("connected") && !$0.lowercased().contains("połączono") }) ?? "AirPods"
+                let deviceName = texts.first(where: { !$0.isEmpty && Int($0.replacingOccurrences(of: "%", with: "")) == nil && !$0.lowercased().contains("connected") }) ?? "AirPods"
                 MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: deviceName, deviceAddress: "AIRPODS_CONNECTION", isConnected: true)
             }
         }
@@ -319,15 +315,12 @@ final class NativeOverlayDismisser {
             let logURL = URL(fileURLWithPath: "/Users/macbook/Desktop/Dev/VisorPro/ax_click.log")
             try? logOutput.write(to: logURL, atomically: true, encoding: .utf8)
             
-            print("🚀 [SmartRouting] clickUndo finished. Found button? \(found)")
         } else {
-            print("🚀 [SmartRouting] clickUndo failed: lastSmartRoutingBanner is nil")
         }
         
         lastSmartRoutingBanner = nil
         
         if !found {
-            print("🚀 [SmartRouting] AX click failed/unavailable. System banner likely timed out.")
         }
     }
     
@@ -342,7 +335,6 @@ final class NativeOverlayDismisser {
             
             // If the element returns an error (like kAXErrorInvalidUIElement) or doesn't have a role, it's dead
             if error != .success {
-                print("🚀 [SmartRouting] System banner died! Hiding our Undo button.")
                 DispatchQueue.main.async {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         OverlayStateRelay.shared.isSmartRoutingUndoAvailable = false
@@ -360,7 +352,7 @@ final class NativeOverlayDismisser {
         listeningModeBannerTrackerTimer?.invalidate()
         var lastText = initialText
         
-        listeningModeBannerTrackerTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.2, repeats: true) { [weak self] timer in
+        listeningModeBannerTrackerTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.2, repeats: true) { timer in
             var roleRef: CFTypeRef?
             let error = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
             
@@ -384,7 +376,6 @@ final class NativeOverlayDismisser {
             extractText(element)
             
             if !lastText.isEmpty && !currentText.isEmpty && currentText != lastText {
-                print("🚀 [ListeningMode] Native banner text changed: \(currentText)")
                 lastText = currentText
                 DispatchQueue.main.async {
                     MediaKeyManager.shared.triggerAirPodsModeOverlayFromNativeTrigger()

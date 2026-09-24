@@ -68,7 +68,6 @@ class MediaObserver {
                             "title": title, "artist": artist, "album": album, "duration": duration, "elapsedTime": elapsedTime, "isPlaying": isPlaying, "appName": appName, "bundleId": bundleId
                         ]
                         if let data = try? JSONSerialization.data(withJSONObject: dict), let jsonStr = String(data: data, encoding: .utf8) {
-                            print(jsonStr)
                             fflush(stdout)
                         }
                     }
@@ -93,7 +92,6 @@ class MediaObserver {
         do {
             try scriptContent.write(toFile: scriptPath, atomically: true, encoding: .utf8)
         } catch {
-            LogManager.shared.log("Error in MediaObserver.swift: \(error)", level: "ERROR")
             return
         }
         
@@ -119,7 +117,6 @@ class MediaObserver {
         do {
             try helperProcess?.run()
         } catch {
-            LogManager.shared.log("Error in MediaObserver.swift: \(error)", level: "ERROR")
         }
     }
     
@@ -133,7 +130,7 @@ class MediaObserver {
         let appName = json["appName"] as? String ?? ""
         let bundleId = json["bundleId"] as? String ?? ""
         
-        if title.isEmpty || title == "Unknown Media" || title == "nieznane nagranie" {
+        if title.isEmpty || title == "Unknown Media" {
             let players = ["com.apple.quicktimeplayerx", "com.apple.iina", "org.videolan.vlc", "io.mpv"]
             if players.contains(bundleId.lowercased()) {
                 if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier?.lowercased() == bundleId.lowercased() }) {

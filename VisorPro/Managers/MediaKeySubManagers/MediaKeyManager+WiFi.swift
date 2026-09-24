@@ -143,7 +143,6 @@ extension MediaKeyManager {
             // Safety check: Do not query details if Wi-Fi is powered off.
             // Querying transmitRate or rssiValue when disconnected can cause EXC_BREAKPOINT in CoreWLAN.
             if (interface != nil && !interface!.powerOn()) || !self.wiFiIsConnected {
-                LogManager.shared.log("fetchDynamicWiFiDetails: Wi-Fi is disconnected or powered off, skipping detail fetch.", level: "WARNING")
                 DispatchQueue.main.async {
                     self.wiFiRSSI = nil
                     self.wiFiTxRate = nil
@@ -187,7 +186,6 @@ extension MediaKeyManager {
                                     if result == 0 {
                                         ipAddr = String(cString: hostname)
                                     } else {
-                                        LogManager.shared.log("fetchDynamicWiFiDetails: getnameinfo failed with error code \(result)", level: "ERROR")
                                     }
                                 }
                             }
@@ -196,7 +194,6 @@ extension MediaKeyManager {
                 }
                 freeifaddrs(ifaddr)
             } else {
-                LogManager.shared.log("fetchDynamicWiFiDetails: getifaddrs failed.", level: "ERROR")
             }
             
             DispatchQueue.main.async {

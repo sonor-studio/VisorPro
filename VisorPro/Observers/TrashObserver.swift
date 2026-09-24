@@ -65,8 +65,7 @@ class TrashObserver: ObservableObject {
                         let fileSizeBytes = Double(resourceValues?.fileSize ?? 0)
                         let fileSizeMB = isDir ? -1.0 : (fileSizeBytes / 1_000_000.0)
                         
-                        let ext = firstNew.pathExtension
-                        let icon = (ext.isEmpty || isDir) ? NSWorkspace.shared.icon(forFile: firstNew.path) : NSWorkspace.shared.icon(forFileType: ext)
+                        let icon = NSWorkspace.shared.icon(forFile: firstNew.path)
                         
                         DispatchQueue.main.async {
                             MediaKeyManager.shared.lastDeletedFileName = name
