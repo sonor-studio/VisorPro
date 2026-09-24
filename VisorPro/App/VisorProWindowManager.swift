@@ -603,7 +603,7 @@ class VisorProWindowManager: ObservableObject {
         }
         
         let panel = VisorProOverlayPanel(
-            contentRect: NSRect(x: 0, y: 0, width: w + 24, height: h + 25),
+            contentRect: NSRect(x: 0, y: 0, width: w + 8, height: h + 8),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
@@ -762,9 +762,7 @@ struct SingleOverlayContainer: View {
                 .applyTheme(mediaKeyManager.overlayTheme)
                 .swipeToDismiss(overlayId: overlay.id, isTopPosition: overlay.position.hasPrefix("top"))
         }
-        .padding(.top, 10)
-        .padding(.bottom, 15)
-        .padding(.horizontal, 12)
+        .padding(4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: overlay.position.hasPrefix("bottom") ? .bottom : .top)
     }
     
