@@ -469,11 +469,15 @@ extension MediaKeyManager {
         case "brightness": triggerBrightnessIndicator(playSound: false)
         case "keyboardBrightness": triggerKeyboardBrightnessIndicator(playSound: false)
         case "battery_charging", "battery_warning", "battery": 
-            if relay.showLowBatteryWarning || !relay.isPluggedIn {
+            if relay.showLowBatteryWarning {
                 triggerBatteryThresholdWarning(percentage: relay.currentBatteryPercentage, sound: "None")
+            } else if !relay.isPluggedIn {
+                triggerUnplugStatus()
             } else {
                 triggerChargingStatus()
             }
+        case "fileDeleted":
+            triggerFileDeletedOverlay()
         case "capsLock": triggerCapsLockIndicator(isOn: self.isCapsLockOn)
         case "theme": triggerThemeIndicator(isDark: self.isDarkMode)
         case "language": triggerLanguageIndicator(language: self.currentKeyboardLanguage)

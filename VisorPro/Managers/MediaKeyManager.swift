@@ -999,7 +999,7 @@ class MediaKeyManager: ObservableObject {
         withAnimation(.easeInOut(duration: 0.15)) {
             self.showFileDeletedIndicator = true
             self.notifyOverlayStateChanged()
-            OverlayStateRelay.shared.overlayTriggerTimes["fileDeleted"] = Date()
+            self.overlayTriggerTimes["fileDeleted"] = Date()
         }
         
         OverlayStateRelay.shared.trashEventId = UUID()
@@ -2020,6 +2020,7 @@ class MediaKeyManager: ObservableObject {
             }
             
             self.showMicIndicator = true
+            self.overlayTriggerTimes["mic"] = Date()
             self.notifyOverlayStateChanged()
             let micAllow = UserDefaults.standard.object(forKey: "micAllowExpansion") as? Bool ?? true
             if !micAllow { self.isMicExpanded = false }
@@ -2060,6 +2061,7 @@ class MediaKeyManager: ObservableObject {
             }
             
             self.showCameraIndicator = true
+            self.overlayTriggerTimes["camera"] = Date()
             self.notifyOverlayStateChanged()
             let camAllow = UserDefaults.standard.object(forKey: "cameraAllowExpansion") as? Bool ?? true
             if !camAllow { self.isCameraExpanded = false }
@@ -3205,9 +3207,6 @@ class MediaKeyManager: ObservableObject {
         return DispatchQueue.main.sync {
             if event.type == .flagsChanged {
                 // DIAGNOSTICS: Logging all flag changes (even Shift, Cmd) to catch the "invisible" Caps Lock
-                if event.keyCode != 57 {
-                    let capsState = event.modifierFlags.contains(.capsLock) ? "ON" : "OFF"
-                }
                 
                 if event.keyCode == 57 { // 57 to kVK_CapsLock
                     // Caps Lock events are now fully handled by RAW-HID (setupRawCapsLockDetection)

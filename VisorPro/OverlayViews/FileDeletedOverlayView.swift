@@ -202,10 +202,7 @@ struct FileDeletedOverlayView: View {
             end tell
             """
             if let script = NSAppleScript(source: scriptSource) {
-                var error: NSDictionary?
-                script.executeAndReturnError(&error)
-                if let err = error {
-                }
+                _ = script.executeAndReturnError(nil)
             }
         }
     }

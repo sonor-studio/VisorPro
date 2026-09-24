@@ -97,16 +97,32 @@ struct ChangelogSettingsView: View {
                             description: "Devices that report battery life now get their own dedicated settings, distinct from regular Bluetooth or peripheral connections.",
                             preview: ZStack {
                                 RoundedRectangle(cornerRadius: 12).fill(Color.teal.opacity(0.05))
-                                HStack(spacing: 16) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 10).fill(Color(NSColor.controlBackgroundColor)).frame(width: 40, height: 54).shadow(color: .black.opacity(0.1), radius: 2)
-                                        Image(systemName: "magicmouse.fill").foregroundColor(.teal).font(.system(size: 22))
+                                
+                                VStack(spacing: 0) {
+                                    // Row 1: Mouse
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "magicmouse.fill").foregroundColor(.teal).font(.system(size: 16)).frame(width: 20)
+                                        Text("Magic Mouse").font(.system(size: 12, weight: .semibold))
+                                        Spacer()
+                                        Image(systemName: "battery.75").foregroundColor(.secondary).font(.system(size: 14))
                                     }
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)).frame(width: 56, height: 40).shadow(color: .black.opacity(0.1), radius: 2)
-                                        Image(systemName: "keyboard.fill").foregroundColor(.teal).font(.system(size: 22))
+                                    .padding(.horizontal, 12).padding(.vertical, 10)
+                                    
+                                    Divider().padding(.leading, 40)
+                                    
+                                    // Row 2: Keyboard
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "keyboard.fill").foregroundColor(.teal).font(.system(size: 16)).frame(width: 20)
+                                        Text("Magic Keyboard").font(.system(size: 12, weight: .semibold))
+                                        Spacer()
+                                        Image(systemName: "battery.25").foregroundColor(.secondary).font(.system(size: 14))
                                     }
+                                    .padding(.horizontal, 12).padding(.vertical, 10)
                                 }
+                                .frame(width: 190)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(10)
+                                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
                             }
                         )
                         
@@ -174,49 +190,185 @@ struct ChangelogSettingsView: View {
                             description: "Introducing beautiful new overlays for Date changes, Trash capacity & deletion events, and precise CPU Temperature monitoring.",
                             preview: ZStack {
                                 RoundedRectangle(cornerRadius: 12).fill(Color.orange.opacity(0.05))
-                                HStack(spacing: -12) {
-                                    // Trash (Left)
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)).frame(width: 45, height: 50).shadow(color: .black.opacity(0.1), radius: 2)
-                                        VStack(spacing: 6) {
-                                            Image(systemName: "trash.fill").foregroundColor(.gray).font(.system(size: 18))
-                                            
-                                            ZStack(alignment: .leading) {
-                                                RoundedRectangle(cornerRadius: 1.5).fill(Color.secondary.opacity(0.2)).frame(width: 24, height: 3)
-                                                RoundedRectangle(cornerRadius: 1.5).fill(Color.gray).frame(width: 16, height: 3)
-                                            }
-                                        }
-                                    }.rotationEffect(.degrees(-12)).offset(y: 8)
+                                
+                                ZStack {
+                                    // Back (CPU)
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "thermometer.medium").foregroundColor(.orange).font(.system(size: 14))
+                                        Text("CPU at 48°C").font(.system(size: 11, weight: .bold))
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12).padding(.vertical, 8)
+                                    .frame(width: 140)
+                                    .background(Color(NSColor.controlBackgroundColor))
+                                    .cornerRadius(8)
+                                    .shadow(color: .black.opacity(0.08), radius: 3, y: 1)
+                                    .offset(x: -12, y: -28)
+                                    .rotationEffect(.degrees(-3))
                                     
-                                    // Date (Center, ON TOP)
-                                    ZStack(alignment: .top) {
-                                        RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)).frame(width: 55, height: 60).shadow(color: .black.opacity(0.15), radius: 4)
-                                        VStack(spacing: 4) {
-                                            ZStack {
-                                                RoundedRectangle(cornerRadius: 0).fill(Color.red.opacity(0.8)).frame(width: 55, height: 16)
-                                                HStack(spacing: 16) {
-                                                    Circle().fill(Color.white.opacity(0.5)).frame(width: 4, height: 4)
-                                                    Circle().fill(Color.white.opacity(0.5)).frame(width: 4, height: 4)
-                                                }
-                                            }
-                                            Text("15").font(.system(size: 20, weight: .bold)).foregroundColor(.primary).padding(.top, 2)
-                                        }
-                                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                                    }.zIndex(1)
+                                    // Middle (Trash)
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "trash.fill").foregroundColor(.secondary).font(.system(size: 14))
+                                        Text("Trash Emptied").font(.system(size: 11, weight: .bold))
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12).padding(.vertical, 8)
+                                    .frame(width: 140)
+                                    .background(Color(NSColor.controlBackgroundColor))
+                                    .cornerRadius(8)
+                                    .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
                                     
-                                    // Temperature (Right)
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8).fill(Color(NSColor.controlBackgroundColor)).frame(width: 45, height: 50).shadow(color: .black.opacity(0.1), radius: 2)
-                                        VStack(spacing: 5) {
-                                            Image(systemName: "thermometer.medium").foregroundColor(.orange).font(.system(size: 18))
-                                            HStack(alignment: .bottom, spacing: 2) {
-                                                RoundedRectangle(cornerRadius: 1).fill(Color.orange.opacity(0.4)).frame(width: 4, height: 6)
-                                                RoundedRectangle(cornerRadius: 1).fill(Color.orange.opacity(0.7)).frame(width: 4, height: 10)
-                                                RoundedRectangle(cornerRadius: 1).fill(Color.red.opacity(0.9)).frame(width: 4, height: 14)
-                                                RoundedRectangle(cornerRadius: 1).fill(Color.orange.opacity(0.8)).frame(width: 4, height: 8)
-                                            }
+                                    // Front (Date)
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "calendar.badge.clock").foregroundColor(.red).font(.system(size: 14))
+                                        Text("Wed, 24 Sep").font(.system(size: 11, weight: .bold))
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12).padding(.vertical, 8)
+                                    .frame(width: 140)
+                                    .background(Color(NSColor.controlBackgroundColor))
+                                    .cornerRadius(8)
+                                    .shadow(color: .black.opacity(0.12), radius: 5, y: 3)
+                                    .offset(x: 12, y: 28)
+                                    .rotationEffect(.degrees(3))
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "wifi",
+                            title: "Wi-Fi Speedtest",
+                            description: "The Wi-Fi overlay has been upgraded. You can now run a built-in speedtest directly from the expanded view to check your connection.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.blue.opacity(0.05))
+                                
+                                VStack(spacing: 8) {
+                                    // Header
+                                    HStack(alignment: .lastTextBaseline) {
+                                        Text("Speed Test Complete")
+                                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.blue)
+                                    }
+                                    .padding(.horizontal, 4)
+                                    
+                                    // Stats box
+                                    HStack(spacing: 4) {
+                                        // Download
+                                        VStack(alignment: .center, spacing: 2) {
+                                            Text("Download").font(.system(size: 8, weight: .medium, design: .rounded)).foregroundColor(.secondary)
+                                            Text("350.5").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundColor(.primary)
+                                            Text("Mbps").font(.system(size: 7, weight: .medium, design: .rounded)).foregroundColor(.secondary)
                                         }
-                                    }.rotationEffect(.degrees(12)).offset(y: 8)
+                                        .frame(maxWidth: .infinity)
+                                        
+                                        Divider().frame(height: 16)
+                                        
+                                        // Upload
+                                        VStack(alignment: .center, spacing: 2) {
+                                            Text("Upload").font(.system(size: 8, weight: .medium, design: .rounded)).foregroundColor(.secondary)
+                                            Text("120.2").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundColor(.primary)
+                                            Text("Mbps").font(.system(size: 7, weight: .medium, design: .rounded)).foregroundColor(.secondary)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        
+                                        Divider().frame(height: 16)
+                                        
+                                        // Ping
+                                        VStack(alignment: .center, spacing: 2) {
+                                            Text("Ping").font(.system(size: 8, weight: .medium, design: .rounded)).foregroundColor(.secondary)
+                                            Text("12").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundColor(.primary)
+                                            Text("ms").font(.system(size: 7, weight: .medium, design: .rounded)).foregroundColor(.secondary)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                    }
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 4)
+                                    .background(Color.primary.opacity(0.05))
+                                    .cornerRadius(6)
+                                }
+                                .padding(12)
+                                .frame(width: 220)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(10)
+                                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "arrow.uturn.backward",
+                            title: "Show Last Overlay",
+                            description: "Quickly recall your most recent overlay. This new action is available directly from the Menu Bar or can be triggered via a custom keyboard shortcut.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.indigo.opacity(0.05))
+                                
+                                // Background (previous) overlay, faded out
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color(NSColor.controlBackgroundColor))
+                                    .frame(width: 80, height: 50)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.indigo.opacity(0.2), lineWidth: 1)
+                                    )
+                                    .opacity(0.5)
+                                    .scaleEffect(0.85)
+                                    .offset(y: -15)
+                                    
+                                // Foreground (recalled) overlay
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color(NSColor.controlBackgroundColor))
+                                    .frame(width: 90, height: 60)
+                                    .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
+                                    .overlay(
+                                        VStack(spacing: 8) {
+                                            Image(systemName: "arrow.uturn.backward")
+                                                .font(.system(size: 22, weight: .semibold))
+                                                .foregroundColor(.indigo)
+                                            RoundedRectangle(cornerRadius: 2)
+                                                .fill(Color.indigo.opacity(0.4))
+                                                .frame(width: 30, height: 4)
+                                        }
+                                    )
+                                    .offset(y: 5)
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "bolt.fill",
+                            title: "Performance & Fixes",
+                            description: "Implemented massive visual refinements, UI logic and performance optimizations, and various bug and crash fixes for a smoother experience.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.yellow.opacity(0.05))
+                                
+                                ZStack(alignment: .bottomTrailing) {
+                                    // Window mock
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .frame(width: 100, height: 60)
+                                        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                        .overlay(
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.2)).frame(width: 60, height: 4)
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.yellow.opacity(0.4)).frame(width: 45, height: 4)
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.2)).frame(width: 35, height: 4)
+                                            }.padding(12), alignment: .topLeading
+                                        )
+                                        
+                                    // Lightning badge on the corner
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.white)
+                                            .frame(width: 22, height: 22)
+                                            .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                        
+                                        Image(systemName: "bolt.circle.fill")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(.yellow)
+                                    }
+                                    .offset(x: 8, y: 8)
                                 }
                             }
                         )

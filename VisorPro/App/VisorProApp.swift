@@ -21,6 +21,7 @@ func checkAXIsProcessTrustedReliably() -> Bool {
 @main
 struct VisorProApp: App {
     @StateObject private var mediaKeyManager = MediaKeyManager.shared
+    @StateObject private var relay = OverlayStateRelay.shared
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
@@ -79,7 +80,6 @@ struct VisorProApp: App {
                     Toggle("Date & Time", isOn: $mediaKeyManager.enableDate)
                     Toggle("System", isOn: $showSystemModule)
                     Toggle("Trash", isOn: $showTrashModule)
-                    Toggle("File Deleted", isOn: $mediaKeyManager.notifyOnFileDeleted)
                     
                     if !mediaKeyManager.accessorySettings.isEmpty {
                         Divider()
@@ -105,12 +105,12 @@ struct VisorProApp: App {
                     mediaKeyManager.showLastViewedOverlay()
                 }
                 .keyboardShortcut(keyEquiv, modifiers: mediaKeyManager.lastOverlayShortcutString.eventModifiers)
-                .disabled(!mediaKeyManager.canShowLastOverlay)
+                .disabled(!relay.canShowLastOverlay)
             } else {
                 Button("Show Last Overlay") {
                     mediaKeyManager.showLastViewedOverlay()
                 }
-                .disabled(!mediaKeyManager.canShowLastOverlay)
+                .disabled(!relay.canShowLastOverlay)
             }
             
             Divider()
