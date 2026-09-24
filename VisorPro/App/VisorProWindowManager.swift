@@ -603,7 +603,7 @@ class VisorProWindowManager: ObservableObject {
         }
         
         let panel = VisorProOverlayPanel(
-            contentRect: NSRect(x: 0, y: 0, width: w + 40, height: h + 60),
+            contentRect: NSRect(x: 0, y: 0, width: w + 24, height: h + 25),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
