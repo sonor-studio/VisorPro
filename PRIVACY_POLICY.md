@@ -41,9 +41,10 @@ macOS may ask for permission before VisorPro can access certain types of informa
 Since the Application does not currently collect any personal data from its users, the Administrator does not process personal data for marketing, profiling, or analytical purposes. Should a user contact the Administrator directly via e-mail for technical support, the user's e-mail address and the content of the correspondence will be processed solely based on Art. 6(1)(f) of the GDPR (legitimate interest of the Administrator) for the purpose of handling the inquiry.
 
 ## 6. Recipients of personal data and Third-Party Services
-While the Application itself does not collect personal data from free users, the purchase of VisorPro Premium and license management is handled by our Merchant of Record and payment provider, **Polar (Polar Software, Inc.)**.
+While the Application itself does not collect personal data from free users, we utilize the following third-party services to provide and improve our Application:
 
-When you purchase a license or activate Premium, Polar may collect and process personal data such as your email address, billing information, and license keys. The processing of this data is subject to Polar's Privacy Policy. We strongly encourage you to review it here: [https://polar.sh/legal/privacy](https://polar.sh/legal/privacy).
+* **Polar (Polar Software, Inc.):** Handles the purchase of VisorPro Premium and license management as our Merchant of Record. When you purchase a license, Polar may collect and process personal data such as your email address, billing information, and license keys. Review their privacy policy here: [https://polar.sh/legal/privacy](https://polar.sh/legal/privacy).
+* **Supabase:** Used to securely store user-submitted feedback, bug reports, and anonymous survey responses. Feedback is submitted anonymously. We strongly advise users not to include sensitive personal information in any free-text feedback fields. Review their privacy policy here: [https://supabase.com/privacy](https://supabase.com/privacy).
 
 The Administrator does not store your payment details or credit card information on their own servers. Data is not entrusted or sold to any other third parties.
 

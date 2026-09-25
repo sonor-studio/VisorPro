@@ -236,6 +236,65 @@ struct ChangelogSettingsView: View {
                         )
                         
                         ChangelogCard(
+                            icon: "hand.tap.fill",
+                            title: "Quick Action Buttons",
+                            description: "Perform immediate actions directly from overlays. Instantly restore deleted files, empty the trash, or revert keyboard language without expanding.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.blue.opacity(0.05))
+                                
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(false),
+                                    showProgressBar: false,
+                                    barColor: .indigo,
+                                    customWidth: 200,
+                                    isExpandable: false,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 14) {
+                                            Image(systemName: "moon.fill")
+                                                .font(.system(size: 18, weight: .medium))
+                                                .foregroundColor(.indigo)
+                                                .frame(width: 26, height: 24)
+                                            
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.secondary.opacity(0.4))
+                                                    .frame(width: 40, height: 6)
+                                                
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.primary.opacity(0.5))
+                                                    .frame(width: 65, height: 8)
+                                            }
+                                            
+                                            Spacer(minLength: 8)
+                                            
+                                            // Quick Action Button
+                                            ZStack {
+                                                Circle().fill(Color.secondary.opacity(0.15)).frame(width: 32, height: 32)
+                                                Image(systemName: "arrow.uturn.backward").foregroundColor(.secondary).font(.system(size: 14, weight: .bold))
+                                            }
+                                        }
+                                        .padding(.leading, 20)
+                                        .padding(.trailing, 18)
+                                    },
+                                    expandedContent: {
+                                        EmptyView()
+                                    }
+                                )
+                                .scaleEffect(0.90)
+                                .mask(
+                                    LinearGradient(gradient: Gradient(stops: [
+                                        .init(color: .clear, location: 0.0),
+                                        .init(color: .clear, location: 0.35),
+                                        .init(color: .black, location: 0.7),
+                                        .init(color: .black, location: 1.0)
+                                    ]), startPoint: .leading, endPoint: .trailing)
+                                )
+                                .offset(x: -40)
+                            }
+                        )
+                        
+                        ChangelogCard(
                             icon: "wifi",
                             title: "Wi-Fi Speedtest",
                             description: "The Wi-Fi overlay has been upgraded. You can now run a built-in speedtest directly from the expanded view to check your connection.",
