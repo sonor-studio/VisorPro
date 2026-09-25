@@ -1,3 +1,9 @@
+import SwiftUI
+import AppKit
+import Combine
+import ApplicationServices
+import Carbon
+import TelemetryClient
 //
 //  VisorProApp.swift
 //  VisorPro
@@ -5,12 +11,7 @@
 //  Created by MacBook on 18/07/2026.
 //
 
-import SwiftUI
 import Combine
-import ApplicationServices
-import Carbon
-import TelemetryClient
-
 let trustedAtLaunchGlobal = checkAXIsProcessTrustedReliably()
 
 func checkAXIsProcessTrustedReliably() -> Bool {
@@ -20,8 +21,6 @@ func checkAXIsProcessTrustedReliably() -> Bool {
 
 @main
 struct VisorProApp: App {
-    @StateObject private var mediaKeyManager = MediaKeyManager.shared
-    @StateObject private var relay = OverlayStateRelay.shared
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
@@ -45,85 +44,15 @@ struct VisorProApp: App {
         
         Settings {
             RootView()
-                .environmentObject(mediaKeyManager)
-                .environmentObject(OverlayStateRelay.shared)
+                .environmentObject(MediaKeyManager.shared)
+                .environmentObject(OverlayStateRelay.settingsProxy)
         }
         // Removed .windowResizability(.contentSize) from Settings so it remembers size
         
 
         
         MenuBarExtra("VisorPro", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
-            let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-            Button("Visor Pro v\(appVersion)") {}
-                .disabled(true)
-            
-            Divider()
-            
-            Menu("Quick Toggles") {
-                Toggle("Volume", isOn: $mediaKeyManager.enableVolume)
-                Toggle("Brightness", isOn: $mediaKeyManager.enableBrightness)
-                Toggle("Keyboard Brightness", isOn: $mediaKeyManager.enableKeyboardBrightness)
-                Toggle("Battery", isOn: $mediaKeyManager.enableBattery)
-                Toggle("Keyboard", isOn: $mediaKeyManager.enableKeyboard)
-                Toggle("Clipboard", isOn: $mediaKeyManager.enableClipboard)
-                
-                if !savedLicenseKey.isEmpty {
-                    Divider()
-                    Toggle("Media", isOn: $mediaKeyManager.enableMediaNotification)
-                    Toggle("Wi-Fi", isOn: $mediaKeyManager.enableWiFi)
-                    Toggle("Bluetooth", isOn: $mediaKeyManager.enableBluetooth)
-                    Toggle("Privacy", isOn: $mediaKeyManager.enablePrivacy)
-                    Toggle("Theme", isOn: $mediaKeyManager.enableTheme)
-                    Toggle("Focus Mode", isOn: $mediaKeyManager.enableFocus)
-                    Toggle("Peripherals", isOn: $mediaKeyManager.enablePeripheral)
-                    Toggle("Displays", isOn: $mediaKeyManager.enableDisplay)
-                    Toggle("Date & Time", isOn: $mediaKeyManager.enableDate)
-                    Toggle("System", isOn: $showSystemModule)
-                    Toggle("Trash", isOn: $showTrashModule)
-                    
-                    if !mediaKeyManager.accessorySettings.isEmpty {
-                        Divider()
-                        Menu("Accessories") {
-                            ForEach(Array(mediaKeyManager.accessorySettings.keys.sorted()), id: \.self) { key in
-                                Toggle(key, isOn: Binding(
-                                    get: { mediaKeyManager.accessorySettings[key]?.enableOverlay ?? true },
-                                    set: { newValue in
-                                        if var settings = mediaKeyManager.accessorySettings[key] {
-                                            settings.enableOverlay = newValue
-                                            mediaKeyManager.accessorySettings[key] = settings
-                                        }
-                                    }
-                                ))
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if let keyEquiv = mediaKeyManager.lastOverlayShortcutString.keyEquivalent {
-                Button("Show Last Overlay") {
-                    mediaKeyManager.showLastViewedOverlay()
-                }
-                .keyboardShortcut(keyEquiv, modifiers: mediaKeyManager.lastOverlayShortcutString.eventModifiers)
-                .disabled(!relay.canShowLastOverlay)
-            } else {
-                Button("Show Last Overlay") {
-                    mediaKeyManager.showLastViewedOverlay()
-                }
-                .disabled(!relay.canShowLastOverlay)
-            }
-            
-            Divider()
-            
-            Button("Dashboard") {
-                appDelegate.openDashboard()
-            }
-            
-            Divider()
-            
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
+            VisorProMenuBarContent(openDashboard: { appDelegate.openDashboard() })
         }
     }
 }
@@ -158,13 +87,17 @@ struct RootView: View {
                 consumeForceDashboardFlag()
             }
         }
-        .onReceive(Timer.publish(every: 3.0, on: .main, in: .common).autoconnect()) { _ in
-            let trusted = checkAXIsProcessTrustedReliably()
-            if isTrusted != trusted {
-                isTrusted = trusted
-                mediaKeyManager.isTrusted = trusted
+        .onReceive(Timer.publish(every: 30.0, on: .main, in: .common).autoconnect()) { _ in
+            DispatchQueue.global(qos: .utility).async {
+                let trusted = checkAXIsProcessTrustedReliably()
+                DispatchQueue.main.async {
+                    if isTrusted != trusted {
+                        isTrusted = trusted
+                        MediaKeyManager.shared.isTrusted = trusted
+                    }
+                    MediaKeyManager.shared.syncPermissions()
+                }
             }
-            mediaKeyManager.syncPermissions()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ResetDashboardForced"))) { _ in
             dashboardForced = false
@@ -174,7 +107,7 @@ struct RootView: View {
                 let trusted = checkAXIsProcessTrustedReliably()
                 if isTrusted != trusted {
                     isTrusted = trusted
-                    mediaKeyManager.isTrusted = trusted
+                    MediaKeyManager.shared.isTrusted = trusted
                 }
             }
         }
@@ -325,6 +258,97 @@ extension Data {
             fileHandle.write(self)
         } else {
             try write(to: fileURL, options: .atomic)
+        }
+    }
+}
+
+struct VisorProMenuBarContent: View {
+    @ObservedObject var mediaKeyManager = MediaKeyManager.shared
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
+    @AppStorage("showSystemModule") private var showSystemModule = true
+    @AppStorage("showTrashModule") private var showTrashModule = true
+    
+    @State private var canShowLastOverlay: Bool = false
+    
+    let openDashboard: () -> Void
+    
+    var body: some View {
+        let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        Button("Visor Pro v\(appVersion)") {}
+            .disabled(true)
+        
+        Divider()
+        
+        Menu("Quick Toggles") {
+            Toggle("Volume", isOn: $mediaKeyManager.enableVolume)
+            Toggle("Brightness", isOn: $mediaKeyManager.enableBrightness)
+            Toggle("Keyboard Brightness", isOn: $mediaKeyManager.enableKeyboardBrightness)
+            Toggle("Battery", isOn: $mediaKeyManager.enableBattery)
+            Toggle("Keyboard", isOn: $mediaKeyManager.enableKeyboard)
+            Toggle("Clipboard", isOn: $mediaKeyManager.enableClipboard)
+            
+            if !savedLicenseKey.isEmpty {
+                Divider()
+                Toggle("Media", isOn: $mediaKeyManager.enableMediaNotification)
+                Toggle("Wi-Fi", isOn: $mediaKeyManager.enableWiFi)
+                Toggle("Bluetooth", isOn: $mediaKeyManager.enableBluetooth)
+                Toggle("Privacy", isOn: $mediaKeyManager.enablePrivacy)
+                Toggle("Theme", isOn: $mediaKeyManager.enableTheme)
+                Toggle("Focus Mode", isOn: $mediaKeyManager.enableFocus)
+                Toggle("Peripherals", isOn: $mediaKeyManager.enablePeripheral)
+                Toggle("Displays", isOn: $mediaKeyManager.enableDisplay)
+                Toggle("Date & Time", isOn: $mediaKeyManager.enableDate)
+                Toggle("System", isOn: $showSystemModule)
+                Toggle("Trash", isOn: $showTrashModule)
+                
+                if !mediaKeyManager.accessorySettings.isEmpty {
+                    Divider()
+                    Menu("Accessories") {
+                        ForEach(Array(mediaKeyManager.accessorySettings.keys.sorted()), id: \.self) { key in
+                            Toggle(key, isOn: Binding(
+                                get: { mediaKeyManager.accessorySettings[key]?.enableOverlay ?? true },
+                                set: { newValue in
+                                    if var settings = mediaKeyManager.accessorySettings[key] {
+                                        settings.enableOverlay = newValue
+                                        mediaKeyManager.accessorySettings[key] = settings
+                                    }
+                                }
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+        
+        if let keyEquiv = mediaKeyManager.lastOverlayShortcutString.keyEquivalent {
+            Button("Show Last Overlay") {
+                mediaKeyManager.showLastViewedOverlay()
+            }
+            .keyboardShortcut(keyEquiv, modifiers: mediaKeyManager.lastOverlayShortcutString.eventModifiers)
+            .disabled(!canShowLastOverlay)
+        } else {
+            Button("Show Last Overlay") {
+                mediaKeyManager.showLastViewedOverlay()
+            }
+            .disabled(!canShowLastOverlay)
+        }
+        
+        Divider()
+        
+        Button("Dashboard") {
+            openDashboard()
+        }
+        
+        Divider()
+        
+        Button("Quit") {
+            NSApplication.shared.terminate(nil)
+        }
+        .onReceive(OverlayStateRelay.shared.$canShowLastOverlay) { val in
+            canShowLastOverlay = val
+        }
+        .onAppear {
+            canShowLastOverlay = OverlayStateRelay.shared.canShowLastOverlay
         }
     }
 }

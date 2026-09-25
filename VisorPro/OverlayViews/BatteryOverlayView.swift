@@ -173,9 +173,9 @@ struct BatteryOverlayView: View {
                     
 
                     let consumers: [(name: String, power: String, icon: NSImage?)] = isPreview ? [
-                        ("Final Cut Pro", "45.2", NSImage(named: "PreviewFinalCut")),
-                        ("Xcode", "32.5", NSImage(named: "PreviewXcode")),
-                        ("WindowServer", "18.1", NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil))
+                        (name: "Final Cut Pro", power: "45.2", icon: NSImage(named: "PreviewFinalCut")),
+                        (name: "Xcode", power: "32.5", icon: NSImage(named: "PreviewXcode")),
+                        (name: "WindowServer", power: "18.1", icon: NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil))
                     ] : overlayState.topBatteryConsumers
 
                     if (isWarningMode || isPreview) && !consumers.isEmpty {
@@ -187,8 +187,7 @@ struct BatteryOverlayView: View {
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
                             
-                            ForEach(0..<consumers.count, id: \.self) { i in
-                                let consumer = consumers[i]
+                            ForEach(Array(consumers.enumerated()), id: \.offset) { i, consumer in
                                 HStack {
                                     HStack(spacing: 8) {
                                         if let nsImage = consumer.icon {

@@ -10,6 +10,7 @@ import Foundation
 class FocusObserver {
     private weak var manager: MediaKeyManager?
     private var timer: Timer?
+    private let pollQueue = DispatchQueue(label: "com.visorpro.focus-poll", qos: .userInitiated)
     
     private var lastFocusActive: Bool = false
     private var lastModeName: String = "Focus"
@@ -65,29 +66,35 @@ class FocusObserver {
     private var lastFocusDetails: MediaKeyManager.ActiveFocusDetails?
     
     func startObserving() {
-        self.lastSeenSize = getAssertionsSize()
-        
-        // Initial state check
-        let (isActive, modeName, colorName, symbol, details) = getDetailedFocusStatus()
-        self.lastFocusActive = isActive
-        self.lastModeName = modeName
-        self.lastFocusColorName = colorName
-        self.lastFocusSymbol = symbol
-        self.lastFocusDetails = details
-        
-        DispatchQueue.main.async { [weak self] in
+        pollQueue.async { [weak self] in
             guard let self = self else { return }
             
-            self.manager?.isFocusModeActive = isActive
-            self.manager?.focusModeName = modeName
-            self.manager?.focusColorName = colorName
-            self.manager?.focusSymbol = symbol
-            if isActive {
-                self.manager?.activeFocusDetails = details
-            }
+            self.lastSeenSize = self.getAssertionsSize()
             
-            self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-                self?.pollFocusStatus()
+            // Initial state check
+            let (isActive, modeName, colorName, symbol, details) = self.getDetailedFocusStatus()
+            self.lastFocusActive = isActive
+            self.lastModeName = modeName
+            self.lastFocusColorName = colorName
+            self.lastFocusSymbol = symbol
+            self.lastFocusDetails = details
+            
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                self.manager?.isFocusModeActive = isActive
+                self.manager?.focusModeName = modeName
+                self.manager?.focusColorName = colorName
+                self.manager?.focusSymbol = symbol
+                if isActive {
+                    self.manager?.activeFocusDetails = details
+                }
+                
+                self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                    self?.pollQueue.async {
+                        self?.pollFocusStatus()
+                    }
+                }
             }
         }
     }

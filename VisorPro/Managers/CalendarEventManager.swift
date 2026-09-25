@@ -49,21 +49,23 @@ class CalendarEventManager: ObservableObject {
     }
     
     func fetchTodaysEvents() {
-        guard hasAccess else { return }
-        
-        let calendar = Calendar.current
-        let today = Date()
-        let startDate = calendar.startOfDay(for: today)
-        guard let endDate = calendar.date(byAdding: DateComponents(day: 1, second: -1), to: startDate) else { return }
-        
-        let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: nil)
-        var events = eventStore.events(matching: predicate)
-        
-        // Filter out all-day events if preferred, or sort them
-        events.sort { $0.startDate < $1.startDate }
-        
-        DispatchQueue.main.async {
-            self.todaysEvents = events
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self, self.hasAccess else { return }
+            
+            let calendar = Calendar.current
+            let today = Date()
+            let startDate = calendar.startOfDay(for: today)
+            guard let endDate = calendar.date(byAdding: DateComponents(day: 1, second: -1), to: startDate) else { return }
+            
+            let predicate = self.eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: nil)
+            var events = self.eventStore.events(matching: predicate)
+            
+            // Filter out all-day events if preferred, or sort them
+            events.sort { $0.startDate < $1.startDate }
+            
+            DispatchQueue.main.async {
+                self.todaysEvents = events
+            }
         }
     }
 }

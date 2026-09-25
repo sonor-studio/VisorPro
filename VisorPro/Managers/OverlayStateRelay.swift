@@ -1,3 +1,4 @@
+import SwiftUI
 //
 //  OverlayStateRelay.swift
 //  VisorPro
@@ -13,7 +14,6 @@
 //
 
 import Foundation
-import SwiftUI
 import Combine
 import IOKit
 
@@ -21,14 +21,19 @@ import IOKit
 class OverlayStateRelay: ObservableObject {
     static let shared = OverlayStateRelay()
     
+    /// A separate instance injected into the Settings window as @EnvironmentObject.
+    /// It is NEVER updated, so its objectWillChange never fires, preventing
+    /// the entire Settings view tree from being invalidated on overlay state changes.
+    /// Preview overlay views in settings use isPreview: true and show static mock data,
+    /// so they don't need live values from the relay.
+    static let settingsProxy = OverlayStateRelay()
+    
     // MARK: - Swipe state (moved from MediaKeyManager earlier)
     
     /// Current swipe offset per overlay, used by VisorProWindowManager to position panels
     /// and by ScrollSwipeModifier to track gesture progress.
-    @Published var swipeOffsets: [String: CGFloat] = [:]
     
     /// Set of overlay IDs currently being swiped, prevents timer-based dismissal during active gesture.
-    @Published var activeSwipeIds: Set<String> = []
     
     /// Whether the user is hovering a scrollable sub-view (e.g. clipboard history list in CopyOverlayView),
     /// which should prevent swipe-to-dismiss from intercepting scroll events.
@@ -205,17 +210,9 @@ class OverlayStateRelay: ObservableObject {
     
     @Published var showRamIndicator: Bool = false
     @Published var showCpuIndicator: Bool = false
-    @Published var cpuTemperature: Double = 0.0
-    @Published var cpuTempHistory: [Double] = Array(repeating: 0.0, count: 16)
-    @Published var cpuTopProcesses: [(name: String, cpuPercent: Double, icon: NSImage?)] = []
     @Published var cpuEventId = UUID()
 
     @Published var ramEventId = UUID()
-    @Published var ramUsagePercent: Double = 0.0
-    @Published var totalRamGB: Double = 0.0
-    @Published var usedRamGB: Double = 0.0
-    @Published var ramUsageHistory: [Double] = []
-    @Published var ramTopProcesses: [(name: String, ramGB: Double, icon: NSImage?)] = []
     
     // MARK: - Trash runtime
     
@@ -300,4 +297,25 @@ class OverlayStateRelay: ObservableObject {
     
     // MARK: - Last overlay state (moved from MediaKeyManager to avoid dashboard re-renders)
     @Published var canShowLastOverlay: Bool = false
+}
+
+class SwipeStateRelay: ObservableObject {
+    static let shared = SwipeStateRelay()
+    
+    @Published var swipeOffsets: [String: CGFloat] = [:]
+    @Published var activeSwipeIds: Set<String> = []
+}
+
+class SystemMetricsRelay: ObservableObject {
+    static let shared = SystemMetricsRelay()
+    
+    @Published var cpuTemperature: Double = 0.0
+    @Published var cpuTempHistory: [Double] = Array(repeating: 0.0, count: 16)
+    @Published var cpuTopProcesses: [(name: String, cpuPercent: Double, icon: NSImage?)] = []
+    
+    @Published var ramUsagePercent: Double = 0.0
+    @Published var totalRamGB: Double = 0.0
+    @Published var usedRamGB: Double = 0.0
+    @Published var ramUsageHistory: [Double] = []
+    @Published var ramTopProcesses: [(name: String, ramGB: Double, icon: NSImage?)] = []
 }

@@ -149,7 +149,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     
     var isPreview: Bool = false
     @Binding var isExpanded: Bool    
-    @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
+
 
     var showProgressBar: Bool = false
     var progress: CGFloat = 0
@@ -222,7 +222,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         .frame(width: width, height: baseHeight)
                         .allowsHitTesting(false)
                         .animation(nil, value: isExpanded)
-                        .drawingGroup()
+        
                         
                     HStack(spacing: 0) {
                         if onLeftTap != nil {
@@ -336,7 +336,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 }
                 
                 ZStack {
-                    Color.clear.background(.thinMaterial)
+                    (colorScheme == .dark ? Color(white: 0.20, opacity: 0.98) : Color(white: 0.96, opacity: 0.98))
                         .clipShape(BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight))
                     
                     if colorScheme == .dark {
@@ -400,14 +400,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 if isExpandable {
                                     if !isAnimating {
                                         isAnimating = true
-                                        if enableBouncyExpansion {
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                                isExpanded.toggle()
-                                            }
-                                        } else {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                isExpanded.toggle()
-                                            }
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            isExpanded.toggle()
                                         }
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                                             isAnimating = false
@@ -424,13 +418,13 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         )
 
         .background(
-            (colorScheme == .dark ? Color.black.opacity(0.25) : Color.white.opacity(0.55))
-                .background(.thickMaterial)
+            (colorScheme == .dark ? Color(white: 0.12, opacity: 0.98) : Color(white: 0.90, opacity: 0.98))
                 .clipShape(BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize, frameOffset: .zero, isRightSide: closeButtonOnRight))
                 .overlay(
                     BendedCornerShape(radius: outerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize, frameOffset: .zero, isRightSide: closeButtonOnRight)
                         .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.05) : Color.white.opacity(0.9), style: StrokeStyle(lineWidth: colorScheme == .dark ? 1 : 1.5, lineCap: .round, lineJoin: .round))
                 )
+
         )
         .background(
             ZStack {
@@ -467,7 +461,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         }
         .onChange(of: isExpandable) { _, newValue in
             if !newValue && isExpanded {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded = false
                 }
             }

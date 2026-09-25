@@ -1,5 +1,5 @@
-import Foundation
 import AppKit
+import Foundation
 import Combine
 import SwiftUI
 import SMCKit
@@ -32,30 +32,30 @@ class CpuObserver: ObservableObject {
     }
     
     private func startObserving() {
-        // Poll every 3 seconds
-        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+        // Poll every 5 seconds
+        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             self?.updateTemperature()
         }
         updateTemperature()
     }
     
     private func updateTemperature() {
-        // Run asynchronous task because SMCKit uses actors (async/await)
-        Task {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
             var currentTemp = 45.0 // Default value in case of read error
             
             do {
-                if let knownKey = workingSensorKey {
+                if let knownKey = self.workingSensorKey {
                     // If we already know which sensor works on this Mac, use it directly
-                    let temp: Float = try SMCKit.shared.read(toFourCharCode(knownKey))
+                    let temp: Float = try SMCKit.shared.read(self.toFourCharCode(knownKey))
                     currentTemp = Double(temp)
                 } else {
                     // First run: find a working sensor
-                    for key in sensorKeys {
+                    for key in self.sensorKeys {
                         do {
-                            let temp: Float = try SMCKit.shared.read(toFourCharCode(key))
+                            let temp: Float = try SMCKit.shared.read(self.toFourCharCode(key))
                             if temp > 10.0 { // Ensure the reading is reasonable (not 0.0)
-                                workingSensorKey = key
+                                self.workingSensorKey = key
                                 currentTemp = Double(temp)
                                 break
                             }
@@ -66,11 +66,11 @@ class CpuObserver: ObservableObject {
                     }
                 }
             } catch {
-                workingSensorKey = nil // Reset key on failure so it searches again next time
+                self.workingSensorKey = nil // Reset key on failure so it searches again next time
             }
             
             // Update UI on main thread
-            await MainActor.run {
+            DispatchQueue.main.async {
                 MediaKeyManager.shared.triggerCpuTempOverlay(temp: currentTemp)
             }
             self.fetchTopProcesses()
@@ -80,8 +80,8 @@ class CpuObserver: ObservableObject {
         private func fetchTopProcesses() {
         DispatchQueue.global(qos: .background).async {
             let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/usr/bin/top")
-            task.arguments = ["-l", "2", "-n", "10", "-o", "cpu", "-stats", "pid,cpu,command"]
+            task.executableURL = URL(fileURLWithPath: "/bin/ps")
+            task.arguments = ["-c", "-ax", "-o", "pid,pcpu,comm"]
             
             let pipe = Pipe()
             task.standardOutput = pipe
@@ -90,11 +90,7 @@ class CpuObserver: ObservableObject {
                 try task.run()
                 let data = pipe.fileHandleForReading.readDataToEndOfFile()
                 if let output = String(data: data, encoding: .utf8) {
-                    // top -l 2 returns two samples. We are interested in the second one, as the first is usually inaccurate.
-                    let components = output.components(separatedBy: "PID    %CPU COMMAND")
-                    guard components.count >= 3, let lastBlock = components.last else { return }
-                    
-                    let lines = lastBlock.components(separatedBy: .newlines)
+                    let lines = output.components(separatedBy: .newlines).dropFirst()
                     var processes: [(name: String, cpuPercent: Double, icon: NSImage?)] = []
                     
                     for line in lines {
@@ -107,33 +103,35 @@ class CpuObserver: ObservableObject {
                         if let pid = Int32(parts[0]), let pcpu = Double(parts[1]) {
                             if pcpu > 1.0 { // Skip processes using < 1% CPU
                                 var name = parts[2...].joined(separator: " ")
-                                var icon: NSImage? = nil
-                                
-                                if let app = NSRunningApplication(processIdentifier: pid), let localized = app.localizedName, !localized.isEmpty {
-                                    name = localized
-                                    icon = app.icon
-                                    if name.contains("Safari") && (icon == nil || name == "Safari Web Content") {
-                                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
-                                            icon = NSWorkspace.shared.icon(forFile: url.path)
+                                let icon: NSImage? = ProcessIconCache.icon(for: name) {
+                                    var resolvedIcon: NSImage? = nil
+                                    if let app = NSRunningApplication(processIdentifier: pid), let localized = app.localizedName, !localized.isEmpty {
+                                        name = localized
+                                        resolvedIcon = app.icon
+                                        if name.contains("Safari") && (resolvedIcon == nil || name == "Safari Web Content") {
+                                            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+                                                resolvedIcon = NSWorkspace.shared.icon(forFile: url.path)
+                                            }
                                         }
-                                    }
-                                } else {
-                                    if name.hasPrefix("com.apple.WebKit.") {
-                                        name = name.replacingOccurrences(of: "com.apple.WebKit.", with: "Safari ")
-                                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
-                                            icon = NSWorkspace.shared.icon(forFile: url.path)
-                                        }
-                                    } else if name.hasPrefix("com.apple.") {
-                                        name = name.replacingOccurrences(of: "com.apple.", with: "Apple ")
-                                        icon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
-                                    } else if name == "kernel_task" || name == "WindowServer" || name == "launchd" {
-                                        icon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
-                                    } else if name == "top" {
-                                        continue // Hide the diagnostic tool itself
                                     } else {
-                                        icon = NSImage(systemSymbolName: "terminal.fill", accessibilityDescription: nil)
+                                        if name.hasPrefix("com.apple.WebKit.") {
+                                            name = name.replacingOccurrences(of: "com.apple.WebKit.", with: "Safari ")
+                                            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+                                                resolvedIcon = NSWorkspace.shared.icon(forFile: url.path)
+                                            }
+                                        } else if name.hasPrefix("com.apple.") {
+                                            name = name.replacingOccurrences(of: "com.apple.", with: "Apple ")
+                                            resolvedIcon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
+                                        } else if name == "kernel_task" || name == "WindowServer" || name == "launchd" {
+                                            resolvedIcon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
+                                        } else if name != "top" {
+                                            resolvedIcon = NSImage(systemSymbolName: "terminal.fill", accessibilityDescription: nil)
+                                        }
                                     }
+                                    return resolvedIcon
                                 }
+                                
+                                if name == "top" { continue }
                                 
                                 processes.append((name: name, cpuPercent: pcpu, icon: icon))
                             }
@@ -150,5 +148,27 @@ class CpuObserver: ObservableObject {
             } catch {
             }
         }
+    }
+}
+
+class ProcessIconCache {
+    static var cache: [String: NSImage] = [:]
+    private static let lock = NSLock()
+    
+    static func icon(for name: String, resolve: () -> NSImage?) -> NSImage? {
+        lock.lock()
+        if let cached = cache[name] {
+            lock.unlock()
+            return cached
+        }
+        lock.unlock()
+        
+        let img = resolve()
+        if let img = img {
+            lock.lock()
+            cache[name] = img
+            lock.unlock()
+        }
+        return img
     }
 }

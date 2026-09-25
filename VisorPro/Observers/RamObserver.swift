@@ -14,6 +14,7 @@ class RamObserver: ObservableObject {
     private var timer: Timer?
     private var hasTriggeredAlert = false
     private var tickCount = 0
+    private let pollQueue = DispatchQueue(label: "com.visorpro.ram-poll", qos: .userInitiated)
     
     private init() {
         self.totalRamGB = Double(ProcessInfo.processInfo.physicalMemory) / (1024 * 1024 * 1024)
@@ -22,15 +23,19 @@ class RamObserver: ObservableObject {
     
     func startMonitoring() {
         timer?.invalidate()
-        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            self?.pollQueue.async {
+                self?.tick()
+            }
+        }
+        pollQueue.async { [weak self] in
             self?.tick()
         }
-        tick()
     }
     
     private func tick() {
-        let isVisible = MediaKeyManager.shared.showRamIndicator
-        if isVisible || tickCount % 5 == 0 {
+        let isVisible = OverlayStateRelay.shared.showRamIndicator
+        if isVisible || tickCount % 3 == 0 {
             updateRamUsage()
         }
         tickCount += 1
@@ -144,33 +149,33 @@ class RamObserver: ObservableObject {
                             if gb > 0.05 { // Skip tiny processes
                                 var name = parts[2...].joined(separator: " ")
                                 
-                                // Try to get a friendly name
-                                var icon: NSImage? = nil
-                                
-                                if let app = NSRunningApplication(processIdentifier: pid), let localized = app.localizedName, !localized.isEmpty {
-                                    name = localized
-                                    icon = app.icon
-                                    if name.contains("Safari") && (icon == nil || name == "Safari Web Content") {
-                                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
-                                            icon = NSWorkspace.shared.icon(forFile: url.path)
+                                let icon: NSImage? = ProcessIconCache.icon(for: name) {
+                                    var resolvedIcon: NSImage? = nil
+                                    if let app = NSRunningApplication(processIdentifier: pid), let localized = app.localizedName, !localized.isEmpty {
+                                        name = localized
+                                        resolvedIcon = app.icon
+                                        if name.contains("Safari") && (resolvedIcon == nil || name == "Safari Web Content") {
+                                            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+                                                resolvedIcon = NSWorkspace.shared.icon(forFile: url.path)
+                                            }
                                         }
-                                    }
-                                } else {
-                                    // Fallback text replacements for common technical names
-                                    if name.hasPrefix("com.apple.WebKit.") {
-                                        name = name.replacingOccurrences(of: "com.apple.WebKit.", with: "Safari ")
-                                        // Let's try to find Safari
-                                        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
-                                            icon = NSWorkspace.shared.icon(forFile: url.path)
-                                        }
-                                    } else if name.hasPrefix("com.apple.") {
-                                        name = name.replacingOccurrences(of: "com.apple.", with: "Apple ")
-                                        icon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
-                                    } else if name == "kernel_task" || name == "WindowServer" || name == "launchd" {
-                                        icon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
                                     } else {
-                                        icon = NSImage(systemSymbolName: "terminal.fill", accessibilityDescription: nil)
+                                        // Fallback text replacements for common technical names
+                                        if name.hasPrefix("com.apple.WebKit.") {
+                                            name = name.replacingOccurrences(of: "com.apple.WebKit.", with: "Safari ")
+                                            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+                                                resolvedIcon = NSWorkspace.shared.icon(forFile: url.path)
+                                            }
+                                        } else if name.hasPrefix("com.apple.") {
+                                            name = name.replacingOccurrences(of: "com.apple.", with: "Apple ")
+                                            resolvedIcon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
+                                        } else if name == "kernel_task" || name == "WindowServer" || name == "launchd" {
+                                            resolvedIcon = NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)
+                                        } else {
+                                            resolvedIcon = NSImage(systemSymbolName: "terminal.fill", accessibilityDescription: nil)
+                                        }
                                     }
+                                    return resolvedIcon
                                 }
                                 
                                 processes.append((name: name, ramGB: gb, icon: icon))

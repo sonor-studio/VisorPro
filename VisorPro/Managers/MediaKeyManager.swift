@@ -332,6 +332,8 @@ class MediaKeyManager: ObservableObject {
             if oldValue != isTrusted {
                 DispatchQueue.main.async {
                     self.setupMediaKeyTap()
+                    self.setupStandardKeyTap()
+                    self.setupRawCapsLockDetection()
                 }
             }
         }
@@ -351,16 +353,16 @@ class MediaKeyManager: ObservableObject {
     // These delegate to OverlayStateRelay so changes don't fire MediaKeyManager.objectWillChange,
     // preventing dashboard re-renders on every swipe/hover event.
     var swipeOffsets: [String: CGFloat] {
-        get { OverlayStateRelay.shared.swipeOffsets }
-        set { OverlayStateRelay.shared.swipeOffsets = newValue }
+        get { SwipeStateRelay.shared.swipeOffsets }
+        set { SwipeStateRelay.shared.swipeOffsets = newValue }
     }
     var isHoveringScrollView: Bool {
         get { OverlayStateRelay.shared.isHoveringScrollView }
         set { OverlayStateRelay.shared.isHoveringScrollView = newValue }
     }
     var activeSwipeIds: Set<String> {
-        get { OverlayStateRelay.shared.activeSwipeIds }
-        set { OverlayStateRelay.shared.activeSwipeIds = newValue }
+        get { SwipeStateRelay.shared.activeSwipeIds }
+        set { SwipeStateRelay.shared.activeSwipeIds = newValue }
     }
     var notificationTimers: [String: Timer] = [:]
     private var overlayHideTimers: [String: Timer] = [:]
@@ -863,16 +865,16 @@ class MediaKeyManager: ObservableObject {
         didSet { UserDefaults.standard.set(highCpuTempThreshold, forKey: "highCpuTempThreshold") }
     }
     var cpuTemperature: Double {
-        get { OverlayStateRelay.shared.cpuTemperature }
-        set { OverlayStateRelay.shared.cpuTemperature = newValue }
+        get { SystemMetricsRelay.shared.cpuTemperature }
+        set { SystemMetricsRelay.shared.cpuTemperature = newValue }
     }
     var cpuTempHistory: [Double] {
-        get { OverlayStateRelay.shared.cpuTempHistory }
-        set { OverlayStateRelay.shared.cpuTempHistory = newValue }
+        get { SystemMetricsRelay.shared.cpuTempHistory }
+        set { SystemMetricsRelay.shared.cpuTempHistory = newValue }
     }
     var cpuTopProcesses: [(name: String, cpuPercent: Double, icon: NSImage?)] {
-        get { OverlayStateRelay.shared.cpuTopProcesses }
-        set { OverlayStateRelay.shared.cpuTopProcesses = newValue }
+        get { SystemMetricsRelay.shared.cpuTopProcesses }
+        set { SystemMetricsRelay.shared.cpuTopProcesses = newValue }
     }
     var showCpuIndicator: Bool {
         get { OverlayStateRelay.shared.showCpuIndicator }
@@ -899,24 +901,24 @@ class MediaKeyManager: ObservableObject {
     }
     var hideRamIndicatorTask: DispatchWorkItem?
     var ramUsagePercent: Double {
-        get { OverlayStateRelay.shared.ramUsagePercent }
-        set { OverlayStateRelay.shared.ramUsagePercent = newValue }
+        get { SystemMetricsRelay.shared.ramUsagePercent }
+        set { SystemMetricsRelay.shared.ramUsagePercent = newValue }
     }
     var totalRamGB: Double {
-        get { OverlayStateRelay.shared.totalRamGB }
-        set { OverlayStateRelay.shared.totalRamGB = newValue }
+        get { SystemMetricsRelay.shared.totalRamGB }
+        set { SystemMetricsRelay.shared.totalRamGB = newValue }
     }
     var usedRamGB: Double {
-        get { OverlayStateRelay.shared.usedRamGB }
-        set { OverlayStateRelay.shared.usedRamGB = newValue }
+        get { SystemMetricsRelay.shared.usedRamGB }
+        set { SystemMetricsRelay.shared.usedRamGB = newValue }
     }
     var ramUsageHistory: [Double] {
-        get { OverlayStateRelay.shared.ramUsageHistory }
-        set { OverlayStateRelay.shared.ramUsageHistory = newValue }
+        get { SystemMetricsRelay.shared.ramUsageHistory }
+        set { SystemMetricsRelay.shared.ramUsageHistory = newValue }
     }
     var ramTopProcesses: [(name: String, ramGB: Double, icon: NSImage?)] {
-        get { OverlayStateRelay.shared.ramTopProcesses }
-        set { OverlayStateRelay.shared.ramTopProcesses = newValue }
+        get { SystemMetricsRelay.shared.ramTopProcesses }
+        set { SystemMetricsRelay.shared.ramTopProcesses = newValue }
     }
     
     // Trash Monitoring
@@ -2190,7 +2192,7 @@ class MediaKeyManager: ObservableObject {
     
     func hideBatteryOverlay() {
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: NSNotification.Name("DismissOverlay_battery"), object: nil)
+            self.forceHide(overlayId: "battery")
             if self.isTestingBattery {
                 // Delay testing state reset until after the exit animation finishes
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -2872,10 +2874,23 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
+    private var cachedFullScreenResult: Bool = false
+    private var cachedFullScreenTime: Date = .distantPast
+    
     private func isAnyAppInFullScreen() -> Bool {
-        guard let windowInfoList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return false }
+        // Return cached result if fresh (within 2 seconds)
+        let now = Date()
+        if now.timeIntervalSince(cachedFullScreenTime) < 2.0 {
+            return cachedFullScreenResult
+        }
         
-        let screens = NSScreen.screens
+        guard let windowInfoList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            cachedFullScreenResult = false
+            cachedFullScreenTime = now
+            return false
+        }
+        
+        let screens = VisorProWindowManager.shared.cachedScreens
         for info in windowInfoList {
             guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
             guard let boundsDict = info[kCGWindowBounds as String] as? [String: CGFloat],
@@ -2891,11 +2906,15 @@ class MediaKeyManager: ObservableObject {
                         if ownerName == "Dock" || ownerName == "Finder" || ownerName == "Window Server" {
                             continue
                         }
+                        cachedFullScreenResult = true
+                        cachedFullScreenTime = now
                         return true
                     }
                 }
             }
         }
+        cachedFullScreenResult = false
+        cachedFullScreenTime = now
         return false
     }
     private var initialPercentageWhenPluggedIn: Int? = nil
@@ -3289,6 +3308,7 @@ class MediaKeyManager: ObservableObject {
     
     func setupRawCapsLockDetection() {
         guard self.isTrusted else { return }
+        if rawHIDManager != nil { return } // Zabezpieczenie przed podwójną rejestracją
         
         rawHIDManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
         guard let manager = rawHIDManager else { return }
@@ -3665,6 +3685,11 @@ class MediaKeyManager: ObservableObject {
                 CFRunLoopRemoveSource(runLoop, source, .defaultMode)
             }
             CFRunLoopStop(runLoop)
+        }
+        
+        if let rawManager = rawHIDManager {
+            IOHIDManagerClose(rawManager, IOOptionBits(kIOHIDOptionsTypeNone))
+            self.rawHIDManager = nil
         }
     }
     

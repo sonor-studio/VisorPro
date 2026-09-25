@@ -2,7 +2,6 @@ import SwiftUI
 
 struct AccessorySettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @EnvironmentObject var overlayState: OverlayStateRelay
     let deviceName: String
     
     // We use a local state to bind to, and sync it with MediaKeyManager
@@ -88,7 +87,7 @@ struct AccessorySettingsView: View {
                                             .foregroundColor(.secondary)
                                         
                                         if let pct = mediaKeyManager.accessoryBatteryLevels["\(deviceName) (Left)"] {
-                                            let isCharging = (overlayState.airpodsDeviceName == deviceName) ? overlayState.airpodsLeftCharging : (mediaKeyManager.accessoryBatteryCharging["\(deviceName) (Left)"] == true)
+                                            let isCharging = (OverlayStateRelay.shared.airpodsDeviceName == deviceName) ? OverlayStateRelay.shared.airpodsLeftCharging : (mediaKeyManager.accessoryBatteryCharging["\(deviceName) (Left)"] == true)
                                             if isCharging {
                                                 Image(systemName: "bolt.fill").font(.system(size: 11)).foregroundColor(.secondary)
                                             } else {
@@ -120,7 +119,7 @@ struct AccessorySettingsView: View {
                                             .foregroundColor(.secondary)
                                         
                                         if let pct = mediaKeyManager.accessoryBatteryLevels["\(deviceName) (Case)"] {
-                                            let isCharging = (overlayState.airpodsDeviceName == deviceName) ? overlayState.airpodsCaseCharging : (mediaKeyManager.accessoryBatteryCharging["\(deviceName) (Case)"] == true)
+                                            let isCharging = (OverlayStateRelay.shared.airpodsDeviceName == deviceName) ? OverlayStateRelay.shared.airpodsCaseCharging : (mediaKeyManager.accessoryBatteryCharging["\(deviceName) (Case)"] == true)
                                             if isCharging {
                                                 Image(systemName: "bolt.fill").font(.system(size: 11)).foregroundColor(.secondary)
                                             } else {
@@ -152,7 +151,7 @@ struct AccessorySettingsView: View {
                                             .foregroundColor(.secondary)
                                         
                                         if let pct = mediaKeyManager.accessoryBatteryLevels["\(deviceName) (Right)"] {
-                                            let isCharging = (overlayState.airpodsDeviceName == deviceName) ? overlayState.airpodsRightCharging : (mediaKeyManager.accessoryBatteryCharging["\(deviceName) (Right)"] == true)
+                                            let isCharging = (OverlayStateRelay.shared.airpodsDeviceName == deviceName) ? OverlayStateRelay.shared.airpodsRightCharging : (mediaKeyManager.accessoryBatteryCharging["\(deviceName) (Right)"] == true)
                                             if isCharging {
                                                 Image(systemName: "bolt.fill").font(.system(size: 11)).foregroundColor(.secondary)
                                             } else {

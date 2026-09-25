@@ -15,6 +15,7 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
     
     private var pathMonitor: NWPathMonitor?
     private let pathQueue = DispatchQueue(label: "PathMonitorQueue")
+    private let pollQueue = DispatchQueue(label: "com.visorpro.wifi-poll", qos: .userInitiated)
     private var isCurrentlyHotspot: Bool = false
     
     private var isInitialLoad: Bool = true
@@ -37,7 +38,9 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
     
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         if status != .denied && status != .restricted && status != .notDetermined {
-            self.pollWiFi()
+            pollQueue.async { [weak self] in
+                self?.pollWiFi()
+            }
         }
     }
     
@@ -50,17 +53,22 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
     }
 
     func startObserving() {
-        if canUseSSIDAPI() {
-            self.lastSSID = CWWiFiClient.shared().interface()?.ssid()
-        } else {
-            self.lastSSID = nil
+        pollQueue.async { [weak self] in
+            guard let self = self else { return }
+            if self.canUseSSIDAPI() {
+                self.lastSSID = CWWiFiClient.shared().interface()?.ssid()
+            } else {
+                self.lastSSID = nil
+            }
+            self.lastIsConnected = self.lastSSID != nil
         }
-        self.lastIsConnected = self.lastSSID != nil
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 1.5, repeats: true) { _ in
-                self.pollWiFi()
+            self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+                self?.pollQueue.async {
+                    self?.pollWiFi()
+                }
             }
             self.pathMonitor = NWPathMonitor(requiredInterfaceType: .wifi)
             self.pathMonitor?.pathUpdateHandler = { [weak self] path in

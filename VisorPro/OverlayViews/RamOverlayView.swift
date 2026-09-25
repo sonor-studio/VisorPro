@@ -4,14 +4,15 @@ struct RamOverlayView: View {
     @State private var isExpanded: Bool = false
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
+    @ObservedObject var metrics = SystemMetricsRelay.shared
     var isPreview: Bool = false
     
     var body: some View {
         let ramOverlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "ramOverlayPosition")
-        let percent = isPreview ? 95.0 : overlayState.ramUsagePercent
-        let used = isPreview ? 15.2 : overlayState.usedRamGB
-        let total = isPreview ? 16.0 : overlayState.totalRamGB
-        let history = isPreview ? [62.0, 65.0, 68.0, 72.0, 70.0, 75.0, 78.0, 82.0, 80.0, 85.0, 88.0, 91.0, 89.0, 93.0, 95.0, 95.0] : overlayState.ramUsageHistory
+        let percent = isPreview ? 95.0 : metrics.ramUsagePercent
+        let used = isPreview ? 15.2 : metrics.usedRamGB
+        let total = isPreview ? 16.0 : metrics.totalRamGB
+        let history = isPreview ? [62.0, 65.0, 68.0, 72.0, 70.0, 75.0, 78.0, 82.0, 80.0, 85.0, 88.0, 91.0, 89.0, 93.0, 95.0, 95.0] : metrics.ramUsageHistory
         let getIcon = { (name: String) -> NSImage? in
             if let path = NSWorkspace.shared.perform(NSSelectorFromString("fullPathForApplication:"), with: name)?.takeUnretainedValue() as? String {
                 return NSWorkspace.shared.icon(forFile: path)
@@ -27,7 +28,7 @@ struct RamOverlayView: View {
             ("Safari", 0.9, getIcon("com.apple.Safari")),
             ("Microsoft Word", 0.5, NSImage(named: "PreviewWord")),
             ("Terminal", 0.2, getIcon("com.apple.Terminal"))
-        ] : overlayState.ramTopProcesses
+        ] : metrics.ramTopProcesses
         
         let trackWidth: CGFloat = 260 - 6
         let themeColor = OverlayColorManager.shared.getOverlayColor(for: "colorOnHighRam", defaultColor: .red)

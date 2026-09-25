@@ -3,6 +3,7 @@ import SwiftUI
 struct AsyncWallpaperImage: View {
     let path: String
     @State private var image: NSImage?
+    static var cache: [String: NSImage] = [:]
     
     var body: some View {
         Group {
@@ -24,6 +25,7 @@ struct AsyncWallpaperImage: View {
     }
     
     private func load() {
+        if let cached = AsyncWallpaperImage.cache[path] { self.image = cached; return }
         Task.detached(priority: .background) {
             let fileURL = URL(fileURLWithPath: path)
             let options: [CFString: Any] = [
@@ -42,6 +44,7 @@ struct AsyncWallpaperImage: View {
             
             await MainActor.run {
                 self.image = newImage
+                AsyncWallpaperImage.cache[self.path] = newImage
             }
         }
     }

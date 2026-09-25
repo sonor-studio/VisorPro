@@ -10,6 +10,8 @@ class BatteryObserver {
     private var smoothedAmperage: Double?
     private var timer: Timer?
     
+    private let pollQueue = DispatchQueue(label: "com.visorpro.battery-poll", qos: .userInitiated)
+    
     var batteryDataProvider: () -> [String: Any]?
     
     init(manager: MediaKeyManager, batteryDataProvider: (() -> [String: Any]?)? = nil) {
@@ -20,7 +22,9 @@ class BatteryObserver {
             self.batteryDataProvider = BatteryObserver.defaultBatteryProvider
         }
         startObserving()
-        checkBatteryState(initial: true)
+        pollQueue.async {
+            self.checkBatteryState(initial: true)
+        }
     }
     
     func startObserving() {
@@ -29,7 +33,9 @@ class BatteryObserver {
         let callback: @convention(c) (UnsafeMutableRawPointer?) -> Void = { context in
             guard let context = context else { return }
             let observer = Unmanaged<BatteryObserver>.fromOpaque(context).takeUnretainedValue()
-            observer.checkBatteryState(initial: false)
+            observer.pollQueue.async {
+                observer.checkBatteryState(initial: false)
+            }
         }
         
         runLoopSource = IOPSNotificationCreateRunLoopSource(callback, context)
@@ -41,7 +47,9 @@ class BatteryObserver {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-                self?.checkBatteryState(initial: false)
+                self?.pollQueue.async {
+                    self?.checkBatteryState(initial: false)
+                }
             }
         }
     }

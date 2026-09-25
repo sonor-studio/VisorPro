@@ -5,11 +5,12 @@ struct CpuTemperatureOverlayView: View {
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
+    @ObservedObject var metrics = SystemMetricsRelay.shared
     var isPreview: Bool = false
     
     var body: some View {
-        let temp = isPreview ? 65.0 : overlayState.cpuTemperature
-        let history = isPreview ? [40.0, 45.0, 50.0, 60.0, 65.0, 70.0, 68.0, 65.0] : overlayState.cpuTempHistory
+        let temp = isPreview ? 65.0 : metrics.cpuTemperature
+        let history = isPreview ? [40.0, 45.0, 50.0, 60.0, 65.0, 70.0, 68.0, 65.0] : metrics.cpuTempHistory
         
         // Celsjusze
         let tempString = String(format: "%.1f°C", temp)
@@ -78,7 +79,7 @@ struct CpuTemperatureOverlayView: View {
                     ("WindowServer", 18.1, NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil)),
                     ("Xcode", 12.4, NSImage(named: "PreviewXcode") ?? getIcon("com.apple.dt.Xcode")),
                     ("kernel_task", 5.2, NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil))
-                ] : overlayState.cpuTopProcesses
+                ] : metrics.cpuTopProcesses
                 
                 VStack(spacing: 8) {
                     RamChartView(history: history, color: chartColor, unit: "°C", timeLabel: "-1m")

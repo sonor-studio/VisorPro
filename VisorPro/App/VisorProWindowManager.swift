@@ -9,7 +9,7 @@ class VisorProWindowManager: ObservableObject {
     
     private var windows: [String: NSPanel] = [:]
     private var targetOrigins: [String: NSPoint] = [:]
-    private var cachedScreens: [NSScreen] = NSScreen.screens
+    private(set) var cachedScreens: [NSScreen] = NSScreen.screens
     private var shownPanels: Set<String> = []
     private var exitingPanels: Set<String> = []
     private var cancellables = Set<AnyCancellable>()
@@ -161,14 +161,14 @@ class VisorProWindowManager: ObservableObject {
         // that VisorProWindowManager needs beyond show/hide notifications).
         // Previously this was objectWillChange.sink which fired on ALL 177
         // @Published properties — causing massive UI thrashing.
-        OverlayStateRelay.shared.$swipeOffsets
+        SwipeStateRelay.shared.$swipeOffsets
             .throttle(for: .milliseconds(16), scheduler: DispatchQueue.main, latest: true)
             .sink { [weak self] _ in
                 self?.updateWindows()
             }
             .store(in: &cancellables)
         
-        OverlayStateRelay.shared.$activeSwipeIds
+        SwipeStateRelay.shared.$activeSwipeIds
             .throttle(for: .milliseconds(16), scheduler: DispatchQueue.main, latest: true)
             .sink { [weak self] _ in
                 self?.updateWindows()
@@ -183,7 +183,7 @@ class VisorProWindowManager: ObservableObject {
     /// The timer auto-stops when there are no active overlay panels.
     private func ensureHeartbeatRunning() {
         guard heartbeatTimer == nil else { return }
-        heartbeatTimer = Timer.publish(every: 0.1, on: .main, in: .common)
+        heartbeatTimer = Timer.publish(every: 0.25, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
                 guard let self else { return }
@@ -191,7 +191,7 @@ class VisorProWindowManager: ObservableObject {
                     // No active panels — stop the heartbeat to save CPU
                     self.heartbeatTimer?.cancel()
                     self.heartbeatTimer = nil
-                } else if self.animatingEntryPanels.isEmpty {
+                } else if self.animatingEntryPanels.isEmpty && self.exitingPanels.isEmpty {
                     self.updateWindows()
                 }
             }
@@ -400,7 +400,7 @@ class VisorProWindowManager: ObservableObject {
                     shownPanels.remove(id)
                 } else {
                     exitingPanels.insert(id)
-                    let currentSwipeOffset = OverlayStateRelay.shared.swipeOffsets[overlayId] ?? 0.0
+                    let currentSwipeOffset = SwipeStateRelay.shared.swipeOffsets[overlayId] ?? 0.0
                     
                     if abs(currentSwipeOffset) > 30 {
                         NSAnimationContext.runAnimationGroup({ ctx in
@@ -497,38 +497,30 @@ class VisorProWindowManager: ObservableObject {
                 
                 let originX = x - (currentWidth / 2)
                 
-                let baseH: CGFloat
-                if overlay.type == .media {
-                    baseH = 72
-                } else if overlay.type == .battery {
-                    let isFullyCharged = MediaKeyManager.shared.currentBatteryPercentage == 100 || MediaKeyManager.shared.isEffectivelyFullyCharged
-                    baseH = isFullyCharged ? 56 : 72
-                } else {
-                    baseH = 56
-                }
-                
                 let originY: CGFloat
                 if overlay.position.hasPrefix("top") {
-                    originY = yCenter + 38 - currentHeight
+                    originY = (yCenter + 44) - currentHeight
                 } else if overlay.position.hasPrefix("bottom") {
-                    originY = yCenter - 43
+                    originY = yCenter - 44
                 } else {
-                    originY = yCenter + (baseH / 2) - 2.5 - currentHeight
+                    originY = yCenter - (currentHeight / 2)
                 }
                 
-                let swipeOffset = OverlayStateRelay.shared.swipeOffsets[overlay.id] ?? 0.0
+                let swipeOffset = SwipeStateRelay.shared.swipeOffsets[overlay.id] ?? 0.0
                 let originY_withOffset = originY - swipeOffset
                 
                 let targetOrigin = NSPoint(x: originX, y: originY_withOffset)
                 
                 if let last = targetOrigins[windowId], abs(last.y - originY) > 2000 {
-                    windows[windowId]?.close()
+                    let stalePanel = windows[windowId]
+                    stalePanel?.orderOut(nil)
+                    stalePanel?.contentView = nil
+                    stalePanel?.close()
                     windows.removeValue(forKey: windowId)
                     targetOrigins.removeValue(forKey: windowId)
                     shownPanels.remove(windowId)
                 }
                 
-                let lastTarget = targetOrigins[windowId]
                 let isFirstShow = !shownPanels.contains(windowId)
                 
                 if isFirstShow {
@@ -563,12 +555,11 @@ class VisorProWindowManager: ObservableObject {
                     let isRescued = rescuedPanels.contains(windowId)
                     let dist = hypot(panel.frame.origin.x - targetOrigin.x, panel.frame.origin.y - targetOrigin.y)
                     
-                    let targetChanged = lastTarget == nil || abs(lastTarget!.x - targetOrigin.x) > 0.5 || abs(lastTarget!.y - targetOrigin.y) > 0.5
                     let swipeActive = abs(swipeOffset) > 0.1
                     
-                    if (targetChanged && dist > 1.0) || swipeActive || isRescued {
+                    if dist > 1.0 || swipeActive || isRescued {
                         targetOrigins[windowId] = targetOrigin
-                        let isDragging = OverlayStateRelay.shared.activeSwipeIds.contains(overlay.id)
+                        let isDragging = SwipeStateRelay.shared.activeSwipeIds.contains(overlay.id)
                         
                         if isDragging {
                             panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
@@ -588,22 +579,31 @@ class VisorProWindowManager: ObservableObject {
     }
     
     private func createPanel(for overlay: ActiveOverlay) -> NSPanel {
-        let w: CGFloat = (overlay.type == .capsLock || overlay.type == .theme || overlay.type == .focus) ? 230 : 260
+        let w: CGFloat
         let h: CGFloat
-        if overlay.type == .media {
-            h = 72
-        } else if overlay.type == .battery {
+        
+        if overlay.type == .capsLock || overlay.type == .theme {
+            w = 230
+        } else if overlay.type == .focus {
+            w = 240
+        } else {
+            w = 260
+        }
+        
+        if overlay.type == .battery {
             let manager = MediaKeyManager.shared
             let isFullyCharged = manager.currentBatteryPercentage == 100 || manager.isEffectivelyFullyCharged
             h = isFullyCharged ? 56 : 72
         } else if overlay.type == .airpodsGroupBattery {
             h = 134
+        } else if overlay.type == .media {
+            h = 72
         } else {
             h = 56
         }
         
         let panel = VisorProOverlayPanel(
-            contentRect: NSRect(x: 0, y: 0, width: w + 8, height: h + 8),
+            contentRect: NSRect(x: 0, y: 0, width: w + 32, height: h + 32),
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
@@ -625,7 +625,7 @@ class VisorProWindowManager: ObservableObject {
         let view = SingleOverlayContainer(overlay: overlay)
             .environmentObject(MediaKeyManager.shared)
             .environmentObject(OverlayStateRelay.shared)
-        panel.contentView = NSHostingView(rootView: view)
+        panel.contentView = TrackingHostingView(rootView: view)
         
         panel.isFloatingPanel = true
         panel.level = .floating
@@ -651,14 +651,8 @@ class VisorProWindowManager: ObservableObject {
         
         var hitPanels: [(key: String, panel: NSWindow)] = []
         for (key, panel) in windows {
-            // Inset by container padding (.top 10, .bottom 15, .horizontal 12) so hit area matches the visible overlay
-            let insetFrame = panel.frame.insetBy(dx: 12, dy: 0)
-            let visibleFrame = NSRect(
-                x: insetFrame.origin.x,
-                y: insetFrame.origin.y + 15,
-                width: insetFrame.width,
-                height: insetFrame.height - 25  // 10 top + 15 bottom
-            )
+            // Inset by 16px padding to match the visible pill bounds
+            let visibleFrame = panel.frame.insetBy(dx: 16, dy: 16)
             if visibleFrame.contains(mouseLoc) {
                 hitPanels.append((key, panel))
             }
@@ -702,12 +696,12 @@ class VisorProOverlayPanel: NSPanel {
         var newFrame = frameRect
         let oldFrame = self.frame
         
-        let isResize = oldFrame.size.height > 0 && abs(oldFrame.size.height - newFrame.size.height) > 0.1
-        let isWidthResize = oldFrame.size.width > 0 && abs(oldFrame.size.width - newFrame.size.width) > 0.1
+        let isResize = oldFrame.size.height > 0 && oldFrame.size.height != newFrame.size.height
+        let isWidthResize = oldFrame.size.width > 0 && oldFrame.size.width != newFrame.size.width
         
         if isWidthResize {
             let centerX = stableMidX ?? oldFrame.midX
-            newFrame.origin.x = centerX - (newFrame.width / 2)
+            newFrame.origin.x = round(centerX - (newFrame.width / 2))
             stableMidX = centerX
         } else {
             stableMidX = newFrame.midX
@@ -717,15 +711,15 @@ class VisorProOverlayPanel: NSPanel {
             switch anchorMode {
             case .bottom:
                 let minY = stableMinY ?? oldFrame.minY
-                newFrame.origin.y = minY
+                newFrame.origin.y = round(minY)
                 stableMinY = minY
             case .top:
                 let maxY = stableMaxY ?? oldFrame.maxY
-                newFrame.origin.y = maxY - newFrame.height
+                newFrame.origin.y = round(maxY - newFrame.height)
                 stableMaxY = maxY
             case .center:
                 let midY = stableMidY ?? oldFrame.midY
-                newFrame.origin.y = midY - (newFrame.height / 2)
+                newFrame.origin.y = round(midY - (newFrame.height / 2))
                 stableMidY = midY
             }
         } else {
@@ -748,13 +742,15 @@ class VisorProOverlayPanel: NSPanel {
     }
 }
 
-
-
+class TrackingHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+}
 
 struct SingleOverlayContainer: View {
     let overlay: VisorProWindowManager.ActiveOverlay
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @EnvironmentObject var overlayState: OverlayStateRelay
     
     var body: some View {
         ZStack {
@@ -762,8 +758,8 @@ struct SingleOverlayContainer: View {
                 .applyTheme(mediaKeyManager.overlayTheme)
                 .swipeToDismiss(overlayId: overlay.id, isTopPosition: overlay.position.hasPrefix("top"))
         }
-        .padding(4)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: overlay.position.hasPrefix("bottom") ? .bottom : .top)
+        .padding(16)
+        .fixedSize()
     }
     
     @ViewBuilder
@@ -804,7 +800,6 @@ struct ScrollSwipeModifier: ViewModifier {
     let isTopPosition: Bool
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("enableSwipeToDismiss") private var enableSwipeToDismiss = true
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
     
@@ -822,12 +817,12 @@ struct ScrollSwipeModifier: ViewModifier {
                 isDismissing = false
                 dragOffset = 0
                 totalScrollDelta = 0
-                overlayState.swipeOffsets[overlayId] = 0
+                SwipeStateRelay.shared.swipeOffsets[overlayId] = 0
                 setupMonitors()
             }
             .onDisappear {
                 removeMonitors()
-                overlayState.swipeOffsets[overlayId] = 0
+                SwipeStateRelay.shared.swipeOffsets[overlayId] = 0
             }
     }
     
@@ -844,19 +839,19 @@ struct ScrollSwipeModifier: ViewModifier {
         
         // We rely entirely on the precise onHoverExact system from UniversalOverlayView,
         // which perfectly tracks the interface edges (globalHoveredTypes), ignoring the hidden NSWindow area.
-        var isCurrentlySwiping = overlayState.activeSwipeIds.contains(overlayId)
+        var isCurrentlySwiping = SwipeStateRelay.shared.activeSwipeIds.contains(overlayId)
         
         let phase = event.phase
         let momentum = event.momentumPhase
         
         if phase == .began && !isHovered {
-            overlayState.activeSwipeIds.remove(overlayId)
+            SwipeStateRelay.shared.activeSwipeIds.remove(overlayId)
             isCurrentlySwiping = false
         }
         
 
         guard isHovered || isCurrentlySwiping else { return }
-        if !isCurrentlySwiping && overlayState.isHoveringScrollView { return }
+        if !isCurrentlySwiping && OverlayStateRelay.shared.isHoveringScrollView { return }
         
         let rawDelta = event.scrollingDeltaY
         var deltaY = event.isDirectionInvertedFromDevice ? rawDelta : -rawDelta
@@ -868,12 +863,12 @@ struct ScrollSwipeModifier: ViewModifier {
         
         let isEnding = phase == .ended || phase == .cancelled || momentum == .ended || momentum == .cancelled
         if isEnding {
-            overlayState.activeSwipeIds.remove(overlayId)
+            SwipeStateRelay.shared.activeSwipeIds.remove(overlayId)
             debounceTimer?.invalidate()
             guard !isDismissing else { return }
             dragOffset = 0
             totalScrollDelta = 0
-            overlayState.swipeOffsets[overlayId] = 0
+            SwipeStateRelay.shared.swipeOffsets[overlayId] = 0
             mediaKeyManager.keepAlive(for: overlayId, isHovering: isHovered)
             return
         }
@@ -883,7 +878,7 @@ struct ScrollSwipeModifier: ViewModifier {
         totalScrollDelta += deltaY
         
         if abs(totalScrollDelta) > 10 {
-            overlayState.activeSwipeIds.insert(overlayId)
+            SwipeStateRelay.shared.activeSwipeIds.insert(overlayId)
             mediaKeyManager.keepAlive(for: overlayId, isHovering: true)
         }
         
@@ -914,11 +909,11 @@ struct ScrollSwipeModifier: ViewModifier {
         if isOverThreshold && !isDismissing {
             isDismissing = true
             mediaKeyManager.forceHide(overlayId: overlayId)
-            overlayState.activeSwipeIds.remove(overlayId)
+            SwipeStateRelay.shared.activeSwipeIds.remove(overlayId)
         }
         
         // Always and consistently assign the current delta (which grows from the finger or from inertial momentum).
-        overlayState.swipeOffsets[overlayId] = dragOffset
+        SwipeStateRelay.shared.swipeOffsets[overlayId] = dragOffset
         
         if !isDismissing {
             if phase.rawValue == 0 && momentum.rawValue == 0 {
@@ -926,10 +921,10 @@ struct ScrollSwipeModifier: ViewModifier {
                 debounceTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { _ in
                     Task { @MainActor in
                         guard !isDismissing else { return }
-                        overlayState.activeSwipeIds.remove(overlayId)
+                        SwipeStateRelay.shared.activeSwipeIds.remove(overlayId)
                         dragOffset = 0
                         totalScrollDelta = 0
-                        overlayState.swipeOffsets[overlayId] = 0
+                        SwipeStateRelay.shared.swipeOffsets[overlayId] = 0
                     }
                 }
             }
@@ -937,6 +932,7 @@ struct ScrollSwipeModifier: ViewModifier {
     }
     
     private func setupMonitors() {
+        removeMonitors()
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .scrollWheel) { event in
             handleScroll(event: event)
         }
@@ -955,5 +951,15 @@ struct ScrollSwipeModifier: ViewModifier {
 extension View {
     func swipeToDismiss(overlayId: String, isTopPosition: Bool) -> some View {
         self.modifier(ScrollSwipeModifier(overlayId: overlayId, isTopPosition: isTopPosition))
+    }
+}
+import SwiftUI
+import AppKit
+
+class PassThroughHostingView<Content: View>: NSHostingView<Content> {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let view = super.hitTest(point)
+        // If the view returned is exactly the hosting view (empty space), pass the click through.
+        return view === self ? nil : view
     }
 }

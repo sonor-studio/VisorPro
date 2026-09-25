@@ -117,12 +117,14 @@ final class NativeOverlayDismisser {
         
         let logLine = "[\(Date())] Banner: id='\(identifier)', text='\(allText)'\n"
         let logURL = URL(fileURLWithPath: "/Users/macbook/Desktop/Dev/VisorPro/ax_banners.log")
-        if let handle = try? FileHandle(forWritingTo: logURL) {
-            handle.seekToEndOfFile()
-            if let data = logLine.data(using: .utf8) { handle.write(data) }
-            try? handle.close()
-        } else {
-            try? logLine.write(to: logURL, atomically: true, encoding: .utf8)
+        DispatchQueue.global(qos: .utility).async {
+            if let handle = try? FileHandle(forWritingTo: logURL) {
+                handle.seekToEndOfFile()
+                if let data = logLine.data(using: .utf8) { handle.write(data) }
+                try? handle.close()
+            } else {
+                try? logLine.write(to: logURL, atomically: true, encoding: .utf8)
+            }
         }
         let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier?.lowercased() ?? ""
         let isControlCenter = bundleID.contains("controlcenter")
@@ -313,7 +315,9 @@ final class NativeOverlayDismisser {
             logOutput += "Found button? \(found)\n"
             
             let logURL = URL(fileURLWithPath: "/Users/macbook/Desktop/Dev/VisorPro/ax_click.log")
-            try? logOutput.write(to: logURL, atomically: true, encoding: .utf8)
+            DispatchQueue.global(qos: .utility).async {
+                try? logOutput.write(to: logURL, atomically: true, encoding: .utf8)
+            }
             
         } else {
         }

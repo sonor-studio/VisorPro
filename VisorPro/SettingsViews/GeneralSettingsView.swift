@@ -13,7 +13,7 @@ struct GeneralSettingsView: View {
     @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = false
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
-    @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
+
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("globalOverlayPosition") private var globalOverlayPosition: String = "top"
@@ -324,23 +324,6 @@ struct GeneralSettingsView: View {
                         .padding(.leading, 4)
                     
                     VStack(spacing: 0) {
-                        // Bouncy Expansion
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Bouncy expansion effect")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.primary)
-                                Text("Adds a playful spring animation when clicking on overlays to expand them.")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                            Toggle("", isOn: $enableBouncyExpansion).labelsHidden()
-                        }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
-                        
-                        Divider().padding(.leading, 12)
                         
                         // Swipe to dismiss
                         HStack {

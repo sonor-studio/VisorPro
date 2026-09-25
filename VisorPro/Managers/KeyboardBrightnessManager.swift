@@ -48,14 +48,14 @@ class KeyboardBrightnessManager {
             
             var initial: Float = 0.0
             if let unmanaged = copyFunc(client, copySel, "KeyboardBacklightLevel" as NSString),
-               let num = unmanaged.takeUnretainedValue() as? NSNumber {
+               let num = unmanaged.takeRetainedValue() as? NSNumber {
                 initial = num.floatValue
             }
             
             _ = setFunc(client, setSel, NSNumber(value: 1000.0), "KeyboardBacklightLevel" as NSString)
             
             if let unmanaged = copyFunc(client, copySel, "KeyboardBacklightLevel" as NSString),
-               let num = unmanaged.takeUnretainedValue() as? NSNumber {
+               let num = unmanaged.takeRetainedValue() as? NSNumber {
                 self.maxHardwareBrightness = num.floatValue
             }
             
@@ -72,7 +72,7 @@ class KeyboardBrightnessManager {
         
         if let client = self.bsClient, let copySel = self.copyPropertySel, let copyFunc = self.copyPropertyFunc {
             if let unmanaged = copyFunc(client, copySel, "KeyboardBacklightLevel" as NSString) {
-                if let num = unmanaged.takeUnretainedValue() as? NSNumber {
+                if let num = unmanaged.takeRetainedValue() as? NSNumber {
                     return num.floatValue / self.maxHardwareBrightness
                 }
             }
