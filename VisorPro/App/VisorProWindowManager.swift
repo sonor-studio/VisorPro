@@ -553,7 +553,20 @@ class VisorProWindowManager: ObservableObject {
                     }
                 } else if !MediaKeyManager.shared.isDisplayTransitioning && !animatingEntryPanels.contains(windowId) {
                     let isRescued = rescuedPanels.contains(windowId)
-                    let dist = hypot(panel.frame.origin.x - targetOrigin.x, panel.frame.origin.y - targetOrigin.y)
+                    var diffY: CGFloat = 0.0
+                    if overlay.position.hasPrefix("top") {
+                        let currentMaxY = panel.frame.maxY
+                        let targetMaxY = targetOrigin.y + currentHeight
+                        diffY = currentMaxY - targetMaxY
+                    } else if overlay.position.hasPrefix("bottom") {
+                        let currentMinY = panel.frame.minY
+                        let targetMinY = targetOrigin.y
+                        diffY = currentMinY - targetMinY
+                    } else {
+                        diffY = panel.frame.origin.y - targetOrigin.y
+                    }
+                    
+                    let dist = hypot(panel.frame.origin.x - targetOrigin.x, diffY)
                     
                     let swipeActive = abs(swipeOffset) > 0.1
                     

@@ -68,6 +68,7 @@ class MediaObserver {
                             "title": title, "artist": artist, "album": album, "duration": duration, "elapsedTime": elapsedTime, "isPlaying": isPlaying, "appName": appName, "bundleId": bundleId
                         ]
                         if let data = try? JSONSerialization.data(withJSONObject: dict), let jsonStr = String(data: data, encoding: .utf8) {
+                            print(jsonStr)
                             fflush(stdout)
                         }
                     }

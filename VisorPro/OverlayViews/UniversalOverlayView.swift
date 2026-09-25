@@ -139,7 +139,7 @@ struct BouncyHeightModifier: AnimatableModifier {
     }
     
     func body(content: Content) -> some View {
-        content.frame(height: max(0, height), alignment: .top)
+        content.frame(height: round(max(0, height)), alignment: .top)
     }
 }
 

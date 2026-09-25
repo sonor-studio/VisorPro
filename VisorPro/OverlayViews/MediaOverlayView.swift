@@ -185,7 +185,7 @@ struct MediaOverlayView: View {
                         .foregroundColor(.primary)
                         .frame(width: 24, height: 24)
                         .contentShape(Rectangle())
-                        .gesture(
+                        .highPriorityGesture(
                             DragGesture(minimumDistance: 0).onEnded { _ in
                                 if isPreview { return }
                                 mediaKeyManager.simulatePrevious()
@@ -203,7 +203,7 @@ struct MediaOverlayView: View {
                     .foregroundColor(.primary)
                     .frame(width: 26, height: 26)
                     .contentShape(Rectangle())
-                    .gesture(
+                    .highPriorityGesture(
                         DragGesture(minimumDistance: 0).onEnded { _ in
                             if isPreview { return }
                             let skip = mediaKeyManager.mediaSkipDuration
@@ -219,7 +219,7 @@ struct MediaOverlayView: View {
                         .foregroundColor(.primary)
                         .frame(width: 34, height: 34)
                         .contentShape(Rectangle())
-                        .gesture(
+                        .highPriorityGesture(
                             DragGesture(minimumDistance: 0).onEnded { _ in
                                 if isPreview { return }
                                 mediaKeyManager.simulatePlayPause()
@@ -237,7 +237,7 @@ struct MediaOverlayView: View {
                     .foregroundColor(.primary)
                     .frame(width: 26, height: 26)
                     .contentShape(Rectangle())
-                    .gesture(
+                    .highPriorityGesture(
                         DragGesture(minimumDistance: 0).onEnded { _ in
                             if isPreview { return }
                             let skip = mediaKeyManager.mediaSkipDuration
@@ -253,7 +253,7 @@ struct MediaOverlayView: View {
                         .foregroundColor(.primary)
                         .frame(width: 24, height: 24)
                         .contentShape(Rectangle())
-                        .gesture(
+                        .highPriorityGesture(
                             DragGesture(minimumDistance: 0).onEnded { _ in
                                 if isPreview { return }
                                 mediaKeyManager.simulateNext()
