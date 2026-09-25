@@ -1936,6 +1936,7 @@ class MediaKeyManager: ObservableObject {
                     
                     // Keep the overlay alive when changing language via the button
                     self.keepAlive(for: "language", isHovering: false)
+                    OverlayStateRelay.shared.languageEventId = UUID()
                     
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         self.isSwitchingLanguageInternally = false

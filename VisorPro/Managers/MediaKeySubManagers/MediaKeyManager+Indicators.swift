@@ -204,56 +204,24 @@ extension MediaKeyManager {
         
         playNotificationSound(named: soundOnLanguageChange)
         
-        languageTimer?.invalidate()
+        cancelOverlayHide(for: "language")
         let pos = self.getOverlayPosition(for: "languageOverlayPosition")
         dismissCollidingIndicators(newPosition: pos, source: "language")
         
         self.currentKeyboardLanguage = language
-            let executeShow = { [weak self] in
-                guard let self = self else { return }
-
-                self.languageEventId = UUID()
-
-                withAnimation(.easeInOut(duration: 0.15)) {
-
-                    self.showLanguageIndicator = true; self.overlayTriggerTimes["language"] = Date()
-                    self.notifyOverlayStateChanged()
-
-                }
-
-                self.languageTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-
-                    withAnimation(.easeInOut(duration: 0.25)) {
-
-                        self?.showLanguageIndicator = false
-
-                    }
-
-                }
-
+        
+        self.languageEventId = UUID()
+        withAnimation(.easeInOut(duration: 0.15)) {
+            self.showLanguageIndicator = true
+            self.overlayTriggerTimes["language"] = Date()
+            self.notifyOverlayStateChanged()
+        }
+        
+        self.languageTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                self?.showLanguageIndicator = false
             }
-
-            
-
-            if self.showLanguageIndicator {
-
-                withAnimation(.easeInOut(duration: 0.25)) {
-
-                    self.showLanguageIndicator = false
-
-                }
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-
-                    executeShow()
-
-                }
-
-            } else {
-
-                executeShow()
-
-            }
+        }
     }
 
     func triggerRamOverlay() {

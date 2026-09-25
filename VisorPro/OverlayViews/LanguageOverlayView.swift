@@ -97,7 +97,6 @@ struct LanguageOverlayView: View {
                 .padding(.horizontal, 4 + 3 + 4)
             }
         )
-        .id(overlayState.languageEventId)
         .onAppear {
             if isPreview {
                 availableLanguages = [
