@@ -31,12 +31,13 @@ extension MediaKeyManager {
             let pos = self.getOverlayPosition(for: "wifiOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "wifi")
             
-            self.wiFiSSID = ssid
-            self.wiFiIsConnected = isConnected
-            self.wiFiIsHotspot = isHotspot
-            self.wiFiDetailsFetched = false
             let executeShow = { [weak self] in
                 guard let self = self else { return }
+
+                self.wiFiSSID = ssid
+                self.wiFiIsConnected = isConnected
+                self.wiFiIsHotspot = isHotspot
+                self.wiFiDetailsFetched = false
 
                 self.wiFiEventId = UUID()
 

@@ -16,6 +16,8 @@ class FocusObserver {
     private var lastModeName: String = "Focus"
     private var lastSeenSize: UInt64? = nil
     
+    private var folderWatcherSource: DispatchSourceFileSystemObject?
+    
     private var isInitialLoad: Bool = true
     private let dbPath = NSString(string: "~/Library/DoNotDisturb/DB").expandingTildeInPath
     private var assertionsPath: String { return dbPath + "/Assertions.json" }
@@ -90,7 +92,9 @@ class FocusObserver {
                     self.manager?.activeFocusDetails = details
                 }
                 
-                self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self.setupFolderWatcher()
+                
+                self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
                     self?.pollQueue.async {
                         self?.pollFocusStatus()
                     }
@@ -98,6 +102,23 @@ class FocusObserver {
             }
         }
     }
+    
+    private func setupFolderWatcher() {
+        let folderUrl = URL(fileURLWithPath: dbPath)
+        let fd = open(folderUrl.path, O_EVTONLY)
+        guard fd != -1 else { return }
+        
+        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write], queue: pollQueue)
+        source.setEventHandler { [weak self] in
+            self?.pollFocusStatus()
+        }
+        source.setCancelHandler {
+            close(fd)
+        }
+        source.resume()
+        self.folderWatcherSource = source
+    }
+    
     private var lastDetailedMode: Bool? = nil
     
     private func pollFocusStatus() {
@@ -134,7 +155,17 @@ class FocusObserver {
         }
         
         // Fallback to size logic
-        guard let currentSize = getAssertionsSize() else { return }
+        guard let currentSize = getAssertionsSize() else {
+            // File might be in the middle of being atomically replaced. Retry in 100ms.
+            pollQueue.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                guard let self = self else { return }
+                if let newSize = self.getAssertionsSize() {
+                    self.lastSeenSize = newSize
+                    self.pollFocusStatus()
+                }
+            }
+            return
+        }
         
         var inferredActive = self.lastFocusActive
         

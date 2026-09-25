@@ -143,10 +143,10 @@ extension MediaKeyManager {
             let pos = self.getOverlayPosition(for: "themeOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "theme")
             
-            self.isDarkMode = isDark
             let executeShow = { [weak self] in
                 guard let self = self else { return }
 
+                self.isDarkMode = isDark
                 self.themeEventId = UUID()
 
                 withAnimation(.easeInOut(duration: 0.15)) {

@@ -70,30 +70,31 @@ extension MediaKeyManager {
             let pos = self.getOverlayPosition(for: "focusOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "focus")
             
-            self.isFocusModeActive = isActive
-            self.focusModeName = modeName ?? "Focus"
-            self.focusColorName = colorName
-            self.focusSymbol = symbol
-            self.isFocusReminder = false
-            self.isFocusSwitched = isSwitched
-            if isActive {
-                self.activeFocusDetails = details
-                self.lastEndedFocusDetails = nil
-            } else {
-                if var lastDetails = self.activeFocusDetails {
-                    lastDetails.endedAt = Date()
-                    self.lastEndedFocusDetails = lastDetails
-                } else if var details = details {
-                    details.endedAt = Date()
-                    self.lastEndedFocusDetails = details
-                }
-                self.activeFocusDetails = nil
-            }
-            
-            self.updateFocusReminderTimer()
-            
             let executeShow = { [weak self] in
                 guard let self = self else { return }
+                
+                self.isFocusModeActive = isActive
+                self.focusModeName = modeName ?? "Focus"
+                self.focusColorName = colorName
+                self.focusSymbol = symbol
+                self.isFocusReminder = false
+                self.isFocusSwitched = isSwitched
+                if isActive {
+                    self.activeFocusDetails = details
+                    self.lastEndedFocusDetails = nil
+                } else {
+                    if var lastDetails = self.activeFocusDetails {
+                        lastDetails.endedAt = Date()
+                        self.lastEndedFocusDetails = lastDetails
+                    } else if var d = details {
+                        d.endedAt = Date()
+                        self.lastEndedFocusDetails = d
+                    }
+                    self.activeFocusDetails = nil
+                }
+                
+                self.updateFocusReminderTimer()
+                
                 self.focusEventId = UUID()
                 withAnimation(.easeInOut(duration: 0.15)) {
                     self.showFocusIndicator = true
