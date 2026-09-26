@@ -164,6 +164,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var customWidth: CGFloat = 260
     var customHeight: CGFloat = 56
     var customCornerRadius: CGFloat? = nil
+    var allowBaseHitTesting: Bool = false
     
     var supportDragGesture: Bool = false
     var onDrag: ((CGFloat) -> Void)? = nil
@@ -198,7 +199,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     
     private var isTimeoutMode: Bool {
         if disableTimeoutMode { return false }
-        return hasTimeoutProgress || (showProgressBar && !fillCenter && customProgressMask == nil && progress >= 1.0)
+        return hasTimeoutProgress || (showProgressBar && customProgressMask == nil && progress >= 1.0)
     }
     
     var body: some View {
@@ -220,7 +221,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 ZStack(alignment: .leading) {
                     baseContent()
                         .frame(width: width, height: baseHeight)
-                        .allowsHitTesting(false)
+                        .allowsHitTesting(allowBaseHitTesting)
                         .animation(nil, value: isExpanded)
         
                         
@@ -249,6 +250,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         }
                     }
                     .frame(width: width, height: baseHeight)
+                    .allowsHitTesting(!allowBaseHitTesting)
                 }
                 
                 expandedContent()
@@ -309,15 +311,9 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
 
                 if showProgressBar {
                     ZStack {
-                        if fillCenter {
-                            BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
-                                .fill(effectiveBarColor)
-                                .padding(trackPadding)
-                        } else {
-                            BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
-                                .strokeBorder(effectiveBarColor, style: StrokeStyle(lineWidth: innerPadding, lineCap: .round, lineJoin: .round))
-                                .padding(trackPadding)
-                        }
+                        BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
+                            .strokeBorder(effectiveBarColor, style: StrokeStyle(lineWidth: innerPadding, lineCap: .round, lineJoin: .round))
+                            .padding(trackPadding)
                     }
                     .mask(
                         Group {

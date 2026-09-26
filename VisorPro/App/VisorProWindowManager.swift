@@ -344,6 +344,28 @@ class VisorProWindowManager: ObservableObject {
         return finalActive
     }
     
+    private func getCategoryForTelemetry(type: ContentView.OverlayType) -> String? {
+        switch type {
+        case .volume: return "Volume"
+        case .brightness: return "Brightness"
+        case .keyboardBrightness: return "Keyboard Brightness"
+        case .battery, .accessoryBattery, .airpodsGroupBattery: return "Battery"
+        case .copy: return "Clipboard"
+        case .date: return "Date"
+        case .media: return "Media"
+        case .wifi: return "Wi-Fi"
+        case .bluetooth, .airpodsMode: return "Bluetooth"
+        case .mic, .camera, .location: return "Privacy"
+        case .theme: return "Theme"
+        case .focus: return "Focus Mode"
+        case .peripheral: return "Peripherals"
+        case .display: return "Displays"
+        case .ram, .cpu: return "System"
+        case .trash: return "Trash"
+        default: return nil // Dropping survey, capsLock, fileDeleted, smartRouting, etc.
+        }
+    }
+    
     func updateWindows() {
         let active = allActiveOverlays
         
@@ -351,7 +373,9 @@ class VisorProWindowManager: ObservableObject {
             if let triggerTime = self.overlayTimestamps[overlay.id] {
                 if self.reportedTelemetryTimestamps[overlay.id] != triggerTime {
                     self.reportedTelemetryTimestamps[overlay.id] = triggerTime
-                    TelemetryDeck.signal("OverlayDisplayed", parameters: ["overlay_type": overlay.type.rawValue])
+                    if let cleanCategoryName = getCategoryForTelemetry(type: overlay.type) {
+                        TelemetryDeck.signal("OverlayDisplayed", parameters: ["overlay_type": cleanCategoryName])
+                    }
                 }
             }
         }
@@ -612,8 +636,6 @@ class VisorProWindowManager: ObservableObject {
             w = 230
         } else if overlay.type == .focus {
             w = 240
-        } else if overlay.type == .survey {
-            w = 320
         } else {
             w = 260
         }
@@ -627,7 +649,10 @@ class VisorProWindowManager: ObservableObject {
         } else if overlay.type == .media {
             h = 72
         } else if overlay.type == .survey {
-            h = 180
+            let relay = OverlayStateRelay.shared
+            let questionId = relay.activeSurveyQuestionId
+            let question = SurveyLibrary.shared.questions.first(where: { $0.id == questionId }) ?? SurveyLibrary.shared.questions.first
+            h = question?.height ?? 180
         } else {
             h = 56
         }
@@ -821,6 +846,7 @@ struct SingleOverlayContainer: View {
         case .trash: TrashOverlayView()
         case .fileDeleted: FileDeletedOverlayView()
         case .smartRouting: SmartRoutingOverlayView()
+        case .survey: SurveyOverlayView()
         }
     }
 }

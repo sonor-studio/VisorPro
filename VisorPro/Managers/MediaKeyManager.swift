@@ -2154,6 +2154,7 @@ class MediaKeyManager: ObservableObject {
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
             else if overlayId.hasPrefix("airpodsGroupBattery") { showAirpodsGroupBatteryIndicator = false }
             else if overlayId == "smartRouting" { OverlayStateRelay.shared.showSmartRoutingIndicator = false }
+            else if overlayId == "survey" { OverlayStateRelay.shared.showSurveyIndicator = false }
         }
         notifyOverlayStateChanged()
     }
@@ -2852,14 +2853,20 @@ class MediaKeyManager: ObservableObject {
         var defaultDelay: TimeInterval = MediaKeyManager.notificationDuration
         if type == "airpodsGroupBattery" {
             defaultDelay = 4.0
+        } else if type == "survey" {
+            defaultDelay = 15.0
         }
         
         // 1. Invalidate any active hide timer/task
         cancelOverlayHide(for: type)
         
         // 2. If finished hovering, schedule auto-hide after defaultDelay
-        if !isHovering && type != "airpodsGroupBattery" {
+        if !isHovering && type != "airpodsGroupBattery" && type != "survey" {
             scheduleOverlayHide(for: type, delay: defaultDelay)
+        } else if !isHovering && type == "survey" {
+            // Surveys have their own global 15s timeout from when they appear.
+            // But if we want to reset it on hover-out:
+            scheduleOverlayHide(for: type, delay: 15.0)
         }
     }
     
@@ -3212,6 +3219,7 @@ class MediaKeyManager: ObservableObject {
         }
         
         startHardwareKeyPolling()
+        startSurveyTriggerEngine()
         
         hasStarted = true
         setupRawCapsLockDetection()

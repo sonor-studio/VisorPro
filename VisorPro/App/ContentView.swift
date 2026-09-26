@@ -42,6 +42,7 @@ struct ContentView: View {
         }
         if mediaKeyManager.showCopyIndicator { active.append(ActiveOverlay(id: "copy_\(mediaKeyManager.clipboardEventId)", type: .copy, position: copyOverlayPosition, notification: nil)) }
         if mediaKeyManager.showCapsLockIndicator { active.append(ActiveOverlay(id: "capsLock_\(mediaKeyManager.capsLockEventId)", type: .capsLock, position: capsLockOverlayPosition, notification: nil)) }
+        if OverlayStateRelay.shared.showSurveyIndicator { active.append(ActiveOverlay(id: "survey", type: .survey, position: "top", notification: nil)) }
         
         let btPos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")
         for notif in mediaKeyManager.activeBluetoothNotifications {
@@ -310,8 +311,9 @@ struct ContentView: View {
         let showPeripheral = !mediaKeyManager.activePeripheralNotifications.isEmpty
         let showDisplay = !mediaKeyManager.activeDisplayNotifications.isEmpty
         let showRam = mediaKeyManager.showRamIndicator
+        let showSurvey = OverlayStateRelay.shared.showSurveyIndicator
         
-        let isVisible = showBattery || showVolume || showBrightness || showKeyboardBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showLocation || showWiFi || showDate || showPeripheral || showDisplay || showRam
+        let isVisible = showBattery || showVolume || showBrightness || showKeyboardBrightness || showCopy || showCapsLock || showBluetooth || showLanguage || showMedia || showTheme || showMic || showCamera || showLocation || showWiFi || showDate || showPeripheral || showDisplay || showRam || showSurvey
         
         
         ZStack {

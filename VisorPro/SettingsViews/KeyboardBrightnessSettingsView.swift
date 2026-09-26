@@ -139,24 +139,6 @@ struct KeyboardBrightnessSettingsView: View {
                     Divider()
                 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Visual Style")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.bottom, 4)
-                            .padding(.leading, 4)
-                    
-                        VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "paintpalette.fill", iconColor: .orange, title: "Fill Center", subtitle: "Fills the inside of the overlay with gray color instead of just the border") {
-                                Toggle("", isOn: $keyboardBrightnessFillCenter).labelsHidden()
-                            }
-                        }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
                     
                         Group {
                             if overlayPositionMode == "custom" {

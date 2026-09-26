@@ -304,25 +304,6 @@ struct BatterySettingsView: View {
                                 .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                         )
                     
-                        Text("Visual Style")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.top, 10)
-                            .padding(.bottom, 4)
-                            .padding(.leading, 4)
-                    
-                        VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "circle.circle.fill", iconColor: .green, title: "Fill Center", subtitle: "Fills the inside of the overlay with color instead of just the border") {
-                                Toggle("", isOn: $batteryFillCenter).labelsHidden()
-                            }
-                        }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
                     
                         Group {
                             if overlayPositionMode == "custom" {
