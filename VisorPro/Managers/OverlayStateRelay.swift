@@ -229,6 +229,11 @@ class OverlayStateRelay: ObservableObject {
     @Published var lastDeletedFileIcon: NSImage? = nil
     @Published var lastDeletedFileURL: URL? = nil
     @Published var overlayTriggerTimes: [String: Date] = [:]
+    
+    // MARK: - Survey State
+    @Published var showSurveyIndicator: Bool = false
+    @Published var activeSurveyQuestionId: String = ""
+    @Published var surveyEventId: UUID = UUID()
     @Published var trashEventId = UUID()
     @Published var fanEventId = UUID()
     

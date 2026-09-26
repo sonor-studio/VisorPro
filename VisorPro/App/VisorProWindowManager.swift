@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import SwiftUI
 import Combine
+import TelemetryClient
 
 @MainActor
 class VisorProWindowManager: ObservableObject {
@@ -15,6 +16,7 @@ class VisorProWindowManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var overlayTimestamps: [String: Date] = [:]
     private var animatingEntryPanels: Set<String> = []
+    private var reportedTelemetryTimestamps: [String: Date] = [:]
     
     private func assignSlots(overlays: [ActiveOverlay], limit: Int) -> [String: Int] {
         var slotMap: [String: Int] = [:]
@@ -230,6 +232,7 @@ class VisorProWindowManager: ObservableObject {
         }
         if relay.showCopyIndicator { active.append(ActiveOverlay(id: "copy", type: .copy, position: copyOverlayPosition, notification: nil)) }
         if relay.showCapsLockIndicator { active.append(ActiveOverlay(id: "capsLock", type: .capsLock, position: capsLockOverlayPosition, notification: nil)) }
+        if relay.showSurveyIndicator { active.append(ActiveOverlay(id: "survey", type: .survey, position: "top", notification: nil)) }
         
         let btPos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")
         for notif in relay.activeBluetoothNotifications {
@@ -343,6 +346,16 @@ class VisorProWindowManager: ObservableObject {
     
     func updateWindows() {
         let active = allActiveOverlays
+        
+        for overlay in active {
+            if let triggerTime = self.overlayTimestamps[overlay.id] {
+                if self.reportedTelemetryTimestamps[overlay.id] != triggerTime {
+                    self.reportedTelemetryTimestamps[overlay.id] = triggerTime
+                    TelemetryDeck.signal("OverlayDisplayed", parameters: ["overlay_type": overlay.type.rawValue])
+                }
+            }
+        }
+        
         var uniqueScreens: [NSScreen] = []
         var seenOrigins = Set<String>()
         for screen in cachedScreens {
@@ -599,6 +612,8 @@ class VisorProWindowManager: ObservableObject {
             w = 230
         } else if overlay.type == .focus {
             w = 240
+        } else if overlay.type == .survey {
+            w = 320
         } else {
             w = 260
         }
@@ -611,6 +626,8 @@ class VisorProWindowManager: ObservableObject {
             h = 134
         } else if overlay.type == .media {
             h = 72
+        } else if overlay.type == .survey {
+            h = 180
         } else {
             h = 56
         }

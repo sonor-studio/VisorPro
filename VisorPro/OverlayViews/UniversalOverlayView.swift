@@ -290,6 +290,23 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         .padding(trackPadding)
                 }
                 
+                ZStack {
+                    (colorScheme == .dark ? Color(white: 0.20, opacity: 0.98) : Color(white: 0.96, opacity: 0.98))
+                        .clipShape(BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight))
+                    
+                    if colorScheme == .dark {
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                            .fill(Color.white.opacity(0.08))
+                    } else {
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                            .fill(Color.white.opacity(0.25))
+                    }
+                    
+                    BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                        .strokeBorder(Color.glassBorder, style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
+                }
+                .padding(trackPadding + innerPadding)
+
                 if showProgressBar {
                     ZStack {
                         if fillCenter {
@@ -335,22 +352,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     )
                 }
                 
-                ZStack {
-                    (colorScheme == .dark ? Color(white: 0.20, opacity: 0.98) : Color(white: 0.96, opacity: 0.98))
-                        .clipShape(BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight))
-                    
-                    if colorScheme == .dark {
-                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
-                            .fill(Color.white.opacity(0.08))
-                    } else {
-                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
-                            .fill(Color.white.opacity(0.25))
-                    }
-                    
-                    BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
-                        .strokeBorder(Color.glassBorder, style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
-                }
-                .padding(trackPadding + innerPadding)
             }
         )
         .contentShape(RoundedRectangle(cornerRadius: outerRadius))
