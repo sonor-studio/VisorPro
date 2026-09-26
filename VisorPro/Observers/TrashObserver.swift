@@ -20,7 +20,7 @@ class TrashObserver: ObservableObject {
     
     func startMonitoring() {
         timer?.invalidate()
-        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.tick()
         }
         tick() // Initial check
@@ -74,7 +74,7 @@ class TrashObserver: ObservableObject {
                             MediaKeyManager.shared.lastDeletedFileURL = firstNew
                             MediaKeyManager.shared.triggerFileDeletedOverlay()
                             
-                            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 3.5) {
+                            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
                                 if !self.isCalculatingSize {
                                     self.isCalculatingSize = true
                                     self.updateTrashStats(didAddItems: true)

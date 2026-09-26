@@ -237,6 +237,7 @@ class OverlayStateRelay: ObservableObject {
     @Published var surveyShowThankYou: Bool = false
     @Published var surveyThankYouEventId: UUID = UUID()
     @Published var trashEventId = UUID()
+    @Published var fileDeletedEventId = UUID()
     @Published var fanEventId = UUID()
     
     // MARK: - Peripheral runtime

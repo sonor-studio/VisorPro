@@ -1004,7 +1004,7 @@ class MediaKeyManager: ObservableObject {
             self.overlayTriggerTimes["fileDeleted"] = Date()
         }
         
-        OverlayStateRelay.shared.trashEventId = UUID()
+        OverlayStateRelay.shared.fileDeletedEventId = UUID()
         scheduleOverlayHide(for: "fileDeleted")
     }
     var trashFreedSizeGB: Double {

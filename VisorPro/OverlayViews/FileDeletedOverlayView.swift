@@ -42,7 +42,7 @@ struct FileDeletedOverlayView: View {
             progress: 1.0,
             customProgressMask: AnyView(
                 TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || overlayState.globalHoveredTypes.contains("fileDeleted"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
-                    .id(overlayState.trashEventId)
+                    .id(overlayState.fileDeletedEventId)
             ),
             barColor: themeColor,
             fillCenter: false,
