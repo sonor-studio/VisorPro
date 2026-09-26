@@ -2154,7 +2154,12 @@ class MediaKeyManager: ObservableObject {
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
             else if overlayId.hasPrefix("airpodsGroupBattery") { showAirpodsGroupBatteryIndicator = false }
             else if overlayId == "smartRouting" { OverlayStateRelay.shared.showSmartRoutingIndicator = false }
-            else if overlayId == "survey" { OverlayStateRelay.shared.showSurveyIndicator = false }
+            else if overlayId == "survey" {
+                OverlayStateRelay.shared.showSurveyIndicator = false
+                // Note: surveyShowThankYou is intentionally NOT reset here —
+                // resetting it causes a flash of the full question view during
+                // the panel exit animation. It gets cleared in showSurvey() instead.
+            }
         }
         notifyOverlayStateChanged()
     }
@@ -2864,9 +2869,9 @@ class MediaKeyManager: ObservableObject {
         if !isHovering && type != "airpodsGroupBattery" && type != "survey" {
             scheduleOverlayHide(for: type, delay: defaultDelay)
         } else if !isHovering && type == "survey" {
-            // Surveys have their own global 15s timeout from when they appear.
-            // But if we want to reset it on hover-out:
-            scheduleOverlayHide(for: type, delay: 15.0)
+            // Use 3s in thank-you mode, 15s for the full question overlay
+            let surveyDelay: TimeInterval = OverlayStateRelay.shared.surveyShowThankYou ? 3.0 : 15.0
+            scheduleOverlayHide(for: type, delay: surveyDelay)
         }
     }
     

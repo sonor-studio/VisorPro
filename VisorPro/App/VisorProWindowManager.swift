@@ -232,7 +232,8 @@ class VisorProWindowManager: ObservableObject {
         }
         if relay.showCopyIndicator { active.append(ActiveOverlay(id: "copy", type: .copy, position: copyOverlayPosition, notification: nil)) }
         if relay.showCapsLockIndicator { active.append(ActiveOverlay(id: "capsLock", type: .capsLock, position: capsLockOverlayPosition, notification: nil)) }
-        if relay.showSurveyIndicator { active.append(ActiveOverlay(id: "survey", type: .survey, position: "top", notification: nil)) }
+        let surveyOverlayPosition = MediaKeyManager.shared.getOverlayPosition(for: "surveyOverlayPosition")
+        if relay.showSurveyIndicator { active.append(ActiveOverlay(id: "survey", type: .survey, position: surveyOverlayPosition, notification: nil)) }
         
         let btPos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")
         for notif in relay.activeBluetoothNotifications {

@@ -133,22 +133,19 @@ struct VolumeSettingsView: View {
                     }
                     .padding(.horizontal)
 
-                    Divider()
-                
-                    VStack(alignment: .leading, spacing: 12) {
+                    if overlayPositionMode == "custom" {
+                        Divider()
                     
-                        Group {
-                            if overlayPositionMode == "custom" {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Overlay Position")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
                                 .padding(.top, 10)
-                        
+                            
                             PositionPickerGroup(selection: $volumeOverlayPosition)
-                            }
                         }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
                 
                     Spacer()
             

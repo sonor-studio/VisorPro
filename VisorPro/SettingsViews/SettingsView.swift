@@ -29,7 +29,6 @@ struct SettingsView: View {
         case macSystem
         case trash
         case about
-        case testingSurvey
         case accessory(String)
     }
     
@@ -210,13 +209,6 @@ struct SettingsView: View {
                         SidebarIcon(systemName: "info.circle.fill", color: .gray)
                     }
                     .tag(SidebarItem.about)
-                    
-                    Label {
-                        Text("Survey Test")
-                    } icon: {
-                        SidebarIcon(systemName: "testtube.2", color: .yellow)
-                    }
-                    .tag(SidebarItem.testingSurvey)
                 }
             }
             .listStyle(.sidebar)
@@ -241,8 +233,6 @@ struct SettingsView: View {
                     FeedbackSettingsView()
                 case .about:
                     AboutSettingsView()
-                case .testingSurvey:
-                    SurveyTestSettingsView()
                     
                 // FREE TRACKERS
                 case .volume:

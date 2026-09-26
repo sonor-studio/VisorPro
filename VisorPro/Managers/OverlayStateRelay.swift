@@ -234,6 +234,8 @@ class OverlayStateRelay: ObservableObject {
     @Published var showSurveyIndicator: Bool = false
     @Published var activeSurveyQuestionId: String = ""
     @Published var surveyEventId: UUID = UUID()
+    @Published var surveyShowThankYou: Bool = false
+    @Published var surveyThankYouEventId: UUID = UUID()
     @Published var trashEventId = UUID()
     @Published var fanEventId = UUID()
     
