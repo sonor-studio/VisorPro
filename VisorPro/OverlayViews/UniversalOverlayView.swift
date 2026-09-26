@@ -211,7 +211,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         let outerRadius: CGFloat = customCornerRadius ?? (baseHeight / 2)
         let trackPadding: CGFloat = 3
         let innerRadius: CGFloat = max(0, outerRadius - trackPadding)
-        let innerPadding: CGFloat = 3
+        let innerPadding: CGFloat = 6
         let cutoutSize: CGFloat = 12
         let trackWidth: CGFloat = width - (trackPadding * 2)
         let effectiveBarColor: Color = isMuted ? Color.offStateGray.opacity(0.95) : barColor.opacity(0.95)
@@ -293,7 +293,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 }
                 
                 ZStack {
-                    (colorScheme == .dark ? Color(white: 0.20, opacity: 0.98) : Color(white: 0.96, opacity: 0.98))
+                    Color.clear.background(.ultraThinMaterial)
                         .clipShape(BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight))
                     
                     if colorScheme == .dark {
