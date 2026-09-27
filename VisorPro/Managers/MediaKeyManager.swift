@@ -383,6 +383,11 @@ class MediaKeyManager: ObservableObject {
         }
     }
     @AppStorage("overlayTheme") var overlayTheme: String = "system"
+    @AppStorage("enableGlowEffect") var enableGlowEffect: Bool = false
+    @AppStorage("glowEffectTheme") var glowEffectTheme: String = "both"
+    @AppStorage("glowOnExpanded") var glowOnExpanded: Bool = false
+    @AppStorage("glowIntensity") var glowIntensity: Double = 1.0
+    @AppStorage("cornerRoundingMultiplier") var cornerRoundingMultiplier: Double = 1.0
     var globalHoveredTypes: Set<String> {
         get { OverlayStateRelay.shared.globalHoveredTypes }
         set { OverlayStateRelay.shared.globalHoveredTypes = newValue }
@@ -3029,7 +3034,7 @@ class MediaKeyManager: ObservableObject {
         }
         
         let appsURL = URL(fileURLWithPath: "/Applications")
-        if let enumerator = FileManager.default.enumerator(at: appsURL, includingPropertiesForKeys: nil),
+        if let enumerator = FileManager.default.enumerator(at: appsURL, includingPropertiesForKeys: nil, options: [.skipsSubdirectoryDescendants, .skipsPackageDescendants, .skipsHiddenFiles]),
            let file = enumerator.allObjects.first(where: { ($0 as? URL)?.lastPathComponent.lowercased() == "\(name.lowercased()).app" }) as? URL {
             return NSWorkspace.shared.icon(forFile: file.path)
         }
@@ -3382,6 +3387,7 @@ class MediaKeyManager: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             let actualHardwareState = self.getCurrentCapsLockState()
             
+            guard actualHardwareState != self.isCapsLockOn else { return }
             
             if !self.useSystemOSD {
                 self.lastAction = "Caps Lock: \(actualHardwareState ? "On" : "Off")"

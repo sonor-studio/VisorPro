@@ -160,6 +160,138 @@ struct GeneralSettingsView: View {
                 }
                 .padding(.horizontal)
                 
+                // MARK: - Glow Effect
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Glow Effect")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Enable Inner Glow")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.primary)
+                                Text("Shows a colorful background glow behind the glass.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $mediaKeyManager.enableGlowEffect)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        
+                        if mediaKeyManager.enableGlowEffect {
+                            Divider().padding(.leading, 32)
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Show Glow In")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    Text("Select which theme displays the glow effect.")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Picker("", selection: $mediaKeyManager.glowEffectTheme) {
+                                    Text("Both").tag("both")
+                                    Text("Dark").tag("dark")
+                                    Text("Light").tag("light")
+                                }
+                                .pickerStyle(.segmented)
+                                .frame(width: 160)
+                                .fixedSize(horizontal: true, vertical: false)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .padding(.leading, 20)
+                            
+                            Divider().padding(.leading, 32)
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Glow on Expanded")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    Text("Keep the glow visible when the overlay expands.")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                Toggle("", isOn: $mediaKeyManager.glowOnExpanded)
+                                    .labelsHidden()
+                                    .toggleStyle(.switch)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .padding(.leading, 20)
+                            
+                            Divider().padding(.leading, 32)
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Intensity")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.primary)
+                                }
+                                Spacer()
+                                Slider(value: $mediaKeyManager.glowIntensity, in: 0.1...2.0, step: 0.1)
+                                    .frame(width: 150)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .padding(.leading, 20)
+                        }
+                    }
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
+                
+                                // MARK: - Corner Rounding
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Corner Rounding")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
+                    
+                    VStack(spacing: 0) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Rounding Radius")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.primary)
+                                Text("Adjust the roundness of the overlay corners.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            
+                            Slider(value: $mediaKeyManager.cornerRoundingMultiplier, in: 0.6...1.0, step: 0.05)
+                                .frame(width: 140)
+                                
+                            Text("\(Int(mediaKeyManager.cornerRoundingMultiplier * 100))%")
+                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                .frame(width: 40, alignment: .trailing)
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                    }
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .padding(.horizontal)
+                
                 // MARK: - Theme Configuration
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Theme Configuration")

@@ -6,6 +6,226 @@ struct AppConfig: Codable {
     let latest_version: String
     let min_required_version: String
     let update_url: String
+    let release_notes: String?
+}
+
+class UpdateProgressWindowController: NSWindowController {
+    let progressIndicator = NSProgressIndicator()
+    let statusLabel = NSTextField(labelWithString: "Downloading update...")
+    
+    init() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 120),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Updating VisorPro"
+        window.center()
+        window.level = .floating
+        window.isReleasedWhenClosed = false
+        
+        super.init(window: window)
+        
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 120))
+        
+        statusLabel.frame = NSRect(x: 20, y: 70, width: 260, height: 20)
+        statusLabel.alignment = .center
+        statusLabel.isEditable = false
+        statusLabel.isBordered = false
+        statusLabel.drawsBackground = false
+        container.addSubview(statusLabel)
+        
+        progressIndicator.frame = NSRect(x: 20, y: 40, width: 260, height: 20)
+        progressIndicator.style = .bar
+        progressIndicator.isIndeterminate = false
+        progressIndicator.minValue = 0
+        progressIndicator.maxValue = 1
+        progressIndicator.doubleValue = 0
+        container.addSubview(progressIndicator)
+        
+        window.contentView = container
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError()
+    }
+}
+
+class AutoUpdater: NSObject, URLSessionDownloadDelegate {
+    static let shared = AutoUpdater()
+    private var progressWindow: UpdateProgressWindowController?
+    private var downloadTask: URLSessionDownloadTask?
+    
+    func performUpdate(from url: URL) {
+        DispatchQueue.main.async {
+            self.progressWindow = UpdateProgressWindowController()
+            self.progressWindow?.window?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        
+        let session = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
+        downloadTask = session.downloadTask(with: url)
+        downloadTask?.resume()
+    }
+    
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        DispatchQueue.main.async {
+            self.progressWindow?.progressIndicator.doubleValue = progress
+            let percentage = Int(progress * 100)
+            self.progressWindow?.statusLabel.stringValue = "Downloading update... \(percentage)%"
+        }
+    }
+    
+    func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        if let httpResponse = downloadTask.response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+            DispatchQueue.main.async {
+                self.showError("Download error: Server returned HTTP \(httpResponse.statusCode). Make sure the file is exactly named VisorPro.dmg on the server.")
+            }
+            return
+        }
+        
+        DispatchQueue.main.async {
+            self.progressWindow?.progressIndicator.isIndeterminate = true
+            self.progressWindow?.progressIndicator.startAnimation(nil)
+            self.progressWindow?.statusLabel.stringValue = "Installing update..."
+        }
+        
+        let fileManager = FileManager.default
+        let tempDir = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let dmgURL = tempDir.appendingPathComponent("update.dmg")
+        let mountPoint = tempDir.appendingPathComponent("MountPoint")
+        let updateAppDir = tempDir.appendingPathComponent("NewApp")
+        
+        do {
+            try fileManager.createDirectory(at: mountPoint, withIntermediateDirectories: true, attributes: nil)
+            try fileManager.createDirectory(at: updateAppDir, withIntermediateDirectories: true, attributes: nil)
+            try fileManager.moveItem(at: location, to: dmgURL)
+            
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    // Mount the DMG silently
+                    let attachProcess = Process()
+                    attachProcess.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+                    attachProcess.arguments = [
+                        "attach", dmgURL.path,
+                        "-mountpoint", mountPoint.path,
+                        "-nobrowse",
+                        "-quiet",
+                        "-noverify"
+                    ]
+                    try attachProcess.run()
+                    attachProcess.waitUntilExit()
+                    
+                    if attachProcess.terminationStatus != 0 {
+                        self.showError("Failed to mount the downloaded disk image.")
+                        return
+                    }
+                    
+                    // Find the application inside the DMG
+                    let mountedContents = try fileManager.contentsOfDirectory(atPath: mountPoint.path)
+                    guard let appFolderName = mountedContents.first(where: { $0.hasSuffix(".app") }) else {
+                        self.detach(mountPoint: mountPoint)
+                        self.showError("Could not find the application inside the disk image.")
+                        return
+                    }
+                    
+                    let mountedAppPath = mountPoint.appendingPathComponent(appFolderName).path
+                    let copiedAppPath = updateAppDir.appendingPathComponent(appFolderName).path
+                    
+                    // Copy app to the isolated folder
+                    let copyProcess = Process()
+                    copyProcess.executableURL = URL(fileURLWithPath: "/bin/cp")
+                    copyProcess.arguments = ["-R", mountedAppPath, copiedAppPath]
+                    try copyProcess.run()
+                    copyProcess.waitUntilExit()
+                    
+                    // Unmount the DMG
+                    self.detach(mountPoint: mountPoint)
+                    
+                    if copyProcess.terminationStatus == 0 {
+                        self.installAndRestart(tempDir: tempDir, newAppPath: copiedAppPath)
+                    } else {
+                        self.showError("Failed to copy the application from the disk image.")
+                    }
+                } catch {
+                    self.showError("Update preparation failed: \(error.localizedDescription)")
+                }
+            }
+        } catch {
+            self.showError("Update directory setup failed: \(error.localizedDescription)")
+        }
+    }
+    
+    private func detach(mountPoint: URL) {
+        let detachProcess = Process()
+        detachProcess.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+        detachProcess.arguments = ["detach", mountPoint.path, "-force", "-quiet"]
+        try? detachProcess.run()
+        detachProcess.waitUntilExit()
+    }
+    
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error = error {
+            DispatchQueue.main.async {
+                self.showError("Download failed: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func installAndRestart(tempDir: URL, newAppPath: String) {
+        let fileManager = FileManager.default
+        let currentAppPath = Bundle.main.bundlePath
+        
+        let script = """
+        #!/bin/bash
+        # Wait a moment to ensure the app has quit
+        sleep 1
+        
+        # Remove quarantine attributes to prevent Gatekeeper prompts
+        xattr -rc "\(newAppPath)"
+        
+        # Swap the application bundle
+        rm -rf "\(currentAppPath)"
+        cp -R "\(newAppPath)" "\(currentAppPath)"
+        
+        # Relaunch the application
+        open "\(currentAppPath)"
+        
+        # Cleanup
+        rm -rf "\(tempDir.path)"
+        rm "$0"
+        """
+        
+        let scriptURL = tempDir.appendingPathComponent("update_script.sh")
+        do {
+            try script.write(to: scriptURL, atomically: true, encoding: .utf8)
+            try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
+            
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/bash")
+            process.arguments = [scriptURL.path]
+            try process.run()
+            
+            DispatchQueue.main.async {
+                NSApplication.shared.terminate(nil)
+            }
+        } catch {
+            showError("Failed to prepare installation script: \(error.localizedDescription)")
+        }
+    }
+    
+    private func showError(_ message: String) {
+        DispatchQueue.main.async {
+            self.progressWindow?.close()
+            let alert = NSAlert()
+            alert.messageText = "Update Error"
+            alert.informativeText = message
+            alert.alertStyle = .critical
+            alert.runModal()
+        }
+    }
 }
 
 @MainActor
@@ -19,6 +239,8 @@ class UpdateManager: ObservableObject {
     private var supabaseAnonKey: String {
         return EnvReader.shared.getValue(for: "SUPABASE_ANON_KEY") ?? ""
     }
+    
+    private var activePromptWindowController: NSWindowController?
     
     private init() {}
     
@@ -41,21 +263,17 @@ class UpdateManager: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
                 let decoder = JSONDecoder()
-                let configs = try decoder.decode([AppConfig].self, from: data)
-                if let config = configs.first {
-                    compareVersionsAndAlert(config: config)
+                do {
+                    let configs = try decoder.decode([AppConfig].self, from: data)
+                    if let config = configs.first {
+                        compareVersionsAndAlert(config: config)
+                    }
+                } catch {
+                    // Silently fail on JSON parsing error
                 }
             }
         } catch {
-            let nsError = error as NSError
-            if nsError.domain == NSURLErrorDomain && (
-                nsError.code == NSURLErrorNotConnectedToInternet ||
-                nsError.code == NSURLErrorCannotFindHost ||
-                nsError.code == NSURLErrorCannotConnectToHost
-            ) {
-                // Silently fail on network error so app can still start and no unnecessary logs are created
-            } else {
-            }
+            // Silently fail on network error so app can still start
         }
     }
     
@@ -89,53 +307,212 @@ class UpdateManager: ObservableObject {
         let isLessThanLatest = (comparisonToLatest == .orderedAscending)
         
         if isLessThanMin {
-            showBlockingAlert(url: config.update_url, currentVersion: currentVersion, latestVersion: config.latest_version)
+            showCustomPrompt(config: config, currentVersion: currentVersion, isBlocking: true)
         } else if isLessThanLatest {
-            showOptionalAlert(url: config.update_url, currentVersion: currentVersion, latestVersion: config.latest_version)
+            showCustomPrompt(config: config, currentVersion: currentVersion, isBlocking: false)
         }
     }
     
-    private func showBlockingAlert(url: String, currentVersion: String, latestVersion: String) {
-        let alert = NSAlert()
-        alert.messageText = "Update Required"
-        alert.informativeText = String(format: "You are using an older version of the application that is no longer supported.\n\nCurrent version: %@\nLatest version: %@\n\nPlease update to continue using VisorPro.", currentVersion, latestVersion)
-        alert.alertStyle = .critical
-        alert.addButton(withTitle: "Update")
-        alert.addButton(withTitle: "Quit")
+    private func showCustomPrompt(config: AppConfig, currentVersion: String, isBlocking: Bool) {
         NSApp.activate(ignoringOtherApps: true)
         
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            if let updateURL = URL(string: url) {
-                NSWorkspace.shared.open(updateURL)
-            }
-            Darwin._exit(0)
-        } else {
-            Darwin._exit(0)
-        }
-    }
-    
-    private func showOptionalAlert(url: String, currentVersion: String, latestVersion: String) {
-        let alert = NSAlert()
-        alert.messageText = "Update Available"
-        alert.informativeText = String(format: "A new version of VisorPro is available.\n\nCurrent version: %@\nLatest version: %@\n\nWould you like to update now?", currentVersion, latestVersion)
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Update")
-        alert.addButton(withTitle: "Later")
-        NSApp.activate(ignoringOtherApps: true)
-        
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            if let updateURL = URL(string: url) {
-                NSWorkspace.shared.open(updateURL)
-            }
-        } else {
-            // Open the window after clicking "Later" so the user sees that the application "let them through"
-            DispatchQueue.main.async {
-                if let appDelegate = NSApp.delegate as? AppDelegate {
-                    appDelegate.openDashboard()
+        var githubAction: (() -> Void)? = nil
+        let urlString = config.update_url
+        if let downloadRange = urlString.range(of: "/releases/download/") {
+            let prefix = urlString[..<downloadRange.lowerBound]
+            let afterDownload = urlString[downloadRange.upperBound...]
+            
+            if let slashIndex = afterDownload.firstIndex(of: "/") {
+                let tag = String(afterDownload[..<slashIndex])
+                let finalURLString = prefix + "/releases/tag/" + tag
+                
+                if let githubURL = URL(string: finalURLString) {
+                    githubAction = {
+                        NSWorkspace.shared.open(githubURL)
+                    }
                 }
             }
         }
+        
+        let promptVC = UpdatePromptWindowController(
+            currentVersion: currentVersion,
+            latestVersion: config.latest_version,
+            releaseNotes: config.release_notes ?? "Bug fixes and performance improvements.",
+            isBlocking: isBlocking,
+            onUpdate: {
+                if isBlocking { NSApp.stopModal() }
+                if let updateURL = URL(string: config.update_url) {
+                    AutoUpdater.shared.performUpdate(from: updateURL)
+                }
+                self.activePromptWindowController?.close()
+                self.activePromptWindowController = nil
+            },
+            onLater: {
+                if isBlocking {
+                    NSApp.stopModal()
+                    Darwin._exit(0)
+                } else {
+                    self.activePromptWindowController?.close()
+                    self.activePromptWindowController = nil
+                    
+                    DispatchQueue.main.async {
+                        if let appDelegate = NSApp.delegate as? AppDelegate {
+                            appDelegate.openDashboard()
+                        }
+                    }
+                }
+            },
+            onGitHub: githubAction
+        )
+        
+        activePromptWindowController = promptVC
+        promptVC.window?.makeKeyAndOrderFront(nil)
+        
+        if isBlocking {
+            // Odłączenie event tapów (wyłączenie nasłuchu klawiszy / nakładek)
+            MediaKeyManager.shared.stopEventTaps()
+            
+            // Zamknięcie wszystkich innych okien, np. Dashboardu
+            for window in NSApp.windows {
+                if window != promptVC.window {
+                    window.orderOut(nil)
+                }
+            }
+            
+            // Uruchomienie okna jako modal, co zablokuje resztę aplikacji
+            if let w = promptVC.window {
+                NSApp.runModal(for: w)
+            }
+        }
+    }
+}
+import SwiftUI
+import AppKit
+
+struct UpdatePromptView: View {
+    let currentVersion: String
+    let latestVersion: String
+    let releaseNotes: String
+    let isBlocking: Bool
+    let onUpdate: () -> Void
+    let onLater: () -> Void
+    let onGitHub: (() -> Void)?
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 16) {
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .frame(width: 64, height: 64)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("A new version of VisorPro is available!")
+                        .font(.headline)
+                    Text("VisorPro \(latestVersion) is now available—you have \(currentVersion). Would you like to download it now?")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Release Notes:")
+                    .font(.headline)
+                
+                ScrollView {
+                    let fallback = "Bug fixes and performance improvements."
+                    let rawText = releaseNotes.isEmpty ? fallback : releaseNotes
+                    let normalizedText = rawText
+                        .replacingOccurrences(of: "\\n", with: "\n")
+                        .replacingOccurrences(of: "\r\n", with: "\n")
+                    
+                    let lines = normalizedText.components(separatedBy: "\n")
+                    
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(0..<lines.count, id: \.self) { index in
+                            let line = lines[index].trimmingCharacters(in: .whitespaces)
+                            if line.hasPrefix("### ") || line.hasPrefix("## ") || line.hasPrefix("# ") {
+                                let headerText = line.replacingOccurrences(of: "^#+\\s*", with: "", options: .regularExpression)
+                                Text(LocalizedStringKey(headerText))
+                                    .font(.system(size: 14, weight: .bold))
+                                    .padding(.top, index == 0 ? 0 : 8)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            } else if line.isEmpty {
+                                Text("")
+                                    .frame(height: 4)
+                            } else {
+                                Text(LocalizedStringKey(line))
+                                    .font(.system(size: 12))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                }
+                .frame(height: 250)
+                .padding(8)
+                .background(Color(NSColor.textBackgroundColor))
+                .cornerRadius(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+                )
+            }
+            
+            HStack {
+                if let onGitHub = onGitHub {
+                    Button("Open GitHub") {
+                        onGitHub()
+                    }
+                }
+                
+                Spacer()
+                
+                if isBlocking {
+                    Button("Quit") {
+                        NSApplication.shared.terminate(nil)
+                    }
+                    .keyboardShortcut(.cancelAction)
+                } else {
+                    Button("Later") {
+                        onLater()
+                    }
+                    .keyboardShortcut(.cancelAction)
+                }
+                
+                Button("Install Update") {
+                    onUpdate()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 450)
+    }
+}
+
+class UpdatePromptWindowController: NSWindowController {
+    convenience init(currentVersion: String, latestVersion: String, releaseNotes: String, isBlocking: Bool, onUpdate: @escaping () -> Void, onLater: @escaping () -> Void, onGitHub: (() -> Void)?) {
+        let view = UpdatePromptView(
+            currentVersion: currentVersion,
+            latestVersion: latestVersion,
+            releaseNotes: releaseNotes,
+            isBlocking: isBlocking,
+            onUpdate: onUpdate,
+            onLater: onLater,
+            onGitHub: onGitHub
+        )
+        
+        let hostingController = NSHostingController(rootView: view)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "Software Update"
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        if isBlocking {
+            window.styleMask.remove(.closable)
+        }
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.level = .floating
+        window.animationBehavior = .alertPanel
+        
+        self.init(window: window)
     }
 }

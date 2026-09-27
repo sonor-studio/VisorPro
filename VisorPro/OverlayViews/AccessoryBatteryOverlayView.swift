@@ -75,6 +75,10 @@ struct AccessoryBatteryOverlayView: View {
     }
     
     private var statusText: String {
+        if let label = componentLabel {
+            return label
+        }
+        
         var baseStatus = ""
         if overlayState.accessoryIsConnectionEvent && !isPreview {
             baseStatus = overlayState.accessoryConnectionIsConnected ? "Connected" : "Disconnected"
@@ -85,10 +89,6 @@ struct AccessoryBatteryOverlayView: View {
             else { baseStatus = "Unplugged" }
         }
         
-        // For multi-component devices, show component type in status line
-        if let label = componentLabel {
-            return "\(baseStatus) · \(label)"
-        }
         return baseStatus
     }
     

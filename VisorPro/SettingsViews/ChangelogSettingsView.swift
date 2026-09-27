@@ -47,6 +47,159 @@ struct ChangelogSettingsView: View {
                 Divider()
                     .padding(.bottom, 32)
                 
+                // Version 1.3.0 Area
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("VisorPro 1.3.0")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.primary)
+                    
+                    Text("Introducing Seamless Auto-Updates, Inner Glow aesthetics, and fully customizable Corner Radius for your overlays.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 8)
+                    
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)], spacing: 32) {
+                        
+                        ChangelogCard(
+                            icon: "arrow.triangle.2.circlepath",
+                            title: "Seamless Auto-Updates",
+                            description: "No more manual GitHub downloads or Gatekeeper warnings. Update to the latest VisorPro version instantly with a single click directly inside the app.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.blue.opacity(0.05))
+                                
+                                // Mini macOS window mock
+                                ZStack(alignment: .bottomTrailing) {
+                                    VStack(spacing: 0) {
+                                        HStack(spacing: 4) {
+                                            Circle().fill(Color.red.opacity(0.8)).frame(width: 6, height: 6)
+                                            Circle().fill(Color.yellow.opacity(0.8)).frame(width: 6, height: 6)
+                                            Circle().fill(Color.green.opacity(0.8)).frame(width: 6, height: 6)
+                                            Spacer()
+                                        }
+                                        .padding(.horizontal, 8)
+                                        .frame(height: 20)
+                                        .background(Color.secondary.opacity(0.1))
+                                        
+                                        VStack(spacing: 8) {
+                                            Image(systemName: "arrow.2.circlepath.circle.fill")
+                                                .font(.system(size: 20))
+                                                .foregroundColor(.blue)
+                                            RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 60, height: 4)
+                                            RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.4)).frame(width: 40, height: 3)
+                                            Spacer(minLength: 0)
+                                        }
+                                        .padding(.top, 14)
+                                        .padding(.bottom, 12)
+                                    }
+                                    .frame(width: 120, height: 95, alignment: .top)
+                                    .background(Color(NSColor.controlBackgroundColor))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                                    )
+                                    .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                    
+                                    // Abstract update complete badge
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 20))
+                                        .foregroundColor(.green)
+                                        .background(Circle().fill(Color.white).frame(width: 16, height: 16))
+                                        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                        .offset(x: 6, y: 6)
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "lightbulb.fill",
+                            title: "Inner Glow Effect",
+                            description: "Elevate your overlays with the new Inner Glow aesthetic. This subtle lighting effect adds beautiful depth and polish to the glass material.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.purple.opacity(0.05))
+                                
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(false),
+                                    showProgressBar: true,
+                                    progress: 0.5,
+                                    barColor: .purple,
+                                    customWidth: 170,
+                                    customCornerRadius: 28,
+                                    forceGlow: true,
+                                    customGlowOpacity: 0.35,
+                                    isExpandable: false,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 14) {
+                                            Image(systemName: "sun.max.fill")
+                                                .font(.system(size: 18, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 26, height: 24)
+                                            
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.secondary.opacity(0.4))
+                                                    .frame(width: 40, height: 6)
+                                                
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.primary.opacity(0.5))
+                                                    .frame(width: 65, height: 8)
+                                            }
+                                            Spacer(minLength: 8)
+                                        }
+                                        .padding(.horizontal, 20)
+                                    },
+                                    expandedContent: {
+                                        EmptyView()
+                                    }
+                                )
+                                .scaleEffect(0.95)
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "rectangle.roundedtop.fill",
+                            title: "Custom Corner Radius",
+                            description: "Take full control of your overlay's shape. You can now adjust the corner rounding in settings to match your exact visual preference.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.orange.opacity(0.05))
+                                
+                                VStack(spacing: 14) {
+                                    // Abstract overlay
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .frame(width: 130, height: 44)
+                                        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(Color.orange.opacity(0.5), style: StrokeStyle(lineWidth: 1.5, dash: [4]))
+                                        )
+                                        .overlay(
+                                            HStack(spacing: 10) {
+                                                RoundedRectangle(cornerRadius: 4).fill(Color.orange.opacity(0.4)).frame(width: 16, height: 16)
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 45, height: 4)
+                                                    RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.4)).frame(width: 25, height: 4)
+                                                }
+                                                Spacer()
+                                            }.padding(.horizontal, 12)
+                                        )
+                                    
+                                    // Slider mock
+                                    ZStack(alignment: .leading) {
+                                        RoundedRectangle(cornerRadius: 3).fill(Color.secondary.opacity(0.2)).frame(width: 110, height: 6)
+                                        RoundedRectangle(cornerRadius: 3).fill(Color.orange.opacity(0.6)).frame(width: 70, height: 6)
+                                        Circle().fill(Color.white).frame(width: 14, height: 14).shadow(color: .black.opacity(0.2), radius: 2).offset(x: 63)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Divider()
+                    .padding(.vertical, 32)
+                
                 // Version 1.2.0 Area
                 VStack(alignment: .leading, spacing: 16) {
                     Text("VisorPro 1.2.0")
@@ -248,6 +401,7 @@ struct ChangelogSettingsView: View {
                                     showProgressBar: false,
                                     barColor: .indigo,
                                     customWidth: 200,
+                                    customCornerRadius: 28,
                                     isExpandable: false,
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
@@ -510,6 +664,7 @@ struct ChangelogSettingsView: View {
                                     showProgressBar: false,
                                     barColor: .indigo,
                                     customWidth: 170,
+                                    customCornerRadius: 28,
                                     isExpandable: false,
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {

@@ -42,6 +42,7 @@ struct SettingsView: View {
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
+
         HSplitView {
             List(selection: $selection) {
                 Section("App Settings") {

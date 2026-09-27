@@ -148,7 +148,9 @@ struct SurveyOverlayView: View {
                 }
             }
             .onAppear {
-                currentHeight = targetHeight
+                DispatchQueue.main.async {
+                    currentHeight = targetHeight
+                }
             }
         )
     }

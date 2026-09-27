@@ -1,5 +1,6 @@
 import SwiftUI
 
+
 struct BendedCornerShape: InsettableShape, Sendable {
     typealias InsetShape = BendedCornerShape
 
@@ -56,22 +57,43 @@ struct BendedCornerShape: InsettableShape, Sendable {
         
         let a = (R1*R1 - R2*R2 + d*d) / (2 * d)
         let hSquared = R1*R1 - a*a
-        let h_val = sqrt(max(0, hSquared))
         
         let P2_x = cx + a * dx / d
         let P2_y = cy + a * dy / d
         
-        let i1_x = P2_x + h_val * dy / d
-        let i1_y = P2_y - h_val * dx / d
-        
-        let i2_x = P2_x - h_val * dy / d
-        let i2_y = P2_y + h_val * dx / d
-        
-        let intA = i1_y > i2_y ? CGPoint(x: i1_x, y: i1_y) : CGPoint(x: i2_x, y: i2_y)
-        let intB = i1_y > i2_y ? CGPoint(x: i2_x, y: i2_y) : CGPoint(x: i1_x, y: i1_y)
-        
         let cornerCenterY = insetAmount + r
         let cornerCenterX = insetAmount + r
+        
+        // Line intersections (fallback when cutout swallows corner)
+        let valA = R1*R1 - (insetAmount - cx)*(insetAmount - cx)
+        let yA = cy + (valA >= 0 ? sqrt(valA) : 0)
+        let intALine = CGPoint(x: insetAmount, y: yA)
+        
+        let valB = R1*R1 - (insetAmount - cy)*(insetAmount - cy)
+        let xB = cx + (valB >= 0 ? sqrt(valB) : 0)
+        let intBLine = CGPoint(x: xB, y: insetAmount)
+        
+        var intA = intALine
+        var intB = intBLine
+        
+        if hSquared >= 0 && R2 > 0.1 {
+            let h_val = sqrt(hSquared)
+            let i1_x = P2_x + h_val * dy / d
+            let i1_y = P2_y - h_val * dx / d
+            let i2_x = P2_x - h_val * dy / d
+            let i2_y = P2_y + h_val * dx / d
+            
+            let cIntA = i1_y > i2_y ? CGPoint(x: i1_x, y: i1_y) : CGPoint(x: i2_x, y: i2_y)
+            let cIntB = i1_y > i2_y ? CGPoint(x: i2_x, y: i2_y) : CGPoint(x: i1_x, y: i1_y)
+            
+            // Only use circle-circle intersection if it lies ON the corner arc
+            if cIntA.x >= insetAmount && cIntA.y <= cornerCenterY {
+                intA = cIntA
+            }
+            if cIntB.y >= insetAmount && cIntB.x <= cornerCenterX {
+                intB = cIntB
+            }
+        }
         
         let leftLineEndY = (bendAmount > 0.0001 && intA.y > cornerCenterY) ? intA.y : cornerCenterY
         p.addLine(to: CGPoint(x: insetAmount, y: leftLineEndY))
@@ -164,6 +186,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var customWidth: CGFloat = 260
     var customHeight: CGFloat = 56
     var customCornerRadius: CGFloat? = nil
+    var forceGlow: Bool = false
+    var customGlowOpacity: Double? = nil
     var allowBaseHitTesting: Bool = false
     
     var supportDragGesture: Bool = false
@@ -182,10 +206,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @ViewBuilder var expandedContent: () -> ExpandedContent
     
     @State private var isDragging: Bool = false
-    @State private var holdTimer: Timer? = nil
     @State private var isHovering: Bool = false
     @State private var expandedKeepAliveTimer: Timer? = nil
-    @State private var isAnimating: Bool = false
     @State private var expandedHeight: CGFloat = 0
     @State private var bendProgress: CGFloat = 0
     @AppStorage("enableCloseButton") private var enableCloseButton = false
@@ -208,10 +230,11 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         let buttonCenter = CGPoint(x: closeButtonOnRight ? width - (dynamicOffset + 10) : dynamicOffset + 10, y: dynamicOffset + 10)
         let cutoutCenterForShape = CGPoint(x: closeButtonOnRight ? width - buttonCenter.x : buttonCenter.x, y: buttonCenter.y)
         let baseHeight: CGFloat = customHeight
-        let outerRadius: CGFloat = customCornerRadius ?? (baseHeight / 2)
+        let outerRadius: CGFloat = customCornerRadius ?? ((baseHeight / 2) * CGFloat(mediaKeyManager.cornerRoundingMultiplier))
         let trackPadding: CGFloat = 3
         let innerRadius: CGFloat = max(0, outerRadius - trackPadding)
-        let innerPadding: CGFloat = 6
+        let innerPadding: CGFloat = 3
+        let trackBorderWidth: CGFloat = 3
         let cutoutSize: CGFloat = 12
         let trackWidth: CGFloat = width - (trackPadding * 2)
         let effectiveBarColor: Color = isMuted ? Color.offStateGray.opacity(0.95) : barColor.opacity(0.95)
@@ -223,6 +246,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         .frame(width: width, height: baseHeight)
                         .allowsHitTesting(allowBaseHitTesting)
                         .animation(nil, value: isExpanded)
+                        .drawingGroup()
         
                         
                     HStack(spacing: 0) {
@@ -270,13 +294,15 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .opacity(isExpanded ? 1 : 0)
                     .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
-                        if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 2.0 {
-                            if isExpanded {
-                                withAnimation(.easeInOut(duration: 0.2)) {
+                        DispatchQueue.main.async {
+                            if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 2.0 {
+                                if isExpanded {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        expandedHeight = height
+                                    }
+                                } else {
                                     expandedHeight = height
                                 }
-                            } else {
-                                expandedHeight = height
                             }
                         }
                     }
@@ -288,31 +314,14 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 // WARSTWA 1: Baza
                 Group {
                     BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
-                        .strokeBorder(Color.primary.opacity(0.3), style: StrokeStyle(lineWidth: innerPadding, lineCap: .round, lineJoin: .round))
+                        .strokeBorder(Color.primary.opacity(0.3), style: StrokeStyle(lineWidth: trackBorderWidth, lineCap: .round, lineJoin: .round))
                         .padding(trackPadding)
                 }
                 
-                ZStack {
-                    Color.clear.background(.ultraThinMaterial)
-                        .clipShape(BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight))
-                    
-                    if colorScheme == .dark {
-                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
-                            .fill(Color.white.opacity(0.08))
-                    } else {
-                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
-                            .fill(Color.white.opacity(0.25))
-                    }
-                    
-                    BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
-                        .strokeBorder(Color.glassBorder, style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
-                }
-                .padding(trackPadding + innerPadding)
-
                 if showProgressBar {
                     ZStack {
                         BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
-                            .strokeBorder(effectiveBarColor, style: StrokeStyle(lineWidth: innerPadding, lineCap: .round, lineJoin: .round))
+                            .strokeBorder(effectiveBarColor, style: StrokeStyle(lineWidth: trackBorderWidth, lineCap: .round, lineJoin: .round))
                             .padding(trackPadding)
                     }
                     .mask(
@@ -338,15 +347,73 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 }
                             } else {
                                 HStack(spacing: 0) {
-                                    Spacer().frame(width: trackPadding)
                                     Rectangle()
-                                        .frame(width: max(0, trackWidth * progress))
-                                    Spacer(minLength: 0)
+                                        .frame(width: trackWidth)
                                 }
+                                .offset(x: -((trackWidth + 15) * (1.0 - min(1.0, max(0, progress)))))
+                                .padding(.leading, trackPadding)
                             }
                         }
                     )
                 }
+                ZStack {
+                    BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                        .fill(colorScheme == .dark ? Color(white: 0.16, opacity: 0.98) : Color(white: 0.94, opacity: 0.98))
+                        
+                    // FAKE BLUR / INNER GLOW (High Performance)
+                    if showProgressBar && shouldShowGlow {
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                            .fill(effectiveBarColor)
+                            .mask(
+                                Group {
+                                    if isTimeoutMode {
+                                        TimeoutProgressBar(
+                                            trackWidth: trackWidth,
+                                            isHovering: isGloballyHovered || isExpanded,
+                                            initialDuration: timeoutDuration,
+                                            hoverOutDuration: timeoutDuration,
+                                            isPreview: isPreview,
+                                            hasGlow: true
+                                        )
+                                        .padding(.leading, trackPadding)
+                                        .id(timeoutEventId)
+                                    } else if let customMask = customProgressMask {
+                                        HStack(spacing: 0) {
+                                            Spacer().frame(width: trackPadding)
+                                            customMask
+                                            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                                                .frame(width: 24)
+                                            Spacer(minLength: 0)
+                                        }
+                                    } else {
+                                        HStack(spacing: 0) {
+                                            Rectangle()
+                                                .frame(width: trackWidth)
+                                            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                                                .frame(width: 24)
+                                        }
+                                                .offset(x: -((trackWidth + 15) * (1.0 - min(1.0, max(0, progress)))))
+                                        .padding(.leading, trackPadding)
+                                    }
+                                }
+                                .offset(x: -(trackPadding + innerPadding))
+                            )
+                            .opacity(customGlowOpacity ?? ((colorScheme == .dark ? 0.09 : 0.20) * mediaKeyManager.glowIntensity))
+                    }
+                    
+                    if colorScheme == .dark {
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                            .fill(Color.white.opacity(0.08))
+                    } else {
+                        BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                            .fill(Color.white.opacity(0.25))
+                    }
+                    
+                    BendedCornerShape(radius: innerRadius - innerPadding, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding + innerPadding, frameOffset: CGPoint(x: trackPadding + innerPadding, y: trackPadding + innerPadding), isRightSide: closeButtonOnRight)
+                        .strokeBorder(Color.glassBorder, style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
+                }
+                .padding(trackPadding + innerPadding)
+
                 
             }
         )
@@ -360,33 +427,18 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                             let v = max(0, min(1, value.location.x / width))
                             onDrag?(v)
                         } else {
-                            let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
+                            let moved = abs(value.translation.width) >= 12
                             if moved {
-                                holdTimer?.invalidate()
-                                holdTimer = nil
                                 isDragging = true
                                 let v = max(0, min(1, value.location.x / width))
                                 onDrag?(v)
-                            } else if holdTimer == nil {
-                                let timer = Timer(timeInterval: 0.5, repeats: false) { _ in
-                                    DispatchQueue.main.async {
-                                        isDragging = true
-                                        let v = max(0, min(1, value.location.x / width))
-                                        onDrag?(v)
-                                    }
-                                }
-                                RunLoop.main.add(timer, forMode: .common)
-                                holdTimer = timer
                             }
                         }
                     }
                 }
                 .onEnded { value in
-                    holdTimer?.invalidate()
-                    holdTimer = nil
-                    
                     if !isDragging {
-                        let moved = abs(value.translation.width) >= 8 || abs(value.translation.height) >= 8
+                        let moved = abs(value.translation.width) >= 12 || abs(value.translation.height) >= 12
                         if !moved {
                             let locX = value.startLocation.x
                             if onLeftTap != nil && locX <= 60 {
@@ -395,14 +447,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 onRightTap?()
                             } else {
                                 if isExpandable {
-                                    if !isAnimating {
-                                        isAnimating = true
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            isExpanded.toggle()
-                                        }
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                            isAnimating = false
-                                        }
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        isExpanded.toggle()
                                     }
                                 } else {
                                     onSimpleTap?()
@@ -466,8 +512,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         .onDisappear {
             expandedKeepAliveTimer?.invalidate()
             expandedKeepAliveTimer = nil
-            holdTimer?.invalidate()
-            holdTimer = nil
         }
         .onChange(of: isExpanded) { _, expanded in
             if expanded {
@@ -515,6 +559,21 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: shouldShowCloseButton)
             }
         }
+
+    }
+    
+    
+    private var shouldShowGlow: Bool {
+        if forceGlow { return true }
+        guard mediaKeyManager.enableGlowEffect else { return false }
+        
+        // Hide glow if expanded and the user disabled glow on expand
+        if isExpanded && !mediaKeyManager.glowOnExpanded { return false }
+        
+        if mediaKeyManager.glowEffectTheme == "both" { return true }
+        if mediaKeyManager.glowEffectTheme == "dark" && colorScheme == .dark { return true }
+        if mediaKeyManager.glowEffectTheme == "light" && colorScheme == .light { return true }
+        return false
     }
     
     private var shouldShowCloseButton: Bool {

@@ -127,13 +127,13 @@ struct VolumeOverlayView: View {
         }
         .onChange(of: actualVolume) { _, newValue in
             let targetProgress = CGFloat(newValue) / 100.0
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.interactiveSpring(response: 0.2, dampingFraction: 0.8, blendDuration: 0.1)) {
                 _animatedVolumeProgress = targetProgress
             }
         }
         .onChange(of: actualIsMuted) { _, _ in
             let targetProgress = CGFloat(actualVolume) / 100.0
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.interactiveSpring(response: 0.2, dampingFraction: 0.8, blendDuration: 0.1)) {
                 _animatedVolumeProgress = targetProgress
             }
         }
