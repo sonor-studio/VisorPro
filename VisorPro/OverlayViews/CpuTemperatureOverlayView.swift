@@ -26,10 +26,8 @@ struct CpuTemperatureOverlayView: View {
             isExpanded: $isExpanded,
             showProgressBar: true,
             progress: temp / 100.0,
-            customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || mediaKeyManager.globalHoveredTypes.contains("cpu"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
-                    .id(overlayState.cpuEventId)
-            ),
+            hasTimeoutProgress: true,
+            timeoutEventId: overlayState.cpuEventId,
             barColor: barColor,
             fillCenter: false,
             isMuted: false,

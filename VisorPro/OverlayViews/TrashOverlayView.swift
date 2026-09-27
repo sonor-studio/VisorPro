@@ -20,10 +20,8 @@ struct TrashOverlayView: View {
             isExpanded: $isExpanded,
             showProgressBar: true,
             progress: percent,
-            customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || overlayState.globalHoveredTypes.contains("trash"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
-                    .id(overlayState.trashEventId)
-            ),
+            hasTimeoutProgress: true,
+            timeoutEventId: overlayState.trashEventId,
             barColor: themeColor,
             fillCenter: false,
             isMuted: false,

@@ -40,10 +40,8 @@ struct FileDeletedOverlayView: View {
             isExpanded: $isExpanded,
             showProgressBar: true,
             progress: 1.0,
-            customProgressMask: AnyView(
-                TimeoutProgressBar(trackWidth: trackWidth, isHovering: isExpanded || overlayState.globalHoveredTypes.contains("fileDeleted"), initialDuration: MediaKeyManager.notificationDuration, hoverOutDuration: MediaKeyManager.notificationDuration, isPreview: isPreview)
-                    .id(overlayState.fileDeletedEventId)
-            ),
+            hasTimeoutProgress: true,
+            timeoutEventId: overlayState.fileDeletedEventId,
             barColor: themeColor,
             fillCenter: false,
             isMuted: false,
