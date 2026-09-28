@@ -11,6 +11,7 @@ struct GeneralSettingsView: View {
     @AppStorage("enableSwipeToDismiss") private var enableSwipeToDismiss = true
     @AppStorage("enableCloseButton") private var enableCloseButton = true
     @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = false
+    @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
 
@@ -562,13 +563,29 @@ struct GeneralSettingsView: View {
                                             .foregroundColor(.secondary)
                                     }
                                     Spacer()
-                                    Toggle("", isOn: $keepCloseButtonWhenExpanded).labelsHidden()
                                 }
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 12)
                                 .padding(.leading, 20)
                             }
                         }
+                        
+                        Divider().padding(.leading, 12)
+                        
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Bouncy expansion animation")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.primary)
+                                Text("If enabled, overlays use a bouncy spring effect when expanding.")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $enableBouncyExpansion).labelsHidden()
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
                     }
                     .toggleStyle(.switch)
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))

@@ -1,3 +1,10 @@
 # Add scratch to gitignore if not there
 scratch/
 ax_banners.log
+scripts/
+.build/
+.DS_Store
+*.xcuserdatad/
+*.xcuserstate
+SMCKit/.swiftpm/
+xcuserdata/

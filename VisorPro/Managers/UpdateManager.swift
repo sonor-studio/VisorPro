@@ -369,17 +369,17 @@ class UpdateManager: ObservableObject {
         promptVC.window?.makeKeyAndOrderFront(nil)
         
         if isBlocking {
-            // Odłączenie event tapów (wyłączenie nasłuchu klawiszy / nakładek)
+            // Disconnect event taps (disable key / overlay listening)
             MediaKeyManager.shared.stopEventTaps()
             
-            // Zamknięcie wszystkich innych okien, np. Dashboardu
+            // Close all other windows, e.g. Dashboard
             for window in NSApp.windows {
                 if window != promptVC.window {
                     window.orderOut(nil)
                 }
             }
             
-            // Uruchomienie okna jako modal, co zablokuje resztę aplikacji
+            // Run window as modal, which will block the rest of the application
             if let w = promptVC.window {
                 NSApp.runModal(for: w)
             }

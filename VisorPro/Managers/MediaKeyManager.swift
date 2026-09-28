@@ -995,23 +995,6 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("fileDeletedOverlayPosition") var fileDeletedOverlayPosition: String = "bottomRight"
     @AppStorage("colorOnFileDeleted") var colorOnFileDeleted: String = "#ff3b30"
     
-    func triggerFileDeletedOverlay() {
-        if !showTrashModule { return }
-        if !notifyOnFileDeleted { return }
-        
-        let pos = self.getOverlayPosition(for: "fileDeletedOverlayPosition")
-        dismissCollidingIndicators(newPosition: pos, source: "fileDeleted")
-        playNotificationSound(named: self.soundOnFileDeleted)
-        
-        withAnimation(.easeInOut(duration: 0.15)) {
-            self.showFileDeletedIndicator = true
-            self.notifyOverlayStateChanged()
-            self.overlayTriggerTimes["fileDeleted"] = Date()
-        }
-        
-        OverlayStateRelay.shared.fileDeletedEventId = UUID()
-        scheduleOverlayHide(for: "fileDeleted")
-    }
     var trashFreedSizeGB: Double {
         get { OverlayStateRelay.shared.trashFreedSizeGB }
         set { OverlayStateRelay.shared.trashFreedSizeGB = newValue }
@@ -1082,33 +1065,6 @@ class MediaKeyManager: ObservableObject {
     }
     @AppStorage("clipboardHistoryLimit") var clipboardHistoryLimit: Int = 30
 
-    func cleanupClipboardHistory() {
-        let retention = UserDefaults.standard.string(forKey: "clipboardHistoryRetention") ?? "24h"
-        
-        var modified = false
-        if retention == "24h" {
-            let threshold = Date().addingTimeInterval(-24 * 60 * 60)
-            let startCount = self.clipboardHistory.count
-            self.clipboardHistory.removeAll(where: { $0.timestamp < threshold })
-            if self.clipboardHistory.count != startCount { modified = true }
-        } else if retention == "7d" {
-            let threshold = Date().addingTimeInterval(-7 * 24 * 60 * 60)
-            let startCount = self.clipboardHistory.count
-            self.clipboardHistory.removeAll(where: { $0.timestamp < threshold })
-            if self.clipboardHistory.count != startCount { modified = true }
-        }
-        
-        let limit = self.clipboardHistoryLimit > 0 ? self.clipboardHistoryLimit : 30
-        if self.clipboardHistory.count > limit {
-            self.clipboardHistory.removeLast(self.clipboardHistory.count - limit)
-            modified = true
-        }
-        
-        if modified {
-            let current = self.clipboardHistory
-            self.clipboardHistory = current
-        }
-    }
 
     
     var pendingClipboardAction: String?
@@ -1891,117 +1847,9 @@ class MediaKeyManager: ObservableObject {
 
 
     
-    func getAvailableLanguages() -> [KeyboardLayout] {
-        guard let sourceList = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource],
-              let currentSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else {
-            return []
-        }
-        
-        var currentId = ""
-        if let currentIdPtr = TISGetInputSourceProperty(currentSource, kTISPropertyInputSourceID),
-           let idStr = Unmanaged<AnyObject>.fromOpaque(currentIdPtr).takeUnretainedValue() as? String {
-            currentId = idStr
-        }
-        
-        var layouts: [KeyboardLayout] = []
-        for source in sourceList {
-            guard let catPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceCategory),
-                  let category = Unmanaged<AnyObject>.fromOpaque(catPtr).takeUnretainedValue() as? String else { continue }
-            
-            if category == (kTISCategoryKeyboardInputSource as String) {
-                if let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
-                   let namePtr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName),
-                   let id = Unmanaged<AnyObject>.fromOpaque(idPtr).takeUnretainedValue() as? String,
-                   let name = Unmanaged<AnyObject>.fromOpaque(namePtr).takeUnretainedValue() as? String {
-                    layouts.append(KeyboardLayout(id: id, name: name, isSelected: (id == currentId)))
-                }
-            }
-        }
-        return layouts
-    }
     
-    func selectLanguage(idToSelect: String) {
-        guard let sourceList = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource] else { return }
-        for source in sourceList {
-            if let idPtr = TISGetInputSourceProperty(source, kTISPropertyInputSourceID),
-               let id = Unmanaged<AnyObject>.fromOpaque(idPtr).takeUnretainedValue() as? String {
-                if id == idToSelect {
-                    if let oldId = OverlayStateRelay.shared.currentKeyboardLayoutId, oldId != idToSelect {
-                        OverlayStateRelay.shared.previousKeyboardLayoutId = oldId
-                    }
-                    OverlayStateRelay.shared.currentKeyboardLayoutId = idToSelect
-                    
-                    if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName),
-                       let name = Unmanaged<AnyObject>.fromOpaque(ptr).takeUnretainedValue() as? String {
-                        OverlayStateRelay.shared.currentKeyboardLanguage = name
-                    }
-                    
-                    isSwitchingLanguageInternally = true
-                    TISSelectInputSource(source)
-                    
-                    // Keep the overlay alive when changing language via the button
-                    self.keepAlive(for: "language", isHovering: false)
-                    OverlayStateRelay.shared.languageEventId = UUID()
-                    
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        self.isSwitchingLanguageInternally = false
-                    }
-                    return
-                }
-            }
-        }
-    }
     
-    func getCurrentCapsLockState() -> Bool {
-        var connect: io_connect_t = 0
-        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(kIOHIDSystemClass))
-        if service == 0 { return false }
-        IOServiceOpen(service, mach_task_self_, UInt32(kIOHIDParamConnectType), &connect)
-        var state: Bool = false
-        IOHIDGetModifierLockState(connect, Int32(kIOHIDCapsLockState), &state)
-        IOServiceClose(connect)
-        IOObjectRelease(service)
-        return state
-    }
 
-    func toggleCapsLock(isCatchup: Bool = false) {
-        var connect: io_connect_t = 0
-        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(kIOHIDSystemClass))
-        if service != 0 {
-            IOServiceOpen(service, mach_task_self_, UInt32(kIOHIDParamConnectType), &connect)
-            var state: Bool = false
-            IOHIDGetModifierLockState(connect, Int32(kIOHIDCapsLockState), &state)
-            let newState = !state
-            IOHIDSetModifierLockState(connect, Int32(kIOHIDCapsLockState), newState)
-            IOServiceClose(connect)
-            IOObjectRelease(service)
-            
-            self.isCapsLockOn = newState
-            
-            let src = CGEventSource(stateID: .hidSystemState)
-            
-            var currentFlags = CGEventSource.flagsState(.hidSystemState)
-            if newState {
-                currentFlags.insert(.maskAlphaShift)
-            } else {
-                currentFlags.remove(.maskAlphaShift)
-            }
-            
-            let eventDown = CGEvent(keyboardEventSource: src, virtualKey: 57, keyDown: true)
-            eventDown?.type = .flagsChanged
-            eventDown?.flags = currentFlags
-            eventDown?.setIntegerValueField(.eventSourceUserData, value: 12345)
-            eventDown?.post(tap: .cghidEventTap)
-            
-            let eventUp = CGEvent(keyboardEventSource: src, virtualKey: 57, keyDown: false)
-            eventUp?.type = .flagsChanged
-            eventUp?.flags = currentFlags
-            eventUp?.setIntegerValueField(.eventSourceUserData, value: 12345)
-            eventUp?.post(tap: .cghidEventTap)
-            
-            self.triggerCapsLockIndicator(isOn: newState)
-        }
-    }
 
     func startMicSwitchingBuffer() {
         isSwitchingMic = true
@@ -2094,7 +1942,7 @@ class MediaKeyManager: ObservableObject {
 
     
     var batteryTimer: Timer?
-    private var isTestingBattery = false
+    var isTestingBattery = false
     private var testOriginalPercentage = 0
     private var testOriginalPluggedIn = false
     
@@ -2359,7 +2207,7 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    private func getMountPoint(for notification: DeviceNotification) -> URL? {
+    func getMountPoint(for notification: DeviceNotification) -> URL? {
         let keys: [URLResourceKey] = [.volumeIsInternalKey, .volumeTotalCapacityKey]
         let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: []) ?? []
         let bsdName = notification.details?["BSD Name"]
@@ -2428,37 +2276,9 @@ class MediaKeyManager: ObservableObject {
         return matchingUrls.first
     }
     
-    func hasOpticalMedia() -> Bool? {
-        let task = Process()
-        task.launchPath = "/usr/bin/drutil"
-        task.arguments = ["status"]
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        try? task.run()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        if let output = String(data: data, encoding: .utf8) {
-            if output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return nil }
-            let lower = output.lowercased()
-            if lower.contains("no media inserted") || lower.contains("no media") || lower.contains("empty") {
-                return false
-            }
-            return true
-        }
-        return nil
-    }
 
-    func getDriveCapacity(for notification: DeviceNotification) -> (total: Int, available: Int)? {
-        guard let target = getMountPoint(for: notification) else { return nil }
-        
-        let keys: [URLResourceKey] = [.volumeTotalCapacityKey, .volumeAvailableCapacityKey]
-        if let values = try? target.resourceValues(forKeys: Set(keys)),
-           let total = values.volumeTotalCapacity, let available = values.volumeAvailableCapacity {
-            return (total, available)
-        }
-        return nil
-    }
     
-    private func getDeviceNode(for volume: String) -> String? {
+    func getDeviceNode(for volume: String) -> String? {
         let task = Process()
         task.launchPath = "/usr/sbin/diskutil"
         task.arguments = ["info", "-plist", volume]
@@ -2473,66 +2293,8 @@ class MediaKeyManager: ObservableObject {
         return nil
     }
     
-    func openDrive(for notification: DeviceNotification) {
-        if let target = getMountPoint(for: notification) {
-            if notification.type == "CD/DVD Drive" {
-                let videoTs = target.appendingPathComponent("VIDEO_TS")
-                if FileManager.default.fileExists(atPath: videoTs.path) {
-                    let task = Process()
-                    task.launchPath = "/usr/bin/open"
-                    task.arguments = ["-a", "DVD Player"]
-                    try? task.run()
-                    return
-                }
-                
-                if let files = try? FileManager.default.contentsOfDirectory(atPath: target.path), files.contains(where: { $0.lowercased().hasSuffix(".aiff") || $0.lowercased().hasSuffix(".cda") }) {
-                    let task = Process()
-                    task.launchPath = "/usr/bin/open"
-                    task.arguments = ["-a", "Music"]
-                    try? task.run()
-                    return
-                }
-            }
-            
-            NSWorkspace.shared.open(target)
-        }
-    }
     
-    func ejectDrive(for notification: DeviceNotification, completion: @escaping (Bool, String?) -> Void = { _,_ in }) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let target = self.getMountPoint(for: notification) else {
-                DispatchQueue.main.async { completion(false, nil) }
-                return
-            }
-            
-            let deviceNode = self.getDeviceNode(for: target.path)
-            let task = Process()
-            task.launchPath = "/usr/sbin/diskutil"
-            task.arguments = ["unmount", target.path]
-            do {
-                try task.run()
-                task.waitUntilExit()
-                DispatchQueue.main.async { completion(task.terminationStatus == 0, deviceNode) }
-            } catch {
-                DispatchQueue.main.async { completion(false, nil) }
-            }
-        }
-    }
     
-    func mountDrive(deviceNode: String, completion: @escaping (Bool) -> Void = { _ in }) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let task = Process()
-            task.launchPath = "/usr/sbin/diskutil"
-            task.arguments = ["mount", deviceNode]
-            do {
-                try task.run()
-                task.waitUntilExit()
-                DispatchQueue.main.async { completion(task.terminationStatus == 0) }
-            } catch {
-                DispatchQueue.main.async { completion(false) }
-            }
-        }
-    }
 
     
     func updateAccessoryState(deviceName: String, percentage: Int?, isPluggedIn: Bool) {
@@ -2622,43 +2384,8 @@ class MediaKeyManager: ObservableObject {
     }
 
     
-    func copyHistoryItemToPasteboard(_ item: ClipboardItem) {
-        let pasteboard = NSPasteboard.general
-        self.isProgrammaticPasteboardChange = true
-        self.pendingClipboardAction = "paste"
-        self.pendingClipboardActionTimestamp = Date()
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.isProgrammaticPasteboardChange = false
-        }
-        pasteboard.clearContents()
-        
-        if let folder = item.folder {
-            let fileURL = URL(fileURLWithPath: folder).appendingPathComponent(item.text)
-            if FileManager.default.fileExists(atPath: fileURL.path) {
-                pasteboard.writeObjects([fileURL as NSURL])
-            } else {
-                pasteboard.setString(item.text, forType: .string)
-            }
-        } else {
-            pasteboard.setString(item.text, forType: .string)
-        }
-        
-        DispatchQueue.main.async {
-            if let idx = self.clipboardHistory.firstIndex(where: { $0.id == item.id }) {
-                var updatedItem = item
-                updatedItem.timestamp = Date()
-                self.clipboardHistory.remove(at: idx)
-                self.clipboardHistory.insert(updatedItem, at: 0)
-            }
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            self.simulatePaste(isFile: item.folder != nil)
-        }
-    }
 
-    private func keyCode(for character: String) -> CGKeyCode {
+    func keyCode(for character: String) -> CGKeyCode {
         switch character.lowercased() {
         case "a": return 0; case "s": return 1; case "d": return 2; case "f": return 3
         case "h": return 4; case "g": return 5; case "z": return 6; case "x": return 7
@@ -2676,7 +2403,7 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    private func cgFlags(from modifiers: NSEvent.ModifierFlags) -> CGEventFlags {
+    func cgFlags(from modifiers: NSEvent.ModifierFlags) -> CGEventFlags {
         var flags: CGEventFlags = []
         if modifiers.contains(.command) { flags.insert(.maskCommand) }
         if modifiers.contains(.option) { flags.insert(.maskAlternate) }
@@ -2685,29 +2412,6 @@ class MediaKeyManager: ObservableObject {
         return flags
     }
 
-    func simulatePaste(isFile: Bool) {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        let keyCode: CGKeyCode
-        let flags: CGEventFlags
-        
-        if isFile {
-            keyCode = 9 // 'v'
-            flags = .maskCommand
-        } else {
-            keyCode = self.keyCode(for: self.pasteShortcut.character)
-            flags = self.cgFlags(from: self.pasteShortcut.modifiers)
-        }
-        
-        if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
-            keyDown.flags = flags
-            keyDown.post(tap: .cgAnnotatedSessionEventTap)
-        }
-        
-        if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
-            keyUp.flags = flags
-            keyUp.post(tap: .cgAnnotatedSessionEventTap)
-        }
-    }
 
     
     var wiFiTimer: Timer?
@@ -2933,112 +2637,18 @@ class MediaKeyManager: ObservableObject {
         cachedFullScreenTime = now
         return false
     }
-    private var initialPercentageWhenPluggedIn: Int? = nil
-    private var hasChargedSincePluggedIn: Bool = false
+    var initialPercentageWhenPluggedIn: Int? = nil
+    var hasChargedSincePluggedIn: Bool = false
     
-    func updateBatteryState(percentage: Int, pluggedIn: Bool, timeRemaining: String, cycleCount: Int = 0, healthPercentage: Int = 100, condition: String = "Normal", powerDraw: String = "0.0 W", isCharging: Bool = false) {
-        if !enableBattery || isTestingBattery { return }
-        let wasInitialized = self.isBatteryInitialized
-        
-        if pluggedIn && !self.isPluggedIn {
-            self.initialPercentageWhenPluggedIn = percentage
-            self.hasChargedSincePluggedIn = false
-        } else if !pluggedIn {
-            self.initialPercentageWhenPluggedIn = nil
-            self.hasChargedSincePluggedIn = false
-        }
-        
-        if pluggedIn, let initial = self.initialPercentageWhenPluggedIn, percentage > initial {
-            self.hasChargedSincePluggedIn = true
-        }
-        
-        if !wasInitialized && pluggedIn {
-            self.hasChargedSincePluggedIn = true
-        }
-        
-        let systemPriorLimit = self.readChargeLimit(currentCapacity: percentage)
-        let isLimitReached = pluggedIn && !isCharging && percentage == systemPriorLimit && self.hasChargedSincePluggedIn
-        
-        var newLimit = 100
-        if isLimitReached {
-            newLimit = percentage
-        }
-        
-        if self.chargeLimit != newLimit {
-            self.chargeLimit = newLimit
-        }
-        
-        let effectivelyFull = isLimitReached || (pluggedIn && !isCharging && percentage == 100)
-        if self.isEffectivelyFullyCharged != effectivelyFull {
-            self.isEffectivelyFullyCharged = effectivelyFull
-        }
-        
-        if self.isPluggedIn != pluggedIn {
-            self.isPluggedIn = pluggedIn
-        }
-        if self.currentBatteryPercentage != percentage {
-            self.currentBatteryPercentage = percentage
-        }
-        self.batteryTimeRemaining = timeRemaining
-        self.batteryCycleCount = cycleCount
-        self.batteryHealthPercentage = healthPercentage
-        self.batteryCondition = condition
-        self.batteryPowerDraw = powerDraw
-        if !wasInitialized {
-            self.isBatteryInitialized = true
-        }
-    }
     
-    func readChargeLimit(currentCapacity: Int = 0) -> Int {
-        if let defaults = UserDefaults(suiteName: "com.apple.batteryui.charging.mac"),
-           let limit = defaults.object(forKey: "com.apple.batteryui.charging.mac.prior.limit") as? Int,
-           limit >= 50 && limit < 100 {
-            return limit
-        }
-        return 100
-    }
     
-    func openBatterySettings() {
-        let task = Process()
-        task.launchPath = "/usr/bin/open"
-        task.arguments = ["x-apple.systempreferences:com.apple.Battery-Settings.extension"]
-        task.launch()
-    }
     
-    private var topBatteryConsumersTimer: Timer?
+    var topBatteryConsumersTimer: Timer?
     
-    func startFetchingTopBatteryConsumers() {
-        fetchTopBatteryConsumers()
-        topBatteryConsumersTimer?.invalidate()
-        topBatteryConsumersTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
-            guard let self = self, self.showLowBatteryWarning else {
-                self?.topBatteryConsumersTimer?.invalidate()
-                return
-            }
-            self.fetchTopBatteryConsumers()
-        }
-    }
 
     
 
     
-    func getIconForProcess(name: String) -> NSImage? {
-        if let app = NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == name || $0.executableURL?.lastPathComponent == name }) {
-            return app.icon
-        }
-        
-        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: name) {
-            return NSWorkspace.shared.icon(forFile: url.path)
-        }
-        
-        let appsURL = URL(fileURLWithPath: "/Applications")
-        if let enumerator = FileManager.default.enumerator(at: appsURL, includingPropertiesForKeys: nil, options: [.skipsSubdirectoryDescendants, .skipsPackageDescendants, .skipsHiddenFiles]),
-           let file = enumerator.allObjects.first(where: { ($0 as? URL)?.lastPathComponent.lowercased() == "\(name.lowercased()).app" }) as? URL {
-            return NSWorkspace.shared.icon(forFile: file.path)
-        }
-        
-        return nil
-    }
     
     private var mediaKeyTap: CFMachPort?
     private var mediaKeyRunLoopSource: CFRunLoopSource?
@@ -3047,7 +2657,7 @@ class MediaKeyManager: ObservableObject {
     private var standardKeyRunLoop: CFRunLoop?
     private var standardKeyThread: Thread?
     private var hasStarted = false
-    private var rawHIDManager: IOHIDManager?
+    var rawHIDManager: IOHIDManager?
     private var audioRouteObserver: AudioRouteObserver?
     private var batteryObserver: BatteryObserver?
     private var wifiObserver: WiFiObserver?
@@ -3192,30 +2802,7 @@ class MediaKeyManager: ObservableObject {
         return Shortcut(character: character, modifiers: modifiers)
     }
     
-    func checkAccessibility() {
-
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        self.isTrusted = AXIsProcessTrustedWithOptions(options)
-    }
     
-    func syncPermissions() {
-        if self.enableBluetooth && !PermissionHelper.checkBluetoothPermission() {
-            self.enableBluetooth = false
-        }
-        
-        let locStatus = PermissionHelper.sharedLocationManager.authorizationStatus
-        if locStatus == .denied || locStatus == .restricted {
-            if self.enableWiFi { self.enableWiFi = false }
-            if self.notifyOnLocationOn { self.notifyOnLocationOn = false }
-        }
-        
-        let micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-        if micStatus != .authorized && micStatus != .notDetermined {
-            if UserDefaults.standard.bool(forKey: "micShowVisualizer") {
-                UserDefaults.standard.set(false, forKey: "micShowVisualizer")
-            }
-        }
-    }
     
     func start() {
         if !self.isTrusted {
@@ -3323,77 +2910,7 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func setupRawCapsLockDetection() {
-        guard self.isTrusted else { return }
-        if rawHIDManager != nil { return } // Zabezpieczenie przed podwójną rejestracją
-        
-        rawHIDManager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
-        guard let manager = rawHIDManager else { return }
-        
-        let deviceMatch: [String: Any] = [
-            kIOHIDDeviceUsagePageKey: 0x01, // Generic Desktop
-            kIOHIDDeviceUsageKey: 0x06      // Keyboard
-        ]
-        
-        IOHIDManagerSetDeviceMatching(manager, deviceMatch as CFDictionary)
-        
-        let context = Unmanaged.passUnretained(self).toOpaque()
-        
-        // Protection against sleeping/disconnecting keyboards (hot-plug)
-        let matchCallback: IOHIDDeviceCallback = { context, result, sender, device in
-        }
-        let removeCallback: IOHIDDeviceCallback = { context, result, sender, device in
-        }
-        IOHIDManagerRegisterDeviceMatchingCallback(manager, matchCallback, context)
-        IOHIDManagerRegisterDeviceRemovalCallback(manager, removeCallback, context)
-        
-        IOHIDManagerRegisterInputValueCallback(manager, { context, result, sender, value in
-            guard let context = context else { return }
-            let selfObj = Unmanaged<MediaKeyManager>.fromOpaque(context).takeUnretainedValue()
-            
-            let element = IOHIDValueGetElement(value)
-            let usagePage = IOHIDElementGetUsagePage(element)
-            let usage = IOHIDElementGetUsage(element)
-            let intValue = IOHIDValueGetIntegerValue(value)
-            
-            // 0x07 = Keyboard/Keypad, 0x39 = Caps Lock
-            if usagePage == 0x07 {
-                if usage == 0x39 {
-                    if intValue == 1 {
-                        DispatchQueue.main.async {
-                            selfObj.handleRawCapsLockPress()
-                        }
-                    }
-                }
-            }
-        }, context)
-        
-        IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
-        let result = IOHIDManagerOpen(manager, IOOptionBits(kIOHIDOptionsTypeNone))
-        if result == kIOReturnSuccess {
-        } else {
-        }
-        
-        // Inicjalna synchronizacja stanu
-        self.isCapsLockOn = self.getCurrentCapsLockState()
-    }
     
-    func handleRawCapsLockPress() {
-        if !self.enableKeyboard { return }
-        
-        // Increased delay from 0.05s to 0.15s to give Bluetooth keyboards time to light up the LED
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            let actualHardwareState = self.getCurrentCapsLockState()
-            
-            guard actualHardwareState != self.isCapsLockOn else { return }
-            
-            if !self.useSystemOSD {
-                self.lastAction = "Caps Lock: \(actualHardwareState ? "On" : "Off")"
-            }
-            
-            self.triggerCapsLockIndicator(isOn: actualHardwareState)
-        }
-    }
     
     func setupStandardKeyTap() {
         guard hasStarted else { return }
@@ -3720,75 +3237,14 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    func setVolume(to level: Int) {
-        self.currentVolume = level
-        VolumeManager.shared.setVolume(to: level) { _, _ in }
-    }
     
-    func toggleVolumeMute() {
-        self.isMuted.toggle()
-        VolumeManager.shared.toggleMute { _, _ in }
-    }
     
-    func setBrightness(to level: Int) {
-        self.currentBrightness = level
-        BrightnessManager.shared.setBrightness(to: level) { _ in }
-    }
     
-    func setKeyboardBrightness(to level: Int) {
-        self.currentKeyboardBrightness = level
-        KeyboardBrightnessManager.shared.setBrightness(to: level) { _ in }
-    }
     
-    func simulatePlayPause() {
-        sendMediaRemoteCommand(2) // togglePlayPause
-    }
     
-    func simulateNext() {
-        sendMediaRemoteCommand(4) // nextTrack
-    }
     
-    func simulatePrevious() {
-        sendMediaRemoteCommand(5) // previousTrack
-    }
-    func setAirPodsMode(_ mode: Int) {
-        guard !OverlayStateRelay.shared.isChangingAirPodsMode else { return }
-        OverlayStateRelay.shared.isChangingAirPodsMode = true
-        
-        _ = self.airPodsModeObserver?.setMode(mode)
-        
-        // Failsafe: if the hardware doesn't respond within 2 seconds, unlock it
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            OverlayStateRelay.shared.isChangingAirPodsMode = false
-        }
-    }
 
-    func simulateSeek(to time: Double) {
-        let bundle = CFBundleCreate(kCFAllocatorDefault, NSURL(fileURLWithPath: "/System/Library/PrivateFrameworks/MediaRemote.framework"))
-        if let pointer = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteSetElapsedTime" as CFString) {
-            typealias MRMediaRemoteSetElapsedTimeFunc = @convention(c) (Double) -> Void
-            let command = unsafeBitCast(pointer, to: MRMediaRemoteSetElapsedTimeFunc.self)
-            command(time)
-        }
-    }
     
-    func openMediaApp() {
-        guard !mediaBundleId.isEmpty else { return }
-        
-        let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: mediaBundleId)
-        if let app = runningApps.first {
-            if #available(macOS 14.0, *) {
-                app.activate()
-            } else {
-                app.activate(options: [.activateIgnoringOtherApps])
-            }
-        } else {
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: mediaBundleId) {
-                let configuration = NSWorkspace.OpenConfiguration()
-                NSWorkspace.shared.openApplication(at: url, configuration: configuration)
-            }
-        }
-    }
 }
 import Foundation
 

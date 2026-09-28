@@ -213,6 +213,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @AppStorage("enableCloseButton") private var enableCloseButton = false
     @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = true
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
+    @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
     
     private var isGloballyHovered: Bool {
         guard let keepAliveId = keepAliveId else { return isHovering }
@@ -310,7 +311,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 onRightTap?()
                             } else {
                                 if isExpandable {
-                                    let anim: Animation = !isExpanded ? .spring(response: 0.4, dampingFraction: 0.6) : .easeOut(duration: 0.2)
+                                    let anim: Animation = !isExpanded ? (enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)) : .easeOut(duration: 0.2)
                                     withAnimation(anim) {
                                         isExpanded.toggle()
                                     }
@@ -335,7 +336,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         }
                     )
                     .modifier(BouncyHeightModifier(height: isExpanded ? (fixedExpandedHeight ?? expandedHeight) : 0))
-                    .animation(isPreview ? nil : .spring(response: 0.4, dampingFraction: 0.6), value: expandedHeight)
+                    .animation(isPreview ? nil : (enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)), value: expandedHeight)
                     .opacity(isExpanded ? 1 : 0)
                     .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
