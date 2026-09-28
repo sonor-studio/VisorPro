@@ -15,43 +15,24 @@ struct PremiumLockedView: View {
                 .shadow(color: Color.green.opacity(0.25), radius: 6, x: 0, y: 3)
                 .padding(.bottom, 2)
             
-            Text("Premium Tracker")
+            Text("Premium Feature")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.primary)
             
-                        Text("This tracker is included with VisorPro Premium. As an early supporter, you can unlock it for free by using promo code EARLY at checkout.")
+            Text("This tracker is included with VisorPro Premium. Upgrade to unlock it.")
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(3)
                 .frame(maxWidth: 380)
-
-            Button(action: {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString("EARLY", forType: .string)
-            }) {
-                HStack(spacing: 6) {
-                    Text("CODE: EARLY")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    Image(systemName: "doc.on.doc.fill")
-                        .font(.system(size: 10))
-                }
-                .foregroundColor(.primary)
-                .padding(.vertical, 4)
-                .padding(.horizontal, 10)
-                .background(Color.primary.opacity(0.06))
-                .cornerRadius(6)
-            }
-            .buttonStyle(PlainButtonStyle())
-            .help("Copy promo code")
             
             HStack(spacing: 12) {
                 Button(action: {
                     showingCheckout = true
                 }) {
                     HStack(spacing: 8) {
-                        Image(systemName: "checkmark.seal.fill")
-                        Text("Go to Checkout")
+                        Image(systemName: "cart.fill")
+                        Text("Buy Premium")
                             .fontWeight(.semibold)
                     }
                     .foregroundColor(Color(NSColor.windowBackgroundColor))

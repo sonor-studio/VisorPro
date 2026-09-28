@@ -255,13 +255,13 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 .fill(Color.clear)
                                 .frame(width: 60)
                                 .contentShape(Rectangle())
-                                .pointingHandCursor()
+                                .conditionalPointingHandCursor(isEnabled: !isPreview)
                         }
                         if (!isExpandable && onSimpleTap != nil) || isExpandable {
                             Rectangle()
                                 .fill(Color.clear)
                                 .contentShape(Rectangle())
-                                .pointingHandCursor()
+                                .conditionalPointingHandCursor(isEnabled: !isPreview)
                         } else {
                             Spacer()
                         }
@@ -270,12 +270,56 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 .fill(Color.clear)
                                 .frame(width: 50)
                                 .contentShape(Rectangle())
-                                .pointingHandCursor()
+                                .conditionalPointingHandCursor(isEnabled: !isPreview)
                         }
                     }
                     .frame(width: width, height: baseHeight)
                     .allowsHitTesting(!allowBaseHitTesting)
                 }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 10)
+                        .onChanged { value in
+                            if isPreview { return }
+                            if supportDragGesture {
+                                if !isDragging {
+                                    isDragging = true
+                                }
+                                let v = max(0, min(1, value.location.x / width))
+                                onDrag?(v)
+                            }
+                        }
+                        .onEnded { value in
+                            if isDragging {
+                                isDragging = false
+                            }
+                        }
+                )
+                .simultaneousGesture(
+                    SpatialTapGesture()
+                        .onEnded { event in
+                            if isDragging {
+                                return
+                            }
+                            
+                            let locX = event.location.x
+                            
+                            if onLeftTap != nil && locX <= 60 {
+                                onLeftTap?()
+                            } else if onRightTap != nil && !supportDragGesture && locX >= width - 50 {
+                                onRightTap?()
+                            } else {
+                                if isExpandable {
+                                    let anim: Animation = !isExpanded ? .spring(response: 0.4, dampingFraction: 0.6) : .easeOut(duration: 0.2)
+                                    withAnimation(anim) {
+                                        isExpanded.toggle()
+                                    }
+                                } else {
+                                    onSimpleTap?()
+                                }
+                            }
+                        }
+                )
                 
                 expandedContent()
                     .padding(.bottom, 16)
@@ -291,18 +335,13 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         }
                     )
                     .modifier(BouncyHeightModifier(height: isExpanded ? (fixedExpandedHeight ?? expandedHeight) : 0))
+                    .animation(isPreview ? nil : .spring(response: 0.4, dampingFraction: 0.6), value: expandedHeight)
                     .opacity(isExpanded ? 1 : 0)
                     .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
                         DispatchQueue.main.async {
                             if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 2.0 {
-                                if isExpanded {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        expandedHeight = height
-                                    }
-                                } else {
-                                    expandedHeight = height
-                                }
+                                expandedHeight = height
                             }
                         }
                     }
@@ -418,47 +457,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             }
         )
         .contentShape(RoundedRectangle(cornerRadius: outerRadius))
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    if isPreview { return }
-                    if supportDragGesture {
-                        if isDragging {
-                            let v = max(0, min(1, value.location.x / width))
-                            onDrag?(v)
-                        } else {
-                            let moved = abs(value.translation.width) >= 12
-                            if moved {
-                                isDragging = true
-                                let v = max(0, min(1, value.location.x / width))
-                                onDrag?(v)
-                            }
-                        }
-                    }
-                }
-                .onEnded { value in
-                    if !isDragging {
-                        let moved = abs(value.translation.width) >= 12 || abs(value.translation.height) >= 12
-                        if !moved {
-                            let locX = value.startLocation.x
-                            if onLeftTap != nil && locX <= 60 {
-                                onLeftTap?()
-                            } else if onRightTap != nil && !supportDragGesture && locX >= width - 50 {
-                                onRightTap?()
-                            } else {
-                                if isExpandable {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        isExpanded.toggle()
-                                    }
-                                } else {
-                                    onSimpleTap?()
-                                }
-                            }
-                        }
-                    }
-                    isDragging = false
-                }
-        )
 
         .background(
             (colorScheme == .dark ? Color(white: 0.12, opacity: 0.98) : Color(white: 0.90, opacity: 0.98))
@@ -504,7 +502,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         }
         .onChange(of: isExpandable) { _, newValue in
             if !newValue && isExpanded {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     isExpanded = false
                 }
             }
@@ -553,7 +551,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                             mediaKeyManager.forceHide(overlayId: id)
                         }
                     }
-                    .pointingHandCursor()
+                    .conditionalPointingHandCursor(isEnabled: !isPreview)
                 .offset(x: buttonCenter.x - 10, y: dynamicOffset)
                 .opacity(shouldShowCloseButton ? 1 : 0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: shouldShowCloseButton)
@@ -565,10 +563,13 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     
     private var shouldShowGlow: Bool {
         if forceGlow { return true }
-        guard mediaKeyManager.enableGlowEffect else { return false }
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        guard mediaKeyManager.enableGlowEffect && !premiumKey.isEmpty else { return false }
+        
+        let effectivelyExpanded = isExpanded || keepAliveId == "airpodsGroupBattery"
         
         // Hide glow if expanded and the user disabled glow on expand
-        if isExpanded && !mediaKeyManager.glowOnExpanded { return false }
+        if effectivelyExpanded && !mediaKeyManager.glowOnExpanded { return false }
         
         if mediaKeyManager.glowEffectTheme == "both" { return true }
         if mediaKeyManager.glowEffectTheme == "dark" && colorScheme == .dark { return true }

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ClipboardSettingsView: View {
+    @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @AppStorage("copyOverlayPosition") private var copyOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
@@ -41,7 +42,7 @@ struct ClipboardSettingsView: View {
                 }
                 .padding(.horizontal)
 
-                if mediaKeyManager.enableClipboard {
+                if mediaKeyManager.enableClipboard || savedLicenseKey.isEmpty {
                 
                     if mediaKeyManager.enableClipboard {
                         VStack(alignment: .center) {
@@ -68,6 +69,9 @@ struct ClipboardSettingsView: View {
                     
                         Divider()
                     
+                        if savedLicenseKey.isEmpty {
+                            PremiumLockedView()
+                        } else {
                         VStack(alignment: .leading, spacing: 24) {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Clipboard")
@@ -247,6 +251,7 @@ struct ClipboardSettingsView: View {
                             .padding(.horizontal)
 
                         }
+                    }
                     }
                 
                     Spacer()

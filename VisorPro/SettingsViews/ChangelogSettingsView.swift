@@ -47,6 +47,61 @@ struct ChangelogSettingsView: View {
                 Divider()
                     .padding(.bottom, 32)
                 
+                // Version 1.3.1 Area
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("VisorPro 1.3.1")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.primary)
+                    
+                    Text("Massive performance optimizations and buttery smooth overlay animations for an even better user experience.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 8)
+                    
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)], spacing: 32) {
+                        
+                        ChangelogCard(
+                            icon: "bolt.fill",
+                            title: "Performance Optimizations",
+                            description: "Eliminated rendering hitches by optimizing macOS Window Server handling and removing thousands of redundant background tasks during animations. Changing volume is now buttery smooth.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.orange.opacity(0.05))
+                                
+                                ZStack {
+                                    Circle()
+                                        .stroke(Color.orange.opacity(0.3), lineWidth: 4)
+                                        .frame(width: 60, height: 60)
+                                    
+                                    Image(systemName: "bolt.fill")
+                                        .font(.system(size: 32))
+                                        .foregroundColor(.orange)
+                                        .shadow(color: .orange.opacity(0.5), radius: 5, y: 0)
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "wand.and.stars",
+                            title: "Fluid Animations",
+                            description: "Expanding overlays now features a satisfying bouncy effect, while collapsing is instantly snappy. Gesture conflicts that caused dropped fast clicks have been fully resolved.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.cyan.opacity(0.05))
+                                
+                                Image(systemName: "gauge.with.needle")
+                                    .font(.system(size: 56, weight: .ultraLight))
+                                    .foregroundColor(.cyan)
+                                    .shadow(color: .cyan.opacity(0.4), radius: 6, y: 2)
+                            }
+                        )
+                    }
+                }
+                .padding(.bottom, 32)
+                
+                Divider()
+                    .padding(.bottom, 32)
+                
                 // Version 1.3.0 Area
                 VStack(alignment: .leading, spacing: 16) {
                     Text("VisorPro 1.3.0")
@@ -126,7 +181,7 @@ struct ChangelogSettingsView: View {
                                     customWidth: 170,
                                     customCornerRadius: 28,
                                     forceGlow: true,
-                                    customGlowOpacity: 0.35,
+                                    customGlowOpacity: 0.15,
                                     isExpandable: false,
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
@@ -697,7 +752,7 @@ struct ChangelogSettingsView: View {
                         ChangelogCard(
                             icon: "square.split.2x1",
                             title: "Free vs Premium",
-                            description: "Features are now divided into Free and Premium tiers. Good news: early adopters can claim a lifetime Premium license for free!",
+                            description: "Features are now divided into Free and Premium tiers.",
                             preview: ZStack {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.green.opacity(0.05))
@@ -738,7 +793,7 @@ struct ChangelogSettingsView: View {
                         ChangelogCard(
                             icon: "key.fill",
                             title: "Polar License Manager",
-                            description: "We've fully replaced Keychain with a robust license manager via the Polar platform. Claim your free Early Adopter key effortlessly.",
+                            description: "We've fully replaced Keychain with a robust license manager via the Polar platform.",
                             preview: ZStack {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.teal.opacity(0.05))

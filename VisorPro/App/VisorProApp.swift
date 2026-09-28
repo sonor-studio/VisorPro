@@ -33,16 +33,15 @@ struct VisorProApp: App {
     }
     
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.openSettings) private var openSettings
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @AppStorage("showSystemModule") private var showSystemModule = true
     @AppStorage("showTrashModule") private var showTrashModule = true
     
     var body: some Scene {
-        let _ = { appDelegate.openSettingsAction = { openSettings() } }()
+        let _ = { appDelegate.openSettingsAction = { openWindow(id: "dashboard") } }()
         
-        Settings {
+        Window("VisorPro", id: "dashboard") {
             RootView()
                 .environmentObject(MediaKeyManager.shared)
                 .environmentObject(OverlayStateRelay.settingsProxy)
@@ -205,15 +204,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let hasCompletedWelcome = UserDefaults.standard.bool(forKey: "hasCompletedWelcome")
         let isTrusted = checkAXIsProcessTrustedReliably()
         
-        let savedLicenseKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        let hasSeenEarlyAdopterNotice = UserDefaults.standard.bool(forKey: "hasSeenEarlyAdopterNoticeV3")
-        let lastRemindDate = Date(timeIntervalSince1970: UserDefaults.standard.double(forKey: "lastRemindMeLaterDate"))
-        let isRemindedToday = Calendar.current.isDateInToday(lastRemindDate)
-        
-        let needsEarlyAdopterNotice = hasCompletedWelcome && savedLicenseKey.isEmpty && !hasShownNoticeThisSession && !hasSeenEarlyAdopterNotice && !isRemindedToday
-        if !hasCompletedWelcome || !isTrusted || needsEarlyAdopterNotice {
+        if !hasCompletedWelcome || !isTrusted {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                let _ = self.handleReopen(forceDashboard: needsEarlyAdopterNotice)
+                let _ = self.handleReopen(forceDashboard: false)
             }
         }
     }

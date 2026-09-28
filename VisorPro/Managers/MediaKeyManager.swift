@@ -387,7 +387,7 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("glowEffectTheme") var glowEffectTheme: String = "both"
     @AppStorage("glowOnExpanded") var glowOnExpanded: Bool = false
     @AppStorage("glowIntensity") var glowIntensity: Double = 1.0
-    @AppStorage("cornerRoundingMultiplier") var cornerRoundingMultiplier: Double = 1.0
+    @AppStorage("cornerRoundingMultiplier") var cornerRoundingMultiplier: Double = 0.85
     var globalHoveredTypes: Set<String> {
         get { OverlayStateRelay.shared.globalHoveredTypes }
         set { OverlayStateRelay.shared.globalHoveredTypes = newValue }
@@ -2736,8 +2736,6 @@ class MediaKeyManager: ObservableObject {
     }
     
     func updateMediaInfo(title: String, artist: String, album: String, duration: Double, elapsedTime: Double, isPlaying: Bool, mediaAction: String, bundleId: String, triggerNotification: Bool) {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
 
         let isVisible = activePeripheralNotifications.contains { $0.id == "media" }
         if isVisible && !self.mediaBundleId.isEmpty && bundleId != "" && self.mediaBundleId != bundleId {

@@ -11,8 +11,7 @@ struct ThemeSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                if !savedLicenseKey.isEmpty {
-    VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
                         Text("Theme Module")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.primary)
@@ -37,9 +36,6 @@ struct ThemeSettingsView: View {
                         )
                     }
                     .padding(.horizontal)
-                }
-
-                if mediaKeyManager.enableTheme || savedLicenseKey.isEmpty {
                 
                     if mediaKeyManager.enableTheme {
                         VStack(alignment: .center) {
@@ -63,9 +59,6 @@ struct ThemeSettingsView: View {
                     
                         Divider()
                     
-                        if savedLicenseKey.isEmpty {
-                            PremiumLockedView()
-                        } else {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Overlay Triggers")
                                 .font(.headline)
@@ -126,17 +119,15 @@ struct ThemeSettingsView: View {
                                 PositionPickerGroup(selection: $themeOverlayPosition)
                                 }
                             }
-                        }
-                        .padding(.horizontal)
                     }
+                    .padding(.horizontal)
                 
                     Spacer()
             
-                }
                 } else {
                     DisabledModuleView(icon: "power", title: "Theme Module is Disabled", description: "Turn on the module to configure theme overlays.")
                 }
-}
+            }
         }
         .navigationTitle("Theme")
         .frame(maxWidth: .infinity, maxHeight: .infinity)

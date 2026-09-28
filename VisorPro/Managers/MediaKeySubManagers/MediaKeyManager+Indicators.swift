@@ -127,8 +127,6 @@ extension MediaKeyManager {
     }
 
     func triggerThemeIndicator(isDark: Bool) {
-        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
-        if premiumKey.isEmpty { return }
 
         if !enableTheme { return }
         if isDark && !notifyOnThemeDark { return }

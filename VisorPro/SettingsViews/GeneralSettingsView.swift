@@ -170,15 +170,34 @@ struct GeneralSettingsView: View {
                     VStack(spacing: 0) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Enable Inner Glow")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.primary)
+                                HStack(spacing: 8) {
+                                    Text("Enable Inner Glow")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.primary)
+                                    if savedLicenseKey.isEmpty {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "checkmark.seal.fill")
+                                            Text("Premium")
+                                                .fontWeight(.bold)
+                                        }
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.green)
+                                        .cornerRadius(4)
+                                    }
+                                }
                                 Text("Shows a colorful background glow behind the glass.")
                                     .font(.system(size: 11))
                                     .foregroundColor(.secondary)
                             }
                             Spacer()
-                            Toggle("", isOn: $mediaKeyManager.enableGlowEffect)
+                            Toggle("", isOn: Binding(
+                                get: { mediaKeyManager.enableGlowEffect },
+                                set: { if !savedLicenseKey.isEmpty { mediaKeyManager.enableGlowEffect = $0 } }
+                            ))
+                                .disabled(savedLicenseKey.isEmpty)
                                 .labelsHidden()
                                 .toggleStyle(.switch)
                         }

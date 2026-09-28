@@ -37,8 +37,6 @@ struct SettingsView: View {
     @State private var window: NSWindow?
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
-    @AppStorage("hasSeenEarlyAdopterNoticeV3") private var hasSeenEarlyAdopterNotice = false
-    @State private var showingEarlyAdopterNotice = false
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
@@ -357,35 +355,6 @@ struct SettingsView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenPremiumSettings"))) { _ in
             selection = .premium
         }
-        .onAppear {
-            checkAndShowEarlyAdopterNotice()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            checkAndShowEarlyAdopterNotice()
-        }
-        .sheet(isPresented: $showingEarlyAdopterNotice) {
-            EarlyAdopterNoticeSheet(
-                isPresented: $showingEarlyAdopterNotice,
-                hasSeenNotice: $hasSeenEarlyAdopterNotice,
-                savedLicenseKey: $savedLicenseKey
-            )
-        }
-    }
-    
-    private func checkAndShowEarlyAdopterNotice() {
-        let lastRemindDate = Date(timeIntervalSince1970: UserDefaults.standard.double(forKey: "lastRemindMeLaterDate"))
-        let isRemindedToday = Calendar.current.isDateInToday(lastRemindDate)
-        
-        if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasShownNoticeThisSession && !hasSeenEarlyAdopterNotice && !isRemindedToday {
-            // Prevent spamming if it's already showing
-            guard !showingEarlyAdopterNotice else { return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                if savedLicenseKey.isEmpty && hasCompletedWelcome && !hasShownNoticeThisSession && !hasSeenEarlyAdopterNotice && !isRemindedToday {
-                    showingEarlyAdopterNotice = true
-                    hasShownNoticeThisSession = true
-                }
-            }
-        }
     }
 }
 
@@ -430,5 +399,4 @@ extension View {
 
 
 
-import SwiftUI
 

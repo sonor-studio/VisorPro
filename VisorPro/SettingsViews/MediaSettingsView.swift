@@ -12,8 +12,7 @@ struct MediaSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                if !savedLicenseKey.isEmpty {
-    VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
                         Text("Multimedia Module")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.primary)
@@ -38,10 +37,8 @@ struct MediaSettingsView: View {
                         )
                     }
                     .padding(.horizontal)
-                }
-
-                if mediaKeyManager.enableMediaNotification || savedLicenseKey.isEmpty {
                 
+                if mediaKeyManager.enableMediaNotification {
                     VStack(alignment: .center) {
                         Text("Preview")
                             .font(.headline)
@@ -59,9 +56,6 @@ struct MediaSettingsView: View {
                 
                     Divider()
                 
-                    if savedLicenseKey.isEmpty {
-                        PremiumLockedView()
-                    } else {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Overlay Triggers")
                             .font(.headline)
@@ -167,11 +161,10 @@ struct MediaSettingsView: View {
                 
                     Spacer()
             
-                }
                 } else {
                     DisabledModuleView(icon: "power", title: "Multimedia Module is Disabled", description: "Turn on the module to configure multimedia overlays.")
                 }
-}
+            }
         }
         .navigationTitle("Media")
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -16,8 +16,8 @@ struct PremiumSettingsView: View {
     private var buyButton: some View {
         Button(action: { showingCheckout = true }) {
             HStack(spacing: 8) {
-                Image(systemName: "checkmark.seal.fill")
-                Text("Get Premium")
+                Image(systemName: "cart.fill")
+                Text("Buy Premium")
                     .fontWeight(.semibold)
             }
             .foregroundColor(.black)
@@ -61,7 +61,7 @@ struct PremiumSettingsView: View {
                         
                         // Description
                         Text("Elevate your Mac experience with pro-level trackers, multi-display support, and absolute freedom over your overlays.")
-                            .font(.system(size: 14))
+                            .font(.system(size: 18, weight: .medium))
                             .foregroundColor(.secondary)
                             .lineSpacing(2)
                             .padding(.trailing, 40)
@@ -234,70 +234,43 @@ struct PremiumSettingsView: View {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)], spacing: 32) {
                         
                         WidgetPreviewCard(
-                            title: "Multimedia Tracker",
-                            description: "Control your music, podcasts, and other media with beautiful playback overlays.",
-                            preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.blue.opacity(0.05))
-                                
-                                HStack(spacing: 12) {
-                                    // Abstract album art
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(Color.blue.opacity(0.2))
-                                        .frame(width: 36, height: 36)
-                                        .overlay(Image(systemName: "music.note").foregroundColor(.blue.opacity(0.6)))
-                                    
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .fill(Color.blue.opacity(0.5))
-                                            .frame(width: 50, height: 6)
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .fill(Color.blue.opacity(0.3))
-                                            .frame(width: 30, height: 6)
-                                    }
-                                    
-                                    Image(systemName: "play.fill")
-                                        .foregroundColor(.blue.opacity(0.7))
-                                        .font(.system(size: 14))
-                                        .padding(.leading, 4)
-                                }
-                                .padding(14)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(12)
-                                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
-                            }
-                        )
-                        
-                        WidgetPreviewCard(
                             title: "Storage Tracker",
                             description: "Monitor your disk space and get alerts when storage is low.",
                             preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.purple.opacity(0.05))
-                                
-                                HStack(spacing: 16) {
-                                    // Abstract pie/ring chart for disk usage
-                                    ZStack {
-                                        Circle().stroke(Color.purple.opacity(0.2), lineWidth: 5).frame(width: 36, height: 36)
-                                        Circle().trim(from: 0, to: 0.85).stroke(Color.purple, style: StrokeStyle(lineWidth: 5, lineCap: .round)).frame(width: 36, height: 36).rotationEffect(.degrees(-90))
-                                        Image(systemName: "internaldrive").font(.system(size: 14)).foregroundColor(.purple)
-                                    }
-                                    
-                                    // Abstract Text Lines
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .fill(Color.purple.opacity(0.6))
-                                            .frame(width: 45, height: 6)
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .fill(Color.secondary.opacity(0.4))
-                                            .frame(width: 25, height: 4)
-                                    }
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 14)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(12)
-                                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                RoundedRectangle(cornerRadius: 12).fill(Color.purple.opacity(0.05))
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(false),
+                                    showProgressBar: true,
+                                    progress: 0.85,
+                                    barColor: .purple,
+                                    customWidth: 170,
+                                    customCornerRadius: 28,
+                                    forceGlow: false,
+                                    isExpandable: false,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 14) {
+                                            Image(systemName: "internaldrive.fill")
+                                                .font(.system(size: 18, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 26, height: 24)
+                                            
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.primary.opacity(0.6))
+                                                    .frame(width: 55, height: 7)
+                                                
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.secondary.opacity(0.4))
+                                                    .frame(width: 40, height: 5)
+                                            }
+                                            Spacer(minLength: 8)
+                                        }
+                                        .padding(.horizontal, 20)
+                                    },
+                                    expandedContent: { EmptyView() }
+                                )
+                                .scaleEffect(0.9)
                             }
                         )
                         
@@ -305,35 +278,56 @@ struct PremiumSettingsView: View {
                             title: "Bluetooth Tracker",
                             description: "Monitor connectivity and battery of AirPods and other devices.",
                             preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.indigo.opacity(0.05))
-                                
-                                HStack(spacing: 12) {
-                                    ZStack {
-                                        Circle().fill(Color.indigo.opacity(0.1)).frame(width: 36, height: 36)
-                                        Image(systemName: "airpodsmax")
-                                            .foregroundColor(.indigo)
-                                            .font(.system(size: 16))
-                                    }
-                                    
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .fill(Color.indigo.opacity(0.6))
-                                            .frame(width: 45, height: 6)
-                                        
-                                        HStack(spacing: 4) {
-                                            Circle().fill(Color.green).frame(width: 6, height: 6)
-                                            RoundedRectangle(cornerRadius: 3)
-                                                .fill(Color.secondary.opacity(0.4))
-                                                .frame(width: 30, height: 4)
+                                RoundedRectangle(cornerRadius: 12).fill(Color.indigo.opacity(0.05))
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(true),
+                                    showProgressBar: true, progress: 0.8,
+                                    barColor: .indigo,
+                                    customWidth: 160,
+                                    customCornerRadius: 24,
+                                    forceGlow: false,
+                                    isExpandable: true,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 14) {
+                                            Image(systemName: "airpodsmax")
+                                                .font(.system(size: 18, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 26, height: 24)
+                                            
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.primary.opacity(0.6))
+                                                    .frame(width: 65, height: 7)
+                                                
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.secondary.opacity(0.4))
+                                                    .frame(width: 40, height: 5)
+                                            }
+                                            
+                                            Spacer(minLength: 8)
                                         }
+                                        .padding(.horizontal, 20)
+                                    },
+                                    expandedContent: {
+                                        HStack(alignment: .bottom, spacing: 20) {
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "airpodpro.left").font(.system(size: 18, weight: .medium)).foregroundColor(.secondary)
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 14, height: 4)
+                                            }
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "airpodspro.chargingcase.wireless.fill").font(.system(size: 18)).foregroundColor(.secondary)
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 14, height: 4)
+                                            }
+                                            VStack(spacing: 8) {
+                                                Image(systemName: "airpodpro.right").font(.system(size: 18, weight: .medium)).foregroundColor(.secondary)
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 14, height: 4)
+                                            }
+                                        }
+                                        .padding(.horizontal, 20).padding(.bottom, 14).padding(.top, 4)
                                     }
-                                }
-                                .padding(12)
-                                .frame(width: 140)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(12)
-                                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                )
+                                .scaleEffect(0.9)
                             }
                         )
                         
@@ -341,31 +335,28 @@ struct PremiumSettingsView: View {
                             title: "Privacy Tracker",
                             description: "Know instantly when your camera, mic, or location is accessed.",
                             preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.green.opacity(0.05))
-                                
-                                HStack(spacing: -12) {
-                                    ZStack {
-                                        Circle().fill(Color(NSColor.controlBackgroundColor)).frame(width: 46, height: 46)
-                                            .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-                                        Circle().fill(Color.green).frame(width: 34, height: 34)
-                                        Image(systemName: "video.fill").font(.system(size: 14)).foregroundColor(.white)
-                                    }.zIndex(3)
-                                    
-                                    ZStack {
-                                        Circle().fill(Color(NSColor.controlBackgroundColor)).frame(width: 46, height: 46)
-                                            .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-                                        Circle().fill(Color.orange).frame(width: 34, height: 34)
-                                        Image(systemName: "mic.fill").font(.system(size: 14)).foregroundColor(.white)
-                                    }.zIndex(2)
-                                    
-                                    ZStack {
-                                        Circle().fill(Color(NSColor.controlBackgroundColor)).frame(width: 46, height: 46)
-                                            .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-                                        Circle().fill(Color.blue).frame(width: 34, height: 34)
-                                        Image(systemName: "location.fill").font(.system(size: 14)).foregroundColor(.white)
-                                    }.zIndex(1)
-                                }
+                                RoundedRectangle(cornerRadius: 12).fill(Color.green.opacity(0.05))
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(false),
+                                    showProgressBar: true, progress: 1.0,
+                                    barColor: .green,
+                                    customWidth: 170,
+                                    customCornerRadius: 28,
+                                    forceGlow: false,
+                                    isExpandable: false,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 16) {
+                                            Image(systemName: "video.fill").font(.system(size: 18, weight: .medium)).foregroundColor(.primary)
+                                            Image(systemName: "mic.fill").font(.system(size: 18, weight: .medium)).foregroundColor(.primary)
+                                            Image(systemName: "location.fill").font(.system(size: 18, weight: .medium)).foregroundColor(.primary)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.horizontal, 16)
+                                    },
+                                    expandedContent: { EmptyView() }
+                                )
+                                .scaleEffect(0.9)
                             }
                         )
                         
@@ -373,28 +364,49 @@ struct PremiumSettingsView: View {
                             title: "System Tracker",
                             description: "Monitor your real-time memory usage and performance stats.",
                             preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.orange.opacity(0.05))
-                                
-                                HStack(spacing: 16) {
-                                    // Abstract circular graph
-                                    ZStack {
-                                        Circle().stroke(Color.orange.opacity(0.2), lineWidth: 5).frame(width: 36, height: 36)
-                                        Circle().trim(from: 0, to: 0.65).stroke(Color.orange, style: StrokeStyle(lineWidth: 5, lineCap: .round)).frame(width: 36, height: 36).rotationEffect(.degrees(-90))
-                                        Image(systemName: "memorychip").font(.system(size: 14)).foregroundColor(.orange)
-                                    }
-                                    
-                                    // Abstract bar graph
-                                    VStack(alignment: .leading, spacing: 5) {
-                                        RoundedRectangle(cornerRadius: 2).fill(Color.orange.opacity(0.8)).frame(width: 45, height: 5)
-                                        RoundedRectangle(cornerRadius: 2).fill(Color.orange.opacity(0.5)).frame(width: 35, height: 5)
-                                        RoundedRectangle(cornerRadius: 2).fill(Color.orange.opacity(0.3)).frame(width: 50, height: 5)
-                                    }
-                                }
-                                .padding(.vertical, 14).padding(.horizontal, 16)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(12)
-                                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                RoundedRectangle(cornerRadius: 12).fill(Color.orange.opacity(0.05))
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(false),
+                                    showProgressBar: true, progress: 0.45,
+                                    barColor: .orange,
+                                    customWidth: 170,
+                                    customCornerRadius: 28,
+                                    forceGlow: false,
+                                    isExpandable: false,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 14) {
+                                            Image(systemName: "cpu")
+                                                .font(.system(size: 18, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 26, height: 24)
+                                            
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                // CPU bar
+                                                GeometryReader { geo in
+                                                    ZStack(alignment: .leading) {
+                                                        RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.2))
+                                                        RoundedRectangle(cornerRadius: 2).fill(Color.orange.opacity(0.8)).frame(width: geo.size.width * 0.65)
+                                                    }
+                                                }.frame(height: 5)
+                                                
+                                                // RAM bar
+                                                GeometryReader { geo in
+                                                    ZStack(alignment: .leading) {
+                                                        RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.2))
+                                                        RoundedRectangle(cornerRadius: 2).fill(Color.orange.opacity(0.5)).frame(width: geo.size.width * 0.4)
+                                                    }
+                                                }.frame(height: 5)
+                                            }
+                                            .frame(width: 60)
+                                            
+                                            Spacer(minLength: 8)
+                                        }
+                                        .padding(.horizontal, 20)
+                                    },
+                                    expandedContent: { EmptyView() }
+                                )
+                                .scaleEffect(0.9)
                             }
                         )
                         
@@ -402,82 +414,134 @@ struct PremiumSettingsView: View {
                             title: "Wi-Fi Tracker",
                             description: "Monitor your network connection status and speed.",
                             preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.cyan.opacity(0.05))
-                                
-                                VStack(spacing: 12) {
-                                    Image(systemName: "wifi")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.cyan)
-                                    
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "arrow.down").font(.system(size: 10)).foregroundColor(.green)
-                                        RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.3)).frame(width: 25, height: 4)
-                                        
-                                        Image(systemName: "arrow.up").font(.system(size: 10)).foregroundColor(.blue)
-                                        RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.3)).frame(width: 20, height: 4)
-                                    }
-                                }
-                                .padding(12)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(12)
-                                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                RoundedRectangle(cornerRadius: 12).fill(Color.cyan.opacity(0.05))
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(false),
+                                    showProgressBar: true, progress: 1.0,
+                                    barColor: .cyan,
+                                    customWidth: 170,
+                                    customCornerRadius: 28,
+                                    forceGlow: false,
+                                    isExpandable: false,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 14) {
+                                            Image(systemName: "wifi")
+                                                .font(.system(size: 18, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 26, height: 24)
+                                            
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.primary.opacity(0.6))
+                                                    .frame(width: 62, height: 7)
+                                                
+                                                HStack(spacing: 8) {
+                                                    HStack(spacing: 3) { Image(systemName: "arrow.down").font(.system(size: 9, weight: .bold)).foregroundColor(.green); RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.4)).frame(width: 15, height: 4) }
+                                                    HStack(spacing: 3) { Image(systemName: "arrow.up").font(.system(size: 9, weight: .bold)).foregroundColor(.blue); RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.4)).frame(width: 15, height: 4) }
+                                                }
+                                            }
+                                            Spacer(minLength: 8)
+                                        }
+                                        .padding(.horizontal, 20)
+                                    },
+                                    expandedContent: { EmptyView() }
+                                )
+                                .scaleEffect(0.9)
                             }
                         )
                         
-                        WidgetPreviewCard(
-                            title: "Theme Tracker",
-                            description: "Get instantly notified when your system appearance changes.",
-                            preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.primary.opacity(0.02))
-                                
-                                HStack(spacing: 20) {
-                                    Image(systemName: "sun.max.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.orange)
-                                    
-                                    // Abstract toggle
-                                    ZStack(alignment: .leading) {
-                                        Capsule().fill(Color.secondary.opacity(0.2)).frame(width: 50, height: 26)
-                                        Circle().fill(Color(NSColor.windowBackgroundColor)).frame(width: 20, height: 20).shadow(color: .black.opacity(0.2), radius: 2, y: 1).offset(x: 28)
-                                    }
-                                    
-                                    Image(systemName: "moon.stars.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(.indigo)
-                                }
-                            }
-                        )
-                        
+
                         WidgetPreviewCard(
                             title: "Display Tracker",
                             description: "Stay informed about your external displays and monitor connections.",
                             preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.teal.opacity(0.05))
+                                RoundedRectangle(cornerRadius: 12).fill(Color.teal.opacity(0.05))
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(false),
+                                    showProgressBar: true, progress: 1.0,
+                                    barColor: .teal,
+                                    customWidth: 170,
+                                    customCornerRadius: 28,
+                                    forceGlow: false,
+                                    isExpandable: false,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 14) {
+                                            Image(systemName: "display")
+                                                .font(.system(size: 18, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 26, height: 24)
+                                            
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.primary.opacity(0.6))
+                                                    .frame(width: 65, height: 7)
+                                                
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.secondary.opacity(0.4))
+                                                    .frame(width: 40, height: 5)
+                                            }
+                                            
+                                            Spacer(minLength: 8)
+                                        }
+                                        .padding(.horizontal, 20)
+                                    },
+                                    expandedContent: { EmptyView() }
+                                )
+                                .scaleEffect(0.9)
+                            }
+                        )
+
+                        WidgetPreviewCard(
+                            title: "Trash Tracker",
+                            description: "Monitor your trash bin size and empty it directly from the overlay.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.red.opacity(0.05))
                                 
-                                VStack(spacing: 8) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .stroke(Color.teal, lineWidth: 2)
-                                            .frame(width: 60, height: 40)
-                                        RoundedRectangle(cornerRadius: 1)
-                                            .fill(Color.teal.opacity(0.3))
-                                            .frame(width: 20, height: 3)
-                                            .offset(y: 20)
-                                    }
-                                    
-                                    ZStack(alignment: .leading) {
-                                        Capsule().fill(Color.teal.opacity(0.2)).frame(width: 80, height: 6)
-                                        Capsule().fill(Color.teal).frame(width: 50, height: 6)
-                                        Circle().fill(Color.white).frame(width: 10, height: 10).shadow(radius: 1).offset(x: 45)
-                                    }
-                                }
-                                .padding(12)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(12)
-                                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(false),
+                                    showProgressBar: true, progress: 1.0,
+                                    barColor: .red,
+                                    customWidth: 180,
+                                    customCornerRadius: 28,
+                                    forceGlow: false,
+                                    isExpandable: false,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 14) {
+                                            Image(systemName: "trash.fill")
+                                                .font(.system(size: 18, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 26, height: 24)
+                                            
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.primary.opacity(0.6))
+                                                    .frame(width: 45, height: 7)
+                                                
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.secondary.opacity(0.4))
+                                                    .frame(width: 30, height: 5)
+                                            }
+                                            
+                                            Spacer(minLength: 4)
+                                            
+                                            ZStack {
+                                                Circle()
+                                                    .fill(Color.primary.opacity(0.1))
+                                                    .frame(width: 30, height: 30)
+                                                Image(systemName: "arrow.counterclockwise")
+                                                    .font(.system(size: 14, weight: .bold))
+                                                    .foregroundColor(.primary)
+                                            }
+                                        }
+                                        .padding(.leading, 20)
+                                        .padding(.trailing, 13)
+                                    },
+                                    expandedContent: { EmptyView() }
+                                )
+                                .scaleEffect(0.9)
                             }
                         )
                         
@@ -485,107 +549,74 @@ struct PremiumSettingsView: View {
                             title: "Focus Tracker",
                             description: "Stay in the zone with alerts when your Focus modes change.",
                             preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.indigo.opacity(0.05))
-                                
-                                VStack(spacing: -16) {
-                                    // Active Abstract Pill
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "moon.fill")
-                                            .font(.system(size: 14))
-                                            .foregroundColor(.indigo)
-                                        
-                                        VStack(alignment: .leading, spacing: 5) {
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .fill(Color.secondary.opacity(0.4))
-                                                .frame(width: 30, height: 4)
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .fill(Color.indigo.opacity(0.6))
-                                                .frame(width: 55, height: 5)
+                                RoundedRectangle(cornerRadius: 12).fill(Color.indigo.opacity(0.05))
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(false),
+                                    showProgressBar: true, progress: 1.0,
+                                    barColor: .indigo,
+                                    customWidth: 170,
+                                    customCornerRadius: 28,
+                                    forceGlow: false,
+                                    isExpandable: false,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 14) {
+                                            Image(systemName: "moon.fill")
+                                                .font(.system(size: 18, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 26, height: 24)
+                                            
+                                            RoundedRectangle(cornerRadius: 3)
+                                                .fill(Color.primary.opacity(0.6))
+                                                .frame(width: 75, height: 7)
+                                            
+                                            Spacer(minLength: 8)
                                         }
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .frame(width: 130)
-                                    .background(Color(NSColor.windowBackgroundColor))
-                                    .cornerRadius(12)
-                                    .shadow(color: .black.opacity(0.12), radius: 5, y: 3)
-                                    .zIndex(2)
-                                    
-                                    // Inactive Abstract Pill
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "moon.zzz")
-                                            .font(.system(size: 14))
-                                            .foregroundColor(Color(NSColor.secondaryLabelColor))
-                                        
-                                        VStack(alignment: .leading, spacing: 5) {
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .fill(Color.secondary.opacity(0.3))
-                                                .frame(width: 30, height: 4)
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .fill(Color.secondary.opacity(0.4))
-                                                .frame(width: 55, height: 5)
-                                        }
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .frame(width: 130)
-                                    .background(Color(NSColor.windowBackgroundColor))
-                                    .cornerRadius(12)
-                                    .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
-                                    .scaleEffect(0.9)
-                                    .offset(y: 4)
-                                    .zIndex(1)
-                                }
+                                        .padding(.horizontal, 20)
+                                    },
+                                    expandedContent: { EmptyView() }
+                                )
+                                .scaleEffect(0.9)
                             }
                         )
                         
                         WidgetPreviewCard(
-                            title: "More Overlays",
+                                                        title: "More Overlays",
                             description: "Display up to 5 active tracker notifications on your screen simultaneously.",
                             preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.pink.opacity(0.05))
+                                RoundedRectangle(cornerRadius: 12).fill(Color.pink.opacity(0.05))
                                 
-                                VStack(spacing: -12) {
-                                    // Top capsule
-                                    HStack(spacing: 6) {
-                                        Circle().fill(Color.pink.opacity(0.7)).frame(width: 10, height: 10)
-                                        RoundedRectangle(cornerRadius: 2).fill(Color.pink.opacity(0.3)).frame(width: 40, height: 4)
-                                    }
-                                    .padding(.horizontal, 10).padding(.vertical, 6)
-                                    .background(Color(NSColor.controlBackgroundColor)).cornerRadius(8)
-                                    .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
-                                    .scaleEffect(0.85).opacity(0.5)
-                                    .zIndex(1)
+                                VStack(spacing: -18) {
+                                    UniversalOverlayView(isPreview: true, isExpanded: .constant(false), showProgressBar: true, progress: 1.0, barColor: .pink, customWidth: 140, customHeight: 40, customCornerRadius: 20, forceGlow: false, isExpandable: false, baseContent: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "bell.fill").foregroundColor(.primary).font(.system(size: 18, weight: .medium))
+                                            RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 45, height: 5)
+                                            Spacer()
+                                        }.padding(.horizontal, 16)
+                                    }, expandedContent: { EmptyView() })
+                                    .scaleEffect(0.85).opacity(0.5).zIndex(1)
                                     
-                                    // Middle capsule
-                                    HStack(spacing: 6) {
-                                        Circle().fill(Color.teal.opacity(0.7)).frame(width: 12, height: 12)
-                                        RoundedRectangle(cornerRadius: 2).fill(Color.teal.opacity(0.3)).frame(width: 50, height: 4)
-                                    }
-                                    .padding(.horizontal, 12).padding(.vertical, 8)
-                                    .background(Color(NSColor.controlBackgroundColor)).cornerRadius(8)
-                                    .shadow(color: .black.opacity(0.1), radius: 3, y: 1)
-                                    .scaleEffect(0.95).opacity(0.8)
-                                    .zIndex(2)
+                                    UniversalOverlayView(isPreview: true, isExpanded: .constant(false), showProgressBar: true, progress: 1.0, barColor: .teal, customWidth: 140, customHeight: 40, customCornerRadius: 20, forceGlow: false, isExpandable: false, baseContent: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "message.fill").foregroundColor(.primary).font(.system(size: 18, weight: .medium))
+                                            RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 55, height: 5)
+                                            Spacer()
+                                        }.padding(.horizontal, 16)
+                                    }, expandedContent: { EmptyView() })
+                                    .scaleEffect(0.95).opacity(0.8).zIndex(2)
                                     
-                                    // Front capsule
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "square.3.layers.3d").foregroundColor(.indigo).font(.system(size: 14))
-                                        RoundedRectangle(cornerRadius: 2).fill(Color.indigo.opacity(0.4)).frame(width: 60, height: 4)
-                                    }
-                                    .padding(.horizontal, 14).padding(.vertical, 10)
-                                    .background(Color(NSColor.controlBackgroundColor)).cornerRadius(8)
-                                    .shadow(color: .black.opacity(0.15), radius: 5, y: 3)
+                                    UniversalOverlayView(isPreview: true, isExpanded: .constant(false), showProgressBar: true, progress: 1.0, barColor: .indigo, customWidth: 140, customHeight: 40, customCornerRadius: 20, forceGlow: false, isExpandable: false, baseContent: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "square.3.layers.3d").foregroundColor(.primary).font(.system(size: 18, weight: .medium))
+                                            RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 40, height: 5)
+                                            Spacer()
+                                        }.padding(.horizontal, 16)
+                                    }, expandedContent: { EmptyView() })
                                     .zIndex(3)
                                 }
                                 .offset(y: 4)
                             }
                         )
-
                         WidgetPreviewCard(
                             title: "Overlay Colors",
                             description: "Customize the color scheme of your overlays with presets or choose your own style.",
@@ -604,6 +635,51 @@ struct PremiumSettingsView: View {
                                         .overlay(Circle().stroke(Color(NSColor.windowBackgroundColor), lineWidth: 2))
                                 }
                                 .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                            }
+                        )
+                        
+                        WidgetPreviewCard(
+                            title: "Inner Glow Effect",
+                            description: "Elevate your overlays with the new Inner Glow aesthetic. This subtle lighting effect adds beautiful depth and polish to the glass material.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(Color.purple.opacity(0.05))
+                                
+                                UniversalOverlayView(
+                                    isPreview: true,
+                                    isExpanded: .constant(false),
+                                    showProgressBar: true,
+                                    progress: 0.5,
+                                    barColor: .purple,
+                                    customWidth: 170,
+                                    customCornerRadius: 28,
+                                    forceGlow: true,
+                                    customGlowOpacity: 0.15,
+                                    isExpandable: false,
+                                    baseContent: {
+                                        HStack(alignment: .center, spacing: 14) {
+                                            Image(systemName: "sun.max.fill")
+                                                .font(.system(size: 18, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 26, height: 24)
+                                            
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.secondary.opacity(0.4))
+                                                    .frame(width: 40, height: 6)
+                                                
+                                                RoundedRectangle(cornerRadius: 3)
+                                                    .fill(Color.primary.opacity(0.5))
+                                                    .frame(width: 65, height: 8)
+                                            }
+                                            Spacer(minLength: 8)
+                                        }
+                                        .padding(.horizontal, 20)
+                                    },
+                                    expandedContent: {
+                                        EmptyView()
+                                    }
+                                )
+                                .scaleEffect(0.85)
                             }
                         )
                     }

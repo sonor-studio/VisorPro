@@ -10,6 +10,7 @@ class VisorProWindowManager: ObservableObject {
     
     private var windows: [String: NSPanel] = [:]
     private var targetOrigins: [String: NSPoint] = [:]
+    private var logicalTargetOrigins: [String: NSPoint] = [:]
     private(set) var cachedScreens: [NSScreen] = NSScreen.screens
     private var shownPanels: Set<String> = []
     private var exitingPanels: Set<String> = []
@@ -560,10 +561,12 @@ class VisorProWindowManager: ObservableObject {
                 }
                 
                 let isFirstShow = !shownPanels.contains(windowId)
+                let logicalTarget = NSPoint(x: x, y: yCenter - swipeOffset)
                 
                 if isFirstShow {
                     shownPanels.insert(windowId)
                     targetOrigins[windowId] = targetOrigin
+                    logicalTargetOrigins[windowId] = logicalTarget
                     animatingEntryPanels.insert(windowId)
                     
                     let isTop = (targetOrigin.y + currentHeight / 2) > (screenSize.height / 2)
@@ -591,24 +594,14 @@ class VisorProWindowManager: ObservableObject {
                     }
                 } else if !MediaKeyManager.shared.isDisplayTransitioning && !animatingEntryPanels.contains(windowId) {
                     let isRescued = rescuedPanels.contains(windowId)
-                    var diffY: CGFloat = 0.0
-                    if overlay.position.hasPrefix("top") {
-                        let currentMaxY = panel.frame.maxY
-                        let targetMaxY = targetOrigin.y + currentHeight
-                        diffY = currentMaxY - targetMaxY
-                    } else if overlay.position.hasPrefix("bottom") {
-                        let currentMinY = panel.frame.minY
-                        let targetMinY = targetOrigin.y
-                        diffY = currentMinY - targetMinY
-                    } else {
-                        diffY = panel.frame.origin.y - targetOrigin.y
-                    }
                     
-                    let dist = hypot(panel.frame.origin.x - targetOrigin.x, diffY)
+                    let lastLogicalTarget = logicalTargetOrigins[windowId] ?? logicalTarget
+                    let logicalDist = hypot(lastLogicalTarget.x - logicalTarget.x, lastLogicalTarget.y - logicalTarget.y)
+                    logicalTargetOrigins[windowId] = logicalTarget
                     
                     let swipeActive = abs(swipeOffset) > 0.1
                     
-                    if dist > 1.0 || swipeActive || isRescued {
+                    if logicalDist > 1.0 || swipeActive || isRescued {
                         targetOrigins[windowId] = targetOrigin
                         let isDragging = SwipeStateRelay.shared.activeSwipeIds.contains(overlay.id)
                         
@@ -617,8 +610,8 @@ class VisorProWindowManager: ObservableObject {
                             panel.alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
                         } else {
                             NSAnimationContext.runAnimationGroup { ctx in
-                                ctx.duration = 0.2
-                                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                                ctx.duration = 0.25
+                                ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.16, 1.0, 0.3, 1.0)
                                 panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
                                 panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
                             }

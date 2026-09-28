@@ -6,6 +6,10 @@ extension MediaKeyManager {
     
     func triggerClipboardIndicator(text: String, action: String = "copy", app: String = "", folder: String? = nil, size: String = "") {
         if !enableClipboard { return }
+        
+        let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
+        if premiumKey.isEmpty { return }
+        
         if action == "copy" && !notifyOnCopy { return }
         if action == "cut" && !notifyOnCut { return }
         if action == "paste" && !notifyOnPaste && !isProgrammaticPasteboardChange { return }

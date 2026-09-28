@@ -60,39 +60,21 @@ class TrackingNSView: NSView {
         }
     }
     
-    private var lastBounds: NSRect = .zero
-    
-    override func layout() {
-        super.layout()
-        if bounds != lastBounds {
-            lastBounds = bounds
-            updateTrackingAreas()
-        }
-        
-        // Wait for the layout pass/animation to settle before checking hover state
-        DispatchQueue.main.async {
-            self.checkHoverState()
-        }
-    }
-
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         
-        if let trackingArea = trackingArea {
-            removeTrackingArea(trackingArea)
+        if trackingArea == nil {
+            let options: NSTrackingArea.Options = [
+                .mouseEnteredAndExited,
+                .mouseMoved,
+                .activeAlways,
+                .inVisibleRect
+            ]
+            
+            let area = NSTrackingArea(rect: .zero, options: options, owner: self, userInfo: nil)
+            addTrackingArea(area)
+            self.trackingArea = area
         }
-        
-        let options: NSTrackingArea.Options = [
-            .mouseEnteredAndExited,
-            .mouseMoved,
-            .activeAlways
-        ]
-        
-        let area = NSTrackingArea(rect: bounds, options: options, owner: self, userInfo: nil)
-        addTrackingArea(area)
-        self.trackingArea = area
-        
-        checkHoverState()
     }
     
     private func checkHoverState() {
