@@ -136,8 +136,8 @@ class AutoUpdater: NSObject, URLSessionDownloadDelegate {
                     
                     // Copy app to the isolated folder
                     let copyProcess = Process()
-                    copyProcess.executableURL = URL(fileURLWithPath: "/bin/cp")
-                    copyProcess.arguments = ["-R", mountedAppPath, copiedAppPath]
+                    copyProcess.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                    copyProcess.arguments = [mountedAppPath, copiedAppPath]
                     try copyProcess.run()
                     copyProcess.waitUntilExit()
                     
@@ -178,25 +178,40 @@ class AutoUpdater: NSObject, URLSessionDownloadDelegate {
         let fileManager = FileManager.default
         let currentAppPath = Bundle.main.bundlePath
         
-        let script = """
+        let script = #"""
         #!/bin/bash
         # Wait a moment to ensure the app has quit
         sleep 1
         
-        # Remove quarantine attributes to prevent Gatekeeper prompts
-        xattr -rc "\(newAppPath)"
+        NEW_APP="$1"
+        CUR_APP="$2"
+        TMP_DIR="$3"
         
-        # Swap the application bundle
-        rm -rf "\(currentAppPath)"
-        cp -R "\(newAppPath)" "\(currentAppPath)"
+        NEEDS_ADMIN=0
+        if [ ! -w "$(dirname "$CUR_APP")" ]; then
+            NEEDS_ADMIN=1
+        elif [ -e "$CUR_APP" ] && [ ! -w "$CUR_APP" ]; then
+            NEEDS_ADMIN=1
+        fi
         
-        # Relaunch the application
-        open "\(currentAppPath)"
+        if [ $NEEDS_ADMIN -eq 1 ]; then
+            ADMIN_SCRIPT="$TMP_DIR/admin_update.sh"
+            echo '#!/bin/bash' > "$ADMIN_SCRIPT"
+            echo 'rm -rf "$2"' >> "$ADMIN_SCRIPT"
+            echo 'ditto "$1" "$2"' >> "$ADMIN_SCRIPT"
+            echo 'xattr -rc "$2"' >> "$ADMIN_SCRIPT"
+            chmod +x "$ADMIN_SCRIPT"
+            osascript -e "do shell script \"'$ADMIN_SCRIPT' '$NEW_APP' '$CUR_APP'\" with administrator privileges"
+        else
+            rm -rf "$CUR_APP"
+            ditto "$NEW_APP" "$CUR_APP"
+            xattr -rc "$CUR_APP"
+        fi
         
-        # Cleanup
-        rm -rf "\(tempDir.path)"
+        open "$CUR_APP"
+        rm -rf "$TMP_DIR"
         rm "$0"
-        """
+        """#
         
         let scriptURL = tempDir.appendingPathComponent("update_script.sh")
         do {
@@ -205,7 +220,12 @@ class AutoUpdater: NSObject, URLSessionDownloadDelegate {
             
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/bash")
-            process.arguments = [scriptURL.path]
+            process.arguments = [scriptURL.path, newAppPath, currentAppPath, tempDir.path]
+            
+            // Detach standard I/O so the parent app termination doesn't kill the child process
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            
             try process.run()
             
             DispatchQueue.main.async {

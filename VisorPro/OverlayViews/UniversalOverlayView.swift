@@ -386,12 +386,13 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                     Spacer(minLength: 0)
                                 }
                             } else {
-                                HStack(spacing: 0) {
+                                ZStack(alignment: .leading) {
+                                    Color.clear
                                     Rectangle()
                                         .frame(width: trackWidth)
+                                        .offset(x: -(trackWidth * (1.0 - min(1.0, max(0, progress)))))
+                                        .padding(.leading, trackPadding)
                                 }
-                                .offset(x: -((trackWidth + 15) * (1.0 - min(1.0, max(0, progress)))))
-                                .padding(.leading, trackPadding)
                             }
                         }
                     )
@@ -426,14 +427,17 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                             Spacer(minLength: 0)
                                         }
                                     } else {
-                                        HStack(spacing: 0) {
-                                            Rectangle()
-                                                .frame(width: trackWidth)
-                                            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
-                                                .frame(width: 24)
+                                        ZStack(alignment: .leading) {
+                                            Color.clear
+                                            HStack(spacing: 0) {
+                                                Rectangle()
+                                                    .frame(width: trackWidth)
+                                                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                                                    .frame(width: 24)
+                                            }
+                                            .offset(x: -((trackWidth + 24) * (1.0 - min(1.0, max(0, progress)))))
+                                            .padding(.leading, trackPadding)
                                         }
-                                                .offset(x: -((trackWidth + 15) * (1.0 - min(1.0, max(0, progress)))))
-                                        .padding(.leading, trackPadding)
                                     }
                                 }
                                 .offset(x: -(trackPadding + innerPadding))

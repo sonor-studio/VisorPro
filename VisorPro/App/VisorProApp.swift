@@ -62,6 +62,7 @@ struct RootView: View {
     @AppStorage("_forceDashboard") private var forceDashboardFlag = false
     @State private var isTrusted = checkAXIsProcessTrustedReliably()
     @State private var dashboardForced = false
+    @Environment(\.dismissWindow) private var dismissWindow
     
     var showWelcome: Bool {
         if !trustedAtLaunchGlobal { return true }
@@ -79,7 +80,14 @@ struct RootView: View {
             }
         }
         .onAppear {
+            let wasForced = forceDashboardFlag || dashboardForced
             consumeForceDashboardFlag()
+            
+            if !wasForced && hasCompletedWelcome && isTrusted {
+                DispatchQueue.main.async {
+                    dismissWindow(id: "dashboard")
+                }
+            }
         }
         .onChange(of: forceDashboardFlag) { _, newValue in
             if newValue {
@@ -221,10 +229,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationDidBecomeActive(_ notification: Notification) {
-        let hasVisibleSettings = NSApp.windows.contains { ($0.isVisible || $0.isMiniaturized) && $0.styleMask.contains(.titled) }
-        if !hasVisibleSettings {
-            let _ = self.handleReopen(forceDashboard: true)
-        }
+        // App is an accessory, so we don't force open the Dashboard here anymore.
+        // It should open in the background on first launch.
+        // Dashboard will be explicitly opened via applicationShouldHandleReopen
+        // when the user clicks the app icon while it's already running.
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -248,7 +256,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc func showSettingsWindowAction() {
-        openSettingsAction?()
+        openDashboard()
     }
     
     // Helper to call from SwiftUI

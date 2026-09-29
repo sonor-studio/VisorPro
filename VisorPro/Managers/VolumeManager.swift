@@ -824,6 +824,9 @@ class BrightnessManager {
     private var cachedBrightness: Float = 0.5
     private var isInitialized: Bool = false
     
+    private var actualHardwareBrightness: Float = 0.5
+    private var brightnessAnimationTask: Task<Void, Never>?
+    
     init() {
         let handle = dlopen("/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices", RTLD_NOW)
         if handle != nil {
@@ -845,6 +848,7 @@ class BrightnessManager {
             }
             DispatchQueue.main.async {
                 self.cachedBrightness = brightness
+                self.actualHardwareBrightness = brightness
                 self.isInitialized = true
             }
         }
@@ -859,8 +863,45 @@ class BrightnessManager {
             let intBrightness = Int(brightness * 100)
             DispatchQueue.main.async {
                 self.cachedBrightness = brightness
+                self.actualHardwareBrightness = brightness
                 self.isInitialized = true
                 completion(intBrightness)
+            }
+        }
+    }
+    
+    private func applyBrightnessSmoothly(to target: Float) {
+        brightnessAnimationTask?.cancel()
+        brightnessAnimationTask = Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            let start = self.actualHardwareBrightness
+            let diff = target - start
+            guard abs(diff) > 0.001 else { return }
+            
+            let duration: TimeInterval = 0.15
+            let steps = 10
+            let stepDuration = UInt64((duration / Double(steps)) * 1_000_000_000)
+            
+            for i in 1...steps {
+                if Task.isCancelled { break }
+                let progress = Float(i) / Float(steps)
+                let current = start + (diff * progress)
+                
+                self.queue.async {
+                    if let setFunc = self.DisplayServicesSetBrightness {
+                        let _ = setFunc(CGMainDisplayID(), current)
+                    }
+                }
+                self.actualHardwareBrightness = current
+                try? await Task.sleep(nanoseconds: stepDuration)
+            }
+            if !Task.isCancelled {
+                self.queue.async {
+                    if let setFunc = self.DisplayServicesSetBrightness {
+                        let _ = setFunc(CGMainDisplayID(), target)
+                    }
+                }
+                self.actualHardwareBrightness = target
             }
         }
     }
@@ -881,11 +922,7 @@ class BrightnessManager {
             let intBrightness = Int(newBrightness * 100)
             completion(intBrightness)
             
-            self.queue.async {
-                if let setFunc = self.DisplayServicesSetBrightness {
-                    let _ = setFunc(CGMainDisplayID(), newBrightness)
-                }
-            }
+            self.applyBrightnessSmoothly(to: newBrightness)
         }
     }
     
@@ -907,11 +944,7 @@ class BrightnessManager {
             let intBrightness = Int(newBrightness * 100)
             completion(intBrightness)
             
-            self.queue.async {
-                if let setFunc = self.DisplayServicesSetBrightness {
-                    let _ = setFunc(CGMainDisplayID(), newBrightness)
-                }
-            }
+            self.applyBrightnessSmoothly(to: newBrightness)
         }
     }
 }
