@@ -21,6 +21,7 @@ struct GeneralSettingsView: View {
     @AppStorage("overlayMargin") private var overlayMargin: Double = 30.0
     @State private var autoUpdate = true
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
+    @State private var cachedScreens: [NSScreen] = NSScreen.screens
     
     var body: some View {
         ScrollView {
@@ -140,9 +141,9 @@ struct GeneralSettingsView: View {
                             }
                             Spacer()
                             Picker("", selection: $overlayDisplayTarget) {
-                                Text("All screens").tag("all")
+                                Text("Screen with cursor").tag("all")
                                 Text("Main screen").tag("main")
-                                ForEach(NSScreen.screens.filter { $0.displayID != nil }, id: \.displayID!) { screen in
+                                ForEach(cachedScreens.filter { $0.displayID != nil }, id: \.displayID!) { screen in
                                     Text(screen.localizedName).tag("screen_\(screen.displayID!)")
                                 }
                             }
@@ -826,6 +827,16 @@ struct GeneralSettingsView: View {
             if newValue.isEmpty {
                 mediaKeyManager.maxSimultaneousNotifications = 1
                 mediaKeyManager.resetColorsToDefault()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
+            let newScreens = NSScreen.screens
+            cachedScreens = newScreens
+            if overlayDisplayTarget != "all" && overlayDisplayTarget != "main" {
+                let stillExists = newScreens.contains(where: { "screen_\($0.displayID ?? 0)" == overlayDisplayTarget })
+                if !stillExists {
+                    overlayDisplayTarget = "all"
+                }
             }
         }
     }

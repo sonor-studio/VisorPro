@@ -187,7 +187,7 @@ struct FocusSettingsView: View {
         .alert(isPresented: $showFDAAlert) {
             Alert(
                 title: Text("Full Disk Access Required"),
-                message: Text("To read the exact Focus Mode name from macOS, VisorPro needs Full Disk Access. Please enable it in System Settings > Privacy & Security > Full Disk Access."),
+                message: Text("To read the exact Focus Mode name from macOS, VisorPro needs Full Disk Access. Please enable it in System Settings > Privacy & Security > Full Disk Access, and then restart VisorPro."),
                 primaryButton: .default(Text("Open Settings")) {
                     PermissionHelper.openPrivacySettings(for: "FullDisk")
                 },

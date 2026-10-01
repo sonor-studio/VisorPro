@@ -171,10 +171,10 @@ class FocusObserver {
         
         if let lastSize = self.lastSeenSize {
             // Turning Focus ON usually adds a whole assertion block (hundreds of bytes).
-            // Turning it OFF removes it. We use a 50-byte threshold to ignore minor metadata tweaks.
-            if currentSize > lastSize + 50 {
+            // Turning it OFF removes it. We use a 75-byte threshold to balance between ignoring minor metadata tweaks and detecting default DND.
+            if currentSize > lastSize + 75 {
                 inferredActive = true
-            } else if currentSize + 50 < lastSize {
+            } else if currentSize + 75 < lastSize {
                 inferredActive = false
             }
         }

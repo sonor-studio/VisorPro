@@ -2200,6 +2200,7 @@ class MediaKeyManager: ObservableObject {
             let timerKey = "display_\(id)"
             self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
             self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                if self?.globalHoveredTypes.contains(timerKey) == true { return }
                 withAnimation(.easeInOut(duration: 0.2)) {
                     self?.activeDisplayNotifications.removeAll(where: { $0.id == id })
                 }

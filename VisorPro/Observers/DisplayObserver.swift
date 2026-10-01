@@ -129,6 +129,7 @@ class DisplayObserver {
         for name in keptIDs {
             if let oldDisplay = oldState[name], let newDisplay = currentState[name] {
                 if oldDisplay.isMirrored != newDisplay.isMirrored {
+                    manager?.lastDisplayConnectionTime = Date()
                     if !isSuppressed {
                         triggerOverlay(for: newDisplay, isConnected: true, isModeChange: true)
                     }
@@ -144,16 +145,17 @@ class DisplayObserver {
         
         let finalDeviceName = isModeChange ? "Changed to \(state.isMirrored ? "Mirrored" : "Extended")" : state.name
         let finalTypeText = isModeChange ? state.name : typeText
+        let notifId = isModeChange ? "\(state.name)_mode" : state.name
         
         var details = ["isMirrored": String(state.isMirrored)]
         if let res = state.resolution { details["resolution"] = res }
         if let rr = state.refreshRate { details["refreshRate"] = rr }
         
         manager?.triggerDisplayIndicator(
-            id: state.name,
+            id: notifId,
             deviceName: finalDeviceName,
             type: finalTypeText,
-            typeIcon: state.isMirrored ? "display.2" : "macwindow.badge.plus",
+            typeIcon: state.isMirrored ? "rectangle.on.rectangle" : "rectangle.split.2x1",
             isConnected: isConnected,
             isModeChange: isModeChange,
             details: details

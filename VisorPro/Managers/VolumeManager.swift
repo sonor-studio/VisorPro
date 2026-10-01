@@ -2,6 +2,11 @@ import Foundation
 import Cocoa
 import CoreAudio
 import AudioToolbox
+import SwiftUI
+import Combine
+
+@_silgen_name("CGSSetDisplayBrightness")
+func CGSSetDisplayBrightness(_ display: CGDirectDisplayID, _ brightness: Float) -> CGError
 
 class VolumeManager {
     static let shared = VolumeManager()
@@ -13,7 +18,7 @@ class VolumeManager {
     private var isInitialized: Bool = false
     private var pendingTask: DispatchWorkItem?
     private var lastProgrammaticChangeTime: Date = Date.distantPast
-    private var lastRouteChangeTime: Date = Date.distantPast
+    var lastRouteChangeTime: Date = Date.distantPast
     
     private var currentOutputDeviceID: AudioDeviceID = 0
     private var volumeListenerBlock: AudioObjectPropertyListenerBlock?
@@ -860,20 +865,66 @@ class BrightnessManager {
             if let getFunc = self.DisplayServicesGetBrightness {
                 let _ = getFunc(CGMainDisplayID(), &brightness)
             }
-            let intBrightness = Int(brightness * 100)
+            
             DispatchQueue.main.async {
                 self.cachedBrightness = brightness
                 self.actualHardwareBrightness = brightness
                 self.isInitialized = true
-                completion(intBrightness)
+                
+                completion(Int(brightness * 100))
             }
         }
+    }
+    
+    private var pollingTimer: Timer?
+
+    func startPolling() {
+        guard pollingTimer == nil else { return }
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.queue.async {
+                var currentSystemBrightness: Float = self.cachedBrightness
+                if let getFunc = self.DisplayServicesGetBrightness {
+                    let _ = getFunc(CGMainDisplayID(), &currentSystemBrightness)
+                }
+                
+                if abs(currentSystemBrightness - self.actualHardwareBrightness) > 0.015 {
+                    if self.actualHardwareBrightness > 1.0 {
+                        // Completely ignore polling when operating in XDR (above SDR). 
+                        // macOS native API will never report > 1.0 and its clamping and rounding (e.g., 0.98) ruins the state sync.
+                    } else {
+                        DispatchQueue.main.async {
+                            self.cachedBrightness = currentSystemBrightness
+                            self.actualHardwareBrightness = currentSystemBrightness
+                            
+                            OverlayStateRelay.shared.currentBrightness = Int(currentSystemBrightness * 100)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    func stopPolling() {
+        pollingTimer?.invalidate()
+        pollingTimer = nil
     }
     
     private func applyBrightnessSmoothly(to target: Float) {
         brightnessAnimationTask?.cancel()
         brightnessAnimationTask = Task { @MainActor [weak self] in
             guard let self = self else { return }
+            
+            if target <= 0.0 {
+                self.queue.async {
+                    if let setFunc = self.DisplayServicesSetBrightness {
+                        let _ = setFunc(CGMainDisplayID(), 0.0)
+                    }
+                }
+                self.actualHardwareBrightness = 0.0
+                return
+            }
+            
             let start = self.actualHardwareBrightness
             let diff = target - start
             guard abs(diff) > 0.001 else { return }
@@ -907,22 +958,20 @@ class BrightnessManager {
     }
     
     func changeBrightness(increase: Bool, completion: @escaping (Int) -> Void) {
-        DispatchQueue.main.async {
-            if !self.isInitialized {
-                self.isInitialized = true
+        queue.async {
+            DispatchQueue.main.async {
+                let defaultBrightnessStep = UserDefaults.standard.object(forKey: "brightnessStep") != nil ? UserDefaults.standard.double(forKey: "brightnessStep") : 6.0
+                let step: Float = Float(defaultBrightnessStep) / 100.0
+                
+                let current = self.actualHardwareBrightness
+                var newBrightness = increase ? current + step : current - step
+                newBrightness = max(0.0, min(1.0, newBrightness))
+                
+                self.cachedBrightness = newBrightness
+                completion(Int(newBrightness * 100))
+                
+                self.applyBrightnessSmoothly(to: newBrightness)
             }
-            
-            let defaultBrightnessStep = UserDefaults.standard.object(forKey: "brightnessStep") != nil ? UserDefaults.standard.double(forKey: "brightnessStep") : 6.0
-            let step: Float = Float(defaultBrightnessStep) / 100.0
-            var newBrightness = increase ? self.cachedBrightness + step : self.cachedBrightness - step
-            newBrightness = max(0.0, min(1.0, newBrightness))
-            
-            self.cachedBrightness = newBrightness
-            
-            let intBrightness = Int(newBrightness * 100)
-            completion(intBrightness)
-            
-            self.applyBrightnessSmoothly(to: newBrightness)
         }
     }
     
@@ -935,16 +984,169 @@ class BrightnessManager {
     }
     
     func setBrightness(to level: Int, completion: @escaping (Int) -> Void) {
-        DispatchQueue.main.async {
-            var newBrightness = Float(level) / 100.0
-            newBrightness = max(0.0, min(1.0, newBrightness))
-            
-            self.cachedBrightness = newBrightness
-            
-            let intBrightness = Int(newBrightness * 100)
-            completion(intBrightness)
-            
-            self.applyBrightnessSmoothly(to: newBrightness)
+        queue.async {
+            DispatchQueue.main.async {
+                var newBrightness = Float(level) / 100.0
+                newBrightness = max(0.0, min(1.0, newBrightness))
+                
+                self.cachedBrightness = newBrightness
+                completion(Int(newBrightness * 100))
+                
+                self.applyBrightnessSmoothly(to: newBrightness)
+            }
         }
     }
 }
+
+class DisplaySettingsManager: NSObject, ObservableObject {
+    static let shared = DisplaySettingsManager()
+    
+    @Published var isDarkMode: Bool = false
+    @Published var isNightShiftEnabled: Bool = false
+    @Published var isTrueToneEnabled: Bool = false
+    @Published var isTrueToneSupported: Bool = true
+    
+    private var blClientObj: NSObject?
+    private var ttClientObj: NSObject?
+    
+    override init() {
+        super.init()
+        let bundle = Bundle(path: "/System/Library/PrivateFrameworks/CoreBrightness.framework")
+        bundle?.load()
+        
+        if let blClientClass = NSClassFromString("CBBlueLightClient") as? NSObject.Type {
+            blClientObj = blClientClass.init()
+        }
+        
+        if let ttClientClass = NSClassFromString("CBTrueToneClient") as? NSObject.Type {
+            ttClientObj = ttClientClass.init()
+        }
+        
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(themeChanged), name: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil)
+        
+        fetchStatuses()
+    }
+    
+    @objc private func themeChanged() {
+        DispatchQueue.main.async {
+            self.fetchStatuses()
+        }
+    }
+    
+    func fetchStatuses() {
+        let interfaceStyle = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") ?? "Light"
+        let dark = (interfaceStyle == "Dark")
+        
+        // 1. Fetch Night Shift Status using Apple's built-in diag tool!
+        // This is 100% safe from EXC_BAD_ACCESS memory crashes in the runtime.
+        var nsEnabled = false
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/libexec/corebrightnessdiag")
+        process.arguments = ["nightshift"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        do {
+            try process.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                let lines = output.components(separatedBy: .newlines)
+                for line in lines {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if trimmed == "BlueReductionEnabled = 1;" {
+                        nsEnabled = true
+                        break
+                    } else if trimmed == "BlueReductionEnabled = 0;" {
+                        nsEnabled = false
+                        break
+                    }
+                }
+            }
+        } catch {
+            print("Failed to run corebrightnessdiag")
+        }
+        
+        // 2. Fetch True Tone Status
+        var ttEnabled = false
+        var ttSupported = true
+        if let client = ttClientObj {
+            let suppSel = NSSelectorFromString("supported")
+            if client.responds(to: suppSel) {
+                ttSupported = (client.perform(suppSel) != nil)
+            }
+            let enSel = NSSelectorFromString("enabled")
+            if client.responds(to: enSel) {
+                ttEnabled = (client.perform(enSel) != nil)
+            }
+            ttSupported = true
+        } else {
+            ttSupported = false
+        }
+        
+        DispatchQueue.main.async {
+            self.isDarkMode = dark
+            self.isNightShiftEnabled = nsEnabled
+            self.isTrueToneEnabled = ttEnabled
+            self.isTrueToneSupported = ttSupported
+        }
+    }
+    
+    func toggleDarkMode() {
+        ThemeObserver.ignoreNextChange = true
+        let source = "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"
+        var error: NSDictionary?
+        if let script = NSAppleScript(source: source) {
+            script.executeAndReturnError(&error)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.fetchStatuses()
+            }
+        }
+    }
+    
+    func toggleNightShift() {
+        let newState = !isNightShiftEnabled
+        if let client = blClientObj {
+            let sel = NSSelectorFromString("setEnabled:")
+            if client.responds(to: sel) {
+                // If it expects BOOL, sending NSNumber pointer might set it to TRUE always. 
+                // We bypass it by simply enforcing KVC which unboxes properly.
+                client.setValue(newState, forKey: "enabled")
+            } else {
+                client.setValue(newState, forKey: "enabled")
+            }
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.fetchStatuses()
+        }
+    }
+    
+    func toggleTrueTone() {
+        let newState = !isTrueToneEnabled
+        if let client = ttClientObj {
+            let sel = NSSelectorFromString("setEnabled:")
+            if client.responds(to: sel) {
+                client.setValue(newState, forKey: "enabled")
+            } else {
+                client.setValue(newState, forKey: "enabled")
+            }
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.fetchStatuses()
+        }
+    }
+}
+import Cocoa
+import QuartzCore
+import SwiftUI
+
+import Cocoa
+import MetalKit
+import CoreImage
+
+import Cocoa
+import QuartzCore
+
+import Cocoa
+import MetalKit
+

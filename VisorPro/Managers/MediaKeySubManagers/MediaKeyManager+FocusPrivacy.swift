@@ -54,12 +54,14 @@ extension MediaKeyManager {
         let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
         if premiumKey.isEmpty { return }
 
+        // Notify NativeOverlayDismisser so it can disambiguate native empty banners
+        NativeOverlayDismisser.shared.onSystemEvent(type: .focus)
+
         if !enableFocus { return }
         if isActive && !notifyOnFocusOn { return }
         if !isActive && !notifyOnFocusOff { return }
         
         // Dismiss the native macOS Focus pill overlay (from MenuBarAgent)
-        NativeOverlayDismisser.shared.onSystemEvent(type: .focus)
         
         playNotificationSound(named: isActive ? soundOnFocusOn : soundOnFocusOff)
         

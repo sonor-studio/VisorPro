@@ -411,7 +411,12 @@ class VisorProWindowManager: ObservableObject {
                 finalScreens.append(mainScreen)
             }
         } else {
-            finalScreens = uniqueScreens
+            let mouseLoc = NSEvent.mouseLocation
+            if let activeScreen = uniqueScreens.first(where: { NSMouseInRect(mouseLoc, $0.frame, false) }) {
+                finalScreens = [activeScreen]
+            } else if let mainScreen = uniqueScreens.first {
+                finalScreens = [mainScreen]
+            }
         }
         
         var targetWindowIds: Set<String> = []

@@ -8,6 +8,8 @@ class ThemeObserver {
         startObserving()
     }
     
+    static var ignoreNextChange: Bool = false
+    
     private func startObserving() {
         DistributedNotificationCenter.default().addObserver(
             self,
@@ -18,6 +20,11 @@ class ThemeObserver {
     }
     
     @objc private func themeChanged() {
+        if ThemeObserver.ignoreNextChange {
+            ThemeObserver.ignoreNextChange = false
+            return
+        }
+        
         DispatchQueue.main.async { [weak self] in
             let appearance = NSApp.effectiveAppearance
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua

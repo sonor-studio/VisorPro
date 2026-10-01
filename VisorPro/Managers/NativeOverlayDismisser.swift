@@ -39,7 +39,13 @@ final class NativeOverlayDismisser {
         setupInstantObservers()
     }
     
-    func onSystemEvent(type: EventType) {}
+    private var lastFocusEventTime: Date = Date.distantPast
+    
+    func onSystemEvent(type: EventType) {
+        if type == .focus {
+            lastFocusEventTime = Date()
+        }
+    }
     enum EventType { case bluetooth, focus }
     
     // MARK: - Instant AXObserver Logic
@@ -132,11 +138,40 @@ final class NativeOverlayDismisser {
         
         var shouldIntercept = false
         
-        let isFocus = identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb"
+        let timeSinceFocusEvent = Date().timeIntervalSince(lastFocusEventTime)
+        let isRecentFocusEvent = timeSinceFocusEvent < 2.0
+        
+        let isAmbiguousControlCenterBanner = isShapeMatch && identifier == "" && isControlCenter
+        let isShapeMatchEmptyFocus = isAmbiguousControlCenterBanner && isRecentFocusEvent
+        let isShapeMatchEmptyBluetooth = isAmbiguousControlCenterBanner && !isRecentFocusEvent
+        
+        let isFocus = identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb" || isShapeMatchEmptyFocus
         
         let isVolume = identifier == "volume-system-banner" || identifier == "volume" || (isShapeMatch && identifier == "" && !isControlCenter)
         
         var preventIntercept = false
+        
+        func hasSlider(element: AXUIElement) -> Bool {
+            var found = false
+            func traverse(el: AXUIElement) {
+                var roleRef: CFTypeRef?
+                if AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &roleRef) == .success, let role = roleRef as? String {
+                    if role == kAXSliderRole || role == kAXValueIndicatorRole || role == kAXLevelIndicatorRole {
+                        found = true
+                        return
+                    }
+                }
+                var childrenRef: CFTypeRef?
+                if AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &childrenRef) == .success, let children = childrenRef as? [AXUIElement] {
+                    for child in children {
+                        traverse(el: child)
+                        if found { return }
+                    }
+                }
+            }
+            traverse(el: element)
+            return found
+        }
         
         func hasUndoButton(element: AXUIElement) -> Bool {
             var foundUndo = false
@@ -166,8 +201,8 @@ final class NativeOverlayDismisser {
         }
         
         let isListeningMode = identifier == "listening-mode-system-banner"
-        let isSmartRouting = identifier == "smart-routing-system-banner" || (identifier == "" && allText.contains("Banner PID") && !allText.contains("%") && !isListeningMode)
-        let isBluetooth = identifier == "smart-routing-system-banner" || identifier.contains("accessory-system-banner") || (isShapeMatch && identifier == "" && isControlCenter) || (identifier == "" && allText.contains("Banner PID") && !isListeningMode)
+        let isSmartRouting = (identifier == "smart-routing-system-banner" || (identifier == "" && allText.contains("Banner PID") && !allText.contains("%") && !isListeningMode)) && !hasSlider(element: element)
+        let isBluetooth = (identifier == "smart-routing-system-banner" || identifier.contains("accessory-system-banner") || isShapeMatchEmptyBluetooth || (identifier == "" && allText.contains("Banner PID") && !isListeningMode)) && !hasSlider(element: element)
         
         if isSmartRouting || isBluetooth {
             var seen = Set<String>()
@@ -228,8 +263,14 @@ final class NativeOverlayDismisser {
 
         if isVolume && MediaKeyManager.shared.enableVolume {
             shouldIntercept = true
-            DispatchQueue.main.async {
-                MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
+            let timeSinceRoute = Date().timeIntervalSince(VolumeManager.shared.lastRouteChangeTime)
+            
+            let timeSinceDisplayConnection = MediaKeyManager.shared.lastDisplayConnectionTime != nil ? Date().timeIntervalSince(MediaKeyManager.shared.lastDisplayConnectionTime!) : 999.0
+            
+            if !OverlayStateRelay.shared.isDisplayTransitioning && timeSinceRoute > 3.0 && timeSinceDisplayConnection > 4.0 {
+                DispatchQueue.main.async {
+                    MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
+                }
             }
         }
         

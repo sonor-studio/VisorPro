@@ -12,6 +12,7 @@ struct DisplayOverlayView: View {
     var notification: DeviceNotification?
     
     @State private var previewIsMirrored: Bool = false
+    @State private var overridenIsMirrored: Bool? = nil
     
     var isConnected: Bool {
         if isPreview { return previewIsConnected }
@@ -23,6 +24,13 @@ struct DisplayOverlayView: View {
     
     var deviceName: String {
         if isPreview { return "LG Ultra HD" }
+        if let over = overridenIsMirrored {
+            if notification?.isModeChange == true {
+                return "Changed to \(over ? "Mirrored" : "Extended")"
+            } else {
+                return notification?.deviceName ?? "Display"
+            }
+        }
         if let notif = notification {
             return notif.deviceName
         }
@@ -31,6 +39,7 @@ struct DisplayOverlayView: View {
     
     var isMirrored: Bool {
         if isPreview { return previewIsMirrored }
+        if let over = overridenIsMirrored { return over }
         if let notif = notification, let details = notif.details, let val = details["isMirrored"] {
             return val == "true"
         }
@@ -39,6 +48,7 @@ struct DisplayOverlayView: View {
     
     var iconName: String {
         if isPreview { return "display.2" }
+        if let over = overridenIsMirrored { return over ? "rectangle.on.rectangle" : "rectangle.split.2x1" }
         if let notif = notification {
             return notif.icon
         }
@@ -47,6 +57,13 @@ struct DisplayOverlayView: View {
     
     var typeText: String {
         if isPreview { return "Mode: Extended" }
+        if let over = overridenIsMirrored {
+            if notification?.isModeChange == true {
+                return notification?.type ?? "Display"
+            } else {
+                return "Mode: \(over ? "Mirrored" : "Extended")"
+            }
+        }
         if let notif = notification {
             return notif.type
         }
@@ -68,30 +85,47 @@ struct DisplayOverlayView: View {
             isMuted: false,
             customWidth: 260,
             supportDragGesture: false,
+            onRightTap: isConnected ? {
+                manualToggle()
+            } : nil,
             isExpandable: displayAllowExpansion,
             expandUpwards: pos.hasPrefix("bottom"),
             keepAliveId: "display_\(notification?.id ?? deviceName)",
             baseContent: {
-                HStack(alignment: .top, spacing: 0) {
+                HStack(alignment: .center, spacing: 0) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
                         .foregroundColor(isConnected ? .primary : .offStateGray)
                         .frame(width: 26, height: 24)
-                        .padding(.leading, 16 + 4 + 3)
-                        .padding(.top, 4)
+                        .padding(.leading, 23)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text(isConnected ? typeText : "Disconnected")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                             .foregroundColor(.offStateGray)
-                            .padding(.leading, 14)
-                            .padding(.trailing, 16 + 4 + 3)
                         
                         MarqueeText(text: deviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                            .padding(.leading, 14)
-                            .padding(.trailing, 16 + 4 + 3)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 14)
+                    
+                    Spacer(minLength: 8)
+                    
+                    if isConnected {
+                        ZStack {
+                            Circle()
+                                .fill(Color.primary.opacity(0.1))
+                                .frame(width: 32, height: 32)
+                            
+                            Image(systemName: notification?.isModeChange == true ? "arrow.uturn.backward" : (isMirrored ? "rectangle.split.2x1" : "rectangle.on.rectangle"))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.primary)
+                        }
+                        .padding(.trailing, 12)
+                    } else {
+                        Color.clear.frame(width: 1, height: 1)
+                            .padding(.trailing, 22)
+                    }
                 }
                 .padding(.vertical, 5)
             },
@@ -189,7 +223,9 @@ struct DisplayOverlayView: View {
                 .padding(.top, 4)
             }
         )
-        .id(notification?.timestamp ?? Date(timeIntervalSince1970: 0))
+        .onChange(of: notification?.timestamp) { _, _ in
+            overridenIsMirrored = nil
+        }
         .onChange(of: notification?.id) { _, _ in
             if !isConnected {
                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -207,7 +243,13 @@ struct DisplayOverlayView: View {
             return
         }
         
+        guard !overlayState.isDisplayTransitioning else { return }
+        
         let newMirrored = !isMirrored
+        
+        withAnimation {
+            overridenIsMirrored = newMirrored
+        }
         
         overlayState.isDisplayTransitioning = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
@@ -233,8 +275,8 @@ struct DisplayOverlayView: View {
         mediaKeyManager.triggerDisplayIndicator(
             id: notification?.id ?? deviceName,
             deviceName: "Changed to \(newMirrored ? "Mirrored" : "Extended")",
-            type: notification?.id ?? deviceName,
-            typeIcon: newMirrored ? "display.2" : "macwindow.badge.plus",
+            type: newMirrored ? "Mode: Mirrored" : "Mode: Extended",
+            typeIcon: newMirrored ? "rectangle.on.rectangle" : "rectangle.split.2x1",
             isConnected: true,
             isModeChange: true,
             details: details

@@ -40,6 +40,8 @@ extension MediaKeyManager {
         let brightPos = self.getOverlayPosition(for: "brightnessOverlayPosition")
         dismissCollidingIndicators(newPosition: brightPos, source: "brightness")
         
+        BrightnessManager.shared.startPolling()
+        
         if !showBrightnessIndicator {
             withAnimation(.easeInOut(duration: 0.25)) {
                 showBrightnessIndicator = true
@@ -53,6 +55,7 @@ extension MediaKeyManager {
                 withAnimation(.easeInOut(duration: 0.25)) {
                     self?.showBrightnessIndicator = false
                 }
+                BrightnessManager.shared.stopPolling()
             }
         }
     }

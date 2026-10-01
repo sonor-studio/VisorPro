@@ -1,11 +1,18 @@
+import Foundation
 import SwiftUI
+import Combine
 
 struct BrightnessOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = false
     @AppStorage("brightnessAllowInteractivity") private var brightnessAllowInteractivity: Bool = true
+    @AppStorage("brightnessAllowExpansion") private var brightnessAllowExpansion: Bool = true
     @State private var animatedBrightnessProgress: CGFloat = 0.0
+    
+    @StateObject private var displaySettings = DisplaySettingsManager.shared
+    @State private var isExpanded: Bool = false
+    
     var isPreview: Bool = false
     
     private var actualBrightness: Int {
@@ -29,7 +36,7 @@ struct BrightnessOverlayView: View {
         
         UniversalOverlayView(
             isPreview: isPreview,
-            isExpanded: .constant(false),
+            isExpanded: $isExpanded,
             showProgressBar: true,
             progress: animatedBrightnessProgress,
             barColor: OverlayColorManager.shared.getOverlayColor(for: "colorOnBrightness", defaultColor: .yellow),
@@ -38,9 +45,9 @@ struct BrightnessOverlayView: View {
             customHeight: 56,
             supportDragGesture: brightnessAllowInteractivity,
             onDrag: { v in
-                mediaKeyManager.setBrightness(to: Int(v * 100))
+                mediaKeyManager.setBrightness(to: max(0, min(100, Int(v * 100))))
             },
-            isExpandable: false,
+            isExpandable: brightnessAllowExpansion,
             expandUpwards: bPos.hasPrefix("bottom"),
             keepAliveId: "brightness",
             disableTimeoutMode: true,
@@ -65,10 +72,39 @@ struct BrightnessOverlayView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             },
             expandedContent: {
-                EmptyView()
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        toggleButton(title: "Dark Mode", icon: "moon.fill", isOn: displaySettings.isDarkMode) {
+                            displaySettings.toggleDarkMode()
+                        }
+                        toggleButton(title: "Night Shift", icon: "sun.and.horizon", isOn: displaySettings.isNightShiftEnabled) {
+                            displaySettings.toggleNightShift()
+                        }
+                        if displaySettings.isTrueToneSupported {
+                            toggleButton(title: "True Tone", icon: "sun.max.fill", isOn: displaySettings.isTrueToneEnabled) {
+                                displaySettings.toggleTrueTone()
+                            }
+                        }
+                    }
+                    .padding(.top, 14)
+                    .padding(.bottom, 4)
+                    .padding(.horizontal, 16)
+                    
+                }
+                .onAppear {
+                    displaySettings.fetchStatuses()
+                }
+                .onReceive(Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()) { _ in
+                    if isExpanded {
+                        displaySettings.fetchStatuses()
+                    }
+                }
             }
         )
         .onAppear {
+            if !isPreview {
+                BrightnessManager.shared.startPolling()
+            }
             if isPreview {
                 animatedBrightnessProgress = 0.1
                 withAnimation(.easeInOut(duration: 1.2)) {
@@ -82,11 +118,41 @@ struct BrightnessOverlayView: View {
                 }
             }
         }
+        .onDisappear {
+            if !isPreview {
+                BrightnessManager.shared.stopPolling()
+            }
+        }
         .onChange(of: actualBrightness) { _, newValue in
             let targetProgress = CGFloat(newValue) / 100.0
             withAnimation(.easeInOut(duration: 0.2)) {
                 animatedBrightnessProgress = targetProgress
             }
         }
+    }
+    
+    @ViewBuilder
+    private func toggleButton(title: String, icon: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(isOn ? Color.primary.opacity(0.20) : Color.primary.opacity(0.09))
+                        .frame(width: 48, height: 48)
+                        .shadow(color: Color.black.opacity(0.12), radius: 3, x: 0, y: 1.5)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(isOn ? .primary : .primary.opacity(0.55))
+                }
+                Text(title)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(isOn ? .primary : .primary.opacity(0.6))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
+        .frame(maxWidth: .infinity)
     }
 }

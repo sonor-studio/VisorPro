@@ -6,6 +6,8 @@ struct BrightnessSettingsView: View {
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = false
     @AppStorage("brightnessStep") private var brightnessStep: Double = 6.0
+    @AppStorage("brightnessAllowInteractivity") private var brightnessAllowInteractivity: Bool = true
+    @AppStorage("brightnessAllowExpansion") private var brightnessAllowExpansion: Bool = true
     @State private var showAppleEventsPermissionAlert: Bool = false
     
     var body: some View {
@@ -107,6 +109,18 @@ struct BrightnessSettingsView: View {
                                     Text(String(format: "%.1f%%", brightnessStep))
                                         .frame(width: 50, alignment: .trailing)
                                 }
+                            }
+                            
+                            Divider().padding(.leading, 40)
+                            
+                            CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .yellow, title: "Allow Expansion", subtitle: "Allow overlay to expand and show True Tone and Night Shift") {
+                                Toggle("", isOn: $brightnessAllowExpansion).labelsHidden()
+                            }
+                        
+                            Divider().padding(.leading, 40)
+                        
+                            CustomSettingsRow(icon: "hand.tap.fill", iconColor: .yellow, title: "Allow Interactivity", subtitle: "Allow dragging horizontally to change brightness") {
+                                Toggle("", isOn: $brightnessAllowInteractivity).labelsHidden()
                             }
                         }
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
