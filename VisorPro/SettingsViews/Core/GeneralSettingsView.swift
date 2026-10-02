@@ -141,7 +141,8 @@ struct GeneralSettingsView: View {
                             }
                             Spacer()
                             Picker("", selection: $overlayDisplayTarget) {
-                                Text("Screen with cursor").tag("all")
+                                Text("All screens").tag("all")
+                                Text("Screen with cursor").tag("cursor")
                                 Text("Main screen").tag("main")
                                 ForEach(cachedScreens.filter { $0.displayID != nil }, id: \.displayID!) { screen in
                                     Text(screen.localizedName).tag("screen_\(screen.displayID!)")
@@ -832,7 +833,7 @@ struct GeneralSettingsView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             let newScreens = NSScreen.screens
             cachedScreens = newScreens
-            if overlayDisplayTarget != "all" && overlayDisplayTarget != "main" {
+            if overlayDisplayTarget != "all" && overlayDisplayTarget != "main" && overlayDisplayTarget != "cursor" {
                 let stillExists = newScreens.contains(where: { "screen_\($0.displayID ?? 0)" == overlayDisplayTarget })
                 if !stillExists {
                     overlayDisplayTarget = "all"

@@ -134,16 +134,16 @@ struct BrightnessOverlayView: View {
     @ViewBuilder
     private func toggleButton(title: String, icon: String, isOn: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 ZStack {
                     Circle()
-                        .fill(isOn ? Color.primary.opacity(0.20) : Color.primary.opacity(0.09))
-                        .frame(width: 48, height: 48)
+                        .fill(isOn ? Color.primary.opacity(0.85) : Color.primary.opacity(0.1))
+                        .frame(width: 38, height: 38)
                         .shadow(color: Color.black.opacity(0.12), radius: 3, x: 0, y: 1.5)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(isOn ? .primary : .primary.opacity(0.55))
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(isOn ? Color(NSColor.windowBackgroundColor) : .primary.opacity(0.55))
                 }
                 Text(title)
                     .font(.system(size: 11, weight: .medium, design: .rounded))

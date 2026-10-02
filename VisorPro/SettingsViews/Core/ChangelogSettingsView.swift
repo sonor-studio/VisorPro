@@ -47,6 +47,116 @@ struct ChangelogSettingsView: View {
                 Divider()
                     .padding(.bottom, 32)
                 
+                // Version 1.3.2 Area
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("VisorPro 1.3.2")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.primary)
+                    
+                    Text("New Quick Actions, elegant monochrome aesthetics, and significantly improved multi-screen display logic.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 8)
+                    
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)], spacing: 32) {
+                        
+                        ChangelogCard(
+                            icon: "sun.and.horizon.fill",
+                            title: "Display Quick Actions",
+                            description: "Control Dark Mode, Night Shift, and True Tone straight from your expanded brightness overlay. Designed with native monochrome styles and depth shadows.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.blue.opacity(0.05))
+                                
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle().fill(Color.primary.opacity(0.85)).frame(width: 44, height: 44)
+                                        Image(systemName: "moon.fill").font(.system(size: 18)).foregroundColor(Color(NSColor.windowBackgroundColor))
+                                    }
+                                    ZStack {
+                                        Circle().fill(Color.primary.opacity(0.1)).frame(width: 44, height: 44)
+                                        Image(systemName: "sun.and.horizon").font(.system(size: 18)).foregroundColor(.primary.opacity(0.5))
+                                    }
+                                    ZStack {
+                                        Circle().fill(Color.primary.opacity(0.85)).frame(width: 44, height: 44)
+                                        Image(systemName: "sun.max.fill").font(.system(size: 18)).foregroundColor(Color(NSColor.windowBackgroundColor))
+                                    }
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "wrench.and.screwdriver.fill",
+                            title: "Engine Refinements",
+                            description: "Resolved several bugs related to system overlays. We've significantly improved the core logic and interactions for the brightness overlay, resulting in flawless stability.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.teal.opacity(0.05))
+                                
+                                ZStack(alignment: .bottomTrailing) {
+                                    // Overlay Window mock
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .frame(width: 90, height: 60)
+                                        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                        .overlay(
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.2)).frame(width: 40, height: 4)
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.teal.opacity(0.4)).frame(width: 65, height: 4)
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.secondary.opacity(0.2)).frame(width: 50, height: 4)
+                                            }
+                                            .padding(12), alignment: .topLeading
+                                        )
+                                        
+                                    // Badge on the corner
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.white)
+                                            .frame(width: 26, height: 26)
+                                            .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                        
+                                        Image(systemName: "checkmark.shield.fill")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.teal)
+                                    }
+                                    .offset(x: 10, y: 10)
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "display.2",
+                            title: "Displays & Multi-Screen",
+                            description: "Significantly improved logic across multiple screens. Added a Mirror Mode Quick Action to the Display overlay and introduced a new 'Screen with cursor' targeting option.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.indigo.opacity(0.05))
+                                
+                                ZStack {
+                                    Circle()
+                                        .stroke(Color.indigo.opacity(0.25), lineWidth: 4)
+                                        .frame(width: 66, height: 66)
+                                    
+                                    Image(systemName: "rectangle.on.rectangle")
+                                        .font(.system(size: 32, weight: .regular))
+                                        .foregroundColor(.indigo)
+                                        .shadow(color: .indigo.opacity(0.4), radius: 5, y: 0)
+                                        
+                                    Image(systemName: "cursorarrow")
+                                        .font(.system(size: 20, weight: .bold))
+                                        .foregroundColor(.primary)
+                                        .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+                                        .offset(x: 16, y: 14)
+                                }
+                            }
+                        )
+                    }
+                }
+                .padding(.bottom, 32)
+                
+                Divider()
+                    .padding(.bottom, 32)
+                
                 // Version 1.3.1 Area
                 VStack(alignment: .leading, spacing: 16) {
                     Text("VisorPro 1.3.1")

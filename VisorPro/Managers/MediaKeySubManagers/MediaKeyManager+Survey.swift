@@ -38,11 +38,11 @@ extension MediaKeyManager {
         // 1. Session duration check (must be running > 3 minutes — no spam on boot)
         if Date().timeIntervalSince(SurveyEngine.sessionStartDate) < 180 { return }
         
-        // 2. At least 7 days must have passed since the very first launch
+        // 2. At least 3 days must have passed since the very first launch
         let firstLaunchTime = UserDefaults.standard.double(forKey: "visorProFirstLaunchDate")
         guard firstLaunchTime > 0 else { return }
         let daysSinceFirstLaunch = Date().timeIntervalSince(Date(timeIntervalSince1970: firstLaunchTime)) / (24 * 3600)
-        if daysSinceFirstLaunch < 7.0 { return }
+        if daysSinceFirstLaunch < 3.0 { return }
         
         // 3. At least 3 days must have passed since the last survey was shown
         let lastSurveyTime = UserDefaults.standard.double(forKey: "visorProLastSurveyDate")

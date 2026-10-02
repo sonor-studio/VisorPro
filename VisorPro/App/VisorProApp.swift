@@ -139,11 +139,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let configuration = TelemetryManagerConfiguration(appID: "F983579F-8CAB-4235-B6FE-B6CE1CE3119A")
         TelemetryDeck.initialize(config: configuration)
         let defaults = UserDefaults.standard
-        let volumeFillCenter = defaults.bool(forKey: "volumeFillCenter") ? "true" : "false"
-        let brightnessFillCenter = defaults.bool(forKey: "brightnessFillCenter") ? "true" : "false"
-        let keyboardBrightnessFillCenter = defaults.bool(forKey: "keyboardBrightnessFillCenter") ? "true" : "false"
-        let batteryFillCenter = defaults.bool(forKey: "batteryFillCenter") ? "true" : "false"
-        let anyFillCenterEnabled = (volumeFillCenter == "true" || brightnessFillCenter == "true" || keyboardBrightnessFillCenter == "true" || batteryFillCenter == "true") ? "true" : "false"
         
         let isPremium = !(defaults.string(forKey: "PremiumLicenseKey") ?? "").isEmpty ? "true" : "false"
         let displayTarget = defaults.string(forKey: "overlayDisplayTarget") ?? "all"
@@ -151,17 +146,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let overlayTheme = defaults.string(forKey: "overlayTheme") ?? "system"
         let launchAtLogin = defaults.bool(forKey: "launchAtLogin") ? "true" : "false"
         
+        let enableInnerGlow = defaults.bool(forKey: "enableGlowEffect") ? "true" : "false"
+        let cornerRoundingMultiplier = defaults.object(forKey: "cornerRoundingMultiplier") as? Double ?? 0.85
+        let notificationDuration = defaults.object(forKey: "notificationDuration") as? Double ?? 3.0
+        let maxSimultaneousNotifications = defaults.object(forKey: "maxSimultaneousNotifications") as? Int ?? 5
+        let overlayColorMode = defaults.string(forKey: "overlayColorMode") ?? "preset_default"
+        
         TelemetryDeck.signal("appLaunched", parameters: [
-            "volume_fill_center": volumeFillCenter,
-            "brightness_fill_center": brightnessFillCenter,
-            "keyboard_brightness_fill_center": keyboardBrightnessFillCenter,
-            "battery_fill_center": batteryFillCenter,
-            "any_fill_center_enabled": anyFillCenterEnabled,
             "is_premium": isPremium,
             "display_target": displayTarget,
             "overlay_position": overlayPosition,
             "overlay_theme": overlayTheme,
-            "launch_at_login": launchAtLogin
+            "launch_at_login": launchAtLogin,
+            "enable_inner_glow": enableInnerGlow,
+            "rounding_radius": String(format: "%.2f", cornerRoundingMultiplier),
+            "display_duration": String(format: "%.1f", notificationDuration),
+            "overlay_limit": String(maxSimultaneousNotifications),
+            "overlay_color_mode": overlayColorMode
         ])
         
         
