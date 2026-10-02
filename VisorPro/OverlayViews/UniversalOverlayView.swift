@@ -1,5 +1,21 @@
 import SwiftUI
 
+// MARK: - Conditional DrawingGroup
+// Applies .drawingGroup() only when enabled.
+// Must be disabled for overlays with interactive content (e.g. survey buttons),
+// because drawingGroup rasterizes the view to a Metal texture which breaks
+// interactive SwiftUI controls and causes yellow warning overlays.
+struct ConditionalDrawingGroup: ViewModifier {
+    let enabled: Bool
+    
+    func body(content: Content) -> some View {
+        if enabled {
+            content.drawingGroup()
+        } else {
+            content
+        }
+    }
+}
 
 struct BendedCornerShape: InsettableShape, Sendable {
     typealias InsetShape = BendedCornerShape
@@ -243,11 +259,13 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
                                 ZStack(alignment: .leading) {
-                    baseContent()
-                        .frame(width: width, height: baseHeight)
-                        .allowsHitTesting(allowBaseHitTesting)
-                        .animation(nil, value: isExpanded)
-                        .drawingGroup()
+                    Group {
+                        baseContent()
+                            .frame(width: width, height: baseHeight)
+                            .allowsHitTesting(allowBaseHitTesting)
+                            .animation(nil, value: isExpanded)
+                    }
+                    .modifier(ConditionalDrawingGroup(enabled: !allowBaseHitTesting))
         
                         
                     HStack(spacing: 0) {

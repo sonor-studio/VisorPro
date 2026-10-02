@@ -52,10 +52,10 @@ struct SurveyOverlayView: View {
                 barColor: actionColor,
                 fillCenter: false,
                 customWidth: 260,
-                customHeight: currentHeight,
+                customHeight: targetHeight,
                 customCornerRadius: cornerRadius,
                 allowBaseHitTesting: true,
-                onSimpleTap: { },
+                onSimpleTap: nil,
                 isExpandable: false,
                 expandUpwards: false,
                 keepAliveId: "survey",
@@ -109,7 +109,6 @@ struct SurveyOverlayView: View {
                                                 .font(.system(size: 12, weight: .medium, design: .rounded))
                                                 .foregroundColor(.primary)
                                                 .multilineTextAlignment(.leading)
-                                                .fixedSize(horizontal: false, vertical: true)
                                                 .lineLimit(2)
                                                 .frame(maxWidth: .infinity, alignment: .leading)
                                                 .padding(.vertical, 6)
@@ -136,22 +135,6 @@ struct SurveyOverlayView: View {
                     EmptyView()
                 }
             )
-            .onChange(of: targetHeight) { _, newHeight in
-                // Skip height animation if the overlay is being dismissed —
-                // prevents a bounce-up glitch when X is clicked during thank-you state
-                guard overlayState.showSurveyIndicator else {
-                    currentHeight = newHeight
-                    return
-                }
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.75)) {
-                    currentHeight = newHeight
-                }
-            }
-            .onAppear {
-                DispatchQueue.main.async {
-                    currentHeight = targetHeight
-                }
-            }
         )
     }
 }
