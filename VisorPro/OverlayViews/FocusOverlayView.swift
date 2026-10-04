@@ -309,7 +309,7 @@ struct FocusOverlayView: View {
                 }
             }
         )
-        .id(overlayState.focusEventId)
+        
         .frame(width: 240, alignment: .top)
     }
 }

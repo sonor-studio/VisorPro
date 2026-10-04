@@ -1,14 +1,16 @@
 import SwiftUI
 
+struct ThemeApplierModifier: ViewModifier {
+    @Environment(\.colorScheme) var systemColorScheme
+    var theme: String
+    
+    func body(content: Content) -> some View {
+        content.environment(\.colorScheme, theme == "dark" ? .dark : (theme == "light" ? .light : systemColorScheme))
+    }
+}
+
 extension View {
-    @ViewBuilder
     func applyTheme(_ theme: String) -> some View {
-        if theme == "dark" {
-            self.environment(\.colorScheme, .dark)
-        } else if theme == "light" {
-            self.environment(\.colorScheme, .light)
-        } else {
-            self // Default to system theme
-        }
+        self.modifier(ThemeApplierModifier(theme: theme))
     }
 }

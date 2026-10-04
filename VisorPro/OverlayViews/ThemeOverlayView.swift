@@ -77,7 +77,7 @@ struct ThemeOverlayView: View {
                 EmptyView()
             }
         )
-        .id(overlayState.themeEventId)
+        
         .frame(width: 230, height: 56, alignment: .top)
     }
     

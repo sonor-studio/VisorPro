@@ -370,7 +370,12 @@ Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
                                                     } else if PermissionHelper.hasLocationPermission() {
                                                         mediaKeyManager.notifyOnLocationOn = true
                                                     } else {
-                                                        mediaKeyManager.notifyOnLocationOn = false
+                                                        DispatchQueue.main.async {
+                                                            mediaKeyManager.notifyOnLocationOn = true
+                                                            DispatchQueue.main.async {
+                                                                mediaKeyManager.notifyOnLocationOn = false
+                                                            }
+                                                        }
                                                         showLocationPermissionAlert = true
                                                     }
                                                 } else {
@@ -491,6 +496,17 @@ Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
                 },
                 secondaryButton: .cancel()
             )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LocationAuthorizationChanged"))) { _ in
+            if mediaKeyManager.notifyOnLocationOn && !PermissionHelper.hasLocationPermission() && !PermissionHelper.isLocationNotDetermined() {
+                DispatchQueue.main.async {
+                    mediaKeyManager.notifyOnLocationOn = true
+                    DispatchQueue.main.async {
+                        mediaKeyManager.notifyOnLocationOn = false
+                    }
+                }
+                showLocationPermissionAlert = true
+            }
         }
     }
 }

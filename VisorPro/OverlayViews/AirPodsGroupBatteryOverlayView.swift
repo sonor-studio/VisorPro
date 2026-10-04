@@ -70,7 +70,7 @@ struct AirPodsGroupBatteryOverlayView: View {
             },
             expandedContent: { EmptyView() }
         )
-        .id(overlayState.airpodsGroupBatteryEventId)
+        
     }
     
     @ViewBuilder

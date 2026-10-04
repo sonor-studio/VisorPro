@@ -7,6 +7,7 @@ struct PreviewBackgroundView: View {
     @Environment(\.colorScheme) var colorScheme
     
     var minHeight: CGFloat = 180
+    var fullBleed: Bool = false
     
     var body: some View {
         Group {
@@ -14,42 +15,51 @@ struct PreviewBackgroundView: View {
                 let path = String(previewBackgroundStyle.dropFirst(8))
                 Color.clear.frame(minHeight: minHeight).overlay(
                     AsyncWallpaperImage(path: path)
-                ).clipped().cornerRadius(16)
+                ).clipped()
+                .modifier(OptionalCornerRadius(apply: !fullBleed, radius: 16))
             } else if previewBackgroundStyle == "wallpaper" {
                 if let img = wallpaperImage {
                     Color.clear
                         .frame(minHeight: minHeight)
                         .overlay(
-                            Image(nsImage: img)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
+                            GeometryReader { geo in
+                                Image(nsImage: img)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: geo.size.width, height: geo.size.height)
+                                    .clipped()
+                            }
                         )
                         .clipped()
-                        .cornerRadius(16)
+                        .modifier(OptionalCornerRadius(apply: !fullBleed, radius: 16))
                 } else if let color = wallpaperColor {
                     Color(nsColor: color)
                         .frame(minHeight: minHeight)
-                        .cornerRadius(16)
+                        .modifier(OptionalCornerRadius(apply: !fullBleed, radius: 16))
                 } else {
                     Color.black
                         .frame(minHeight: minHeight)
-                        .cornerRadius(16)
+                        .modifier(OptionalCornerRadius(apply: !fullBleed, radius: 16))
                 }
             } else {
                 Color.clear
-                    .glassEffect(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .visorGlassEffect(.ultraThinMaterial)
+                    .modifier(OptionalClipShape(apply: !fullBleed, shape: RoundedRectangle(cornerRadius: 16)))
                     .frame(minHeight: minHeight)
             }
         }
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    (previewBackgroundStyle == "gradient" && colorScheme == .dark) 
-                        ? Color.white.opacity(0.04) 
-                        : Color.white.opacity(0.15), 
-                    lineWidth: 1
-                )
+            Group {
+                if !fullBleed {
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            (previewBackgroundStyle == "gradient" && colorScheme == .dark) 
+                                ? Color.white.opacity(0.04) 
+                                : Color.white.opacity(0.15), 
+                            lineWidth: 1
+                        )
+                }
+            }
         )
         .onAppear {
             Task { @MainActor in
@@ -96,6 +106,32 @@ struct PreviewBackgroundView: View {
         .onDisappear {
             wallpaperImage = nil
             wallpaperColor = nil
+        }
+    }
+}
+
+struct OptionalCornerRadius: ViewModifier {
+    var apply: Bool
+    var radius: CGFloat
+    
+    func body(content: Content) -> some View {
+        if apply {
+            content.cornerRadius(radius)
+        } else {
+            content
+        }
+    }
+}
+
+struct OptionalClipShape<S: Shape>: ViewModifier {
+    var apply: Bool
+    var shape: S
+    
+    func body(content: Content) -> some View {
+        if apply {
+            content.clipShape(shape)
+        } else {
+            content
         }
     }
 }

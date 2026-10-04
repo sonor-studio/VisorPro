@@ -6,5 +6,11 @@
 	<string>VisorPro needs access to your calendar to display upcoming events in the Date overlay.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>VisorPro needs full access to your calendar to display upcoming events in the Date overlay.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>VisorPro needs location access to read the SSID of your currently connected Wi-Fi network.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>VisorPro needs location access to read the SSID of your currently connected Wi-Fi network.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>VisorPro needs location access to read the SSID of your currently connected Wi-Fi network.</string>
 </dict>
 </plist>

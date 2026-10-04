@@ -9,6 +9,7 @@ struct SettingsView: View {
     enum SidebarItem: Hashable {
         case premium
         case general
+        case appearance
         case recentChanges
         case volume
         case brightness
@@ -50,6 +51,12 @@ struct SettingsView: View {
                             SidebarIcon(systemName: "gearshape.fill", color: .gray)
                         }
                     .tag(SidebarItem.general)
+                    Label {
+                            Text("Appearance")
+                        } icon: {
+                            SidebarIcon(systemName: "paintbrush.fill", color: .purple)
+                        }
+                    .tag(SidebarItem.appearance)
                     Label {
                             Text("Changelog")
                         } icon: {
@@ -226,6 +233,8 @@ struct SettingsView: View {
                     PremiumSettingsView()
                 case .general:
                     GeneralSettingsView()
+                case .appearance:
+                    AppearanceEditorView()
                 case .recentChanges:
                     ChangelogSettingsView()
                 case .feedback:

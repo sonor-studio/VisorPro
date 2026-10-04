@@ -67,7 +67,7 @@ struct CapsLockOverlayView: View {
                 EmptyView()
             }
         )
-        .id(overlayState.capsLockEventId)
+        
         .frame(width: 230, height: 56, alignment: .top)
         .onAppear {
             localPreviewIsOn = previewIsOn

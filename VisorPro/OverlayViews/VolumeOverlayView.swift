@@ -11,14 +11,24 @@ struct VolumeOverlayView: View {
         _animatedVolumeProgress ?? (CGFloat(actualVolume) / 100.0)
     }
     @State private var previewVolume: Int = 65
+    @State private var previewIsMuted: Bool = false
+    @State private var previewSelectedDevice: UInt32 = 2
     var isPreview: Bool = false
     
     private var actualVolume: Int {
         isPreview ? previewVolume : overlayState.currentVolume
     }
     
+    private var actualDeviceName: String {
+        if isPreview {
+            return previewSelectedDevice == 1 ? "MacBook Pro Speakers" : "AirPods Pro"
+        } else {
+            return overlayState.currentAudioDeviceName
+        }
+    }
+    
     private var actualIsMuted: Bool {
-        isPreview ? false : overlayState.isMuted
+        isPreview ? previewIsMuted : overlayState.isMuted
     }
     
     private var actionColor: Color {
@@ -56,12 +66,17 @@ struct VolumeOverlayView: View {
             onDrag: { v in
                 if isPreview {
                     previewVolume = Int(v * 100)
+                    _animatedVolumeProgress = v
                 } else {
                     mediaKeyManager.setVolume(to: Int(v * 100))
                 }
             },
             onLeftTap: {
-                if !isPreview { mediaKeyManager.toggleVolumeMute() }
+                if isPreview {
+                    previewIsMuted.toggle()
+                } else {
+                    mediaKeyManager.toggleVolumeMute()
+                }
             },
             onRightTap: nil,
             onSimpleTap: nil,
@@ -77,8 +92,8 @@ struct VolumeOverlayView: View {
                         .foregroundColor(actualIsMuted ? .secondary : .primary)
                         .frame(width: 26, height: 24)
                     
-                    MarqueeText(text: actualIsMuted ? "Muted" : overlayState.currentAudioDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                        .id(actualIsMuted ? "muted" : overlayState.currentAudioDeviceName)
+                    MarqueeText(text: actualIsMuted ? "Muted" : actualDeviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                        .id(actualIsMuted ? "muted" : actualDeviceName)
                     
                     Spacer(minLength: 8)
                     
@@ -93,10 +108,15 @@ struct VolumeOverlayView: View {
                     ForEach(currentDevices, id: \.id) { device in
                         DeviceRowView(
                             device: device,
-                            isCurrent: isPreview ? (device.id == 2) : device.name == overlayState.currentAudioDeviceName,
+                            isCurrent: isPreview ? (device.id == previewSelectedDevice) : device.name == overlayState.currentAudioDeviceName,
                             tintColor: actionColor,
                             onSelect: {
-                                if !isPreview {
+                                if isPreview {
+                                    previewSelectedDevice = device.id
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        isExpanded = false
+                                    }
+                                } else {
                                     VolumeManager.shared.setOutputDevice(id: device.id)
                                     withAnimation(.easeInOut(duration: 0.2)) {
                                         isExpanded = false

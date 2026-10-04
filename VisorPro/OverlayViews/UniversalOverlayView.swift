@@ -231,6 +231,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
     @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
     
+    
     private var isGloballyHovered: Bool {
         guard let keepAliveId = keepAliveId else { return isHovering }
         return isHovering || mediaKeyManager.globalHoveredTypes.contains(keepAliveId)
@@ -299,7 +300,9 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 .gesture(
                     DragGesture(minimumDistance: 10)
                         .onChanged { value in
-                            if isPreview { return }
+                            if isPreview {
+                                // ScrollWheel event w AppearanceEditorView dba o fizyczne machnięcie gładzikiem
+                            }
                             if supportDragGesture {
                                 if !isDragging {
                                     isDragging = true
@@ -512,6 +515,22 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             }
             .compositingGroup()
         )
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PreviewWillExit"))) { _ in
+            if isPreview && isExpanded {
+                let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
+                withAnimation(anim) {
+                    isExpanded = false
+                }
+            }
+        }
+        .onChange(of: OverlayStateRelay.shared.closingPanels.contains(keepAliveId ?? "")) { _, isClosing in
+            if isClosing && isExpanded {
+                let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
+                withAnimation(anim) {
+                    isExpanded = false
+                }
+            }
+        }
         .onHoverExact { hovering in
             isHovering = hovering
             triggerKeepAlive(hoveringOverride: hovering)
@@ -553,9 +572,9 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 }
             }
         }
-            if enableCloseButton && !isPreview {
-                
-                Image(systemName: "xmark")
+        
+        if enableCloseButton {
+            Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.secondary)
                     .frame(width: 20, height: 20)
@@ -570,7 +589,9 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
                     .contentShape(Circle())
                     .onTapGesture {
-                        if let id = keepAliveId {
+                        if isPreview {
+                            NotificationCenter.default.post(name: NSNotification.Name("PreviewDismissTriggered"), object: nil)
+                        } else if let id = keepAliveId {
                             mediaKeyManager.forceHide(overlayId: id)
                         }
                     }
@@ -601,9 +622,9 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     private var shouldShowCloseButton: Bool {
-        guard enableCloseButton && !isPreview else { return false }
+        guard enableCloseButton else { return false }
         if keepCloseButtonWhenExpanded {
-            return isGloballyHovered
+            return isHovering || isExpanded
         } else {
             return isHovering
         }

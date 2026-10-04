@@ -466,33 +466,57 @@ class VisorProWindowManager: ObservableObject {
                         let screenHeight = cachedScreens.first?.frame.height ?? 800
                         let isTop = (window.frame.origin.y + window.frame.height / 2) > (screenHeight / 2)
                         let offsetAmount: CGFloat = isTop ? 50 : -50 
+                        let animType = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "default"
                         
-                        NSAnimationContext.runAnimationGroup({ ctx in
-                            ctx.duration = 0.2
-                            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                            var finalFrame = window.frame
-                            finalFrame.origin.y += offsetAmount
-                            window.animator().setFrame(finalFrame, display: false)
-                            window.animator().alphaValue = 0.0
-                        }, completionHandler: {
-                            Task { @MainActor in
+                        DispatchQueue.main.async {
+                            OverlayStateRelay.shared.closingPanels.insert(overlayId)
+                        }
+                        
+                        let runExitWindow = {
+                            NSAnimationContext.runAnimationGroup({ ctx in
+                                ctx.duration = 0.2
+                                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                                if animType != "scale" {
+                                    var finalFrame = window.frame
+                                    finalFrame.origin.y += offsetAmount
+                                    window.animator().setFrame(finalFrame, display: false)
+                                }
+                                window.animator().alphaValue = 0.0
+                            }, completionHandler: {
+                                Task { @MainActor in
+                                    OverlayStateRelay.shared.closingPanels.remove(overlayId)
+                                    if self.exitingPanels.contains(id) {
+                                        window.orderOut(nil)
+                                        window.contentView = nil
+                                        window.close()
+                                        self.windows.removeValue(forKey: id)
+                                        self.targetOrigins.removeValue(forKey: id)
+                                        self.shownPanels.remove(id)
+                                        self.exitingPanels.remove(id)
+                                    }
+                                }
+                            })
+                        }
+                        
+                        if animType == "fluid_drop" {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                 if self.exitingPanels.contains(id) {
-                                    window.orderOut(nil)
-                                    window.contentView = nil
-                                    window.close()
-                                    self.windows.removeValue(forKey: id)
-                                    self.targetOrigins.removeValue(forKey: id)
-                                    self.shownPanels.remove(id)
-                                    self.exitingPanels.remove(id)
+                                    runExitWindow()
                                 }
                             }
-                        })
+                        } else {
+                            runExitWindow()
+                        }
                     }
                 }
             } else {
                 if exitingPanels.contains(id) {
                     exitingPanels.remove(id)
                     rescuedPanels.insert(id)
+                    let overlayId = String(id.split(separator: "_screen_").first ?? "")
+                    DispatchQueue.main.async {
+                        OverlayStateRelay.shared.closingPanels.remove(overlayId)
+                    }
                 }
             }
         }
@@ -576,7 +600,8 @@ class VisorProWindowManager: ObservableObject {
                     
                     let isTop = (targetOrigin.y + currentHeight / 2) > (screenSize.height / 2)
                     let offsetAmount: CGFloat = isTop ? 50 : -50
-                    let startOrigin = NSPoint(x: targetOrigin.x, y: targetOrigin.y + offsetAmount)
+                    let animType = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "default"
+                    let startOrigin = animType == "scale" ? targetOrigin : NSPoint(x: targetOrigin.x, y: targetOrigin.y + offsetAmount)
                     
                     panel.alphaValue = 0.0
                     panel.setFrame(NSRect(origin: startOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
@@ -589,7 +614,9 @@ class VisorProWindowManager: ObservableObject {
                         NSAnimationContext.runAnimationGroup({ ctx in
                             ctx.duration = 0.15
                             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                            panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
+                            if animType != "scale" {
+                                panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
+                            }
                             panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
                         }, completionHandler: {
                             Task { @MainActor in
@@ -805,15 +832,80 @@ class TrackingHostingView<Content: View>: NSHostingView<Content> {
 struct SingleOverlayContainer: View {
     let overlay: VisorProWindowManager.ActiveOverlay
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @EnvironmentObject var stateRelay: OverlayStateRelay
+    @State private var appearScale: CGFloat = 1.0
+    @State private var appearBlur: CGFloat = 0.0
+    @AppStorage("overlayAnimationType") private var animType = "default"
     
     var body: some View {
         ZStack {
             overlayView(for: overlay)
                 .applyTheme(mediaKeyManager.overlayTheme)
                 .swipeToDismiss(overlayId: overlay.id, isTopPosition: overlay.position.hasPrefix("top"))
+                .scaleEffect(appearScale)
+                .blur(radius: appearBlur)
         }
         .padding(16)
         .fixedSize()
+        .onAppear {
+            if animType == "scale" {
+                appearScale = 0.6
+                appearBlur = 15.0
+                withAnimation(.interpolatingSpring(stiffness: 300, damping: 20)) {
+                    appearScale = 1.0
+                    appearBlur = 0.0
+                }
+            } else if animType == "fluid_bounce" {
+                appearScale = 0.3
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
+                    appearScale = 1.0
+                }
+            } else if animType == "fluid_drop" {
+                appearScale = 0.1
+                appearBlur = 5.0
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) {
+                        appearScale = 1.0
+                        appearBlur = 0.0
+                    }
+                }
+            }
+        }
+        .onChange(of: stateRelay.closingPanels.contains(overlay.id)) { oldValue, isClosing in
+            if isClosing {
+                if animType == "scale" {
+                    withAnimation(.easeIn(duration: 0.2)) {
+                        appearScale = 0.6
+                        appearBlur = 15.0
+                    }
+                } else if animType == "fluid_bounce" {
+                    withAnimation(.easeIn(duration: 0.2)) {
+                        appearScale = 0.3
+                    }
+                } else if animType == "fluid_drop" {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        appearScale = 0.1
+                        appearBlur = 5.0
+                    }
+                }
+            } else {
+                if animType == "scale" {
+                    withAnimation(.interpolatingSpring(stiffness: 300, damping: 20)) {
+                        appearScale = 1.0
+                        appearBlur = 0.0
+                    }
+                } else if animType == "fluid_bounce" {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
+                        appearScale = 1.0
+                    }
+                } else if animType == "fluid_drop" {
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) {
+                        appearScale = 1.0
+                        appearBlur = 0.0
+                    }
+                }
+            }
+        }
     }
     
     @ViewBuilder

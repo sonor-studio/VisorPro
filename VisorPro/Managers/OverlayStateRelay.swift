@@ -305,6 +305,9 @@ class OverlayStateRelay: ObservableObject {
     
     // MARK: - Last overlay state (moved from MediaKeyManager to avoid dashboard re-renders)
     @Published var canShowLastOverlay: Bool = false
+    
+    // MARK: - Window closing state (for exit animations)
+    @Published var closingPanels: Set<String> = []
 }
 
 class SwipeStateRelay: ObservableObject {

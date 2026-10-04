@@ -8,9 +8,13 @@ struct AsyncWallpaperImage: View {
     var body: some View {
         Group {
             if let img = image {
-                Image(nsImage: img)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
+                GeometryReader { geo in
+                    Image(nsImage: img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                }
             } else {
                 Color.gray.opacity(0.2)
                     .overlay(ProgressView().scaleEffect(0.5))

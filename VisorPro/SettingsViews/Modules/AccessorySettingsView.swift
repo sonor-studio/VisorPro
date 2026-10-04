@@ -574,10 +574,7 @@ struct AccessorySettingsView: View {
                                                     .onChange(of: settings.colorOnAirPodsANC) { _, _ in saveSettings() }
                                         }
 
-                                        Toggle("", isOn: Binding(
-                                            get: { mediaKeyManager.notifyOnAirPodsANC },
-                                            set: { mediaKeyManager.notifyOnAirPodsANC = $0 }
-                                        )).labelsHidden()
+                                        Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsANC).labelsHidden()
                                     }
                                     Divider().padding(.leading, 40)
                                     CustomSettingsRow(icon: "earbuds", iconColor: .indigo, title: "Transparency", subtitle: "Show overlay for transparency mode") {
@@ -586,10 +583,7 @@ struct AccessorySettingsView: View {
                                                     .onChange(of: settings.colorOnAirPodsTransparency) { _, _ in saveSettings() }
                                         }
 
-                                        Toggle("", isOn: Binding(
-                                            get: { mediaKeyManager.notifyOnAirPodsTransparency },
-                                            set: { mediaKeyManager.notifyOnAirPodsTransparency = $0 }
-                                        )).labelsHidden()
+                                        Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsTransparency).labelsHidden()
                                     }
                                     Divider().padding(.leading, 40)
                                     CustomSettingsRow(icon: "earbuds.case", iconColor: .indigo, title: "Adaptive Audio", subtitle: "Show overlay for adaptive mode") {
@@ -598,10 +592,16 @@ struct AccessorySettingsView: View {
                                                     .onChange(of: settings.colorOnAirPodsAdaptive) { _, _ in saveSettings() }
                                         }
 
-                                        Toggle("", isOn: Binding(
-                                            get: { mediaKeyManager.notifyOnAirPodsAdaptive },
-                                            set: { mediaKeyManager.notifyOnAirPodsAdaptive = $0 }
-                                        )).labelsHidden()
+                                        Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsAdaptive).labelsHidden()
+                                    }
+                                    Divider().padding(.leading, 40)
+                                    CustomSettingsRow(icon: "airpods", iconColor: .indigo, title: "Off", subtitle: "Show overlay for off mode") {
+                                        if mediaKeyManager.overlayColorMode == "custom" {
+                                            ColorPickerControl(selectedColor: $settings.colorOnAirPodsOff)
+                                                    .onChange(of: settings.colorOnAirPodsOff) { _, _ in saveSettings() }
+                                        }
+
+                                        Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsOff).labelsHidden()
                                     }
                                 }
                                 .toggleStyle(.switch)

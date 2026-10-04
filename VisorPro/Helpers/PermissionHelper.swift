@@ -10,12 +10,18 @@ struct PermissionHelper {
     }()
     
     static func hasLocationPermission() -> Bool {
-        let status = sharedLocationManager.authorizationStatus
-        return status != .denied && status != .restricted
+        let locationManager = CLLocationManager()
+        let status = locationManager.authorizationStatus
+        return status == .authorizedAlways || status == .authorized
     }
     
     static func isLocationNotDetermined() -> Bool {
-        return sharedLocationManager.authorizationStatus == .notDetermined
+        let locationManager = CLLocationManager()
+        return locationManager.authorizationStatus == .notDetermined
+    }
+    
+    static func requestLocationPermission() {
+        sharedLocationManager.requestAlwaysAuthorization()
     }
     
     static func checkBluetoothPermission() -> Bool {

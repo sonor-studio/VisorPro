@@ -17,7 +17,7 @@ struct ActiveVisualEffectView: NSViewRepresentable {
 }
 
 extension View {
-    func glassEffect<S: InsettableShape>(_ material: Material, in shape: S, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
+    func visorGlassEffect<S: InsettableShape>(_ material: Material, in shape: S, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
         self.background(ActiveVisualEffectView(blendingMode: blendingMode).clipShape(shape))
             .overlay(
                 shape.strokeBorder(Color.glassBorder, lineWidth: 1)
@@ -25,7 +25,7 @@ extension View {
             .clipShape(shape)
     }
     
-    func glassEffect(_ material: Material, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
+    func visorGlassEffect(_ material: Material, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
         self.background(ActiveVisualEffectView(blendingMode: blendingMode))
     }
 }
@@ -40,5 +40,29 @@ extension Material {
     // Stub to support the .interactive() syntax from other projects
     func interactive() -> Material {
         return self
+    }
+}
+
+
+import SwiftUI
+
+struct NativeGlassBackgroundModifier: ViewModifier {
+    var inShape: Capsule = Capsule() // default
+    
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular, in: .capsule)
+        } else {
+            content
+                .background(.regularMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1), lineWidth: 1))
+        }
+    }
+}
+
+extension View {
+    func nativeGlassBackground() -> some View {
+        self.modifier(NativeGlassBackgroundModifier())
     }
 }

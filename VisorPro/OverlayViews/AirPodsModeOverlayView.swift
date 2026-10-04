@@ -72,8 +72,16 @@ struct AirPodsModeOverlayView: View {
             },
             expandedContent: {
                 VStack(alignment: .leading, spacing: 4) {
-                    let modes = [2, 3, 4] // ANC, Transparency, Adaptive
-                    ForEach(modes, id: \.self) { mode in
+                    let allModes = [2, 3, 4, 1]
+                    let modes = allModes.filter { mode in
+                        if mode == 1 { return mediaKeyManager.notifyOnAirPodsOff }
+                        if mode == 2 { return mediaKeyManager.notifyOnAirPodsANC }
+                        if mode == 3 { return mediaKeyManager.notifyOnAirPodsTransparency }
+                        if mode == 4 { return mediaKeyManager.notifyOnAirPodsAdaptive }
+                        return true
+                    }
+                    let finalModes = modes.isEmpty ? [overlayState.airPodsModeValue] : modes
+                    ForEach(finalModes, id: \.self) { mode in
                         let isSelected = overlayState.airPodsModeValue == mode
                         Button(action: {
                             guard !overlayState.isChangingAirPodsMode else { return }

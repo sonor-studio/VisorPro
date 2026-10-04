@@ -263,7 +263,7 @@ struct MediaOverlayView: View {
                 }
             }
         )
-        .id(overlayState.mediaEventId)
+        
         .onAppear {
             if isPreview {
                 localElapsed = 180.0 * previewProgress

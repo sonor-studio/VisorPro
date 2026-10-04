@@ -103,6 +103,6 @@ struct SmartRoutingOverlayView: View {
             },
             expandedContent: { EmptyView() }
         )
-        .id(overlayState.smartRoutingEventId)
+        
     }
 }

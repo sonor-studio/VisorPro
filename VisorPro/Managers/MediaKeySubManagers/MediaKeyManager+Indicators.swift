@@ -369,10 +369,11 @@ extension MediaKeyManager {
         }
         if changed {
             OverlayStateRelay.shared.previousAirPodsModeValue = OverlayStateRelay.shared.airPodsModeValue
+            self.overlayTriggerTimes["airpodsMode"] = Date()
         }
         
         var shouldShow = true
-        if mode == 1 { shouldShow = false } // Never show for Off
+        if mode == 1 && !notifyOnAirPodsOff { shouldShow = false }
         if mode == 2 && !notifyOnAirPodsANC { shouldShow = false }
         if mode == 4 && !notifyOnAirPodsAdaptive { shouldShow = false }
         if mode == 3 && !notifyOnAirPodsTransparency { shouldShow = false }

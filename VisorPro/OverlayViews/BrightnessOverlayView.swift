@@ -15,6 +15,11 @@ struct BrightnessOverlayView: View {
     
     var isPreview: Bool = false
     
+    // Test data for preview
+    @State private var previewIsDarkMode = true
+    @State private var previewIsNightShift = false
+    @State private var previewIsTrueTone = true
+    
     private var actualBrightness: Int {
         isPreview ? 75 : overlayState.currentBrightness
     }
@@ -45,7 +50,11 @@ struct BrightnessOverlayView: View {
             customHeight: 56,
             supportDragGesture: brightnessAllowInteractivity,
             onDrag: { v in
-                mediaKeyManager.setBrightness(to: max(0, min(100, Int(v * 100))))
+                if isPreview {
+                    animatedBrightnessProgress = v
+                } else {
+                    mediaKeyManager.setBrightness(to: max(0, min(100, Int(v * 100))))
+                }
             },
             isExpandable: brightnessAllowExpansion,
             expandUpwards: bPos.hasPrefix("bottom"),
@@ -74,15 +83,27 @@ struct BrightnessOverlayView: View {
             expandedContent: {
                 VStack(spacing: 0) {
                     HStack(spacing: 8) {
-                        toggleButton(title: "Dark Mode", icon: "moon.fill", isOn: displaySettings.isDarkMode) {
-                            displaySettings.toggleDarkMode()
+                        toggleButton(title: "Dark Mode", icon: "moon.fill", isOn: isPreview ? previewIsDarkMode : displaySettings.isDarkMode) {
+                            if isPreview {
+                                withAnimation { previewIsDarkMode.toggle() }
+                            } else {
+                                displaySettings.toggleDarkMode()
+                            }
                         }
-                        toggleButton(title: "Night Shift", icon: "sun.and.horizon", isOn: displaySettings.isNightShiftEnabled) {
-                            displaySettings.toggleNightShift()
+                        toggleButton(title: "Night Shift", icon: "sun.and.horizon", isOn: isPreview ? previewIsNightShift : displaySettings.isNightShiftEnabled) {
+                            if isPreview {
+                                withAnimation { previewIsNightShift.toggle() }
+                            } else {
+                                displaySettings.toggleNightShift()
+                            }
                         }
-                        if displaySettings.isTrueToneSupported {
-                            toggleButton(title: "True Tone", icon: "sun.max.fill", isOn: displaySettings.isTrueToneEnabled) {
-                                displaySettings.toggleTrueTone()
+                        if isPreview || displaySettings.isTrueToneSupported {
+                            toggleButton(title: "True Tone", icon: "sun.max.fill", isOn: isPreview ? previewIsTrueTone : displaySettings.isTrueToneEnabled) {
+                                if isPreview {
+                                    withAnimation { previewIsTrueTone.toggle() }
+                                } else {
+                                    displaySettings.toggleTrueTone()
+                                }
                             }
                         }
                     }

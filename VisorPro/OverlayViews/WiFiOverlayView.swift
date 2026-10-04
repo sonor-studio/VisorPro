@@ -443,7 +443,18 @@ struct WiFiOverlayView: View {
                 }
             }
         )
-        .id(overlayState.wiFiEventId)
+        .onChange(of: overlayState.wiFiEventId) { _, _ in
+            NetworkSpeedManager.shared.cancelCurrentTest()
+            speedTestResult = nil
+            testFailed = false
+            isTestingSpeed = false
+            
+            if isExpanded {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded = false
+                }
+            }
+        }
         .onChange(of: isExpanded) { _, expanded in
             if expanded {
                 if actualIsConnected && !overlayState.wiFiDetailsFetched && !isPreview {
@@ -472,10 +483,13 @@ struct WiFiOverlayView: View {
         
         Task {
             do {
-                let result = try await NetworkSpeedManager.shared.runSpeedTest()
+                let finalResult = try await NetworkSpeedManager.shared.runSpeedTestLive { liveResult in
+                    // Throttle is already handled by NetworkSpeedManager
+                    self.speedTestResult = liveResult
+                }
                 DispatchQueue.main.async {
                     withAnimation(.linear(duration: 0.2)) {
-                        self.speedTestResult = result
+                        self.speedTestResult = finalResult
                         self.isTestingSpeed = false
                     }
                 }

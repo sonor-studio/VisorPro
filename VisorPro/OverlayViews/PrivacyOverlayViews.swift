@@ -239,7 +239,7 @@ struct MicOverlayView: View {
                 }
             }
         )
-        .id(overlayState.micEventId)
+        
         .onAppear {
             if !isPreview {
                 availableDevices = VolumeManager.shared.getAvailableInputDevices()
@@ -487,7 +487,7 @@ struct CameraOverlayView: View {
                 }
             }
         )
-        .id(overlayState.cameraEventId)
+        
         .onChange(of: isExpanded) { _, expanded in
             overlayState.isCameraExpanded = expanded
         }
@@ -571,7 +571,7 @@ struct LocationOverlayView: View {
                 EmptyView()
             }
         )
-        .id(overlayState.locationEventId)
+        
                 .onDisappear {
             mediaKeyManager.keepAlive(for: "location", isHovering: false)
         }

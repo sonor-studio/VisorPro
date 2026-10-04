@@ -153,6 +153,18 @@ extension MediaKeyManager {
                 return
             }
             
+            // Double-check: if ssid is nil, the interface disconnected between
+            // the guard and now — bail out to avoid CoreWLAN EXC_BREAKPOINT.
+            guard interface?.ssid() != nil else {
+                DispatchQueue.main.async {
+                    self.wiFiRSSI = nil
+                    self.wiFiTxRate = nil
+                    self.wiFiChannel = nil
+                    self.wiFiIPAddress = nil
+                }
+                return
+            }
+            
             let rssi = interface?.rssiValue() ?? 0
             let txRate = interface?.transmitRate() ?? 0.0
             

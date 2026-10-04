@@ -3,6 +3,7 @@ import AppKit
 import Combine
 import ApplicationServices
 import Carbon
+import CoreLocation
 import TelemetryClient
 //
 //  VisorProApp.swift
@@ -316,7 +317,36 @@ struct VisorProMenuBarContent: View {
             if !savedLicenseKey.isEmpty {
                 Divider()
                 Toggle("Media", isOn: $mediaKeyManager.enableMediaNotification)
-                Toggle("Wi-Fi", isOn: $mediaKeyManager.enableWiFi)
+                Toggle("Wi-Fi", isOn: Binding(
+                    get: { mediaKeyManager.enableWiFi },
+                    set: { newValue in
+                        if newValue {
+                            if PermissionHelper.isLocationNotDetermined() {
+                                PermissionHelper.sharedLocationManager.requestAlwaysAuthorization()
+                                mediaKeyManager.enableWiFi = true
+                            } else if PermissionHelper.hasLocationPermission() {
+                                mediaKeyManager.enableWiFi = true
+                            } else {
+                                DispatchQueue.main.async {
+                                    mediaKeyManager.enableWiFi = true
+                                    DispatchQueue.main.async {
+                                        mediaKeyManager.enableWiFi = false
+                                    }
+                                }
+                                PermissionHelper.openPrivacySettings(for: "Location")
+                                
+                                let alert = NSAlert()
+                                alert.messageText = "Location Access Required"
+                                alert.informativeText = "To read the Wi-Fi network name, VisorPro needs location access. Please enable it in System Settings > Privacy & Security > Location Services."
+                                alert.alertStyle = .warning
+                                alert.addButton(withTitle: "OK")
+                                alert.runModal()
+                            }
+                        } else {
+                            mediaKeyManager.enableWiFi = false
+                        }
+                    }
+                ))
                 Toggle("Bluetooth", isOn: $mediaKeyManager.enableBluetooth)
                 Toggle("Privacy", isOn: $mediaKeyManager.enablePrivacy)
                 Toggle("Theme", isOn: $mediaKeyManager.enableTheme)
@@ -375,6 +405,20 @@ struct VisorProMenuBarContent: View {
         }
         .onAppear {
             canShowLastOverlay = OverlayStateRelay.shared.canShowLastOverlay
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LocationAuthorizationChanged"))) { _ in
+            if !PermissionHelper.hasLocationPermission() && !PermissionHelper.isLocationNotDetermined() {
+                DispatchQueue.main.async {
+                    if mediaKeyManager.enableWiFi {
+                        mediaKeyManager.enableWiFi = true
+                        DispatchQueue.main.async { mediaKeyManager.enableWiFi = false }
+                    }
+                    if mediaKeyManager.notifyOnLocationOn {
+                        mediaKeyManager.notifyOnLocationOn = true
+                        DispatchQueue.main.async { mediaKeyManager.notifyOnLocationOn = false }
+                    }
+                }
+            }
         }
     }
 }

@@ -242,7 +242,7 @@ struct AccessoryBatteryOverlayView: View {
                 animatedBatteryProgress = CGFloat(newValue) / 100.0
             }
         }
-        .id(overlayState.accessoryBatteryEventId)
+        
     }
     
     private var isIncreasing: Bool {

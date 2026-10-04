@@ -33,16 +33,19 @@ struct WiFiSettingsView: View {
                                     get: { mediaKeyManager.enableWiFi },
                                     set: { newValue in
                                         if newValue {
-                                            if PermissionHelper.isLocationNotDetermined() {
-                                                PermissionHelper.sharedLocationManager.requestAlwaysAuthorization()
+                                            print("PERMISSIONS DEBUG: Toggle Wi-Fi clicked ON")
+                                            if PermissionHelper.hasLocationPermission() {
+                                                print("PERMISSIONS DEBUG: hasLocationPermission is true -> enabling WiFi")
                                                 mediaKeyManager.enableWiFi = true
-                                            } else if PermissionHelper.hasLocationPermission() {
-                                                mediaKeyManager.enableWiFi = true
+                                            } else if PermissionHelper.isLocationNotDetermined() {
+                                                print("PERMISSIONS DEBUG: isLocationNotDetermined is true -> requesting")
+                                                PermissionHelper.requestLocationPermission()
                                             } else {
-                                                mediaKeyManager.enableWiFi = false
+                                                print("PERMISSIONS DEBUG: permission missing/denied -> showing alert")
                                                 showLocationPermissionAlert = true
                                             }
                                         } else {
+                                            print("PERMISSIONS DEBUG: Toggle Wi-Fi clicked OFF")
                                             mediaKeyManager.enableWiFi = false
                                         }
                                     }
@@ -309,6 +312,17 @@ struct WiFiSettingsView: View {
                 },
                 secondaryButton: .cancel()
             )
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LocationAuthorizationChanged"))) { _ in
+            if mediaKeyManager.enableWiFi && !PermissionHelper.hasLocationPermission() && !PermissionHelper.isLocationNotDetermined() {
+                DispatchQueue.main.async {
+                    mediaKeyManager.enableWiFi = true
+                    DispatchQueue.main.async {
+                        mediaKeyManager.enableWiFi = false
+                    }
+                }
+                showLocationPermissionAlert = true
+            }
         }
     }
 }

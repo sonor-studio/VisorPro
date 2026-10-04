@@ -123,6 +123,7 @@ struct BrightnessSettingsView: View {
                                 Toggle("", isOn: $brightnessAllowInteractivity).labelsHidden()
                             }
                         }
+                        .toggleStyle(.switch)
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                         .cornerRadius(10)
                         .overlay(
