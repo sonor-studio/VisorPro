@@ -103,25 +103,59 @@ final class NativeOverlayDismisser {
             }
         }
         
-        // --- DEBUG LOGGING ---
+        // --- DATA EXTRACTION ---
         var allText = ""
-        func extractText(_ el: AXUIElement) {
+        var textNodes: [String] = []
+        var nestedIdentifiers: [String] = []
+        var hasBatteryIndicator = false
+        
+        func traverseElementTree(_ el: AXUIElement) {
             var val: CFTypeRef?
-            if AXUIElementCopyAttributeValue(el, kAXValueAttribute as CFString, &val) == .success, let s = val as? String { allText += s + " | " }
-            if AXUIElementCopyAttributeValue(el, kAXTitleAttribute as CFString, &val) == .success, let s = val as? String { allText += s + " | " }
-            if AXUIElementCopyAttributeValue(el, kAXDescriptionAttribute as CFString, &val) == .success, let s = val as? String { allText += s + " | " }
+            
+            let collectText = { (val: CFTypeRef?) in
+                guard let s = val as? String, !s.isEmpty else { return }
+                allText += s + " | "
+                textNodes.append(s.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
+            
+            if AXUIElementCopyAttributeValue(el, kAXValueAttribute as CFString, &val) == .success { collectText(val) }
+            if AXUIElementCopyAttributeValue(el, kAXTitleAttribute as CFString, &val) == .success { collectText(val) }
+            if AXUIElementCopyAttributeValue(el, kAXDescriptionAttribute as CFString, &val) == .success { collectText(val) }
+            
+            if AXUIElementCopyAttributeValue(el, kAXIdentifierAttribute as CFString, &val) == .success, let s = val as? String { 
+                let lowerId = s.lowercased()
+                if !lowerId.isEmpty && !nestedIdentifiers.contains(lowerId) { nestedIdentifiers.append(lowerId) }
+            }
+            
+            if AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &val) == .success, let role = val as? String {
+                if role == kAXValueIndicatorRole || role == kAXLevelIndicatorRole {
+                    hasBatteryIndicator = true
+                }
+            }
             
             var childrenRef: CFTypeRef?
             if AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &childrenRef) == .success, let children = childrenRef as? [AXUIElement] {
-                for child in children { extractText(child) }
+                for child in children { traverseElementTree(child) }
             }
         }
-        extractText(element)
+        traverseElementTree(element)
+        
+        // As the user pointed out, AirPods banners structurally separate the battery percentage
+        // from the name. We look for a standalone number (or number with %) among the distinct UI elements.
+        var detectedBatteryLevel: Int? = nil
+        for node in textNodes {
+            let cleanNode = node.replacingOccurrences(of: "%", with: "")
+            if let num = Int(cleanNode), num >= 0 && num <= 100 {
+                hasBatteryIndicator = true
+                detectedBatteryLevel = num
+                break
+            }
+        }
         
         var pid: pid_t = 0
         AXUIElementGetPid(element, &pid)
         
-        let logLine = "[\(Date())] Banner: id='\(identifier)', text='\(allText)'\n"
+        let logLine = "[\(Date())] Banner: id='\(identifier)', text='\(allText)', nestedIds=\(nestedIdentifiers), battery=\(hasBatteryIndicator)\n"
         let logURL = URL(fileURLWithPath: "/Users/macbook/Desktop/Dev/VisorPro/ax_banners.log")
         DispatchQueue.global(qos: .utility).async {
             if let handle = try? FileHandle(forWritingTo: logURL) {
@@ -141,37 +175,22 @@ final class NativeOverlayDismisser {
         let timeSinceFocusEvent = Date().timeIntervalSince(lastFocusEventTime)
         let isRecentFocusEvent = timeSinceFocusEvent < 2.0
         
-        let isAmbiguousControlCenterBanner = isShapeMatch && identifier == "" && isControlCenter
-        let isShapeMatchEmptyFocus = isAmbiguousControlCenterBanner && isRecentFocusEvent
-        let isShapeMatchEmptyBluetooth = isAmbiguousControlCenterBanner && !isRecentFocusEvent
+        let lowerAllText = allText.lowercased()
         
-        let isFocus = identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb" || isShapeMatchEmptyFocus
+        let hasBannerPID = allText.contains("Banner PID")
+        let isStructurallyBluetooth = hasBatteryIndicator || hasBannerPID || nestedIdentifiers.contains("smart-routing-system-banner") || nestedIdentifiers.contains(where: { $0.contains("accessory") })
+        let isStructurallyFocus = nestedIdentifiers.contains("focus-system-banner") || identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb"
+        
+        // If it comes from Control Center and lacks structural Bluetooth identifiers, it's very likely a Focus banner
+        let isAmbiguousControlCenterBanner = isShapeMatch && identifier == "" && isControlCenter
+        let isShapeMatchEmptyFocus = isAmbiguousControlCenterBanner && !isStructurallyBluetooth
+        let isShapeMatchEmptyBluetooth = isAmbiguousControlCenterBanner && isStructurallyBluetooth
+        
+        let isFocus = isStructurallyFocus || isShapeMatchEmptyFocus
         
         let isVolume = identifier == "volume-system-banner" || identifier == "volume" || (isShapeMatch && identifier == "" && !isControlCenter)
         
         var preventIntercept = false
-        
-        func hasSlider(element: AXUIElement) -> Bool {
-            var found = false
-            func traverse(el: AXUIElement) {
-                var roleRef: CFTypeRef?
-                if AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &roleRef) == .success, let role = roleRef as? String {
-                    if role == kAXSliderRole || role == kAXValueIndicatorRole || role == kAXLevelIndicatorRole {
-                        found = true
-                        return
-                    }
-                }
-                var childrenRef: CFTypeRef?
-                if AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &childrenRef) == .success, let children = childrenRef as? [AXUIElement] {
-                    for child in children {
-                        traverse(el: child)
-                        if found { return }
-                    }
-                }
-            }
-            traverse(el: element)
-            return found
-        }
         
         func hasUndoButton(element: AXUIElement) -> Bool {
             var foundUndo = false
@@ -201,8 +220,8 @@ final class NativeOverlayDismisser {
         }
         
         let isListeningMode = identifier == "listening-mode-system-banner"
-        let isSmartRouting = (identifier == "smart-routing-system-banner" || (identifier == "" && allText.contains("Banner PID") && !allText.contains("%") && !isListeningMode)) && !hasSlider(element: element)
-        let isBluetooth = (identifier == "smart-routing-system-banner" || identifier.contains("accessory-system-banner") || isShapeMatchEmptyBluetooth || (identifier == "" && allText.contains("Banner PID") && !isListeningMode)) && !hasSlider(element: element)
+        let isSmartRouting = nestedIdentifiers.contains("smart-routing-system-banner") || identifier == "smart-routing-system-banner"
+        let isBluetooth = isSmartRouting || nestedIdentifiers.contains(where: { $0.contains("accessory") }) || identifier.contains("accessory-system-banner") || isShapeMatchEmptyBluetooth
         
         if isSmartRouting || isBluetooth {
             var seen = Set<String>()
@@ -232,10 +251,23 @@ final class NativeOverlayDismisser {
                     preventIntercept = true
                 }
             } else if !isListeningMode {
-                // It's a connection banner! Show the generic connection overlay!
+                // It's a connection banner (or potentially a low battery banner)! 
                 MediaKeyManager.shared.lastSmartRoutingActionTime = Date() // Suppress volume overlay since audio is coming back to Mac
                 let deviceName = texts.first(where: { !$0.isEmpty && Int($0.replacingOccurrences(of: "%", with: "")) == nil && !$0.lowercased().contains("connected") }) ?? "AirPods"
-                MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: deviceName, deviceAddress: "AIRPODS_CONNECTION", isConnected: true)
+                
+                let isAppleHeadphone = deviceName.lowercased().contains("airpods") || deviceName.lowercased().contains("beats") || deviceName.lowercased().contains("pro") || deviceName.lowercased().contains("max")
+                let timeSinceConnectionLog = Date().timeIntervalSince(AirPodsBatteryManager.shared.lastConnectionLogTime)
+                
+                // USER REQUEST: Verify if it's a Low Battery banner. Apple's Low Battery banners occur at <= 20%.
+                // If the battery is > 20%, it is a CONNECTION banner without a doubt!
+                // If it IS <= 20%, we check the logs (`lastConnectionLogTime`) to see if the user literally JUST connected them.
+                // If there's no recent connection log, we classify it as a random "Low Battery" alert and swallow it without triggering the VisorPro connection overlay.
+                let isCriticallyLowBattery = (detectedBatteryLevel ?? 100) <= 20
+                if isAppleHeadphone && isCriticallyLowBattery && timeSinceConnectionLog > 20.0 {
+                    // Do nothing - it's just a Low Battery indicator.
+                } else {
+                    MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: deviceName, deviceAddress: "AIRPODS_CONNECTION", isConnected: true)
+                }
             }
         }
         
@@ -279,12 +311,56 @@ final class NativeOverlayDismisser {
         }
         
         if shouldIntercept {
-            // Move off-screen instantly before the rendering engine even paints it!
-            // We use Y: 99999 to throw it far below any realistic multi-monitor setup (which rarely extends downwards 100k pixels)
-            var newPoint = CGPoint(x: 0, y: 99999)
-            if let pointValue = AXValueCreate(.cgPoint, &newPoint) {
-                AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, pointValue)
+            print("NativeOverlayDismisser: ⚠️ INTERCEPTING BANNER. Trying hover-and-click method...")
+            
+            // Do NOT move off-screen immediately! If we move it to -5000,-5000, the frame.midX becomes -5000,
+            // which causes the mouse click to hit the top-left of the screen (Safari URL bar).
+            
+            var frameRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, "AXFrame" as CFString, &frameRef) == .success {
+                var frame = CGRect.zero
+                if AXValueGetValue(frameRef as! AXValue, .cgRect, &frame) {
+                    let centerPoint = CGPoint(x: frame.midX, y: frame.midY)
+                    print("NativeOverlayDismisser: Banner frame is \(frame). Center is \(centerPoint).")
+                    
+                    if frame.width < 50 || frame.height < 50 {
+                        print("NativeOverlayDismisser: Ignoring small dummy window.")
+                    } else {
+                        // macOS Sequoia Architecture Limitation:
+                        // 1. AXPosition cannot move it (SwiftUI forces it back at 60Hz).
+                        // 2. AXCloseButton does not exist in the Accessibility Tree (it's purely a visual CoreAnimation layer).
+                        // 3. postToPid(ESC) and app.hide() are ignored by ControlCenter LSUIElements.
+                        // 4. Gestures (ScrollWheel/Swipe) are not supported by this specific banner type.
+                        // 5. Physical cursor warp to hover & click causes unacceptable visual glitches.
+                        // 
+                        // Conclusion: There is no programmatic way to silently dismiss this banner.
+                        // The user MUST disable "Allow Notifications" for Focus mode in macOS System Settings.
+                        print("NativeOverlayDismisser: Cannot programmatically dismiss Sequoia Focus banner. Please disable in System Settings.")
+                    }
+                }
+            } else {
+                print("NativeOverlayDismisser: Failed to get AXFrame for banner!")
             }
+            
+            // Move off-screen in the background ONLY after a small delay so we don't break the hover click
+            DispatchQueue.global(qos: .userInteractive).async {
+                Thread.sleep(forTimeInterval: 0.3)
+                print("NativeOverlayDismisser: Starting off-screen loop fallback...")
+                let endTime = Date().addingTimeInterval(2.5)
+                while Date() < endTime {
+                    var roleRef: CFTypeRef?
+                    if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef) != .success {
+                        print("NativeOverlayDismisser: Banner died.")
+                        break
+                    }
+                    var pt = CGPoint(x: -5000, y: -5000)
+                    if let pv = AXValueCreate(.cgPoint, &pt) {
+                        AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, pv)
+                    }
+                    Thread.sleep(forTimeInterval: 0.02)
+                }
+            }
+        } else {
         }
     }
     
@@ -323,8 +399,8 @@ final class NativeOverlayDismisser {
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                                     AXUIElementPerformAction(element, kAXPressAction as CFString)
                                     
-                                    // Move it back to 0, 99999 immediately
-                                    var hiddenPoint = CGPoint(x: 0, y: 99999)
+                                    // Move it back to -5000, -5000 immediately
+                                    var hiddenPoint = CGPoint(x: -5000, y: -5000)
                                     if let hiddenValue = AXValueCreate(.cgPoint, &hiddenPoint) {
                                         AXUIElementSetAttributeValue(banner, kAXPositionAttribute as CFString, hiddenValue)
                                     }

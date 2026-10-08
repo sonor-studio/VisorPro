@@ -127,28 +127,38 @@ final class NetworkSpeedManager: NSObject, URLSessionDataDelegate {
     private func measurePing(session: URLSession) async throws {
         // Zawsze próbujemy natywnego pinga ICMP by pominąć narzuty na zestawienie połączeń HTTPS (np TLS handshake), 
         // które w URLSession wypaczają pomiar pingu do wielkości >100ms.
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/sbin/ping")
-        process.arguments = ["-c", "3", "-W", "1500", "1.1.1.1"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        
-        do {
-            try process.run()
-            process.waitUntilExit()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8) {
-                if let range = output.range(of: "round-trip min/avg/max/stddev = ") {
-                    let numbersStr = output[range.upperBound...].prefix(while: { $0 != " " })
-                    let components = numbersStr.split(separator: "/")
-                    if components.count >= 2, let avgPing = Double(components[1]) {
-                        currentResult.base_rtt = max(1.0, min(avgPing, 999.0))
-                        return
+        let baseRtt: Double? = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/sbin/ping")
+                process.arguments = ["-c", "3", "-t", "1", "1.1.1.1"]
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    if let output = String(data: data, encoding: .utf8) {
+                        if let range = output.range(of: "round-trip min/avg/max/stddev = ") {
+                            let numbersStr = output[range.upperBound...].prefix(while: { $0 != " " })
+                            let components = numbersStr.split(separator: "/")
+                            if components.count >= 2, let avgPing = Double(components[1]) {
+                                continuation.resume(returning: max(1.0, min(avgPing, 999.0)))
+                                return
+                            }
+                        }
                     }
+                } catch {
+                    // Ignorujemy błędy i przechodzimy do fallbacku.
                 }
+                continuation.resume(returning: nil)
             }
-        } catch {
-            // Ignorujemy błędy i przechodzimy do fallbacku.
+        }
+        
+        if let rtt = baseRtt {
+            currentResult.base_rtt = rtt
+            return
         }
         
         // Fallback HTTP gdy ICMP jest zablokowane na sieci (częste w korporacjach / macOS app sandbox)

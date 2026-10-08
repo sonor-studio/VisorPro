@@ -124,9 +124,9 @@ class FocusObserver {
     private func pollFocusStatus() {
         var isDetailedMode = UserDefaults.standard.bool(forKey: "focusDetailMode")
         
-        // If Detailed Mode is on but Full Disk Access is missing (e.g. revoked in System Settings), auto-disable it
+        // If Detailed Mode is on but Full Disk Access is temporarily missing (e.g. file lock during sleep/wake)
+        // we just treat it as false for this polling cycle instead of permanently disabling user's setting
         if isDetailedMode && !PermissionHelper.hasFullDiskAccess() {
-            UserDefaults.standard.set(false, forKey: "focusDetailMode")
             isDetailedMode = false
         }
         
@@ -257,7 +257,10 @@ class FocusObserver {
                 if let client = source["assertionClientIdentifier"] as? String {
                     if client.contains("controlcenter") { focusDetails.source = "Control Center" }
                     else if client.contains("schedule") { focusDetails.source = "Schedule" }
-                    else if client.contains("sleeping") { focusDetails.source = "Sleep Trigger" }
+                    else if client.contains("sleeping") { 
+                        // Do not show an overlay for internal system sleep assertions
+                        return (false, "Focus", "systemIndigoColor", "moon.fill", nil)
+                    }
                     else if client.contains("workout") { focusDetails.source = "Workout Trigger" }
                     else if client.contains("activity-manager") { focusDetails.source = "System Activity" }
                     else if client.contains("intents") { focusDetails.source = "Shortcuts App" }

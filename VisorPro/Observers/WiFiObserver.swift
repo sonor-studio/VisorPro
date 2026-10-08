@@ -104,17 +104,7 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
     
     @objc private func pollWiFi() {
         guard let manager = self.manager else { return }
-        if !manager.enableWiFi { return }
         
-        // Wymuszenie wyłączenia nakładki, jeśli użytkownik cofnął uprawnienia
-        if !PermissionHelper.hasLocationPermission() {
-            Logger.log("pollWiFi: hasLocationPermission == false -> forcing enableWiFi to false")
-            DispatchQueue.main.async {
-                manager.enableWiFi = false
-            }
-            return
-        }
-
         let interface = CWWiFiClient.shared().interface()
         var powerOn = interface?.powerOn() ?? true
         
@@ -126,7 +116,7 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
         
         if !powerOn {
             inactiveCounter = 0
-            handleFinalState(isConnected: false, ssid: nil)
+            handleFinalState(isConnected: false, ssid: nil, isEnabled: manager.enableWiFi)
             return
         }
         
@@ -153,7 +143,7 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             if currentSSID == nil && self.lastIsConnected {
                 currentSSID = self.lastSSID
             }
-            handleFinalState(isConnected: true, ssid: currentSSID)
+            handleFinalState(isConnected: true, ssid: currentSSID, isEnabled: manager.enableWiFi)
         } else {
             // Skoro system (NWPathMonitor) twierdzi że ścieżka padła,
             // to nie jest to chwilowy flapping. Rozłączamy natychmiast.
@@ -165,12 +155,12 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             
             Logger.log("pollWiFi: inactiveCounter=\(inactiveCounter)")
             if inactiveCounter >= 5 {
-                handleFinalState(isConnected: false, ssid: nil)
+                handleFinalState(isConnected: false, ssid: nil, isEnabled: manager.enableWiFi)
             }
         }
     }
     
-    private func handleFinalState(isConnected: Bool, ssid: String?) {
+    private func handleFinalState(isConnected: Bool, ssid: String?, isEnabled: Bool) {
         guard let manager = manager else { return }
         if manager.useSystemOSD {
             Logger.log("handleFinalState: useSystemOSD is true, returning")
@@ -194,27 +184,36 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             return
         }
         
-        Logger.log("handleFinalState: triggerWiFiIndicator will be called!")
+        if isEnabled {
+            Logger.log("handleFinalState: triggerWiFiIndicator will be called!")
+            
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                if isConnected {
+                    let networkName = ssid ?? "Unknown Wi-Fi"
+                    let ssidChangedLocal = networkName != self.lastSSID
+                    
+                    if self.lastIsConnected && ssidChangedLocal && self.lastSSID != nil {
+                        manager.lastAction = "Switched to: \(networkName)"
+                    } else {
+                        manager.lastAction = "Connected to: \(networkName)"
+                    }
+                    manager.triggerWiFiIndicator(ssid: networkName, isConnected: true, isHotspot: self.isCurrentlyHotspot)
+                } else {
+                    let networkName = self.lastSSID ?? "Wi-Fi"
+                    let wasHotspot = self.lastWasHotspot
+                    manager.lastAction = "Disconnected from \(wasHotspot ? "Hotspot" : "Wi-Fi")"
+                    manager.triggerWiFiIndicator(ssid: networkName, isConnected: false, isHotspot: wasHotspot)
+                }
+            }
+        }
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
             if isConnected {
-                let networkName = ssid ?? "Unknown Wi-Fi"
-                let ssidChanged = networkName != self.lastSSID
-                
-                if self.lastIsConnected && ssidChanged && self.lastSSID != nil {
-                    manager.lastAction = "Switched to: \(networkName)"
-                } else {
-                    manager.lastAction = "Connected to: \(networkName)"
-                }
-                manager.triggerWiFiIndicator(ssid: networkName, isConnected: true, isHotspot: self.isCurrentlyHotspot)
                 self.lastWasHotspot = self.isCurrentlyHotspot
             } else {
-                let networkName = self.lastSSID ?? "Wi-Fi"
-                let wasHotspot = self.lastWasHotspot
-                manager.lastAction = "Disconnected from \(wasHotspot ? "Hotspot" : "Wi-Fi")"
-                manager.triggerWiFiIndicator(ssid: networkName, isConnected: false, isHotspot: wasHotspot)
                 self.lastWasHotspot = false
             }
             

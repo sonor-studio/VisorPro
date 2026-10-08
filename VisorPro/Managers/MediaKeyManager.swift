@@ -3165,11 +3165,10 @@ class MediaKeyManager: ObservableObject {
                                 }
                             }
                         }
-                        return nil
                     }
-                    
-                    // Passthrough the key up event to the system!
-                    return Unmanaged.passRetained(event)
+                    // Return nil for both key down AND key up!
+                    // macOS Sequoia handles HUD triggers differently, and passing key-up triggers the native HUD.
+                    return nil
                 }
             }
             return Unmanaged.passRetained(event)

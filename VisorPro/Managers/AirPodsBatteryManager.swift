@@ -12,6 +12,7 @@ class AirPodsBatteryManager: ObservableObject {
     // Track state to prevent continuous re-triggering
     private var isLidClosed: Bool = true
     var isAnyInEar: Bool = false
+    var lastConnectionLogTime: Date = Date.distantPast
     private var disconnectWorkItem: DispatchWorkItem?
     
     private init() {
@@ -107,9 +108,14 @@ class AirPodsBatteryManager: ObservableObject {
             let line = String(buffer[..<range.lowerBound])
             buffer.removeSubrange(..<range.upperBound)
             
+            if line.contains("SmartRouting posting device") {
+                lastConnectionLogTime = Date()
+            }
+            
             // Check for in-ear state changes explicitly
             if line.contains("Setting inEarStateUnified") {
                 if line.contains("-> InEar") {
+                    lastConnectionLogTime = Date()
                     if !isAnyInEar {
                         isAnyInEar = true
                         MediaKeyManager.shared.dismissAirpodsGroupBatteryIndicator()

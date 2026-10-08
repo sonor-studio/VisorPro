@@ -9,7 +9,8 @@ extension MediaKeyManager {
         
         if enableFocus && enableFocusReminder && isFocusModeActive {
             let interval = TimeInterval(focusReminderInterval * 60)
-            focusReminderTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            
+            focusReminderTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: interval, repeats: false) { [weak self] _ in
                 guard let self = self else { return }
                 
                 // Show reminder without playing a sound (or play a subtle sound if requested, but default is visual)
@@ -33,6 +34,9 @@ extension MediaKeyManager {
                                 self.showFocusIndicator = false
                             }
                         }
+                        // Schedule the next reminder instead of using repeats: true
+                        // This prevents runaway repeating timers from spamming right after Mac wakes up
+                        self.updateFocusReminderTimer()
                     }
                     
                     if self.showFocusIndicator {

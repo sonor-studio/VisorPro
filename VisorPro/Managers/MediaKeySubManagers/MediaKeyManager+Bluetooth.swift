@@ -63,13 +63,6 @@ extension MediaKeyManager {
         if !isConnected && !notifyOnBluetoothDisconnect && deviceAddress != "AIRPODS_CONNECTION" { return }
         if bluetoothBlocklist.contains(deviceName) && deviceAddress != "AIRPODS_CONNECTION" { return }
         
-        // Ignore spurious "AirPods Connected" events if the listening mode was just changed
-        if isConnected && (deviceName.lowercased().contains("airpods") || deviceAddress == "AIRPODS_CONNECTION") {
-            if let lastModeTrigger = self.overlayTriggerTimes["airpodsMode"], Date().timeIntervalSince(lastModeTrigger) < 4.0 {
-                return
-            }
-        }
-        
         let now = Date()
         let eventKey = "\(deviceAddress)_\(isConnected ? "connect" : "disconnect")"
         
