@@ -114,6 +114,7 @@ struct PopoverMenuView<Content: View>: View {
 
 struct InteractiveGlassButtonStyle: ButtonStyle {
     var isActive: Bool
+    var tintColor: Color = .accentColor
     
     func makeBody(configuration: Configuration) -> some View {
         if #available(macOS 26.0, *) {
@@ -121,7 +122,7 @@ struct InteractiveGlassButtonStyle: ButtonStyle {
                 .foregroundColor(isActive ? .white : .primary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
-                .background(isActive ? Color.accentColor.opacity(0.8) : Color.clear, in: .capsule)
+                .background(isActive ? tintColor.opacity(0.8) : Color.clear, in: .capsule)
                 .glassEffect(.regular, in: .capsule)
                 .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
                 .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
@@ -132,7 +133,7 @@ struct InteractiveGlassButtonStyle: ButtonStyle {
                 .padding(.vertical, 7)
                 .background(
                     Capsule()
-                        .fill(isActive ? Color.accentColor : Color.clear)
+                        .fill(isActive ? tintColor : Color.clear)
                 )
                 .background(.regularMaterial, in: Capsule())
                 .overlay(

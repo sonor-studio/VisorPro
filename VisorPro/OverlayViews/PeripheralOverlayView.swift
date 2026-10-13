@@ -16,6 +16,7 @@ struct PeripheralOverlayView: View {
     @State private var rawDriveTotal: Int64? = nil
     @State private var rawDriveFree: Int64? = nil
     @State private var showMoreDetails: Bool = false
+    @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion: Bool = true
     @State private var refreshTimer: Timer? = nil
     @State private var isOpticalEmpty: Bool = false
     
@@ -276,7 +277,8 @@ struct PeripheralOverlayView: View {
                                 
                                 if !otherKeys.isEmpty && shouldHideDetailsBehindButton {
                                     Button(action: {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                        let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
+                                        withAnimation(anim) {
                                             showMoreDetails.toggle()
                                         }
                                     }) {

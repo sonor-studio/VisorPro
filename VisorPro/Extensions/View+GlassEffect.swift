@@ -17,16 +17,28 @@ struct ActiveVisualEffectView: NSViewRepresentable {
 }
 
 extension View {
-    func visorGlassEffect<S: InsettableShape>(_ material: Material, in shape: S, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
-        self.background(ActiveVisualEffectView(blendingMode: blendingMode).clipShape(shape))
-            .overlay(
-                shape.strokeBorder(Color.glassBorder, lineWidth: 1)
-            )
-            .clipShape(shape)
+    @ViewBuilder
+    func visorGlassEffect<S: InsettableShape>(_ material: Material = .regularMaterial, in shape: S, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular, in: shape)
+        } else {
+            self.background(shape.fill(material))
+                .background(ActiveVisualEffectView(blendingMode: blendingMode).clipShape(shape))
+                .overlay(
+                    shape.strokeBorder(Color.glassBorder, lineWidth: 1)
+                )
+                .clipShape(shape)
+        }
     }
     
-    func visorGlassEffect(_ material: Material, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
-        self.background(ActiveVisualEffectView(blendingMode: blendingMode))
+    @ViewBuilder
+    func visorGlassEffect(_ material: Material = .regularMaterial, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular)
+        } else {
+            self.background(material)
+                .background(ActiveVisualEffectView(blendingMode: blendingMode))
+        }
     }
 }
 

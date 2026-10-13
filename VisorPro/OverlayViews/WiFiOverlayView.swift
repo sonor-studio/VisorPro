@@ -75,6 +75,7 @@ struct WiFiOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("wifiAllowExpansion") private var wifiAllowExpansion: Bool = true
+    @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion: Bool = true
     @AppStorage("wifiShowSpeedTest") private var wifiShowSpeedTest: Bool = true
     @AppStorage("wifiShowDetails") private var wifiShowDetails: Bool = true
     @State private var isExpanded: Bool = false
@@ -142,15 +143,7 @@ struct WiFiOverlayView: View {
                     mediaKeyManager.forceHide(overlayId: "wifi")
                 }
             } : nil,
-            onSimpleTap: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isExpanded.toggle()
-                }
-                if isExpanded {
-                    mediaKeyManager.keepAlive(for: "wifi", isHovering: true)
-                }
-            },
-            isExpandable: actualIsConnected || isPreview,
+            isExpandable: (actualIsConnected || isPreview) && wifiAllowExpansion,
             expandUpwards: wifiPos.hasPrefix("bottom"),
             keepAliveId: "wifi",
             baseContent: {
@@ -341,7 +334,8 @@ struct WiFiOverlayView: View {
                             HStack {
                                 Spacer()
                                 Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                    let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
+                                    withAnimation(anim) {
                                         showDetails.toggle()
                                     }
                                 }) {

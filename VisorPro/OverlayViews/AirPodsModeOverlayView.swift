@@ -7,11 +7,14 @@ struct AirPodsModeOverlayView: View {
     @State private var isExpanded: Bool = false
     @State private var isHoveringRow: Int? = nil
     
+    private var settings: AccessoryDeviceSettings {
+        mediaKeyManager.accessorySettings[overlayState.airpodsDeviceName] ?? AccessoryDeviceSettings()
+    }
+    
     private var customBarColor: Color {
         if mediaKeyManager.overlayColorMode != "custom" {
             return OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .blue)
         }
-        let settings = mediaKeyManager.accessorySettings[overlayState.airpodsDeviceName] ?? AccessoryDeviceSettings()
         switch overlayState.airPodsModeValue {
         case 1: return settings.colorOnAirPodsOff != "Default" ? OverlayColorManager.shared.parseColor(settings.colorOnAirPodsOff) : .offStateGray
         case 2: return settings.colorOnAirPodsANC != "Default" ? OverlayColorManager.shared.parseColor(settings.colorOnAirPodsANC) : .blue
@@ -38,7 +41,7 @@ struct AirPodsModeOverlayView: View {
                     mediaKeyManager.setAirPodsMode(prevMode)
                 }
             } : nil,
-            isExpandable: true,
+            isExpandable: settings.allowExpansion,
             keepAliveId: "airpodsMode",
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {

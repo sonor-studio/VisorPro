@@ -247,7 +247,7 @@ struct AppearanceEditorView: View {
                 ) {
                     showGlowPopover.toggle()
                 }
-                .popover(isPresented: $showGlowPopover, arrowEdge: .top) {
+                .popover(isPresented: $showGlowPopover, attachmentAnchor: .rect(.bounds), arrowEdge: .bottom) {
                     glowPopoverContent
                         .padding(14)
                 }
@@ -266,7 +266,7 @@ struct AppearanceEditorView: View {
                 ) {
                     showBehaviorPopover.toggle()
                 }
-                .popover(isPresented: $showBehaviorPopover, arrowEdge: .top) {
+                .popover(isPresented: $showBehaviorPopover, attachmentAnchor: .rect(.bounds), arrowEdge: .bottom) {
                     behaviorPopoverContent
                         .padding(14)
                 }
@@ -278,7 +278,7 @@ struct AppearanceEditorView: View {
                 ) {
                     showDismissPopover.toggle()
                 }
-                .popover(isPresented: $showDismissPopover, arrowEdge: .top) {
+                .popover(isPresented: $showDismissPopover, attachmentAnchor: .rect(.bounds), arrowEdge: .bottom) {
                     dismissPopoverContent
                         .padding(14)
                 }
@@ -717,11 +717,25 @@ struct InteractiveCircleGlassButtonStyle: ButtonStyle {
 
 /// A wrapper that perfectly mimics `PanelContentView` and `VisorProWindowManager` animations
 /// for the preview mode, ensuring 1:1 parity with real window transitions.
+struct DropletClipModifier: ViewModifier {
+    let animType: String
+    let cornerRadius: CGFloat
+    
+    func body(content: Content) -> some View {
+        if animType == "fluid_drop" {
+            content.clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        } else {
+            content
+        }
+    }
+}
+
 class PreviewAnimationState: ObservableObject {
     @Published var tokenId = UUID()
 }
 
 struct PreviewAnimationWrapper<Content: View>: View {
+    @EnvironmentObject var mediaKeyManager: MediaKeyManager
     var animType: String
     var playTrigger: Bool
     var dismissTrigger: Bool
@@ -730,15 +744,22 @@ struct PreviewAnimationWrapper<Content: View>: View {
     @Binding var forceStopTrigger: Bool
     @ViewBuilder var content: Content
     
-    @State private var appearScale: CGFloat = 1.0
+    private var targetCornerRadius: CGFloat {
+        (52.0 / 2.0) * CGFloat(mediaKeyManager.cornerRoundingMultiplier)
+    }
+    
+    @State private var appearScaleX: CGFloat = 1.0
+    @State private var appearScaleY: CGFloat = 1.0
     @State private var appearBlur: CGFloat = 0.0
     @State private var appearOffset: CGFloat = 0.0
     @State private var appearOpacity: Double = 1.0
+    @State private var appearCornerRadius: CGFloat = 26.0
     @StateObject private var animState = PreviewAnimationState()
     
     var body: some View {
         content
-            .scaleEffect(appearScale)
+            .modifier(DropletClipModifier(animType: animType, cornerRadius: appearCornerRadius))
+            .scaleEffect(x: appearScaleX, y: appearScaleY)
             .blur(radius: appearBlur)
             .offset(y: appearOffset)
             .opacity(appearOpacity)
@@ -748,23 +769,32 @@ struct PreviewAnimationWrapper<Content: View>: View {
             .onChange(of: dismissTrigger) { _, _ in
                 runExitAnimation(thenEnter: true)
             }
+            .onChange(of: mediaKeyManager.cornerRoundingMultiplier) { _, _ in
+                if !isPlaying {
+                    appearCornerRadius = targetCornerRadius
+                }
+            }
             .onChange(of: forceStopTrigger) { _, _ in
                 animState.tokenId = UUID()
                 var transaction = Transaction()
                 transaction.disablesAnimations = true
                 withTransaction(transaction) {
-                    appearScale = 1.0
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
                     appearBlur = 0.0
                     appearOffset = 0.0
                     appearOpacity = 1.0
+                    appearCornerRadius = targetCornerRadius
                     isPlaying = false
                 }
             }
             .onAppear {
-                appearScale = 1.0
+                appearScaleX = 1.0
+                appearScaleY = 1.0
                 appearBlur = 0.0
                 appearOffset = 0.0
                 appearOpacity = 1.0
+                appearCornerRadius = targetCornerRadius
             }
     }
     
@@ -796,66 +826,107 @@ struct PreviewAnimationWrapper<Content: View>: View {
         
         if animType == "scale" {
             withAnimation(.easeIn(duration: 0.2)) {
-                appearScale = 0.6
+                appearScaleX = 0.6
+                appearScaleY = 0.6
                 appearBlur = 15.0
+                appearOpacity = 0.0
             }
         } else if animType == "fluid_bounce" {
             withAnimation(.easeIn(duration: 0.2)) {
-                appearScale = 0.3
+                appearScaleX = 0.3
+                appearScaleY = 0.3
+                appearBlur = 0.0
+                appearOffset = -50
+                appearOpacity = 0.0
             }
         } else if animType == "fluid_drop" {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                appearScale = 0.1
+            // First: fluidly retracts from full overlay into the small circular droplet (22x22 circle)
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.75)) {
+                appearScaleX = 0.0846
+                appearScaleY = 0.4231
                 appearBlur = 5.0
+                appearCornerRadius = 26.0
             }
-        }
-        
-        let windowExitDelay = (animType == "fluid_drop") ? 0.15 : 0.0
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + windowExitDelay) {
-            guard stateRef.tokenId == currentToken else { return }
-            
-            if animType != "scale" {
-                withAnimation(.easeIn(duration: 0.2)) {
+            // Seamlessly starts shooting up while still condensing into the droplet (at 0.10s)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
+                guard stateRef.tokenId == currentToken else { return }
+                withAnimation(.easeIn(duration: 0.20)) {
                     appearOffset = -50
                     appearOpacity = 0.0
                 }
-            } else {
-                withAnimation(.easeIn(duration: 0.2)) {
-                    appearOpacity = 0.0
-                }
             }
-            
-            if thenEnter {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                    guard stateRef.tokenId == currentToken else { return }
-                    self.runEntryAnimation()
-                }
+        } else {
+            withAnimation(.easeIn(duration: 0.2)) {
+                appearOffset = -50
+                appearOpacity = 0.0
+            }
+        }
+        
+        let exitDelay = (animType == "fluid_drop") ? 0.38 : 0.45
+        if thenEnter {
+            DispatchQueue.main.asyncAfter(deadline: .now() + exitDelay) {
+                guard stateRef.tokenId == currentToken else { return }
+                self.runEntryAnimation()
             }
         }
     }
     
     private func runEntryAnimation() {
+        let stateRef = self.animState
+        let currentToken = stateRef.tokenId
+        
         if animType == "scale" {
-            appearScale = 0.6
+            appearScaleX = 0.6
+            appearScaleY = 0.6
             appearBlur = 15.0
+            appearOffset = 0.0
             appearOpacity = 0.0
         } else if animType == "fluid_bounce" {
-            appearScale = 0.3
+            appearScaleX = 0.3
+            appearScaleY = 0.3
+            appearBlur = 0.0
             appearOffset = -40
             appearOpacity = 0.0
         } else if animType == "fluid_drop" {
-            appearScale = 0.1
-            appearBlur = 5.0
-            appearOffset = -40
-            appearOpacity = 0.0
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                // Exact small 22x22 circular dot (260 * 0.0846 = 22, 52 * 0.4231 = 22)
+                appearScaleX = 0.0846
+                appearScaleY = 0.4231
+                appearBlur = 5.0
+                appearCornerRadius = 26.0
+                appearOffset = -50
+                appearOpacity = 0.0
+            }
         } else {
+            appearScaleX = 1.0
+            appearScaleY = 1.0
+            appearBlur = 0.0
             appearOffset = -40
             appearOpacity = 0.0
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            if animType != "scale" {
+            guard stateRef.tokenId == currentToken else { return }
+            
+            if animType == "fluid_drop" {
+                // Drop slides down from top edge over 0.28s
+                withAnimation(.easeOut(duration: 0.28)) {
+                    appearOffset = 0.0
+                    appearOpacity = 1.0
+                }
+                // Seamlessly starts expanding near the end of sliding out (at 0.12s) while still in downward motion!
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                    guard stateRef.tokenId == currentToken else { return }
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
+                        appearScaleX = 1.0
+                        appearScaleY = 1.0
+                        appearBlur = 0.0
+                        appearCornerRadius = targetCornerRadius
+                    }
+                }
+            } else if animType != "scale" {
                 withAnimation(.easeOut(duration: 0.15)) {
                     appearOffset = 0.0
                     appearOpacity = 1.0
@@ -867,25 +938,26 @@ struct PreviewAnimationWrapper<Content: View>: View {
                     appearOpacity = 1.0
                 }
                 withAnimation(.interpolatingSpring(stiffness: 300, damping: 20)) {
-                    appearScale = 1.0
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
                     appearBlur = 0.0
                 }
             } else if animType == "fluid_bounce" {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
-                    appearScale = 1.0
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
                 }
-            } else if animType == "fluid_drop" {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) {
-                        appearScale = 1.0
-                        appearBlur = 0.0
-                    }
+            } else if animType != "fluid_drop" {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    appearOffset = 0.0
+                    appearOpacity = 1.0
                 }
             }
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                guard stateRef.tokenId == currentToken else { return }
                 isPlaying = false
             }
         }
     }
-    }
+}

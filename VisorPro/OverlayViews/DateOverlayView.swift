@@ -13,6 +13,7 @@ struct DateOverlayView: View {
     @AppStorage("dateCountdownTarget") private var countdownTarget: String = "None"
     @AppStorage("dateCustomCountdownDate") private var customCountdownDate: Double = Date().timeIntervalSince1970
     @AppStorage("dateShowCalendarEvents") private var showCalendarEvents: Bool = false
+    @AppStorage("dateAllowExpansion") private var dateAllowExpansion: Bool = true
     
     @ObservedObject private var calendarManager = CalendarEventManager.shared
     
@@ -129,12 +130,7 @@ struct DateOverlayView: View {
             customWidth: 260,
             customHeight: 56,
             supportDragGesture: false,
-            onSimpleTap: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    // No complex expansion for now
-                }
-            },
-            isExpandable: true,
+            isExpandable: dateAllowExpansion,
             expandUpwards: datePos.hasPrefix("bottom"),
             keepAliveId: "date",
             baseContent: {

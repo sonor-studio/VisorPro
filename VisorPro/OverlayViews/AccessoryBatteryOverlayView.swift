@@ -112,6 +112,7 @@ struct AccessoryBatteryOverlayView: View {
     
     var body: some View {
         let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
+        let settings = mediaKeyManager.accessorySettings[baseName] ?? AccessoryDeviceSettings()
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -124,7 +125,7 @@ struct AccessoryBatteryOverlayView: View {
             customWidth: 260,
             customHeight: 56,
             supportDragGesture: false,
-            isExpandable: true,
+            isExpandable: settings.allowExpansion && (settings.showBattery || settings.showDetails),
             expandUpwards: batPos.hasPrefix("bottom"),
             keepAliveId: "accessoryBattery",
             disableTimeoutMode: true,

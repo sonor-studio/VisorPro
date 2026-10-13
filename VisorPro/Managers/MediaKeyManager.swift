@@ -146,6 +146,7 @@ struct AccessoryDeviceSettings: Codable, Equatable {
     var colorOnAirPodsAdaptive: String = "Default"
     var colorOnAirPodsOff: String = "Default"
     
+    var allowExpansion: Bool = true
     var showBattery: Bool = true
     var showDetails: Bool = true
     
@@ -194,6 +195,7 @@ struct AccessoryDeviceSettings: Codable, Equatable {
         soundOnAirPodsAdaptive = try container.decodeIfPresent(String.self, forKey: .soundOnAirPodsAdaptive) ?? "None"
         soundOnAirPodsOff = try container.decodeIfPresent(String.self, forKey: .soundOnAirPodsOff) ?? "None"
         
+        allowExpansion = try container.decodeIfPresent(Bool.self, forKey: .allowExpansion) ?? true
         showBattery = try container.decodeIfPresent(Bool.self, forKey: .showBattery) ?? true
         showDetails = try container.decodeIfPresent(Bool.self, forKey: .showDetails) ?? true
         
@@ -2694,10 +2696,13 @@ class MediaKeyManager: ObservableObject {
         
         self.airPodsModeObserver = AirPodsModeObserver(modeChangeCallback: { [weak self] mode in
             DispatchQueue.main.async {
-                // If VisorPro is not the one causing the change (e.g., user squeezed the stem),
-                // we should trigger the overlay because macOS might just update the existing banner's text
-                // instead of creating a new one, which NativeOverlayDismisser would miss.
-                let show = !OverlayStateRelay.shared.isChangingAirPodsMode
+                let timeSinceInEar = Date().timeIntervalSince(AirPodsBatteryManager.shared.lastInEarEventTime)
+                let timeSinceLidOpen = Date().timeIntervalSince(AirPodsBatteryManager.shared.lastLidOpenTime)
+                // When an earbud is inserted or removed, or the charging case is opened, macOS automatically adjusts listening mode 
+                // (e.g. falling back to Transparency when 1 earbud is in, and restoring ANC when the second earbud is put in).
+                // The user only wants to see the overlay when they manually change the mode, NOT when triggered automatically by ear insertion/removal.
+                let isTriggeredByInEarOrCase = timeSinceInEar < 3.0 || timeSinceLidOpen < 5.0
+                let show = !OverlayStateRelay.shared.isChangingAirPodsMode && !isTriggeredByInEarOrCase
                 self?.triggerAirPodsModeOverlay(mode: mode, showOverlay: show)
             }
         })

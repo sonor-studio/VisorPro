@@ -376,7 +376,13 @@ class VisorProWindowManager: ObservableObject {
                 if self.reportedTelemetryTimestamps[overlay.id] != triggerTime {
                     self.reportedTelemetryTimestamps[overlay.id] = triggerTime
                     if let cleanCategoryName = getCategoryForTelemetry(type: overlay.type) {
-                        TelemetryDeck.signal("OverlayDisplayed", parameters: ["overlay_type": cleanCategoryName])
+                        var params: [String: String] = ["overlay_type": cleanCategoryName]
+                        if overlay.type == .focus {
+                            let isDetailed = UserDefaults.standard.bool(forKey: "focusDetailMode")
+                            params["focus_detailed_mode"] = isDetailed ? "true" : "false"
+                            params["focus_mode_style"] = isDetailed ? "detailed" : "standard"
+                        }
+                        TelemetryDeck.signal("OverlayDisplayed", parameters: params)
                     }
                 }
             }
@@ -474,8 +480,8 @@ class VisorProWindowManager: ObservableObject {
                         
                         let runExitWindow = {
                             NSAnimationContext.runAnimationGroup({ ctx in
-                                ctx.duration = 0.2
-                                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                                ctx.duration = 0.20
+                                ctx.timingFunction = CAMediaTimingFunction(name: animType == "fluid_drop" ? .easeIn : .easeOut)
                                 if animType != "scale" {
                                     var finalFrame = window.frame
                                     finalFrame.origin.y += offsetAmount
@@ -499,7 +505,7 @@ class VisorProWindowManager: ObservableObject {
                         }
                         
                         if animType == "fluid_drop" {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
                                 if self.exitingPanels.contains(id) {
                                     runExitWindow()
                                 }
@@ -599,7 +605,7 @@ class VisorProWindowManager: ObservableObject {
                     animatingEntryPanels.insert(windowId)
                     
                     let isTop = (targetOrigin.y + currentHeight / 2) > (screenSize.height / 2)
-                    let offsetAmount: CGFloat = isTop ? 50 : -50
+                    let offsetAmount: CGFloat = isTop ? 45 : -45
                     let animType = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "default"
                     let startOrigin = animType == "scale" ? targetOrigin : NSPoint(x: targetOrigin.x, y: targetOrigin.y + offsetAmount)
                     
@@ -612,7 +618,7 @@ class VisorProWindowManager: ObservableObject {
                     
                     DispatchQueue.main.async {
                         NSAnimationContext.runAnimationGroup({ ctx in
-                            ctx.duration = 0.15
+                            ctx.duration = (animType == "fluid_drop" ? 0.28 : 0.15)
                             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                             if animType != "scale" {
                                 panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
@@ -833,40 +839,86 @@ struct SingleOverlayContainer: View {
     let overlay: VisorProWindowManager.ActiveOverlay
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var stateRelay: OverlayStateRelay
-    @State private var appearScale: CGFloat = 1.0
-    @State private var appearBlur: CGFloat = 0.0
+    @State private var appearScaleX: CGFloat
+    @State private var appearScaleY: CGFloat
+    @State private var appearBlur: CGFloat
+    @State private var appearCornerRadius: CGFloat
     @AppStorage("overlayAnimationType") private var animType = "default"
+    
+    private var targetCornerRadius: CGFloat {
+        (52.0 / 2.0) * CGFloat(mediaKeyManager.cornerRoundingMultiplier)
+    }
+    
+    init(overlay: VisorProWindowManager.ActiveOverlay) {
+        self.overlay = overlay
+        let anim = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "default"
+        if anim == "fluid_drop" {
+            _appearScaleX = State(initialValue: 0.0846)
+            _appearScaleY = State(initialValue: 0.4231)
+            _appearBlur = State(initialValue: 5.0)
+            _appearCornerRadius = State(initialValue: 26.0)
+        } else if anim == "scale" {
+            _appearScaleX = State(initialValue: 0.6)
+            _appearScaleY = State(initialValue: 0.6)
+            _appearBlur = State(initialValue: 15.0)
+            _appearCornerRadius = State(initialValue: 26.0)
+        } else if anim == "fluid_bounce" {
+            _appearScaleX = State(initialValue: 0.3)
+            _appearScaleY = State(initialValue: 0.3)
+            _appearBlur = State(initialValue: 0.0)
+            _appearCornerRadius = State(initialValue: 26.0)
+        } else {
+            _appearScaleX = State(initialValue: 1.0)
+            _appearScaleY = State(initialValue: 1.0)
+            _appearBlur = State(initialValue: 0.0)
+            _appearCornerRadius = State(initialValue: 26.0)
+        }
+    }
     
     var body: some View {
         ZStack {
             overlayView(for: overlay)
                 .applyTheme(mediaKeyManager.overlayTheme)
                 .swipeToDismiss(overlayId: overlay.id, isTopPosition: overlay.position.hasPrefix("top"))
-                .scaleEffect(appearScale)
+                .modifier(DropletClipModifier(animType: animType, cornerRadius: appearCornerRadius))
+                .scaleEffect(x: appearScaleX, y: appearScaleY)
                 .blur(radius: appearBlur)
         }
         .padding(16)
         .fixedSize()
         .onAppear {
             if animType == "scale" {
-                appearScale = 0.6
+                appearScaleX = 0.6
+                appearScaleY = 0.6
                 appearBlur = 15.0
-                withAnimation(.interpolatingSpring(stiffness: 300, damping: 20)) {
-                    appearScale = 1.0
-                    appearBlur = 0.0
+                DispatchQueue.main.async {
+                    withAnimation(.interpolatingSpring(stiffness: 300, damping: 20)) {
+                        appearScaleX = 1.0
+                        appearScaleY = 1.0
+                        appearBlur = 0.0
+                    }
                 }
             } else if animType == "fluid_bounce" {
-                appearScale = 0.3
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
-                    appearScale = 1.0
+                appearScaleX = 0.3
+                appearScaleY = 0.3
+                appearBlur = 0.0
+                DispatchQueue.main.async {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
+                        appearScaleX = 1.0
+                        appearScaleY = 1.0
+                    }
                 }
             } else if animType == "fluid_drop" {
-                appearScale = 0.1
+                appearScaleX = 0.0846
+                appearScaleY = 0.4231
                 appearBlur = 5.0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) {
-                        appearScale = 1.0
+                appearCornerRadius = 26.0
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
+                        appearScaleX = 1.0
+                        appearScaleY = 1.0
                         appearBlur = 0.0
+                        appearCornerRadius = targetCornerRadius
                     }
                 }
             }
@@ -875,33 +927,42 @@ struct SingleOverlayContainer: View {
             if isClosing {
                 if animType == "scale" {
                     withAnimation(.easeIn(duration: 0.2)) {
-                        appearScale = 0.6
+                        appearScaleX = 0.6
+                        appearScaleY = 0.6
                         appearBlur = 15.0
                     }
                 } else if animType == "fluid_bounce" {
                     withAnimation(.easeIn(duration: 0.2)) {
-                        appearScale = 0.3
+                        appearScaleX = 0.3
+                        appearScaleY = 0.3
+                        appearBlur = 0.0
                     }
                 } else if animType == "fluid_drop" {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                        appearScale = 0.1
+                    withAnimation(.spring(response: 0.26, dampingFraction: 0.75)) {
+                        appearScaleX = 0.0846
+                        appearScaleY = 0.4231
                         appearBlur = 5.0
+                        appearCornerRadius = 26.0
                     }
                 }
             } else {
                 if animType == "scale" {
                     withAnimation(.interpolatingSpring(stiffness: 300, damping: 20)) {
-                        appearScale = 1.0
+                        appearScaleX = 1.0
+                        appearScaleY = 1.0
                         appearBlur = 0.0
                     }
                 } else if animType == "fluid_bounce" {
                     withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
-                        appearScale = 1.0
+                        appearScaleX = 1.0
+                        appearScaleY = 1.0
                     }
                 } else if animType == "fluid_drop" {
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) {
-                        appearScale = 1.0
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
+                        appearScaleX = 1.0
+                        appearScaleY = 1.0
                         appearBlur = 0.0
+                        appearCornerRadius = targetCornerRadius
                     }
                 }
             }

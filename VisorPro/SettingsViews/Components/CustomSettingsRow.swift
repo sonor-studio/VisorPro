@@ -44,6 +44,11 @@ struct CustomSettingsRow<Content: View>: View {
                     Text(title)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.primary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                
+                        
+                        
                     if isPremiumFeature && savedLicenseKey.isEmpty {
                         HStack(spacing: 4) {
                             Image(systemName: "checkmark.seal.fill")
@@ -62,20 +67,25 @@ struct CustomSettingsRow<Content: View>: View {
                     Text(subtitle)
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                
+                        
                 }
             }
+            .layoutPriority(1)
             
-            Spacer()
+            Spacer(minLength: 16)
             
             content()
                 .disabled(isPremiumFeature && savedLicenseKey.isEmpty)
                 .opacity(isPremiumFeature && savedLicenseKey.isEmpty ? 0.6 : 1.0)
+                .layoutPriority(0)
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
     }
 }
-import SwiftUI
 
 struct DisabledModuleView: View {
     let icon: String
@@ -83,23 +93,26 @@ struct DisabledModuleView: View {
     let description: String
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 48, weight: .regular))
-                .foregroundColor(.secondary.opacity(0.5))
-                .padding(.bottom, 8)
-            
-            Text(title)
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            Text(description)
-                .font(.subheadline)
+                .font(.system(size: 32, weight: .semibold))
                 .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 300)
+            
+            VStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.primary)
+                
+                Text(description)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(maxWidth: 260)
+            }
         }
-        .frame(maxWidth: .infinity, minHeight: 400)
-        .padding()
+        .padding(.horizontal, 28)
+        .padding(.vertical, 20)
+        .visorGlassEffect(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 }

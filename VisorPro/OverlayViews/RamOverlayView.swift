@@ -4,6 +4,7 @@ struct RamOverlayView: View {
     @State private var isExpanded: Bool = false
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
+    @AppStorage("systemAllowExpansion") private var systemAllowExpansion: Bool = true
     @ObservedObject var metrics = SystemMetricsRelay.shared
     var isPreview: Bool = false
     
@@ -48,7 +49,7 @@ struct RamOverlayView: View {
                     mediaKeyManager.keepAlive(for: "ram", isHovering: true)
                 }
             },
-            isExpandable: true,
+            isExpandable: systemAllowExpansion,
             expandUpwards: ramOverlayPosition.hasPrefix("bottom"),
             keepAliveId: "ram",
             baseContent: {

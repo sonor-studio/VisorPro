@@ -21,8 +21,7 @@ final class NativeOverlayDismisser {
     }
     
     private let targetProcessNames: Set<String> = [
-        "MenuBarAgent",       // Older macOS HUDs
-        "Control Center",     // BT connection
+        "Control Center",     // BT connection & Focus
         "ControlCenter",
         "OSDUIHelper"         // Modern macOS Volume/Brightness HUDs
     ]
@@ -90,7 +89,21 @@ final class NativeOverlayDismisser {
     }
     
     func handleWindowCreated(_ element: AXUIElement) {
+        var pid: pid_t = 0
+        AXUIElementGetPid(element, &pid)
+        let app = NSRunningApplication(processIdentifier: pid)
+        let bundleID = app?.bundleIdentifier?.lowercased() ?? ""
+        let appName = app?.localizedName?.lowercased() ?? ""
+        
+        // Never touch MenuBarAgent or any Menu Bar windows
+        if bundleID.contains("menubar") || appName.contains("menubar") {
+            return
+        }
+        
         let identifier = getStringAttribute(element, kAXIdentifierAttribute as String)?.lowercased() ?? ""
+        if identifier.contains("menubar") || identifier == "menubarrevealshield" {
+            return
+        }
         
         var isShapeMatch = false
         var sizeRef: CFTypeRef?
@@ -152,9 +165,6 @@ final class NativeOverlayDismisser {
             }
         }
         
-        var pid: pid_t = 0
-        AXUIElementGetPid(element, &pid)
-        
         let logLine = "[\(Date())] Banner: id='\(identifier)', text='\(allText)', nestedIds=\(nestedIdentifiers), battery=\(hasBatteryIndicator)\n"
         let logURL = URL(fileURLWithPath: "/Users/macbook/Desktop/Dev/VisorPro/ax_banners.log")
         DispatchQueue.global(qos: .utility).async {
@@ -166,8 +176,8 @@ final class NativeOverlayDismisser {
                 try? logLine.write(to: logURL, atomically: true, encoding: .utf8)
             }
         }
-        let bundleID = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier?.lowercased() ?? ""
-        let isControlCenter = bundleID.contains("controlcenter")
+        let isControlCenter = bundleID.contains("controlcenter") || appName.contains("control center")
+        let isOSDUIHelper = bundleID.contains("osduihelper") || appName.contains("osduihelper")
         // ---------------------
         
         var shouldIntercept = false
@@ -188,7 +198,7 @@ final class NativeOverlayDismisser {
         
         let isFocus = isStructurallyFocus || isShapeMatchEmptyFocus
         
-        let isVolume = identifier == "volume-system-banner" || identifier == "volume" || (isShapeMatch && identifier == "" && !isControlCenter)
+        let isVolume = identifier == "volume-system-banner" || identifier == "volume" || (isShapeMatch && identifier == "" && isOSDUIHelper)
         
         var preventIntercept = false
         
@@ -219,16 +229,20 @@ final class NativeOverlayDismisser {
             return foundUndo
         }
         
-        let isListeningMode = identifier == "listening-mode-system-banner"
+        var seen = Set<String>()
+        let texts = allText.components(separatedBy: " | ")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !$0.lowercased().contains("banner pid") && !$0.lowercased().contains("window") && seen.insert($0).inserted }
+        
+        let isListeningMode = identifier == "listening-mode-system-banner" ||
+            identifier.contains("listening-mode") ||
+            nestedIdentifiers.contains("listening-mode-system-banner") ||
+            nestedIdentifiers.contains(where: { $0.contains("listening-mode") })
+        
         let isSmartRouting = nestedIdentifiers.contains("smart-routing-system-banner") || identifier == "smart-routing-system-banner"
-        let isBluetooth = isSmartRouting || nestedIdentifiers.contains(where: { $0.contains("accessory") }) || identifier.contains("accessory-system-banner") || isShapeMatchEmptyBluetooth
+        let isBluetooth = !isListeningMode && (isSmartRouting || nestedIdentifiers.contains(where: { $0.contains("accessory") }) || identifier.contains("accessory-system-banner") || isShapeMatchEmptyBluetooth)
         
         if isSmartRouting || isBluetooth {
-            var seen = Set<String>()
-            let texts = allText.components(separatedBy: " | ")
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty && !$0.lowercased().contains("banner pid") && !$0.lowercased().contains("window") && seen.insert($0).inserted }
-            
             let isStructurallySmartRouting = hasUndoButton(element: element)
             
             if isStructurallySmartRouting {
@@ -251,35 +265,38 @@ final class NativeOverlayDismisser {
                     preventIntercept = true
                 }
             } else if !isListeningMode {
-                // It's a connection banner (or potentially a low battery banner)! 
+                // Connection or accessory status banner
                 MediaKeyManager.shared.lastSmartRoutingActionTime = Date() // Suppress volume overlay since audio is coming back to Mac
                 let deviceName = texts.first(where: { !$0.isEmpty && Int($0.replacingOccurrences(of: "%", with: "")) == nil && !$0.lowercased().contains("connected") }) ?? "AirPods"
                 
                 let isAppleHeadphone = deviceName.lowercased().contains("airpods") || deviceName.lowercased().contains("beats") || deviceName.lowercased().contains("pro") || deviceName.lowercased().contains("max")
                 let timeSinceConnectionLog = Date().timeIntervalSince(AirPodsBatteryManager.shared.lastConnectionLogTime)
-                
-                // USER REQUEST: Verify if it's a Low Battery banner. Apple's Low Battery banners occur at <= 20%.
-                // If the battery is > 20%, it is a CONNECTION banner without a doubt!
-                // If it IS <= 20%, we check the logs (`lastConnectionLogTime`) to see if the user literally JUST connected them.
-                // If there's no recent connection log, we classify it as a random "Low Battery" alert and swallow it without triggering the VisorPro connection overlay.
                 let isCriticallyLowBattery = (detectedBatteryLevel ?? 100) <= 20
-                if isAppleHeadphone && isCriticallyLowBattery && timeSinceConnectionLog > 20.0 {
-                    // Do nothing - it's just a Low Battery indicator.
-                } else {
-                    MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: deviceName, deviceAddress: "AIRPODS_CONNECTION", isConnected: true)
+                
+                // Only trigger Bluetooth Connection overlay if there was an ACTUAL recent connection event!
+                // Apple logs `SmartRouting posting device` or `Setting inEarStateUnified -> InEar` when connecting.
+                // If timeSinceConnectionLog > 4.0, it is NOT a connection event (it could be a mode change or status alert).
+                if isAppleHeadphone {
+                    if isCriticallyLowBattery && timeSinceConnectionLog > 20.0 {
+                        // Low battery alert: swallow without showing connection overlay
+                    } else if timeSinceConnectionLog <= 4.0 {
+                        MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: deviceName, deviceAddress: "AIRPODS_CONNECTION", isConnected: true)
+                    }
+                } else if !isAmbiguousControlCenterBanner {
+                    MediaKeyManager.shared.triggerBluetoothIndicator(deviceName: deviceName, deviceAddress: "BLUETOOTH_CONNECTION", isConnected: true)
                 }
             }
         }
         
         if isListeningMode {
-            // macOS natively popped up a Listening Mode banner. We intercept it!
-            // First, trigger our own overlay to read from the low-level API.
-            // The value read there will automatically be exactly what caused this banner.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                // We just manually pull the current lstm and show it
-                MediaKeyManager.shared.triggerAirPodsModeOverlayFromNativeTrigger()
+            // macOS natively popped up a Listening Mode banner. We intercept and dismiss it.
+            // Fetch the exact mode from CoreAudio lstm (language-independent integer: 1=Off, 2=ANC, 3=Transparency, 4=Adaptive).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                let mode = MediaKeyManager.shared.airPodsModeObserver?.getCurrentMode() ?? OverlayStateRelay.shared.airPodsModeValue
+                if mode > 0 {
+                    MediaKeyManager.shared.triggerAirPodsModeOverlay(mode: mode, showOverlay: true)
+                }
             }
-            self.startListeningModeBannerTracker(for: element, initialText: allText)
             shouldIntercept = true
         }
         
@@ -446,7 +463,6 @@ final class NativeOverlayDismisser {
     }
     
     private var smartRoutingTrackerTimer: Timer?
-    private var listeningModeBannerTrackerTimer: Timer?
     
     private func startSmartRoutingBannerTracker(for element: AXUIElement) {
         smartRoutingTrackerTimer?.invalidate()
@@ -464,42 +480,6 @@ final class NativeOverlayDismisser {
                 timer.invalidate()
                 if self?.lastSmartRoutingBanner != nil {
                     self?.lastSmartRoutingBanner = nil
-                }
-            }
-        }
-    }
-    
-    private func startListeningModeBannerTracker(for element: AXUIElement, initialText: String) {
-        listeningModeBannerTrackerTimer?.invalidate()
-        var lastText = initialText
-        
-        listeningModeBannerTrackerTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.2, repeats: true) { timer in
-            var roleRef: CFTypeRef?
-            let error = AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
-            
-            if error != .success {
-                timer.invalidate()
-                return
-            }
-            
-            var currentText = ""
-            func extractText(_ el: AXUIElement) {
-                var val: CFTypeRef?
-                if AXUIElementCopyAttributeValue(el, kAXValueAttribute as CFString, &val) == .success, let s = val as? String { currentText += s + " | " }
-                if AXUIElementCopyAttributeValue(el, kAXTitleAttribute as CFString, &val) == .success, let s = val as? String { currentText += s + " | " }
-                if AXUIElementCopyAttributeValue(el, kAXDescriptionAttribute as CFString, &val) == .success, let s = val as? String { currentText += s + " | " }
-                
-                var childrenRef: CFTypeRef?
-                if AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &childrenRef) == .success, let children = childrenRef as? [AXUIElement] {
-                    for child in children { extractText(child) }
-                }
-            }
-            extractText(element)
-            
-            if !lastText.isEmpty && !currentText.isEmpty && currentText != lastText {
-                lastText = currentText
-                DispatchQueue.main.async {
-                    MediaKeyManager.shared.triggerAirPodsModeOverlayFromNativeTrigger()
                 }
             }
         }

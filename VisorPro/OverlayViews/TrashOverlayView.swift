@@ -4,6 +4,7 @@ struct TrashOverlayView: View {
     @State private var isExpanded: Bool = false
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
+    @AppStorage("trashAllowExpansion") private var trashAllowExpansion: Bool = true
     var isPreview: Bool = false
     
     var body: some View {
@@ -36,7 +37,7 @@ struct TrashOverlayView: View {
                     mediaKeyManager.keepAlive(for: "trash", isHovering: true)
                 }
             },
-            isExpandable: !(!isPreview && overlayState.trashAutoEmptied),
+            isExpandable: trashAllowExpansion && !(!isPreview && overlayState.trashAutoEmptied),
             expandUpwards: trashOverlayPosition.hasPrefix("bottom"),
             keepAliveId: "trash",
             baseContent: {

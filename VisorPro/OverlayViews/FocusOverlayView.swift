@@ -3,6 +3,7 @@ import SwiftUI
 struct FocusOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
+    @AppStorage("focusAllowExpansion") private var focusAllowExpansion: Bool = true
     
     var isPreview: Bool = false
     var previewIsActive: Bool = false
@@ -122,7 +123,7 @@ struct FocusOverlayView: View {
             customWidth: 240,
             supportDragGesture: false,
             onSimpleTap: {},
-            isExpandable: isExpandable,
+            isExpandable: isExpandable && focusAllowExpansion,
             keepAliveId: "focus",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {

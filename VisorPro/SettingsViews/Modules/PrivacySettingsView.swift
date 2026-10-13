@@ -10,6 +10,8 @@ struct PrivacySettingsView: View {
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("cameraOverlayPosition") private var cameraOverlayPosition: String = "top"
     @AppStorage("locationOverlayPosition") private var locationOverlayPosition: String = "top"
+    @AppStorage("micAllowExpansion") private var micAllowExpansion: Bool = true
+    @AppStorage("cameraAllowExpansion") private var cameraAllowExpansion: Bool = true
     @State private var isMicHistoryExpanded: Bool = false
     @State private var isCameraHistoryExpanded: Bool = false
     @State private var isLocationHistoryExpanded: Bool = false
@@ -17,464 +19,381 @@ struct PrivacySettingsView: View {
     @State private var showLocationPermissionAlert: Bool = false
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                
-                if !savedLicenseKey.isEmpty {
-    VStack(alignment: .leading, spacing: 12) {
-                        Text("Privacy Module")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .center)
+        ModuleSettingsLayout(
+            title: "Privacy",
+            isEnabled: $mediaKeyManager.enablePrivacy,
+            isPremium: true,
+            preview: {
+                HStack(alignment: .center, spacing: 20) {
+                    MicOverlayView(isPreview: true, previewIsActive: true).applyTheme(mediaKeyManager.overlayTheme)
+                        .frame(height: 56, alignment: .center)
                     
-                        Text("Module Configuration")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 4)
-                        
-                        VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "power", iconColor: .blue, title: "Enable Privacy Module", subtitle: "When disabled, VisorPro completely ignores Camera, Microphone and Location activity") {
-                                Toggle("", isOn: $mediaKeyManager.enablePrivacy).labelsHidden()
-                            }
-                        }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .padding(.horizontal)
+                    CameraOverlayView(isPreview: true, previewIsActive: true).applyTheme(mediaKeyManager.overlayTheme)
+                        .frame(height: 56, alignment: .center)
                 }
-                
-                if mediaKeyManager.enablePrivacy || savedLicenseKey.isEmpty {
-                    // Previews
-                    VStack(spacing: 16) {
-                        Text("Preview")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        ZStack {
-                            PreviewBackgroundView()
-                            
-                            VStack {
-                                Spacer()
-                                HStack(spacing: 20) {
-                                    MicOverlayView(isPreview: true, previewIsActive: true).applyTheme(mediaKeyManager.overlayTheme)
-                                        .scaleEffect(0.85)
-                                    
-                                    CameraOverlayView(isPreview: true, previewIsActive: true).applyTheme(mediaKeyManager.overlayTheme)
-                                        .scaleEffect(0.85)
-                                }
-                                Spacer()
-                            }
-                        }
-                        .frame(minHeight: 180)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 24) {
-                        // Category 1: Microphone Card
-                        if savedLicenseKey.isEmpty {
-                            PremiumLockedView()
-                        } else {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Microphone")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.primary)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                            
-                            Text("Overlay Triggers")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.bottom, 4)
-                                .padding(.leading, 4)
-                            
-                            VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "mic.fill", iconColor: .blue, title: "Notify when Microphone is ON", subtitle: "Show an overlay when the microphone starts being used") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnMicOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnMicOn) 
- if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnMicOn) } }
-Toggle("", isOn: $mediaKeyManager.notifyOnMicOn).labelsHidden() }
-                               
-                            }
-                                Divider().padding(.leading, 48)
-                                CustomSettingsRow(icon: "mic.slash.fill", iconColor: .blue, title: "Notify when Microphone is OFF", subtitle: "Show an overlay when the microphone stops being used") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnMicOff { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnMicOff) }
-Toggle("", isOn: $mediaKeyManager.notifyOnMicOff).labelsHidden() }
-                               
-                            }
-                                Divider().padding(.leading, 48)
-                                CustomSettingsRow(icon: "waveform", iconColor: .blue, title: "Show Audio Waveform", subtitle: "Visualize microphone audio (Requires permission)") {
-                                    Toggle("", isOn: Binding(
-                                        get: { micShowVisualizer },
-                                        set: { newValue in
-                                            if newValue {
-                                                let status = AVCaptureDevice.authorizationStatus(for: .audio)
-                                                if status == .authorized {
-                                                    micShowVisualizer = true
-                                                } else if status == .denied || status == .restricted {
-                                                    micShowVisualizer = false
-                                                    showMicPermissionAlert = true
-                                                } else {
-                                                    micShowVisualizer = true
-                                                    AVCaptureDevice.requestAccess(for: .audio) { granted in
-                                                        DispatchQueue.main.async {
-                                                            micShowVisualizer = granted
-                                                            if !granted {
-                                                                showMicPermissionAlert = true
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                micShowVisualizer = false
-                                            }
-                                        }
-                                    )).labelsHidden()
-                                }
-                            }
-                            .toggleStyle(.switch)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                            )
-                            
-                            Group {
-                                if overlayPositionMode == "custom" {
-                                Text("Overlay Position")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 10)
-                                    .padding(.bottom, 4)
-                                    .padding(.leading, 4)
-                                
-                                PositionPickerGroup(selection: $micOverlayPosition)
-                                }
-                            }
-                                .padding(.bottom, 12)
-                            
-                            if !mediaKeyManager.micHistory.isEmpty {
-                                let displayedHistory = isMicHistoryExpanded ? mediaKeyManager.micHistory : Array(mediaKeyManager.micHistory.prefix(3))
-                                
-                                Text("Remembered microphones (\(mediaKeyManager.micHistory.count))")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 10)
-                                    .padding(.bottom, 4)
-                                    .padding(.leading, 4)
-                                
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(height: 56, alignment: .center)
+            },
+            popovers: [
+                ModulePopover(
+                    icon: "mic.fill",
+                    title: "Microphone",
+                    content: AnyView(
+                        Group {
+                            if savedLicenseKey.isEmpty {
+                                PremiumLockedView()
+                            } else {
                                 VStack(spacing: 0) {
-                                    ForEach(displayedHistory, id: \.self) { appName in
-                                        let isBlocked = mediaKeyManager.micBlocklist.contains(appName)
-                                        CustomSettingsRow(icon: "app", iconColor: isBlocked ? .gray : .blue, title: appName, subtitle: "Show notifications for this application", appNameForIcon: appName) {
-                                            Toggle("", isOn: Binding(
-                                                get: { !isBlocked },
-                                                set: { isOn in
-                                                    if isOn {
-                                                        mediaKeyManager.micBlocklist.removeAll { $0 == appName }
-                                                    } else {
-                                                        if !mediaKeyManager.micBlocklist.contains(appName) {
-                                                            mediaKeyManager.micBlocklist.append(appName)
-                                                        }
-                                                    }
-                                                }
-                                            )).labelsHidden()
-                                        }
+                                    Text("TRIGGERS")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 16)
+                                        .padding(.top, 16)
+                                        .padding(.bottom, 8)
                                         
-                                        if appName != displayedHistory.last || (mediaKeyManager.micHistory.count > 3 && !isMicHistoryExpanded) {
-                                            Divider().padding(.leading, 40)
-                                        }
-                                    }
-                                    
-                                    if mediaKeyManager.micHistory.count > 3 {
-                                        Button(action: {
-                                            withAnimation {
-                                                isMicHistoryExpanded.toggle()
+                                    CustomSettingsRow(icon: "mic.fill", iconColor: .blue, title: "Microphone is ON", subtitle: "Show an overlay when the microphone starts being used") {
+                                        HStack(spacing: 8) { 
+                                            if mediaKeyManager.notifyOnMicOn { 
+                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnMicOn) 
+                                                if mediaKeyManager.overlayColorMode == "custom" { 
+                                                    ColorPickerControl(selectedColor: $mediaKeyManager.colorOnMicOn) 
+                                                } 
                                             }
-                                        }) {
-                                            Text(isMicHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.micHistory.count))")
-                                                .font(.system(size: 13, weight: .medium))
-                                                .foregroundColor(.blue)
-                                                .frame(maxWidth: .infinity, alignment: .center)
-                                                .padding(.vertical, 10)
+                                            Toggle("", isOn: $mediaKeyManager.notifyOnMicOn).labelsHidden() 
                                         }
-                                        .buttonStyle(PlainButtonStyle())
                                     }
-                                }
-                                .toggleStyle(.switch)
-                                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                                )
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // Category 2: Camera Card
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Camera")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.primary)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                            
-                            Text("Overlay Triggers")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.bottom, 4)
-                                .padding(.leading, 4)
-                            
-                            VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "video.fill", iconColor: .blue, title: "Notify when Camera is ON", subtitle: "Show an overlay when the camera starts being used") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnCameraOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCameraOn) 
- if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnCameraOn) } }
-Toggle("", isOn: $mediaKeyManager.notifyOnCameraOn).labelsHidden() }
-                               
-                            }
-                                Divider().padding(.leading, 48)
-                                CustomSettingsRow(icon: "video.slash.fill", iconColor: .blue, title: "Notify when Camera is OFF", subtitle: "Show an overlay when the camera stops being used") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnCameraOff { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCameraOff) }
-Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
-                               
-                            }
-                            }
-                            .toggleStyle(.switch)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                            )
-                            
-                            Group {
-                                if overlayPositionMode == "custom" {
-                                Text("Overlay Position")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 10)
-                                    .padding(.bottom, 4)
-                                    .padding(.leading, 4)
-                                
-                                PositionPickerGroup(selection: $cameraOverlayPosition)
-                                }
-                            }
-                                .padding(.bottom, 12)
-                            
-                            if !mediaKeyManager.cameraHistory.isEmpty {
-                                let displayedHistory = isCameraHistoryExpanded ? mediaKeyManager.cameraHistory : Array(mediaKeyManager.cameraHistory.prefix(3))
-                                
-                                Text("Remembered cameras (\(mediaKeyManager.cameraHistory.count))")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 10)
-                                    .padding(.bottom, 4)
-                                    .padding(.leading, 4)
-                                
-                                VStack(spacing: 0) {
-                                    ForEach(displayedHistory, id: \.self) { appName in
-                                        let isBlocked = mediaKeyManager.cameraBlocklist.contains(appName)
-                                        CustomSettingsRow(icon: "app", iconColor: isBlocked ? .gray : .blue, title: appName, subtitle: "Show notifications for this application", appNameForIcon: appName) {
-                                            Toggle("", isOn: Binding(
-                                                get: { !isBlocked },
-                                                set: { isOn in
-                                                    if isOn {
-                                                        mediaKeyManager.cameraBlocklist.removeAll { $0 == appName }
-                                                    } else {
-                                                        if !mediaKeyManager.cameraBlocklist.contains(appName) {
-                                                            mediaKeyManager.cameraBlocklist.append(appName)
-                                                        }
-                                                    }
-                                                }
-                                            )).labelsHidden()
+                                    Divider().padding(.leading, 48)
+                                    CustomSettingsRow(icon: "mic.slash.fill", iconColor: .blue, title: "Microphone is OFF", subtitle: "Show an overlay when the microphone stops being used") {
+                                        HStack(spacing: 8) { 
+                                            if mediaKeyManager.notifyOnMicOff { 
+                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnMicOff) 
+                                            }
+                                            Toggle("", isOn: $mediaKeyManager.notifyOnMicOff).labelsHidden() 
                                         }
+                                    }
+                                    Divider().padding(.leading, 48)
+                                    CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .blue, title: "Allow Expansion", subtitle: "Allow overlay to expand and show microphone details") {
+                                        Toggle("", isOn: $micAllowExpansion).labelsHidden()
+                                    }
+                                    Text("VISUALIZER")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 16)
+                                        .padding(.top, 16)
+                                        .padding(.bottom, 8)
                                         
-                                        if appName != displayedHistory.last || (mediaKeyManager.cameraHistory.count > 3 && !isCameraHistoryExpanded) {
-                                            Divider().padding(.leading, 40)
-                                        }
-                                    }
-                                    
-                                    if mediaKeyManager.cameraHistory.count > 3 {
-                                        Button(action: {
-                                            withAnimation {
-                                                isCameraHistoryExpanded.toggle()
-                                            }
-                                        }) {
-                                            Text(isCameraHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.cameraHistory.count))")
-                                                .font(.system(size: 13, weight: .medium))
-                                                .foregroundColor(.blue)
-                                                .frame(maxWidth: .infinity, alignment: .center)
-                                                .padding(.vertical, 10)
-                                        }
-                                        .buttonStyle(PlainButtonStyle())
-                                    }
-                                }
-                                .toggleStyle(.switch)
-                                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                                )
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        // Category 3: Location Card
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Location")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.primary)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                            
-                            Text("Overlay Triggers")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.bottom, 4)
-                                .padding(.leading, 4)
-                            
-                            VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "location.fill", iconColor: .blue, title: "Notify on Location Request", subtitle: "Show an overlay when location services are requested") {
-                                    HStack(spacing: 8) { 
-                                        if mediaKeyManager.notifyOnLocationOn { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnLocationOn) 
- if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnLocationOn) } }
+                                    CustomSettingsRow(icon: "waveform", iconColor: .blue, title: "Show Audio Waveform", subtitle: "Visualize microphone audio (Requires permission)") {
                                         Toggle("", isOn: Binding(
-                                            get: { mediaKeyManager.notifyOnLocationOn },
+                                            get: { micShowVisualizer },
                                             set: { newValue in
                                                 if newValue {
-                                                    if PermissionHelper.isLocationNotDetermined() {
-                                                        PermissionHelper.sharedLocationManager.requestAlwaysAuthorization()
-                                                        mediaKeyManager.notifyOnLocationOn = true
-                                                    } else if PermissionHelper.hasLocationPermission() {
-                                                        mediaKeyManager.notifyOnLocationOn = true
+                                                    let status = AVCaptureDevice.authorizationStatus(for: .audio)
+                                                    if status == .authorized {
+                                                        micShowVisualizer = true
+                                                    } else if status == .denied || status == .restricted {
+                                                        micShowVisualizer = false
+                                                        showMicPermissionAlert = true
                                                     } else {
-                                                        DispatchQueue.main.async {
-                                                            mediaKeyManager.notifyOnLocationOn = true
+                                                        micShowVisualizer = true
+                                                        AVCaptureDevice.requestAccess(for: .audio) { granted in
                                                             DispatchQueue.main.async {
-                                                                mediaKeyManager.notifyOnLocationOn = false
+                                                                micShowVisualizer = granted
+                                                                if !granted {
+                                                                    showMicPermissionAlert = true
+                                                                }
                                                             }
                                                         }
-                                                        showLocationPermissionAlert = true
                                                     }
                                                 } else {
-                                                    mediaKeyManager.notifyOnLocationOn = false
-                                                }
-                                            }
-                                        )).labelsHidden() 
-                                    }
-                                }
-                            }
-                            .toggleStyle(.switch)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                            )
-                            
-                            Group {
-                                if overlayPositionMode == "custom" {
-                                Text("Overlay Position")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 10)
-                                    .padding(.bottom, 4)
-                                    .padding(.leading, 4)
-                                
-                                PositionPickerGroup(selection: $locationOverlayPosition)
-                                }
-                            }
-                                .padding(.bottom, 12)
-                            
-                            Text("App Filters")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                                .padding(.bottom, 4)
-                                .padding(.leading, 4)
-                            
-                            VStack(spacing: 0) {
-                                let displayedHistory = isLocationHistoryExpanded ? mediaKeyManager.locationHistory : Array(mediaKeyManager.locationHistory.prefix(3))
-                                
-                                ForEach(displayedHistory, id: \.self) { appName in
-                                    let isBlocked = mediaKeyManager.locationBlocklist.contains(appName)
-                                    let iconName = appName == "System Services" ? "gearshape" : (appName == "Weather" ? "cloud.sun.fill" : (appName == "Maps" ? "map.fill" : (appName == "Safari" ? "safari.fill" : "app.dashed")))
-                                    let iconColor = appName == "System Services" ? Color.gray : (appName == "Maps" ? Color.green : Color.blue)
-                                    let subtitle = appName == "System Services" ? "Diagnostic tools, background daemons" : "Show notifications for this application"
-                                    
-                                    CustomSettingsRow(icon: iconName, iconColor: isBlocked ? .gray : iconColor, title: appName, subtitle: subtitle, appNameForIcon: appName) {
-                                        Toggle("", isOn: Binding(
-                                            get: { !isBlocked },
-                                            set: { isOn in
-                                                if isOn {
-                                                    mediaKeyManager.locationBlocklist.removeAll { $0 == appName }
-                                                } else {
-                                                    if !mediaKeyManager.locationBlocklist.contains(appName) {
-                                                        mediaKeyManager.locationBlocklist.append(appName)
-                                                    }
+                                                    micShowVisualizer = false
                                                 }
                                             }
                                         )).labelsHidden()
                                     }
                                     
-                                    if appName != displayedHistory.last || (mediaKeyManager.locationHistory.count > 3 && !isLocationHistoryExpanded) {
-                                        Divider().padding(.leading, 40)
-                                    }
-                                }
-                                
-                                if mediaKeyManager.locationHistory.count > 3 {
-                                    Button(action: {
-                                        withAnimation {
-                                            isLocationHistoryExpanded.toggle()
+                                    if overlayPositionMode == "custom" {
+                                        Text("POSITION")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(.horizontal, 16)
+                                            .padding(.top, 16)
+                                            .padding(.bottom, 8)
+                                            
+                                        CustomSettingsRow(icon: "pip", iconColor: .blue, title: "Overlay Position", subtitle: "Position of microphone overlay") {
+                                            PositionPickerGroup(selection: $micOverlayPosition)
                                         }
-                                    }) {
-                                        Text(isLocationHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.locationHistory.count))")
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundColor(.blue)
-                                            .frame(maxWidth: .infinity, alignment: .center)
-                                            .padding(.vertical, 10)
                                     }
-                                    .buttonStyle(PlainButtonStyle())
+                                    
+                                    if !mediaKeyManager.micHistory.isEmpty {
+                                        Text("APPLICATIONS")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(.horizontal, 16)
+                                            .padding(.top, 16)
+                                            .padding(.bottom, 8)
+                                            
+                                        let displayedHistory = isMicHistoryExpanded ? mediaKeyManager.micHistory : Array(mediaKeyManager.micHistory.prefix(3))
+                                        
+                                        ForEach(displayedHistory, id: \.self) { appName in
+                                            let isBlocked = mediaKeyManager.micBlocklist.contains(appName)
+                                            CustomSettingsRow(icon: "app", iconColor: isBlocked ? .gray : .blue, title: appName, subtitle: "Show notifications for this application", appNameForIcon: appName) {
+                                                Toggle("", isOn: Binding(
+                                                    get: { !isBlocked },
+                                                    set: { isOn in
+                                                        if isOn {
+                                                            mediaKeyManager.micBlocklist.removeAll { $0 == appName }
+                                                        } else {
+                                                            if !mediaKeyManager.micBlocklist.contains(appName) {
+                                                                mediaKeyManager.micBlocklist.append(appName)
+                                                            }
+                                                        }
+                                                    }
+                                                )).labelsHidden()
+                                            }
+                                        }
+                                        
+                                        if mediaKeyManager.micHistory.count > 3 {
+                                            Button(action: {
+                                                withAnimation {
+                                                    isMicHistoryExpanded.toggle()
+                                                }
+                                            }) {
+                                                Text(isMicHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.micHistory.count))")
+                                                    .font(.system(size: 13, weight: .medium))
+                                                    .foregroundColor(.blue)
+                                                    .frame(maxWidth: .infinity, alignment: .center)
+                                                    .padding(.vertical, 10)
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+                                        }
+                                    }
                                 }
                             }
-                            .toggleStyle(.switch)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                            )
                         }
-                    }
-                }
-                } else {
-                    DisabledModuleView(icon: "lock.slash.fill", title: "Privacy Module is Disabled", description: "Turn on the module to configure camera, microphone, and location overlays.")
-                }
-            }
-            .padding()
-        }
+                    )
+                ),
+                ModulePopover(
+                    icon: "video.fill",
+                    title: "Camera",
+                    content: AnyView(
+                        Group {
+                            if savedLicenseKey.isEmpty {
+                                PremiumLockedView()
+                            } else {
+                                VStack(spacing: 0) {
+                                    CustomSettingsRow(icon: "video.fill", iconColor: .blue, title: "Camera is ON", subtitle: "Show an overlay when the camera starts being used") {
+                                        HStack(spacing: 8) { 
+                                            if mediaKeyManager.notifyOnCameraOn { 
+                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCameraOn) 
+                                                if mediaKeyManager.overlayColorMode == "custom" { 
+                                                    ColorPickerControl(selectedColor: $mediaKeyManager.colorOnCameraOn) 
+                                                } 
+                                            }
+                                            Toggle("", isOn: $mediaKeyManager.notifyOnCameraOn).labelsHidden() 
+                                        }
+                                    }
+                                    Divider().padding(.leading, 48)
+                                    CustomSettingsRow(icon: "video.slash.fill", iconColor: .blue, title: "Camera is OFF", subtitle: "Show an overlay when the camera stops being used") {
+                                        HStack(spacing: 8) { 
+                                            if mediaKeyManager.notifyOnCameraOff { 
+                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnCameraOff) 
+                                            }
+                                            Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() 
+                                        }
+                                    }
+                                    Divider().padding(.leading, 48)
+                                    CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .blue, title: "Allow Expansion", subtitle: "Allow overlay to expand and show camera details") {
+                                        Toggle("", isOn: $cameraAllowExpansion).labelsHidden()
+                                    }
+                                    
+                                    if overlayPositionMode == "custom" {
+                                        Text("POSITION")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(.horizontal, 16)
+                                            .padding(.top, 16)
+                                            .padding(.bottom, 8)
+                                            
+                                        CustomSettingsRow(icon: "pip", iconColor: .blue, title: "Overlay Position", subtitle: "Position of camera overlay") {
+                                            PositionPickerGroup(selection: $cameraOverlayPosition)
+                                        }
+                                    }
+                                    
+                                    if !mediaKeyManager.cameraHistory.isEmpty {
+                                        Text("APPLICATIONS")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(.horizontal, 16)
+                                            .padding(.top, 16)
+                                            .padding(.bottom, 8)
+                                            
+                                        let displayedHistory = isCameraHistoryExpanded ? mediaKeyManager.cameraHistory : Array(mediaKeyManager.cameraHistory.prefix(3))
+                                        
+                                        ForEach(displayedHistory, id: \.self) { appName in
+                                            let isBlocked = mediaKeyManager.cameraBlocklist.contains(appName)
+                                            CustomSettingsRow(icon: "app", iconColor: isBlocked ? .gray : .blue, title: appName, subtitle: "Show notifications for this application", appNameForIcon: appName) {
+                                                Toggle("", isOn: Binding(
+                                                    get: { !isBlocked },
+                                                    set: { isOn in
+                                                        if isOn {
+                                                            mediaKeyManager.cameraBlocklist.removeAll { $0 == appName }
+                                                        } else {
+                                                            if !mediaKeyManager.cameraBlocklist.contains(appName) {
+                                                                mediaKeyManager.cameraBlocklist.append(appName)
+                                                            }
+                                                        }
+                                                    }
+                                                )).labelsHidden()
+                                            }
+                                        }
+                                        
+                                        if mediaKeyManager.cameraHistory.count > 3 {
+                                            Button(action: {
+                                                withAnimation {
+                                                    isCameraHistoryExpanded.toggle()
+                                                }
+                                            }) {
+                                                Text(isCameraHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.cameraHistory.count))")
+                                                    .font(.system(size: 13, weight: .medium))
+                                                    .foregroundColor(.blue)
+                                                    .frame(maxWidth: .infinity, alignment: .center)
+                                                    .padding(.vertical, 10)
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    )
+                ),
+                ModulePopover(
+                    icon: "location.fill",
+                    title: "Location",
+                    content: AnyView(
+                        Group {
+                            if savedLicenseKey.isEmpty {
+                                PremiumLockedView()
+                            } else {
+                                VStack(spacing: 0) {
+                                    Text("TRIGGERS")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 16)
+                                        .padding(.top, 16)
+                                        .padding(.bottom, 8)
+                                        
+                                    CustomSettingsRow(icon: "location.fill", iconColor: .blue, title: "Location Request", subtitle: "Show an overlay when location services are requested") {
+                                        HStack(spacing: 8) { 
+                                            if mediaKeyManager.notifyOnLocationOn { 
+                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnLocationOn) 
+                                                if mediaKeyManager.overlayColorMode == "custom" { 
+                                                    ColorPickerControl(selectedColor: $mediaKeyManager.colorOnLocationOn) 
+                                                } 
+                                            }
+                                            Toggle("", isOn: Binding(
+                                                get: { mediaKeyManager.notifyOnLocationOn },
+                                                set: { newValue in
+                                                    if newValue {
+                                                        if PermissionHelper.isLocationNotDetermined() {
+                                                            PermissionHelper.sharedLocationManager.requestAlwaysAuthorization()
+                                                            mediaKeyManager.notifyOnLocationOn = true
+                                                        } else if PermissionHelper.hasLocationPermission() {
+                                                            mediaKeyManager.notifyOnLocationOn = true
+                                                        } else {
+                                                            DispatchQueue.main.async {
+                                                                mediaKeyManager.notifyOnLocationOn = true
+                                                                DispatchQueue.main.async {
+                                                                    mediaKeyManager.notifyOnLocationOn = false
+                                                                }
+                                                            }
+                                                            showLocationPermissionAlert = true
+                                                        }
+                                                    } else {
+                                                        mediaKeyManager.notifyOnLocationOn = false
+                                                    }
+                                                }
+                                            )).labelsHidden() 
+                                        }
+                                    }
+                                    
+                                    if overlayPositionMode == "custom" {
+                                        Text("POSITION")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(.horizontal, 16)
+                                            .padding(.top, 16)
+                                            .padding(.bottom, 8)
+                                            
+                                        CustomSettingsRow(icon: "pip", iconColor: .blue, title: "Overlay Position", subtitle: "Position of location overlay") {
+                                            PositionPickerGroup(selection: $locationOverlayPosition)
+                                        }
+                                    }
+                                    
+                                    if !mediaKeyManager.locationHistory.isEmpty {
+                                        Text("APPLICATIONS")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.secondary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .padding(.horizontal, 16)
+                                            .padding(.top, 16)
+                                            .padding(.bottom, 8)
+                                            
+                                        let displayedHistory = isLocationHistoryExpanded ? mediaKeyManager.locationHistory : Array(mediaKeyManager.locationHistory.prefix(3))
+                                        
+                                        ForEach(displayedHistory, id: \.self) { appName in
+                                            let isBlocked = mediaKeyManager.locationBlocklist.contains(appName)
+                                            let iconName = appName == "System Services" ? "gearshape" : (appName == "Weather" ? "cloud.sun.fill" : (appName == "Maps" ? "map.fill" : (appName == "Safari" ? "safari.fill" : "app.dashed")))
+                                            let iconColor = appName == "System Services" ? Color.gray : (appName == "Maps" ? Color.green : Color.blue)
+                                            let subtitle = appName == "System Services" ? "Diagnostic tools, background daemons" : "Show notifications for this application"
+                                            
+                                            CustomSettingsRow(icon: iconName, iconColor: isBlocked ? .gray : iconColor, title: appName, subtitle: subtitle, appNameForIcon: appName) {
+                                                Toggle("", isOn: Binding(
+                                                    get: { !isBlocked },
+                                                    set: { isOn in
+                                                        if isOn {
+                                                            mediaKeyManager.locationBlocklist.removeAll { $0 == appName }
+                                                        } else {
+                                                            if !mediaKeyManager.locationBlocklist.contains(appName) {
+                                                                mediaKeyManager.locationBlocklist.append(appName)
+                                                            }
+                                                        }
+                                                    }
+                                                )).labelsHidden()
+                                            }
+                                        }
+                                        
+                                        if mediaKeyManager.locationHistory.count > 3 {
+                                            Button(action: {
+                                                withAnimation {
+                                                    isLocationHistoryExpanded.toggle()
+                                                }
+                                            }) {
+                                                Text(isLocationHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.locationHistory.count))")
+                                                    .font(.system(size: 13, weight: .medium))
+                                                    .foregroundColor(.blue)
+                                                    .frame(maxWidth: .infinity, alignment: .center)
+                                                    .padding(.vertical, 10)
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    )
+                )
+            ]
+        )
+        .navigationTitle("Privacy")
         .alert(isPresented: $showMicPermissionAlert) {
             Alert(
                 title: Text("Microphone Access Required"),

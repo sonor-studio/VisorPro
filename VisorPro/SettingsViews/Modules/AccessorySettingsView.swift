@@ -8,6 +8,7 @@ struct AccessorySettingsView: View {
     @State private var settings: AccessoryDeviceSettings = AccessoryDeviceSettings()
     @State private var expandedThresholds: Set<UUID> = []
     @State private var isFullyChargedExpanded: Bool = false
+    @State private var showForgetConfirmation: Bool = false
     
     private var isHeadphones: Bool {
         let lower = deviceName.lowercased()
@@ -15,487 +16,302 @@ struct AccessorySettingsView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("\(deviceName)")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    
-                    Text("Module Configuration")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 4)
-                        
-                    VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "power", iconColor: .green, title: "Enable Accessory Tracking", subtitle: "When disabled, VisorPro completely ignores connection events for this accessory") {
-                            Toggle("", isOn: $settings.enableOverlay)
-                                .labelsHidden()
-                                .onChange(of: settings.enableOverlay) { _, _ in saveSettings() }
-                        }
-                    }
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+        ModuleSettingsLayout(
+            title: deviceName,
+            isEnabled: Binding(
+                get: { settings.enableOverlay },
+                set: { newValue in
+                    settings.enableOverlay = newValue
+                    saveSettings()
                 }
-                
-                if settings.enableOverlay {
-                    VStack(alignment: .center) {
-                        Text("Preview")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                    
-                        ZStack {
-                            PreviewBackgroundView()
+            ),
+            isPremium: true,
+            preview: {
+                ZStack(alignment: .top) {
+                    VStack(spacing: 0) {
+                        Color.clear.frame(height: 56)
                         
-                            HStack(spacing: 20) {
-                                BluetoothOverlayView(isPreview: true, previewIsAccessory: true, previewIsConnected: true, previewDeviceName: deviceName)
-                                    .applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
-                                    
-                                BluetoothOverlayView(isPreview: true, previewIsAccessory: true, previewIsConnected: false, previewDeviceName: deviceName)
-                                    .applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
-                            }
-                        }
-                        .frame(minHeight: 180)
-                        .padding(.horizontal)
-                    }
-                    .padding(.top, 10)
-                    .padding(.bottom, 10)
-                    
-                    let hasComponents = mediaKeyManager.accessoryBatteryHistory.contains { $0.hasPrefix(deviceName) && $0 != deviceName }
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(hasComponents ? "Components Overview" : "Component Overview")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 4)
+                        Spacer()
                         
-                        if hasComponents {
-                            HStack {
-                                Spacer()
-                                VStack(spacing: 8) {
-                                    Image(systemName: "airpodpro.left")
-                                        .font(.system(size: 40, weight: .light))
-                                        .foregroundColor(.primary)
-                                        .frame(height: 50)
-                                    
-                                    VStack(spacing: 4) {
-                                        Text("Left")
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundColor(.secondary)
-                                        
-                                        if let pct = mediaKeyManager.accessoryBatteryLevels["\(deviceName) (Left)"] {
-                                            let isCharging = (OverlayStateRelay.shared.airpodsDeviceName == deviceName) ? OverlayStateRelay.shared.airpodsLeftCharging : (mediaKeyManager.accessoryBatteryCharging["\(deviceName) (Left)"] == true)
-                                            if isCharging {
-                                                Image(systemName: "bolt.fill").font(.system(size: 11)).foregroundColor(.secondary)
-                                            } else {
-                                                Image(systemName: batteryIcon(for: pct)).font(.system(size: 11)).foregroundColor(.secondary)
-                                            }
-                                            Text("\(pct)%")
-                                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                                .foregroundColor(.primary)
-                                        } else {
-                                            Text("--%")
-                                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                                .foregroundColor(.secondary.opacity(0.3))
-                                        }
-                                    }
-                                }
-                                .frame(width: 90)
-                                
-                                Spacer()
-                                
-                                VStack(spacing: 8) {
-                                    Image(systemName: "airpodspro.chargingcase.wireless.fill")
-                                        .font(.system(size: 44, weight: .light))
-                                        .foregroundColor(.primary)
-                                        .frame(height: 50)
-                                        
-                                    VStack(spacing: 4) {
-                                        Text("Case")
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundColor(.secondary)
-                                        
-                                        if let pct = mediaKeyManager.accessoryBatteryLevels["\(deviceName) (Case)"] {
-                                            let isCharging = (OverlayStateRelay.shared.airpodsDeviceName == deviceName) ? OverlayStateRelay.shared.airpodsCaseCharging : (mediaKeyManager.accessoryBatteryCharging["\(deviceName) (Case)"] == true)
-                                            if isCharging {
-                                                Image(systemName: "bolt.fill").font(.system(size: 11)).foregroundColor(.secondary)
-                                            } else {
-                                                Image(systemName: batteryIcon(for: pct)).font(.system(size: 11)).foregroundColor(.secondary)
-                                            }
-                                            Text("\(pct)%")
-                                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                                .foregroundColor(.primary)
-                                        } else {
-                                            Text("--%")
-                                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                                .foregroundColor(.secondary.opacity(0.3))
-                                        }
-                                    }
-                                }
-                                .frame(width: 90)
-                                
-                                Spacer()
-                                
-                                VStack(spacing: 8) {
-                                    Image(systemName: "airpodpro.right")
-                                        .font(.system(size: 40, weight: .light))
-                                        .foregroundColor(.primary)
-                                        .frame(height: 50)
-                                        
-                                    VStack(spacing: 4) {
-                                        Text("Right")
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundColor(.secondary)
-                                        
-                                        if let pct = mediaKeyManager.accessoryBatteryLevels["\(deviceName) (Right)"] {
-                                            let isCharging = (OverlayStateRelay.shared.airpodsDeviceName == deviceName) ? OverlayStateRelay.shared.airpodsRightCharging : (mediaKeyManager.accessoryBatteryCharging["\(deviceName) (Right)"] == true)
-                                            if isCharging {
-                                                Image(systemName: "bolt.fill").font(.system(size: 11)).foregroundColor(.secondary)
-                                            } else {
-                                                Image(systemName: batteryIcon(for: pct)).font(.system(size: 11)).foregroundColor(.secondary)
-                                            }
-                                            Text("\(pct)%")
-                                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                                .foregroundColor(.primary)
-                                        } else {
-                                            Text("--%")
-                                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                                .foregroundColor(.secondary.opacity(0.3))
-                                        }
-                                    }
-                                }
-                                .frame(width: 90)
-                                Spacer()
-                            }
-                            .padding(.vertical, 32)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(10)
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
-                        } else {
-                            HStack(spacing: 16) {
-                                let iconName = mediaKeyManager.peripheralIcons[deviceName] ?? MediaKeyManager.fallbackIcon(for: deviceName)
-                                Image(systemName: iconName)
-                                    .font(.system(size: 24, weight: .regular))
-                                    .foregroundColor(.primary)
-                                    .frame(width: 48, height: 48)
-                                    .background(Color.secondary.opacity(0.1))
-                                    .cornerRadius(12)
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(deviceName)
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(.primary)
-                                    
-                                    if let pct = mediaKeyManager.accessoryBatteryLevels[deviceName] {
-                                        let isCharging = mediaKeyManager.accessoryBatteryCharging[deviceName] == true
-                                        HStack(spacing: 4) {
-                                            if isCharging {
-                                                Image(systemName: "bolt.fill").font(.system(size: 10))
-                                                Text("Charging").font(.system(size: 12))
-                                            } else {
-                                                Image(systemName: batteryIcon(for: pct)).font(.system(size: 10))
-                                                Text("Battery").font(.system(size: 12))
-                                            }
-                                        }
-                                        .foregroundColor(.secondary)
-                                    } else {
-                                        Text("Status unknown")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                
-                                Spacer()
-                                
-                                if let pct = mediaKeyManager.accessoryBatteryLevels[deviceName] {
-                                    Text("\(pct)%")
-                                        .font(.system(size: 18, weight: .bold, design: .monospaced))
-                                        .foregroundColor(.primary)
-                                } else {
-                                    Text("--%")
-                                        .font(.system(size: 18, weight: .bold, design: .monospaced))
-                                        .foregroundColor(.secondary.opacity(0.3))
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(10)
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
-                        }
+                        componentsOverview()
+                        
+                        Spacer()
                     }
-                    .padding(.bottom, 16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Overlay Content")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 4)
+                    HStack(alignment: .center, spacing: 20) {
+                        BluetoothOverlayView(isPreview: true, previewIsAccessory: true, previewIsConnected: true, previewDeviceName: deviceName, previewAccessorySettings: settings)
+                            .applyTheme(mediaKeyManager.overlayTheme)
+                            .frame(height: 56, alignment: .center)
                             
+                        BluetoothOverlayView(isPreview: true, previewIsAccessory: true, previewIsConnected: false, previewDeviceName: deviceName, previewAccessorySettings: settings)
+                            .applyTheme(mediaKeyManager.overlayTheme)
+                            .frame(height: 56, alignment: .center)
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(height: 56, alignment: .center)
+                    .zIndex(10)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            },
+            popovers: [
+                ModulePopover(
+                    icon: "link",
+                    title: "Overlay Triggers",
+                    content: AnyView(
                         VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Show Battery", subtitle: "Display battery percentage in the expanded overlay") {
-                                Toggle("", isOn: $settings.showBattery)
+                            CustomSettingsRow(icon: "link", iconColor: .blue, title: "On Connect", subtitle: "Show overlay and play sound when connected") {
+                                HStack(spacing: 8) {
+                                    if settings.notifyOnConnect {
+                                        if mediaKeyManager.overlayColorMode == "custom" {
+                                            ColorPickerControl(selectedColor: Binding(
+                                                get: { settings.colorOnConnect },
+                                                set: { newValue in
+                                                    settings.colorOnConnect = newValue
+                                                    saveSettings()
+                                                }
+                                            ))
+                                        }
+                                        if !isHeadphones {
+                                            SoundPickerControl(selectedSound: Binding(
+                                                get: { settings.soundOnConnect },
+                                                set: { newValue in
+                                                    settings.soundOnConnect = newValue
+                                                    saveSettings()
+                                                }
+                                            ))
+                                        }
+                                    }
+                                    Toggle("", isOn: Binding(
+                                        get: { settings.notifyOnConnect },
+                                        set: { newValue in
+                                            settings.notifyOnConnect = newValue
+                                            saveSettings()
+                                        }
+                                    ))
                                     .labelsHidden()
-                                    .disabled(settings.showBattery && !settings.showDetails)
-                                    .onChange(of: settings.showBattery) { _, _ in saveSettings() }
+                                }
                             }
                             
                             Divider().padding(.leading, 40)
                             
-                            CustomSettingsRow(icon: "info.circle", iconColor: .blue, title: "Show Details", subtitle: "Display device details like MAC address and firmware in the expanded overlay") {
-                                Toggle("", isOn: $settings.showDetails)
+                            CustomSettingsRow(icon: "link.badge.plus", iconColor: .orange, title: "On Disconnect", subtitle: "Show overlay and play sound when disconnected") {
+                                HStack(spacing: 8) {
+                                    if settings.notifyOnDisconnect {
+                                        if !isHeadphones {
+                                            SoundPickerControl(selectedSound: Binding(
+                                                get: { settings.soundOnDisconnect },
+                                                set: { newValue in
+                                                    settings.soundOnDisconnect = newValue
+                                                    saveSettings()
+                                                }
+                                            ))
+                                        }
+                                    }
+                                    Toggle("", isOn: Binding(
+                                        get: { settings.notifyOnDisconnect },
+                                        set: { newValue in
+                                            settings.notifyOnDisconnect = newValue
+                                            saveSettings()
+                                        }
+                                    ))
                                     .labelsHidden()
-                                    .disabled(settings.showDetails && !settings.showBattery)
-                                    .onChange(of: settings.showDetails) { _, _ in saveSettings() }
+                                }
                             }
-                        }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
-                    }
-                    .padding(.bottom, 16)
-                    
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("Overlay Triggers")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 4)
                             
-                        // 1. Connection Group
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("CONNECTION")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.secondary)
-                                .padding(.leading, 12)
-                            
-                            VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "link", iconColor: .blue, title: "On Connect", subtitle: "Show overlay and play sound when connected") {
+                            if deviceName.lowercased().contains("airpod") || deviceName.lowercased().contains("beats") {
+                                Divider().padding(.leading, 40)
+                                
+                                CustomSettingsRow(icon: "arrow.right.arrow.left", iconColor: .purple, title: "On Audio Transfer", subtitle: "Show overlay when audio transfers to another device") {
                                     HStack(spacing: 8) {
-                                        if settings.notifyOnConnect {
+                                        if settings.notifyOnSmartRouting {
                                             if mediaKeyManager.overlayColorMode == "custom" {
-                                                ColorPickerControl(selectedColor: $settings.colorOnConnect)
-                                                    .onChange(of: settings.colorOnConnect) { _, _ in saveSettings() }
-                                            }
-                                            if !isHeadphones {
-                                                SoundPickerControl(selectedSound: $settings.soundOnConnect)
-                                                    .onChange(of: settings.soundOnConnect) { _, _ in saveSettings() }
+                                                ColorPickerControl(selectedColor: Binding(
+                                                    get: { settings.colorOnSmartRouting },
+                                                    set: { newValue in
+                                                        settings.colorOnSmartRouting = newValue
+                                                        saveSettings()
+                                                    }
+                                                ))
                                             }
                                         }
-                                        Toggle("", isOn: $settings.notifyOnConnect)
-                                            .labelsHidden()
-                                            .onChange(of: settings.notifyOnConnect) { _, _ in saveSettings() }
+                                        Toggle("", isOn: Binding(
+                                            get: { settings.notifyOnSmartRouting },
+                                            set: { newValue in
+                                                settings.notifyOnSmartRouting = newValue
+                                                saveSettings()
+                                            }
+                                        ))
+                                        .labelsHidden()
                                     }
                                 }
                                 
                                 Divider().padding(.leading, 40)
                                 
-                                CustomSettingsRow(icon: "link.badge.plus", iconColor: .orange, title: "On Disconnect", subtitle: "Show overlay and play sound when disconnected") {
+                                CustomSettingsRow(icon: "airpodspro.chargingcase.wireless.fill", iconColor: .blue, title: "On Case Opened", subtitle: "Show battery overlay when case lid is opened") {
                                     HStack(spacing: 8) {
-                                        if settings.notifyOnDisconnect {
-                                            if !isHeadphones {
-                                                SoundPickerControl(selectedSound: $settings.soundOnDisconnect)
-                                                    .onChange(of: settings.soundOnDisconnect) { _, _ in saveSettings() }
-                                            }
-                                        }
-                                        Toggle("", isOn: $settings.notifyOnDisconnect)
-                                            .labelsHidden()
-                                            .onChange(of: settings.notifyOnDisconnect) { _, _ in saveSettings() }
-                                    }
-                                }
-                                
-                                if deviceName.lowercased().contains("airpod") || deviceName.lowercased().contains("beats") {
-                                    Divider().padding(.leading, 40)
-                                    
-                                    CustomSettingsRow(icon: "arrow.right.arrow.left", iconColor: .purple, title: "On Audio Transfer", subtitle: "Show overlay when audio transfers to another device") {
-                                        HStack(spacing: 8) {
-                                            if settings.notifyOnSmartRouting {
-                                                if mediaKeyManager.overlayColorMode == "custom" {
-                                                    ColorPickerControl(selectedColor: $settings.colorOnSmartRouting)
-                                                        .onChange(of: settings.colorOnSmartRouting) { _, _ in saveSettings() }
+                                        if mediaKeyManager.overlayColorMode == "custom" {
+                                            ColorPickerControl(selectedColor: Binding(
+                                                get: { settings.colorOnCaseOpen },
+                                                set: { newValue in
+                                                    settings.colorOnCaseOpen = newValue
+                                                    saveSettings()
                                                 }
-                                            }
-                                            Toggle("", isOn: $settings.notifyOnSmartRouting)
-                                                .labelsHidden()
-                                                .onChange(of: settings.notifyOnSmartRouting) { _, _ in saveSettings() }
+                                            ))
                                         }
-                                    }
-                                    
-                                    Divider().padding(.leading, 40)
-                                    
-                                    CustomSettingsRow(icon: "airpodspro.chargingcase.wireless.fill", iconColor: .blue, title: "On Case Opened", subtitle: "Show battery overlay when case lid is opened") {
-                                        HStack(spacing: 8) {
-                                            if mediaKeyManager.overlayColorMode == "custom" {
-                                                ColorPickerControl(selectedColor: $settings.colorOnCaseOpen)
-                                                    .onChange(of: settings.colorOnCaseOpen) { _, _ in saveSettings() }
-                                            }
-                                            if settings.notifyOnCaseOpen {
-                                                SoundPickerControl(selectedSound: $settings.soundOnCaseOpen)
-                                                    .onChange(of: settings.soundOnCaseOpen) { _, _ in saveSettings() }
-                                            }
-                                            Toggle("", isOn: $settings.notifyOnCaseOpen)
-                                                .labelsHidden()
-                                                .onChange(of: settings.notifyOnCaseOpen) { _, _ in saveSettings() }
+                                        if settings.notifyOnCaseOpen {
+                                            SoundPickerControl(selectedSound: Binding(
+                                                get: { settings.soundOnCaseOpen },
+                                                set: { newValue in
+                                                    settings.soundOnCaseOpen = newValue
+                                                    saveSettings()
+                                                }
+                                            ))
                                         }
+                                        Toggle("", isOn: Binding(
+                                            get: { settings.notifyOnCaseOpen },
+                                            set: { newValue in
+                                                settings.notifyOnCaseOpen = newValue
+                                                saveSettings()
+                                            }
+                                        ))
+                                        .labelsHidden()
                                     }
                                 }
                             }
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(10)
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
                         }
-                        
-                        // 2. Battery Group
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("BATTERY ALERTS")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.secondary)
-                                .padding(.leading, 12)
-                                
-                            VStack(spacing: 0) {
-                                ForEach($settings.customThresholds) { $threshold in
-                                    let isExpanded = expandedThresholds.contains(threshold.id)
-                                    VStack(spacing: 0) {
-                                        CustomSettingsRow(icon: "bell", iconColor: .green, title: "Alert at \(threshold.percentage)%", subtitle: "Custom battery threshold") {
-                                            HStack(spacing: 8) {
-                                                Stepper(onIncrement: {
-                                                    let existing = settings.customThresholds.filter { $0.id != threshold.id }.map { $0.percentage }
-                                                    $threshold.wrappedValue.percentage = BatteryThreshold.nextIncrement(current: threshold.percentage, existing: existing)
-                                                }, onDecrement: {
-                                                    let existing = settings.customThresholds.filter { $0.id != threshold.id }.map { $0.percentage }
-                                                    $threshold.wrappedValue.percentage = BatteryThreshold.nextDecrement(current: threshold.percentage, existing: existing)
-                                                }) {
-                                                    Text("\(threshold.percentage)%")
-                                                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                                        .foregroundColor(.primary)
-                                                }
-                                                .frame(width: 80)
-                                                .disabled(settings.customThresholds.count >= 99)
-                                                .onChange(of: threshold.percentage) { _, _ in saveSettings() }
-                                                
-                                                if threshold.isEnabled {
-                                                    SoundPickerControl(selectedSound: $threshold.sound)
-                                                        .onChange(of: threshold.sound) { _, _ in saveSettings() }
-                                                }
-                                                
-                                                Toggle("", isOn: $threshold.isEnabled)
-                                                    .labelsHidden()
-                                                    .onChange(of: threshold.isEnabled) { _, _ in saveSettings() }
-                                                
-                                                Button(action: {
-                                                    settings.customThresholds.removeAll { $0.id == threshold.id }
-                                                    saveSettings()
-                                                }) {
-                                                    Image(systemName: "trash")
-                                                        .foregroundColor(.red)
-                                                }
-                                                .buttonStyle(.plain)
-                                                
-                                                Image(systemName: "chevron.down")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                                                    .foregroundColor(.secondary)
-                                                    .frame(width: 20, height: 20)
-                                            }
-                                        }
-                                        .contentShape(Rectangle())
-                                        .onTapGesture {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                if isExpanded { expandedThresholds.remove(threshold.id) }
-                                                else { expandedThresholds.insert(threshold.id) }
-                                            }
-                                        }
-                                        
-                                        if isExpanded {
-                                            VStack(spacing: 8) {
-                                                HStack {
-                                                    VStack(alignment: .leading, spacing: 2) {
-                                                        Text("Trigger Condition")
-                                                            .font(.system(size: 13, weight: .medium))
-                                                            .foregroundColor(.primary)
-                                                        Text("When should this alert activate?")
-                                                            .font(.system(size: 11))
-                                                            .foregroundColor(.secondary)
-                                                    }
-                                                    Spacer()
-                                                    Picker("", selection: $threshold.triggerDirection) {
-                                                        Text("Any").tag("both")
-                                                        Text("Charge").tag("up")
-                                                        Text("Drain").tag("down")
-                                                    }
-                                                    .pickerStyle(.segmented)
-                                                    .fixedSize()
-                                                    .onChange(of: threshold.triggerDirection) { _, _ in saveSettings() }
-                                                }
-                                                .padding(.leading, 52)
-                                                
-                                                if deviceName.lowercased().contains("airpods") {
-                                                    HStack {
-                                                        VStack(alignment: .leading, spacing: 2) {
-                                                            Text("Target Devices")
-                                                                .font(.system(size: 13, weight: .medium))
-                                                                .foregroundColor(.primary)
-                                                            Text("Which components trigger this alert?")
-                                                                .font(.system(size: 11))
-                                                                .foregroundColor(.secondary)
-                                                        }
-                                                        Spacer()
-                                                        HStack(spacing: 12) {
-                                                            Toggle("Left", isOn: $threshold.applyToLeft)
-                                                            Toggle("Case", isOn: $threshold.applyToCase)
-                                                            Toggle("Right", isOn: $threshold.applyToRight)
-                                                        }
-                                                        .toggleStyle(.checkbox)
-                                                        .font(.system(size: 11))
-                                                        .onChange(of: threshold.applyToLeft) { _, _ in saveSettings() }
-                                                        .onChange(of: threshold.applyToRight) { _, _ in saveSettings() }
-                                                        .onChange(of: threshold.applyToCase) { _, _ in saveSettings() }
-                                                    }
-                                                    .padding(.leading, 52)
-                                                }
-                                            }
-                                            .padding(.horizontal, 12)
-                                            .padding(.bottom, 12)
-                                        }
+                    )
+                ),
+                ModulePopover(
+                    icon: "list.bullet",
+                    title: "Overlay Content",
+                    content: AnyView(
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Show Battery", subtitle: "Display battery percentage in the expanded overlay") {
+                                Toggle("", isOn: Binding(
+                                    get: { settings.showBattery },
+                                    set: { newValue in
+                                        settings.showBattery = newValue
+                                        saveSettings()
                                     }
-                                    Divider().padding(.leading, 40)
-                                }
-                                
+                                ))
+                                .labelsHidden()
+                                .disabled(settings.showBattery && !settings.showDetails)
+                            }
+                            
+                            Divider().padding(.leading, 40)
+                            
+                            CustomSettingsRow(icon: "info.circle", iconColor: .blue, title: "Show Details", subtitle: "Display device details like MAC address and firmware in the expanded overlay") {
+                                Toggle("", isOn: Binding(
+                                    get: { settings.showDetails },
+                                    set: { newValue in
+                                        settings.showDetails = newValue
+                                        saveSettings()
+                                    }
+                                ))
+                                .labelsHidden()
+                                .disabled(settings.showDetails && !settings.showBattery)
+                            }
+                        }
+                    )
+                ),
+                ModulePopover(
+                    icon: "bell",
+                    title: "Battery Alerts",
+                    content: AnyView(
+                        VStack(spacing: 0) {
+                            ForEach($settings.customThresholds) { $threshold in
+                                let isExpanded = expandedThresholds.contains(threshold.id)
                                 VStack(spacing: 0) {
-                                    CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged", subtitle: "Show when reaching full charge") {
+                                    CustomSettingsRow(icon: "bell", iconColor: .green, title: "Alert at \(threshold.percentage)%", subtitle: "Custom battery threshold") {
                                         HStack(spacing: 8) {
-                                            if settings.notifyOn100Percent {
-                                                SoundPickerControl(selectedSound: $settings.soundOn100Percent)
-                                                    .onChange(of: settings.soundOn100Percent) { _, _ in saveSettings() }
+                                            Stepper(onIncrement: {
+                                                let existing = settings.customThresholds.filter { $0.id != threshold.id }.map { $0.percentage }
+                                                $threshold.wrappedValue.percentage = BatteryThreshold.nextIncrement(current: threshold.percentage, existing: existing)
+                                                saveSettings()
+                                            }, onDecrement: {
+                                                let existing = settings.customThresholds.filter { $0.id != threshold.id }.map { $0.percentage }
+                                                $threshold.wrappedValue.percentage = BatteryThreshold.nextDecrement(current: threshold.percentage, existing: existing)
+                                                saveSettings()
+                                            }) {
+                                                Text("\(threshold.percentage)%")
+                                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                                    .foregroundColor(.primary)
                                             }
-                                            Toggle("", isOn: $settings.notifyOn100Percent)
-                                                .labelsHidden()
-                                                .onChange(of: settings.notifyOn100Percent) { _, _ in saveSettings() }
+                                            .frame(width: 80)
+                                            .disabled(settings.customThresholds.count >= 99)
                                             
-                                            if deviceName.lowercased().contains("airpods") {
-                                                Image(systemName: "chevron.down")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                    .rotationEffect(.degrees(isFullyChargedExpanded ? 180 : 0))
-                                                    .foregroundColor(.secondary)
-                                                    .frame(width: 20, height: 20)
+                                            if threshold.isEnabled {
+                                                SoundPickerControl(selectedSound: Binding(
+                                                    get: { threshold.sound },
+                                                    set: { newValue in
+                                                        $threshold.wrappedValue.sound = newValue
+                                                        saveSettings()
+                                                    }
+                                                ))
                                             }
+                                            
+                                            Toggle("", isOn: Binding(
+                                                get: { threshold.isEnabled },
+                                                set: { newValue in
+                                                    $threshold.wrappedValue.isEnabled = newValue
+                                                    saveSettings()
+                                                }
+                                            ))
+                                            .labelsHidden()
+                                            
+                                            Button(action: {
+                                                settings.customThresholds.removeAll { $0.id == threshold.id }
+                                                saveSettings()
+                                            }) {
+                                                Image(systemName: "trash")
+                                                    .foregroundColor(.red)
+                                            }
+                                            .buttonStyle(.plain)
+                                            
+                                            Image(systemName: "chevron.down")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                                                .foregroundColor(.secondary)
+                                                .frame(width: 20, height: 20)
                                         }
                                     }
                                     .contentShape(Rectangle())
                                     .onTapGesture {
-                                        if deviceName.lowercased().contains("airpods") {
-                                            withAnimation(.easeInOut(duration: 0.2)) {
-                                                isFullyChargedExpanded.toggle()
-                                            }
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            if isExpanded { expandedThresholds.remove(threshold.id) }
+                                            else { expandedThresholds.insert(threshold.id) }
                                         }
                                     }
                                     
-                                    if isFullyChargedExpanded {
+                                    if isExpanded {
                                         VStack(spacing: 8) {
-
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text("Trigger Condition")
+                                                        .font(.system(size: 13, weight: .medium))
+                                                        .foregroundColor(.primary)
+                                                    Text("When should this alert activate?")
+                                                        .font(.system(size: 11))
+                                                        .foregroundColor(.secondary)
+                                                }
+                                                Spacer()
+                                                Picker("", selection: Binding(
+                                                    get: { threshold.triggerDirection },
+                                                    set: { newValue in
+                                                        $threshold.wrappedValue.triggerDirection = newValue
+                                                        saveSettings()
+                                                    }
+                                                )) {
+                                                    Text("Any").tag("both")
+                                                    Text("Charge").tag("up")
+                                                    Text("Drain").tag("down")
+                                                }
+                                                .pickerStyle(.segmented)
+                                                .fixedSize()
+                                            }
+                                            .padding(.leading, 52)
+                                            
                                             if deviceName.lowercased().contains("airpods") {
                                                 HStack {
                                                     VStack(alignment: .leading, spacing: 2) {
@@ -508,15 +324,30 @@ struct AccessorySettingsView: View {
                                                     }
                                                     Spacer()
                                                     HStack(spacing: 12) {
-                                                        Toggle("Left", isOn: $settings.apply100PercentToLeft)
-                                                        Toggle("Case", isOn: $settings.apply100PercentToCase)
-                                                        Toggle("Right", isOn: $settings.apply100PercentToRight)
+                                                        Toggle("Left", isOn: Binding(
+                                                            get: { threshold.applyToLeft },
+                                                            set: { newValue in
+                                                                $threshold.wrappedValue.applyToLeft = newValue
+                                                                saveSettings()
+                                                            }
+                                                        ))
+                                                        Toggle("Case", isOn: Binding(
+                                                            get: { threshold.applyToCase },
+                                                            set: { newValue in
+                                                                $threshold.wrappedValue.applyToCase = newValue
+                                                                saveSettings()
+                                                            }
+                                                        ))
+                                                        Toggle("Right", isOn: Binding(
+                                                            get: { threshold.applyToRight },
+                                                            set: { newValue in
+                                                                $threshold.wrappedValue.applyToRight = newValue
+                                                                saveSettings()
+                                                            }
+                                                        ))
                                                     }
                                                     .toggleStyle(.checkbox)
                                                     .font(.system(size: 11))
-                                                    .onChange(of: settings.apply100PercentToLeft) { _, _ in saveSettings() }
-                                                    .onChange(of: settings.apply100PercentToRight) { _, _ in saveSettings() }
-                                                    .onChange(of: settings.apply100PercentToCase) { _, _ in saveSettings() }
                                                 }
                                                 .padding(.leading, 52)
                                             }
@@ -525,113 +356,215 @@ struct AccessorySettingsView: View {
                                         .padding(.bottom, 12)
                                     }
                                 }
-                                
                                 Divider().padding(.leading, 40)
-                                
-                                let isMaxReached = settings.customThresholds.count >= 99
-                                
-                                Button(action: {
-                                    withAnimation {
-                                        let existing = settings.customThresholds.map { $0.percentage }
-                                        let nextPct = BatteryThreshold.nextAvailablePercentage(existing: existing)
-                                        settings.customThresholds.append(BatteryThreshold(percentage: nextPct, sound: "None", isEnabled: true))
-                                        saveSettings()
-                                    }
-                                }) {
-                                    HStack {
-                                        Image(systemName: "plus.circle.fill")
-                                        Text("Add Custom Alert")
-                                            .font(.system(size: 13, weight: .medium))
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 12)
-                                    .foregroundColor(isMaxReached ? .gray : .blue)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(isMaxReached)
-                                .pointingHandCursor()
                             }
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(10)
-                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                            
+                            VStack(spacing: 0) {
+                                CustomSettingsRow(icon: "battery.100", iconColor: .green, title: "Fully charged", subtitle: "Show when reaching full charge") {
+                                    HStack(spacing: 8) {
+                                        if settings.notifyOn100Percent {
+                                            SoundPickerControl(selectedSound: Binding(
+                                                get: { settings.soundOn100Percent },
+                                                set: { newValue in
+                                                    settings.soundOn100Percent = newValue
+                                                    saveSettings()
+                                                }
+                                            ))
+                                        }
+                                        Toggle("", isOn: Binding(
+                                            get: { settings.notifyOn100Percent },
+                                            set: { newValue in
+                                                settings.notifyOn100Percent = newValue
+                                                saveSettings()
+                                            }
+                                        ))
+                                        .labelsHidden()
+                                        
+                                        if deviceName.lowercased().contains("airpods") {
+                                            Image(systemName: "chevron.down")
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .rotationEffect(.degrees(isFullyChargedExpanded ? 180 : 0))
+                                                .foregroundColor(.secondary)
+                                                .frame(width: 20, height: 20)
+                                        }
+                                    }
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    if deviceName.lowercased().contains("airpods") {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            isFullyChargedExpanded.toggle()
+                                        }
+                                    }
+                                }
+                                
+                                if isFullyChargedExpanded {
+                                    VStack(spacing: 8) {
+                                        if deviceName.lowercased().contains("airpods") {
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text("Target Devices")
+                                                        .font(.system(size: 13, weight: .medium))
+                                                        .foregroundColor(.primary)
+                                                    Text("Which components trigger this alert?")
+                                                        .font(.system(size: 11))
+                                                        .foregroundColor(.secondary)
+                                                }
+                                                Spacer()
+                                                HStack(spacing: 12) {
+                                                    Toggle("Left", isOn: Binding(
+                                                        get: { settings.apply100PercentToLeft },
+                                                        set: { newValue in
+                                                            settings.apply100PercentToLeft = newValue
+                                                            saveSettings()
+                                                        }
+                                                    ))
+                                                    Toggle("Case", isOn: Binding(
+                                                        get: { settings.apply100PercentToCase },
+                                                        set: { newValue in
+                                                            settings.apply100PercentToCase = newValue
+                                                            saveSettings()
+                                                        }
+                                                    ))
+                                                    Toggle("Right", isOn: Binding(
+                                                        get: { settings.apply100PercentToRight },
+                                                        set: { newValue in
+                                                            settings.apply100PercentToRight = newValue
+                                                            saveSettings()
+                                                        }
+                                                    ))
+                                                }
+                                                .toggleStyle(.checkbox)
+                                                .font(.system(size: 11))
+                                            }
+                                            .padding(.leading, 52)
+                                        }
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.bottom, 12)
+                                }
+                            }
+                            
+                            Divider().padding(.leading, 40)
+                            
+                            let isMaxReached = settings.customThresholds.count >= 99
+                            
+                            Button(action: {
+                                withAnimation {
+                                    let existing = settings.customThresholds.map { $0.percentage }
+                                    let nextPct = BatteryThreshold.nextAvailablePercentage(existing: existing)
+                                    settings.customThresholds.append(BatteryThreshold(percentage: nextPct, sound: "None", isEnabled: true))
+                                    saveSettings()
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Add Custom Alert")
+                                        .font(.system(size: 13, weight: .medium))
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 12)
+                                .foregroundColor(isMaxReached ? .gray : .blue)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isMaxReached)
                         }
-                        
-                        let lowerName = deviceName.lowercased()
-                        if lowerName.contains("airpod") || lowerName.contains("beats") {
-                            // 3. Listening Modes Group
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("LISTENING MODES")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.secondary)
-                                    .padding(.leading, 12)
-                                    
+                    )
+                ),
+                ModulePopover(
+                    icon: "earbuds",
+                    title: "Listening Modes",
+                    content: AnyView(
+                        Group {
+                            let lowerName = deviceName.lowercased()
+                            if lowerName.contains("airpod") || lowerName.contains("beats") {
                                 VStack(spacing: 0) {
                                     CustomSettingsRow(icon: "earbuds.case.fill", iconColor: .indigo, title: "Noise Cancellation", subtitle: "Show overlay for ANC mode") {
-                                        if mediaKeyManager.overlayColorMode == "custom" {
-                                            ColorPickerControl(selectedColor: $settings.colorOnAirPodsANC)
-                                                    .onChange(of: settings.colorOnAirPodsANC) { _, _ in saveSettings() }
+                                        HStack {
+                                            if mediaKeyManager.overlayColorMode == "custom" {
+                                                ColorPickerControl(selectedColor: $settings.colorOnAirPodsANC)
+                                            }
+                                            Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsANC).labelsHidden()
                                         }
-
-                                        Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsANC).labelsHidden()
                                     }
                                     Divider().padding(.leading, 40)
                                     CustomSettingsRow(icon: "earbuds", iconColor: .indigo, title: "Transparency", subtitle: "Show overlay for transparency mode") {
-                                        if mediaKeyManager.overlayColorMode == "custom" {
-                                            ColorPickerControl(selectedColor: $settings.colorOnAirPodsTransparency)
-                                                    .onChange(of: settings.colorOnAirPodsTransparency) { _, _ in saveSettings() }
+                                        HStack {
+                                            if mediaKeyManager.overlayColorMode == "custom" {
+                                                ColorPickerControl(selectedColor: $settings.colorOnAirPodsTransparency)
+                                            }
+                                            Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsTransparency).labelsHidden()
                                         }
-
-                                        Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsTransparency).labelsHidden()
                                     }
                                     Divider().padding(.leading, 40)
                                     CustomSettingsRow(icon: "earbuds.case", iconColor: .indigo, title: "Adaptive Audio", subtitle: "Show overlay for adaptive mode") {
-                                        if mediaKeyManager.overlayColorMode == "custom" {
-                                            ColorPickerControl(selectedColor: $settings.colorOnAirPodsAdaptive)
-                                                    .onChange(of: settings.colorOnAirPodsAdaptive) { _, _ in saveSettings() }
+                                        HStack {
+                                            if mediaKeyManager.overlayColorMode == "custom" {
+                                                ColorPickerControl(selectedColor: $settings.colorOnAirPodsAdaptive)
+                                            }
+                                            Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsAdaptive).labelsHidden()
                                         }
-
-                                        Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsAdaptive).labelsHidden()
                                     }
                                     Divider().padding(.leading, 40)
                                     CustomSettingsRow(icon: "airpods", iconColor: .indigo, title: "Off", subtitle: "Show overlay for off mode") {
-                                        if mediaKeyManager.overlayColorMode == "custom" {
-                                            ColorPickerControl(selectedColor: $settings.colorOnAirPodsOff)
-                                                    .onChange(of: settings.colorOnAirPodsOff) { _, _ in saveSettings() }
+                                        HStack {
+                                            if mediaKeyManager.overlayColorMode == "custom" {
+                                                ColorPickerControl(selectedColor: $settings.colorOnAirPodsOff)
+                                            }
+                                            Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsOff).labelsHidden()
                                         }
-
-                                        Toggle("", isOn: $mediaKeyManager.notifyOnAirPodsOff).labelsHidden()
                                     }
                                 }
-                                .toggleStyle(.switch)
-                                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                                .cornerRadius(10)
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                            } else {
+                                CustomSettingsRow(icon: "info.circle", iconColor: .gray, title: "Not Supported", subtitle: "Listening modes are only supported for AirPods and Beats devices.") {
+                                    EmptyView()
+                                }
                             }
                         }
-                    }
-                }
-                
+                    )
+                )
+            ],
+            inlineControls: [
+                AnyView(
+                    InlineControlView(
+                        icon: "arrow.up.left.and.arrow.down.right",
+                        title: "Allow Expansion",
+                        control: Toggle("", isOn: Binding(
+                            get: { settings.allowExpansion },
+                            set: { newValue in
+                                settings.allowExpansion = newValue
+                                saveSettings()
+                            }
+                        ))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                    )
+                )
+            ],
+            headerTrailingControls: AnyView(
                 Button(action: {
-                    mediaKeyManager.forgetAccessory(name: deviceName)
+                    showForgetConfirmation = true
                 }) {
-                    HStack {
+                    HStack(spacing: 6) {
                         Image(systemName: "trash")
-                        Text("Forget Accessory")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Forget")
+                            .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundColor(.red)
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 16)
                 }
-                .buttonStyle(.plain)
-                .background(Color.red.opacity(0.1))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.red.opacity(0.3), lineWidth: 1))
-                .padding(.top, 16)
+                .buttonStyle(InteractiveGlassButtonStyle(isActive: true, tintColor: .red))
+            ),
+            previewTopOffset: 60
+        )
+        .alert("Forget \"\(deviceName)\"?", isPresented: $showForgetConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Forget", role: .destructive) {
+                mediaKeyManager.forgetAccessory(name: deviceName)
             }
-            .toggleStyle(.switch)
-            .padding(24)
+        } message: {
+            Text("Are you sure you want to forget this device? All custom settings and battery history for this device will be removed.")
         }
         .onAppear {
             self.settings = mediaKeyManager.accessorySettings[deviceName] ?? AccessoryDeviceSettings()
@@ -647,6 +580,126 @@ struct AccessorySettingsView: View {
         mediaKeyManager.accessorySettings = dict
     }
     
+    
+    @ViewBuilder
+    private func componentsOverview() -> some View {
+        let hasComponents = mediaKeyManager.accessoryBatteryHistory.contains { $0.hasPrefix(deviceName) && $0 != deviceName }
+        
+        VStack(spacing: 14) {
+            Text(deviceName)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(.primary)
+            
+            if hasComponents {
+                HStack(spacing: 20) {
+                    batteryComponent(title: "Left", icon: "airpodpro.left", key: "\(deviceName) (Left)")
+                    
+                    Divider().frame(height: 48).opacity(0.25)
+                    
+                    batteryComponent(title: "Case", icon: "airpodspro.chargingcase.wireless.fill", key: "\(deviceName) (Case)")
+                    
+                    Divider().frame(height: 48).opacity(0.25)
+                    
+                    batteryComponent(title: "Right", icon: "airpodpro.right", key: "\(deviceName) (Right)")
+                }
+                .padding(.horizontal, 6)
+            } else {
+                singleAccessoryRow()
+            }
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 18)
+        .visorGlassEffect(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+    }
+    
+    @ViewBuilder
+    private func batteryComponent(title: String, icon: String, key: String) -> some View {
+        let pct = mediaKeyManager.accessoryBatteryLevels[key]
+        let isCharging = (OverlayStateRelay.shared.airpodsDeviceName == deviceName)
+            ? (title == "Left" ? OverlayStateRelay.shared.airpodsLeftCharging : (title == "Case" ? OverlayStateRelay.shared.airpodsCaseCharging : OverlayStateRelay.shared.airpodsRightCharging))
+            : (mediaKeyManager.accessoryBatteryCharging[key] == true)
+        
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 30, weight: .light))
+                .foregroundColor(.primary)
+                .frame(height: 36)
+            
+            VStack(spacing: 3) {
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                
+                HStack(spacing: 4) {
+                    if let pct = pct {
+                        if isCharging {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(.green)
+                        } else {
+                            Image(systemName: batteryIcon(for: pct))
+                                .font(.system(size: 10))
+                                .foregroundColor(pct <= 20 ? .red : .secondary)
+                        }
+                        Text("\(pct)%")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundColor(.primary)
+                    } else {
+                        Text("--%")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundColor(.secondary.opacity(0.4))
+                    }
+                }
+            }
+        }
+        .frame(width: 80)
+    }
+    
+    @ViewBuilder
+    private func singleAccessoryRow() -> some View {
+        let iconName = mediaKeyManager.peripheralIcons[deviceName] ?? MediaKeyManager.fallbackIcon(for: deviceName)
+        let pct = mediaKeyManager.accessoryBatteryLevels[deviceName]
+        let isCharging = mediaKeyManager.accessoryBatteryCharging[deviceName] == true
+        
+        HStack(spacing: 16) {
+            Image(systemName: iconName)
+                .font(.system(size: 22, weight: .regular))
+                .foregroundColor(.primary)
+                .frame(width: 42, height: 42)
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(10)
+            
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Battery Status")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.primary)
+                Text(pct != nil ? (isCharging ? "Charging" : "Connected") : "Status unknown")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            if let pct = pct {
+                HStack(spacing: 5) {
+                    if isCharging {
+                        Image(systemName: "bolt.fill").font(.system(size: 12)).foregroundColor(.green)
+                    } else {
+                        Image(systemName: batteryIcon(for: pct)).font(.system(size: 12)).foregroundColor(pct <= 20 ? .red : .secondary)
+                    }
+                    Text("\(pct)%")
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                        .foregroundColor(.primary)
+                }
+            } else {
+                Text("--%")
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundColor(.secondary.opacity(0.4))
+            }
+        }
+        .frame(maxWidth: 320)
+    }
+
     private func batteryIcon(for percentage: Int) -> String {
         if percentage >= 85 { return "battery.100" }
         if percentage >= 60 { return "battery.75" }

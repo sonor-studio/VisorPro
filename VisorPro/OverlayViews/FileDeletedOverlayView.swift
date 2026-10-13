@@ -4,6 +4,7 @@ struct FileDeletedOverlayView: View {
     @State private var isExpanded: Bool = false
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
+    @AppStorage("trashAllowExpansion") private var trashAllowExpansion: Bool = true
     var isPreview: Bool = false
     
 
@@ -56,7 +57,7 @@ struct FileDeletedOverlayView: View {
                     mediaKeyManager.keepAlive(for: "fileDeleted", isHovering: true)
                 }
             },
-            isExpandable: true,
+            isExpandable: trashAllowExpansion,
             expandUpwards: overlayPosition.hasPrefix("bottom"),
             keepAliveId: "fileDeleted",
             baseContent: {

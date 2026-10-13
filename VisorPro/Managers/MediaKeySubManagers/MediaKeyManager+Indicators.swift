@@ -22,11 +22,7 @@ extension MediaKeyManager {
         self.overlayTriggerTimes["volume"] = Date()
         
         if !globalHoveredTypes.contains("volume") {
-            volumeTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showVolumeIndicator = false
-                }
-            }
+            scheduleOverlayHide(for: "volume")
         }
     }
 
@@ -51,10 +47,8 @@ extension MediaKeyManager {
         self.overlayTriggerTimes["brightness"] = Date()
         
         if !globalHoveredTypes.contains("brightness") {
-            brightnessTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showBrightnessIndicator = false
-                }
+            scheduleOverlayHide(for: "brightness")
+            DispatchQueue.main.asyncAfter(deadline: .now() + MediaKeyManager.notificationDuration) {
                 BrightnessManager.shared.stopPolling()
             }
         }
@@ -78,10 +72,8 @@ extension MediaKeyManager {
         }
         self.overlayTriggerTimes["keyboardBrightness"] = Date()
         
-        keyboardBrightnessTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self?.showKeyboardBrightnessIndicator = false
-            }
+        if !globalHoveredTypes.contains("keyboardBrightness") {
+            scheduleOverlayHide(for: "keyboardBrightness")
         }
     }
 
@@ -95,7 +87,7 @@ extension MediaKeyManager {
             playNotificationSound(named: sound)
         }
         
-        capsLockTimer?.invalidate()
+        cancelOverlayHide(for: "capsLock")
         let pos = self.getOverlayPosition(for: "capsLockOverlayPosition")
         dismissCollidingIndicators(newPosition: pos, source: "capsLock")
         
@@ -112,16 +104,9 @@ extension MediaKeyManager {
 
                 }
 
-                self.capsLockTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-
-                    withAnimation(.easeInOut(duration: 0.25)) {
-
-                        self?.showCapsLockIndicator = false
-
-                    }
-
+                if !self.globalHoveredTypes.contains("capsLock") {
+                    self.scheduleOverlayHide(for: "capsLock")
                 }
-
             }
 
             
@@ -139,7 +124,7 @@ extension MediaKeyManager {
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.themeTimer?.invalidate()
+            cancelOverlayHide(for: "theme")
             
             let pos = self.getOverlayPosition(for: "themeOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "theme")
@@ -157,16 +142,9 @@ extension MediaKeyManager {
 
                 }
 
-                self.themeTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-
-                    withAnimation(.easeInOut(duration: 0.25)) {
-
-                        self?.showThemeIndicator = false
-
-                    }
-
+                if !self.globalHoveredTypes.contains("theme") {
+                    self.scheduleOverlayHide(for: "theme")
                 }
-
             }
 
             
@@ -218,10 +196,8 @@ extension MediaKeyManager {
             self.notifyOverlayStateChanged()
         }
         
-        self.languageTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self?.showLanguageIndicator = false
-            }
+        if !self.globalHoveredTypes.contains("language") {
+            self.scheduleOverlayHide(for: "language")
         }
     }
 
@@ -351,8 +327,8 @@ extension MediaKeyManager {
     }
     
     // MARK: - AirPods Mode
-    func triggerAirPodsModeOverlayFromNativeTrigger() {
-        if let mode = self.airPodsModeObserver?.getCurrentMode() {
+    func triggerAirPodsModeOverlayFromNativeTrigger(mode: Int? = nil) {
+        if let mode = mode ?? self.airPodsModeObserver?.getCurrentMode() {
             self.triggerAirPodsModeOverlay(mode: mode)
         }
     }
@@ -362,15 +338,15 @@ extension MediaKeyManager {
         
         let changed = (OverlayStateRelay.shared.airPodsModeValue != mode)
         
-        if !changed {
-            if let lastTrigger = self.overlayTriggerTimes["airpodsMode"], Date().timeIntervalSince(lastTrigger) < 5.0 {
+        if !changed && OverlayStateRelay.shared.showAirPodsModeIndicator {
+            if let lastTrigger = self.overlayTriggerTimes["airpodsMode"], Date().timeIntervalSince(lastTrigger) < 2.0 {
                 return
             }
         }
         if changed {
             OverlayStateRelay.shared.previousAirPodsModeValue = OverlayStateRelay.shared.airPodsModeValue
-            self.overlayTriggerTimes["airpodsMode"] = Date()
         }
+        self.overlayTriggerTimes["airpodsMode"] = Date()
         
         var shouldShow = true
         if mode == 1 && !notifyOnAirPodsOff { shouldShow = false }

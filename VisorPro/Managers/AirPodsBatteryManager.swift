@@ -13,6 +13,7 @@ class AirPodsBatteryManager: ObservableObject {
     private var isLidClosed: Bool = true
     var isAnyInEar: Bool = false
     var lastConnectionLogTime: Date = Date.distantPast
+    var lastInEarEventTime: Date = Date.distantPast
     private var disconnectWorkItem: DispatchWorkItem?
     
     private init() {
@@ -114,6 +115,7 @@ class AirPodsBatteryManager: ObservableObject {
             
             // Check for in-ear state changes explicitly
             if line.contains("Setting inEarStateUnified") {
+                lastInEarEventTime = Date()
                 if line.contains("-> InEar") {
                     lastConnectionLogTime = Date()
                     if !isAnyInEar {

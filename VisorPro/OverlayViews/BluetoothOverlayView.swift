@@ -5,6 +5,7 @@ struct BluetoothOverlayView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
     @AppStorage("bluetoothAllowExpansion") private var bluetoothAllowExpansion: Bool = true
+    @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion: Bool = true
     @State private var isHovering = false
     @State private var refreshTimer: Timer?
     @State private var isExpanded: Bool = false
@@ -15,6 +16,7 @@ struct BluetoothOverlayView: View {
     var previewIsAccessory: Bool = false
     var previewIsConnected: Bool = true
     var previewDeviceName: String = "AirPods Pro"
+    var previewAccessorySettings: AccessoryDeviceSettings? = nil
     var notification: DeviceNotification?
     
     private var actualIsConnected: Bool {
@@ -164,6 +166,9 @@ struct BluetoothOverlayView: View {
         let systemName = resolvedSystemName.isEmpty ? actualDeviceName : resolvedSystemName
         
         let currentAccessorySettings: AccessoryDeviceSettings = {
+            if isPreview, let pas = previewAccessorySettings {
+                return pas
+            }
             var settings = mediaKeyManager.accessorySettings[actualDeviceName]
             if settings == nil, (actualDeviceName.lowercased().contains("airpods") || notification?.id.hasPrefix("AIRPODS_CONNECTION") == true) {
                 settings = mediaKeyManager.accessorySettings.first(where: { $0.key.lowercased().contains("airpods") })?.value
@@ -288,7 +293,12 @@ struct BluetoothOverlayView: View {
                     }
                 }
             },
-            isExpandable: bluetoothAllowExpansion,
+            isExpandable: {
+                let isAccessory = isPreview ? previewIsAccessory : (notification?.type == "accessory")
+                return isAccessory
+                    ? (currentAccessorySettings.allowExpansion && (actualIsConnected ? (currentAccessorySettings.showBattery || currentAccessorySettings.showDetails) : currentAccessorySettings.showDetails))
+                    : (bluetoothAllowExpansion && actualIsConnected)
+            }(),
             expandUpwards: btPos.hasPrefix("bottom"),
             keepAliveId: keepAliveType,
             disableTimeoutMode: isAccessoryType && actualIsConnected && averageBattery != nil,
@@ -418,7 +428,8 @@ struct BluetoothOverlayView: View {
                                 }
                                 if hasRealDetails && currentAccessorySettings.showDetails {
                                     Button(action: {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                        let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
+                                        withAnimation(anim) {
                                             showDetails.toggle()
                                         }
                                     }) {

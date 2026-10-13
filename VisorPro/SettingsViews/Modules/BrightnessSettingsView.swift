@@ -11,101 +11,43 @@ struct BrightnessSettingsView: View {
     @State private var showAppleEventsPermissionAlert: Bool = false
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Brightness Module")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    
-                    Text("Module Configuration")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 4)
-                        
-                    VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "power", iconColor: .yellow, title: "Enable Brightness Module", subtitle: "When disabled, VisorPro completely ignores brightness keys and macOS handles them natively") {
-                            Toggle("", isOn: $mediaKeyManager.enableBrightness).labelsHidden()
-                        }
-                    }
-                    .toggleStyle(.switch)
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
-                }
-                .padding(.horizontal)
-
-                if mediaKeyManager.enableBrightness {
-                
-
-                
-                    VStack(alignment: .center) {
-                        Text("Preview")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                    
-                        ZStack {
-                            PreviewBackgroundView()
-                        
-                            BrightnessOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-                                .scaleEffect(0.85)
-                        }
-                        .padding(.horizontal)
-                    }
-                    .padding(.top, 20)
-                
-                    Divider()
-                
-                    if mediaKeyManager.enableBrightness {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Sound Settings")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.leading, 4)
+        ModuleSettingsLayout(
+            title: "Brightness",
+            isEnabled: $mediaKeyManager.enableBrightness,
+            preview: {
+                BrightnessOverlayView(isPreview: true)
+                    .applyTheme(mediaKeyManager.overlayTheme)
+            },
+            popovers: [
+                ModulePopover(
+                    icon: "speaker.wave.2.fill",
+                    title: "Sound Settings",
+                    content: AnyView(
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "speaker.wave.2.fill", iconColor: .yellow, title: "Notification Sound", subtitle: "Select the sound to play when changing brightness") {
+                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnBrightness)
+                            }
                             
-                            VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "speaker.wave.2.fill", iconColor: .yellow, title: "Notification Sound", subtitle: "Select the sound to play when changing brightness") {
-                                    SoundPickerControl(selectedSound: $mediaKeyManager.soundOnBrightness)
-                                }
-                                
-                                if mediaKeyManager.overlayColorMode == "custom" {
-                                    Divider().padding(.leading, 12)
-                                    CustomSettingsRow(icon: "paintpalette.fill", iconColor: .yellow, title: "Notification Color", subtitle: "Select the color for this overlay") {
-                                        ColorPickerControl(selectedColor: $mediaKeyManager.colorOnBrightness)
-                                    }
+                            if mediaKeyManager.overlayColorMode == "custom" {
+                                Divider().padding(.leading, 12)
+                                CustomSettingsRow(icon: "paintpalette.fill", iconColor: .yellow, title: "Notification Color", subtitle: "Select the color for this overlay") {
+                                    ColorPickerControl(selectedColor: $mediaKeyManager.colorOnBrightness)
                                 }
                             }
-                            .toggleStyle(.switch)
-                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            .cornerRadius(10)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                            )
                         }
-                        .padding(.horizontal)
-                    
-                        Divider()
-                    }
-                
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Behavior")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.bottom, 4)
-                            .padding(.leading, 4)
-                    
+                    )
+                ),
+                ModulePopover(
+                    icon: "slider.horizontal.3",
+                    title: "Behavior",
+                    content: AnyView(
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "plus.forwardslash.minus", iconColor: .yellow, title: "Step Size", subtitle: "Percentage to change when pressing keys") {
                                 HStack {
                                     Slider(value: $brightnessStep, in: 1...25, step: 1)
-                                    .labelsHidden()
-                                    .frame(width: 150)
-                                
+                                        .labelsHidden()
+                                        .frame(width: 150)
+                                    
                                     Text(String(format: "%.1f%%", brightnessStep))
                                         .frame(width: 50, alignment: .trailing)
                                 }
@@ -116,47 +58,35 @@ struct BrightnessSettingsView: View {
                             CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .yellow, title: "Allow Expansion", subtitle: "Allow overlay to expand and show True Tone and Night Shift") {
                                 Toggle("", isOn: $brightnessAllowExpansion).labelsHidden()
                             }
-                        
+                            
                             Divider().padding(.leading, 40)
-                        
+                            
                             CustomSettingsRow(icon: "hand.tap.fill", iconColor: .yellow, title: "Allow Interactivity", subtitle: "Allow dragging horizontally to change brightness") {
                                 Toggle("", isOn: $brightnessAllowInteractivity).labelsHidden()
                             }
                         }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .padding(.horizontal)
-                
-                    if overlayPositionMode == "custom" {
-                        Divider()
-                    
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Overlay Position")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                                .padding(.top, 10)
-                            
-                            PositionPickerGroup(selection: $brightnessOverlayPosition)
+                    )
+                ),
+                ModulePopover(
+                    icon: "pip",
+                    title: "Overlay Position",
+                    show: overlayPositionMode == "custom",
+                    content: AnyView(
+                        Group {
+                            if overlayPositionMode == "custom" {
+                                PositionPickerGroup(selection: $brightnessOverlayPosition)
+                                    .padding(.vertical, 8)
+                            } else {
+                                CustomSettingsRow(icon: "exclamationmark.triangle.fill", iconColor: .orange, title: "Custom Positioning Disabled", subtitle: "Enable Custom Positioning in General Settings to modify overlay placement.") {
+                                    EmptyView()
+                                }
+                            }
                         }
-                        .padding(.horizontal)
-                    }
-                
-                    Spacer()
-            
-                } else {
-                    DisabledModuleView(icon: "power", title: "Brightness Module is Disabled", description: "Turn on the module to configure brightness overlays.")
-                }
-}
-        }
+                    )
+                )
+            ]
+        )
         .navigationTitle("Brightness")
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.clear)
         .alert(isPresented: $showAppleEventsPermissionAlert) {
             Alert(
                 title: Text("Apple Events Access Required"),

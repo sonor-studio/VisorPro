@@ -40,4 +40,22 @@ extension String {
         result += charStr.uppercased()
         return result
     }
+    
+    var keyEquivalentCharacter: String {
+        let charStr = self.replacingOccurrences(of: "@", with: "")
+                          .replacingOccurrences(of: "^", with: "")
+                          .replacingOccurrences(of: "~", with: "")
+                          .replacingOccurrences(of: "$", with: "")
+        guard let first = charStr.first else { return "" }
+        return String(first).lowercased()
+    }
+    
+    var eventModifierFlags: NSEvent.ModifierFlags {
+        var flags = NSEvent.ModifierFlags()
+        if self.contains("@") { flags.insert(.command) }
+        if self.contains("^") { flags.insert(.control) }
+        if self.contains("~") { flags.insert(.option) }
+        if self.contains("$") { flags.insert(.shift) }
+        return flags
+    }
 }

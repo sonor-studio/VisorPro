@@ -5,6 +5,7 @@ struct CpuTemperatureOverlayView: View {
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
+    @AppStorage("systemAllowExpansion") private var systemAllowExpansion: Bool = true
     @ObservedObject var metrics = SystemMetricsRelay.shared
     var isPreview: Bool = false
     
@@ -36,7 +37,7 @@ struct CpuTemperatureOverlayView: View {
                     mediaKeyManager.keepAlive(for: "cpu", isHovering: true)
                 }
             },
-            isExpandable: true,
+            isExpandable: systemAllowExpansion,
             expandUpwards: cpuPos.hasPrefix("bottom"),
             keepAliveId: "cpu",
             baseContent: {

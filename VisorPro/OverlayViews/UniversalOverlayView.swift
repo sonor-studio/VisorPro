@@ -170,6 +170,7 @@ struct ExpandedHeightPreferenceKey: PreferenceKey {
 
 struct BouncyHeightModifier: AnimatableModifier {
     var height: CGFloat
+    var alignment: Alignment = .top
     
     var animatableData: CGFloat {
         get { height }
@@ -177,7 +178,10 @@ struct BouncyHeightModifier: AnimatableModifier {
     }
     
     func body(content: Content) -> some View {
-        content.frame(height: round(max(0, height)), alignment: .top)
+        content
+            .frame(height: round(max(0, height)), alignment: alignment)
+            .clipped()
+            .opacity(height > 0 ? 1 : 0)
     }
 }
 
@@ -226,6 +230,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var expandedKeepAliveTimer: Timer? = nil
     @State private var expandedHeight: CGFloat = 0
     @State private var bendProgress: CGFloat = 0
+    @State private var lastTapTime: TimeInterval = 0
     @AppStorage("enableCloseButton") private var enableCloseButton = false
     @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = true
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
@@ -281,7 +286,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                             Rectangle()
                                 .fill(Color.clear)
                                 .contentShape(Rectangle())
-                                .conditionalPointingHandCursor(isEnabled: !isPreview)
+                                .conditionalPointingHandCursor(isEnabled: isExpandable || onSimpleTap != nil)
                         } else {
                             Spacer()
                         }
@@ -324,6 +329,10 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 return
                             }
                             
+                            let now = CACurrentMediaTime()
+                            guard now - lastTapTime > 0.25 else { return }
+                            lastTapTime = now
+                            
                             let locX = event.location.x
                             
                             if onLeftTap != nil && locX <= 60 {
@@ -356,14 +365,24 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                             }
                         }
                     )
-                    .modifier(BouncyHeightModifier(height: isExpanded ? (fixedExpandedHeight ?? expandedHeight) : 0))
-                    .animation(isPreview ? nil : (enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)), value: expandedHeight)
-                    .opacity(isExpanded ? 1 : 0)
+                    .modifier(BouncyHeightModifier(
+                        height: isExpanded ? (fixedExpandedHeight ?? expandedHeight) : 0,
+                        alignment: expandUpwards ? .bottom : .top
+                    ))
+                    .animation(isExpanded ? (enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)) : .easeOut(duration: 0.2), value: isExpanded)
+                    .animation(enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25), value: expandedHeight)
                     .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
                         DispatchQueue.main.async {
                             if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 2.0 {
-                                expandedHeight = height
+                                if isExpanded {
+                                    let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
+                                    withAnimation(anim) {
+                                        expandedHeight = height
+                                    }
+                                } else {
+                                    expandedHeight = height
+                                }
                             }
                         }
                     }
@@ -517,16 +536,14 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         )
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PreviewWillExit"))) { _ in
             if isPreview && isExpanded {
-                let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
-                withAnimation(anim) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     isExpanded = false
                 }
             }
         }
         .onChange(of: OverlayStateRelay.shared.closingPanels.contains(keepAliveId ?? "")) { _, isClosing in
             if isClosing && isExpanded {
-                let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
-                withAnimation(anim) {
+                withAnimation(.easeOut(duration: 0.2)) {
                     isExpanded = false
                 }
             }
@@ -554,6 +571,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             expandedKeepAliveTimer = nil
         }
         .onChange(of: isExpanded) { _, expanded in
+            updateBendProgress()
             if expanded {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
@@ -571,6 +589,9 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     triggerKeepAlive(expandedOverride: false)
                 }
             }
+        }
+        .onChange(of: enableCloseButton) { _, _ in
+            updateBendProgress()
         }
         
         if enableCloseButton {

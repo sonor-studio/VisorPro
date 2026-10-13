@@ -3,74 +3,37 @@ import SwiftUI
 struct TrashSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @Environment(\.colorScheme) var colorScheme
-    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "automatic"
+    @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("trashOverlayPosition") private var trashOverlayPosition: String = "bottomRight"
     @AppStorage("fileDeletedOverlayPosition") private var fileDeletedOverlayPosition: String = "bottomRight"
+    @AppStorage("trashAllowExpansion") private var trashAllowExpansion: Bool = true
     @AppStorage("showTrashModule") private var showTrashModule: Bool = true
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Trash Module")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    
-                    Text("Module Configuration")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 12)
-.padding(.leading, 12)
-                    
-                    VStack(spacing: 0) {
-                        CustomSettingsRow(icon: "trash", iconColor: .orange, title: "Enable Trash Module", subtitle: "When disabled, VisorPro will not show trash overlays") {
-                            Toggle("", isOn: $showTrashModule).labelsHidden()
-                        }
+        ModuleSettingsLayout(
+            title: "Trash",
+            isEnabled: $showTrashModule,
+            isPremium: true,
+            preview: {
+                ZStack {
+                    HStack(alignment: .center, spacing: 20) {
+                        TrashOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
+                            .frame(width: 260)
+                            .frame(height: 56, alignment: .center)
+                        
+                        FileDeletedOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
+                            .frame(width: 260)
+                            .frame(height: 56, alignment: .center)
                     }
-                    .toggleStyle(.switch)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
+                    .fixedSize(horizontal: true, vertical: false)
+                    .frame(height: 56, alignment: .center)
                 }
-                .padding(.horizontal)
-                
-                if showTrashModule {
-                    VStack(alignment: .center) {
-                        Text("Preview")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                        
-                        ZStack {
-                            PreviewBackgroundView()
-                            
-                            HStack(spacing: 20) {
-                                TrashOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
-                                    .frame(width: 260)
-                                
-                                FileDeletedOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
-                                    .frame(width: 260)
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                    .padding(.top, 20)
-                    
-                    Divider()
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Overlay Triggers")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.bottom, 4)
-                            .padding(.leading, 12)
-.padding(.leading, 12)
-                        
+            },
+            popovers: [
+                ModulePopover(
+                    icon: "trash",
+                    title: "Overlay Triggers",
+                    content: AnyView(
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "trash.fill", iconColor: .orange, title: "Trash Full", subtitle: "Show overlay when Trash size exceeds limit") {
                                 HStack(spacing: 8) {
@@ -99,11 +62,6 @@ struct TrashSettingsView: View {
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 12)
                                 
-                                Divider().padding(.leading, 48)
-                                
-                                CustomSettingsRow(icon: "sparkles", iconColor: .orange, title: "Auto Empty", subtitle: "Automatically empty the trash when full") {
-                                    Toggle("", isOn: $mediaKeyManager.trashAutoEmpty).labelsHidden()
-                                }
                             }
                             
                             Divider().padding(.leading, 48)
@@ -118,42 +76,56 @@ struct TrashSettingsView: View {
                                 }
                             }
                         }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
-                        .padding(.horizontal)
-                        
+                    )
+                ),
+                ModulePopover(
+                    icon: "pip",
+                    title: "Position",
+                    show: overlayPositionMode == "custom",
+                    content: AnyView(
                         Group {
                             if overlayPositionMode == "custom" {
-                                Text("Trash Full Overlay Position")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 10)
-                                    .padding(.bottom, 4)
-                                    .padding(.leading, 12)
-                                
-                                PositionPickerGroup(selection: $trashOverlayPosition)
-                                    .padding(.horizontal)
-                                
-                                Text("File Deleted Overlay Position")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 10)
-                                    .padding(.bottom, 4)
-                                    .padding(.leading, 12)
-                                
-                                PositionPickerGroup(selection: $fileDeletedOverlayPosition)
-                                    .padding(.horizontal)
+                                VStack(spacing: 16) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Trash Full Position")
+                                            .font(.headline)
+                                            .foregroundColor(.secondary)
+                                            .padding(.horizontal)
+                                        PositionPickerGroup(selection: $trashOverlayPosition)
+                                            .padding(.horizontal)
+                                    }
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("File Deleted Position")
+                                            .font(.headline)
+                                            .foregroundColor(.secondary)
+                                            .padding(.horizontal)
+                                        PositionPickerGroup(selection: $fileDeletedOverlayPosition)
+                                            .padding(.horizontal)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                            } else {
+                                CustomSettingsRow(icon: "exclamationmark.triangle.fill", iconColor: .orange, title: "Custom Positioning Disabled", subtitle: "Enable Custom Positioning in General Settings to modify overlay placement.") {
+                                    EmptyView()
+                                }
                             }
                         }
-                    }
-                }
-            }
-            .padding(.vertical, 24)
-        }
+                    )
+                )
+            ],
+            inlineControls: [
+                AnyView(
+                    InlineControlView(icon: "trash.slash.fill", title: "Auto Empty", control: AnyView(
+                        Toggle("", isOn: $mediaKeyManager.trashAutoEmpty).labelsHidden().toggleStyle(.switch)
+                    ))
+                ),
+                AnyView(
+                    InlineControlView(icon: "arrow.up.left.and.arrow.down.right", title: "Allow Expansion", control: AnyView(
+                        Toggle("", isOn: $trashAllowExpansion).labelsHidden().toggleStyle(.switch)
+                    ))
+                )
+            ]
+        )
+        .navigationTitle("Trash")
     }
 }
