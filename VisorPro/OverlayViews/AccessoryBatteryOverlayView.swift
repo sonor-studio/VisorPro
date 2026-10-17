@@ -147,9 +147,7 @@ struct AccessoryBatteryOverlayView: View {
                     }
                     Spacer(minLength: 8)
                     
-                    if !isFullyCharged {
-                        AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: isPluggedIn, customText: "%d%")
-                    }
+                    AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: isPluggedIn, customText: "%d%")
                 }
                 .padding(.leading, 23)
                 .padding(.trailing, 23)

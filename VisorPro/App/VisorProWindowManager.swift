@@ -843,6 +843,7 @@ struct SingleOverlayContainer: View {
     @State private var appearScaleY: CGFloat
     @State private var appearBlur: CGFloat
     @State private var appearCornerRadius: CGFloat
+    @State private var isAnimatingDroplet: Bool
     @AppStorage("overlayAnimationType") private var animType = "default"
     
     private var targetCornerRadius: CGFloat {
@@ -852,6 +853,7 @@ struct SingleOverlayContainer: View {
     init(overlay: VisorProWindowManager.ActiveOverlay) {
         self.overlay = overlay
         let anim = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "default"
+        _isAnimatingDroplet = State(initialValue: anim == "fluid_drop")
         if anim == "fluid_drop" {
             _appearScaleX = State(initialValue: 0.0846)
             _appearScaleY = State(initialValue: 0.4231)
@@ -880,7 +882,7 @@ struct SingleOverlayContainer: View {
             overlayView(for: overlay)
                 .applyTheme(mediaKeyManager.overlayTheme)
                 .swipeToDismiss(overlayId: overlay.id, isTopPosition: overlay.position.hasPrefix("top"))
-                .modifier(DropletClipModifier(animType: animType, cornerRadius: appearCornerRadius))
+                .modifier(DropletClipModifier(animType: animType, cornerRadius: appearCornerRadius, isAnimating: isAnimatingDroplet))
                 .scaleEffect(x: appearScaleX, y: appearScaleY)
                 .blur(radius: appearBlur)
         }
@@ -913,6 +915,7 @@ struct SingleOverlayContainer: View {
                 appearScaleY = 0.4231
                 appearBlur = 5.0
                 appearCornerRadius = 26.0
+                isAnimatingDroplet = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
                     withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
                         appearScaleX = 1.0
@@ -920,6 +923,9 @@ struct SingleOverlayContainer: View {
                         appearBlur = 0.0
                         appearCornerRadius = targetCornerRadius
                     }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    isAnimatingDroplet = false
                 }
             }
         }
@@ -938,6 +944,7 @@ struct SingleOverlayContainer: View {
                         appearBlur = 0.0
                     }
                 } else if animType == "fluid_drop" {
+                    isAnimatingDroplet = true
                     withAnimation(.spring(response: 0.26, dampingFraction: 0.75)) {
                         appearScaleX = 0.0846
                         appearScaleY = 0.4231

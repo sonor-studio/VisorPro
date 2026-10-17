@@ -10,70 +10,106 @@ struct MediaSettingsView: View {
     @State private var showAppleEventsPermissionAlert: Bool = false
     
     var body: some View {
-        ModuleSettingsLayout(
-            title: "Multimedia",
-            isEnabled: $mediaKeyManager.enableMediaNotification,
-            isPremium: true,
-            preview: {
-                MediaOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-            },
-            popovers: [
-                ModulePopover(
-                    icon: "bell.fill",
-                    title: "Overlay Triggers",
-                    content: AnyView(
+        ScrollView {
+            VStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 12) {
+                        Text("Multimedia Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "power", iconColor: .red, title: "Enable Multimedia Module", subtitle: "When disabled, VisorPro will not show playback notifications") {
+                                Toggle("", isOn: $mediaKeyManager.enableMediaNotification).labelsHidden()
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
+                
+                if mediaKeyManager.enableMediaNotification {
+                    VStack(alignment: .center) {
+                        Text("Preview")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                    
+                        ZStack {
+                            PreviewBackgroundView()
+                        
+                            MediaOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
+                                .scaleEffect(0.85)
+                        }
+                        .padding(.horizontal)
+                    }
+                    .padding(.top, 20)
+                
+                    Divider()
+                
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Overlay Triggers")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                        
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "music.note", iconColor: .red, title: "Start Notification", subtitle: "Shows an overlay when a new track or media starts playing") {
-                                HStack(spacing: 8) { 
-                                    if mediaKeyManager.notifyMediaStart { 
-                                        SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaStart) 
-                                        if mediaKeyManager.overlayColorMode == "custom" { 
-                                            ColorPickerControl(selectedColor: $mediaKeyManager.colorMediaStart) 
-                                        } 
-                                    }
-                                    Toggle("", isOn: $mediaKeyManager.notifyMediaStart).labelsHidden() 
+                                HStack(spacing: 8) { if mediaKeyManager.notifyMediaStart { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaStart) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorMediaStart) } }
+    Toggle("", isOn: $mediaKeyManager.notifyMediaStart).labelsHidden() }
+                       
                                 }
-                            }
                             Divider().padding(.leading, 40)
                             CustomSettingsRow(icon: "pause.fill", iconColor: .red, title: "Pause Notification", subtitle: "Shows an overlay when you pause the current media") {
-                                HStack(spacing: 8) { 
-                                    if mediaKeyManager.notifyMediaPause { 
-                                        SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaPause) 
-                                        if mediaKeyManager.overlayColorMode == "custom" { 
-                                            ColorPickerControl(selectedColor: $mediaKeyManager.colorMediaPause) 
-                                        } 
-                                    }
-                                    Toggle("", isOn: $mediaKeyManager.notifyMediaPause).labelsHidden() 
+                                HStack(spacing: 8) { if mediaKeyManager.notifyMediaPause { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaPause) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorMediaPause) } }
+    Toggle("", isOn: $mediaKeyManager.notifyMediaPause).labelsHidden() }
+                       
                                 }
-                            }
                             Divider().padding(.leading, 40)
                             CustomSettingsRow(icon: "play.fill", iconColor: .red, title: "Resume Notification", subtitle: "Shows an overlay when you resume paused media") {
-                                HStack(spacing: 8) { 
-                                    if mediaKeyManager.notifyMediaResume { 
-                                        SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaResume) 
-                                        if mediaKeyManager.overlayColorMode == "custom" { 
-                                            ColorPickerControl(selectedColor: $mediaKeyManager.colorMediaResume) 
-                                        } 
-                                    }
-                                    Toggle("", isOn: $mediaKeyManager.notifyMediaResume).labelsHidden() 
+                                HStack(spacing: 8) { if mediaKeyManager.notifyMediaResume { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaResume) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorMediaResume) } }
+    Toggle("", isOn: $mediaKeyManager.notifyMediaResume).labelsHidden() }
+                       
                                 }
-                            }
                             Divider().padding(.leading, 40)
                             CustomSettingsRow(icon: "stop.fill", iconColor: .red, title: "End Notification", subtitle: "Shows an overlay when the track or media ends") {
                                 HStack(spacing: 8) {
-                                    if mediaKeyManager.notifyMediaEnd { 
-                                        SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaEnd) 
-                                    }
+                                    if mediaKeyManager.notifyMediaEnd { SoundPickerControl(selectedSound: $mediaKeyManager.soundMediaEnd) }
                                     Toggle("", isOn: $mediaKeyManager.notifyMediaEnd).labelsHidden()
                                 }
                             }
                         }
-                    )
-                ),
-                ModulePopover(
-                    icon: "slider.horizontal.3",
-                    title: "Behavior",
-                    content: AnyView(
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
+                
+                    Divider()
+                
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Behavior")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                    
                         VStack(spacing: 0) {
                             CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .red, title: "Allow Expansion", subtitle: "Allow overlay to expand and show playback controls") {
                                 Toggle("", isOn: $mediaAllowExpansion).labelsHidden()
@@ -97,28 +133,43 @@ struct MediaSettingsView: View {
                                 }
                             }
                         }
-                    )
-                ),
-                ModulePopover(
-                    icon: "pip",
-                    title: "Overlay Position",
-                    show: overlayPositionMode == "custom",
-                    content: AnyView(
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
+                
+                    Divider()
+                
+                    VStack(alignment: .leading, spacing: 12) {
                         Group {
                             if overlayPositionMode == "custom" {
-                                PositionPickerGroup(selection: $mediaOverlayPosition)
-                                    .padding(.vertical, 8)
-                            } else {
-                                CustomSettingsRow(icon: "exclamationmark.triangle.fill", iconColor: .orange, title: "Custom Positioning Disabled", subtitle: "Enable Custom Positioning in General Settings to modify overlay placement.") {
-                                    EmptyView()
-                                }
+                            Text("Overlay Position")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                        
+                            PositionPickerGroup(selection: $mediaOverlayPosition)
                             }
                         }
-                    )
-                )
-            ]
-        )
+                    }
+                    .padding(.horizontal)
+                
+                    Spacer()
+            
+                } else {
+                    DisabledModuleView(icon: "power", title: "Multimedia Module is Disabled", description: "Turn on the module to configure multimedia overlays.")
+                }
+            }
+            .padding(.vertical, 20)
+        }
         .navigationTitle("Media")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.clear)
         .alert(isPresented: $showAppleEventsPermissionAlert) {
             Alert(
                 title: Text("Apple Events Access Required"),

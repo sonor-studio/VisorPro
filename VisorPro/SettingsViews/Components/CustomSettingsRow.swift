@@ -93,26 +93,24 @@ struct DisabledModuleView: View {
     let description: String
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             Image(systemName: icon)
-                .font(.system(size: 32, weight: .semibold))
-                .foregroundColor(.secondary)
+                .font(.system(size: 48, weight: .regular))
+                .foregroundColor(.secondary.opacity(0.5))
+                .padding(.bottom, 8)
             
-            VStack(spacing: 4) {
-                Text(title)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.primary)
-                
-                Text(description)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .frame(maxWidth: 260)
-            }
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            Text(description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
         }
-        .padding(.horizontal, 28)
-        .padding(.vertical, 20)
-        .visorGlassEffect(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .frame(maxWidth: .infinity, minHeight: 400)
+        .padding()
     }
 }
+

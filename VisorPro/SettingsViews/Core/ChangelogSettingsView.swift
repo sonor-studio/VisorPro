@@ -53,7 +53,7 @@ struct ChangelogSettingsView: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.primary)
                     
-                    Text("Overlay bug fixes and logic improvements, fresh Dashboard interface redesign, customizable entrance & exit animations, and refined Speed Test engine.")
+                    Text("Overlay bug fixes and stability improvements, new Overlay Design Studio, customizable entrance & exit animations, and refined Speed Test engine.")
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
                         .padding(.bottom, 8)
@@ -63,279 +63,152 @@ struct ChangelogSettingsView: View {
                         ChangelogCard(
                             icon: "wrench.and.screwdriver.fill",
                             title: "Overlay Logic & Bug Fixes",
-                            description: "Extensively resolved bugs and refined overlay behaviors. Improved expansion states, gesture handling, and eliminated false triggers on AirPods listening mode and Bluetooth connection banners.",
+                            description: "Extensively resolved bugs and refined overlay behaviors. Fixed close button clipping, 100% battery indicators, full-screen menu bar interactions, and eliminated false triggers across system overlays.",
                             preview: ZStack {
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.teal.opacity(0.06))
+                                    .fill(Color.teal.opacity(0.05))
                                 
                                 ZStack {
-                                    // Background tilted overlay (AirPods Listening Mode)
+                                    Circle()
+                                        .stroke(Color.teal.opacity(0.25), lineWidth: 4)
+                                        .frame(width: 60, height: 60)
+                                    
+                                    Image(systemName: "checkmark.shield.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(.teal)
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "paintbrush.fill",
+                            title: "Overlay Design Studio",
+                            description: "A new dedicated settings tab for fine-tuning overlay visuals. Adjust glass material, corner radius, swipe dismiss behavior, and close button style — all with a live interactive preview.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.purple.opacity(0.05))
+                                
+                                VStack(spacing: 0) {
+                                    // Row 1: Slider control
                                     HStack(spacing: 8) {
-                                        Image(systemName: "airpodspro")
-                                            .font(.system(size: 11, weight: .semibold))
-                                            .foregroundColor(.blue)
-                                        Text("AirPods Pro")
-                                            .font(.system(size: 9, weight: .bold))
-                                            .foregroundColor(.primary)
-                                        Spacer()
-                                        Circle().fill(Color.blue).frame(width: 5, height: 5)
-                                        Text("ANC")
-                                            .font(.system(size: 8, weight: .heavy))
-                                            .foregroundColor(.blue)
+                                        Image(systemName: "slider.horizontal.3")
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundColor(.purple)
+                                        
+                                        Spacer(minLength: 4)
+                                        
+                                        ZStack(alignment: .leading) {
+                                            Capsule()
+                                                .fill(Color.secondary.opacity(0.2))
+                                                .frame(width: 58, height: 4)
+                                            Capsule()
+                                                .fill(Color.purple.opacity(0.65))
+                                                .frame(width: 36, height: 4)
+                                            Circle()
+                                                .fill(Color.white)
+                                                .frame(width: 10, height: 10)
+                                                .shadow(color: .black.opacity(0.2), radius: 1.5, y: 0.5)
+                                                .offset(x: 31)
+                                        }
                                     }
                                     .padding(.horizontal, 10)
-                                    .frame(width: 155, height: 30)
-                                    .background(Color(NSColor.controlBackgroundColor).opacity(0.95))
-                                    .cornerRadius(15)
-                                    .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
-                                    .rotationEffect(.degrees(-5))
-                                    .offset(x: -6, y: -22)
+                                    .padding(.vertical, 8)
                                     
-                                    // Foreground overlay (Volume with smooth filled slider bar)
+                                    Divider()
+                                        .padding(.horizontal, 6)
+                                    
+                                    // Row 2: Design Studio toggle switch control
                                     HStack(spacing: 8) {
-                                        Image(systemName: "speaker.wave.3.fill")
-                                            .font(.system(size: 11, weight: .semibold))
-                                            .foregroundColor(.teal)
+                                        Image(systemName: "paintbrush.fill")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(.purple.opacity(0.85))
                                         
-                                        // Sleek progress bar
-                                        ZStack(alignment: .leading) {
-                                            Capsule().fill(Color.secondary.opacity(0.2)).frame(width: 65, height: 5)
-                                            Capsule()
-                                                .fill(LinearGradient(colors: [Color.teal, Color.cyan], startPoint: .leading, endPoint: .trailing))
-                                                .frame(width: 48, height: 5)
-                                        }
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color.secondary.opacity(0.35))
+                                            .frame(width: 36, height: 4)
                                         
-                                        Text("75%")
-                                            .font(.system(size: 9, weight: .heavy))
-                                            .foregroundColor(.primary)
+                                        Spacer(minLength: 4)
+                                        
+                                        Capsule()
+                                            .fill(Color.purple.opacity(0.85))
+                                            .frame(width: 22, height: 12)
+                                            .overlay(
+                                                Circle()
+                                                    .fill(Color.white)
+                                                    .frame(width: 10, height: 10)
+                                                    .shadow(color: .black.opacity(0.15), radius: 1)
+                                                    .offset(x: 5)
+                                            )
                                     }
-                                    .padding(.horizontal, 12)
-                                    .frame(width: 155, height: 32)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 8)
+                                }
+                                .frame(width: 130)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
+                                )
+                                .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "play.circle.fill",
+                            title: "Entrance & Exit Animations",
+                            description: "Customize overlay transition dynamics with your choice of animation style: Default, Scale, Fluid Bounce, or the re-engineered Fluid Drop with droplet physics and live preview testing.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.cyan.opacity(0.05))
+                                
+                                HStack(spacing: 8) {
+                                    // Animation Pill (mimicking Design Studio animation control)
+                                    HStack(spacing: 7) {
+                                        Image(systemName: "wand.and.stars")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundColor(.cyan)
+                                        
+                                        Text("Animation")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundColor(.primary)
+                                        
+                                        // Dropdown mock showing "Droplet"
+                                        HStack(spacing: 3) {
+                                            Text("Droplet")
+                                                .font(.system(size: 9.5, weight: .medium))
+                                                .foregroundColor(.secondary)
+                                            
+                                            Image(systemName: "chevron.up.chevron.down")
+                                                .font(.system(size: 7, weight: .semibold))
+                                                .foregroundColor(.secondary.opacity(0.6))
+                                        }
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 3)
+                                        .background(Color.secondary.opacity(0.12))
+                                        .cornerRadius(5)
+                                    }
+                                    .padding(.horizontal, 11)
+                                    .padding(.vertical, 8)
                                     .background(Color(NSColor.controlBackgroundColor))
                                     .cornerRadius(16)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 16)
-                                            .stroke(Color.teal.opacity(0.35), lineWidth: 1)
+                                            .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
                                     )
-                                    .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
-                                    .offset(x: 4, y: 12)
+                                    .shadow(color: .black.opacity(0.08), radius: 3, y: 1.5)
                                     
-                                    // Floating Verified badge
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "checkmark.seal.fill")
-                                            .font(.system(size: 12, weight: .bold))
-                                            .foregroundColor(.teal)
-                                        Text("Rock Solid")
-                                            .font(.system(size: 8.5, weight: .heavy))
-                                            .foregroundColor(.teal)
-                                    }
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color(NSColor.controlBackgroundColor))
-                                    .cornerRadius(10)
-                                    .shadow(color: Color.teal.opacity(0.25), radius: 5, y: 2)
-                                    .offset(x: 46, y: -26)
-                                }
-                            }
-                        )
-                        
-                        ChangelogCard(
-                            icon: "square.grid.2x2.fill",
-                            title: "Dashboard Interface Redesign",
-                            description: "A completely modernized Dashboard and module settings interface. Enjoy full-bleed live previews, intuitive bottom floating docks, adaptive popovers, and low-overhead native AppKit menu integration.",
-                            preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.indigo.opacity(0.06))
-                                
-                                // Mini macOS Dashboard Window
-                                VStack(spacing: 0) {
-                                    // Window Titlebar with traffic lights
-                                    HStack(spacing: 4) {
-                                        Circle().fill(Color.red.opacity(0.85)).frame(width: 5, height: 5)
-                                        Circle().fill(Color.yellow.opacity(0.85)).frame(width: 5, height: 5)
-                                        Circle().fill(Color.green.opacity(0.85)).frame(width: 5, height: 5)
-                                        Spacer()
-                                        Text("Dashboard")
-                                            .font(.system(size: 7, weight: .bold))
-                                            .foregroundColor(.secondary)
-                                        Spacer()
-                                        Color.clear.frame(width: 15, height: 5)
-                                    }
-                                    .padding(.horizontal, 8)
-                                    .frame(height: 16)
-                                    .background(Color(NSColor.windowBackgroundColor))
-                                    
-                                    // Window Body: Wallpaper + Floating Overlay + Bottom Dock
+                                    // Circular Play Button
                                     ZStack {
-                                        LinearGradient(
-                                            colors: [Color.indigo.opacity(0.25), Color.purple.opacity(0.18), Color.blue.opacity(0.22)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                        
-                                        VStack(spacing: 0) {
-                                            Spacer(minLength: 4)
-                                            
-                                            // Centered Mini Overlay
-                                            HStack(spacing: 6) {
-                                                Image(systemName: "speaker.wave.2.fill")
-                                                    .font(.system(size: 8, weight: .semibold))
-                                                    .foregroundColor(.white)
-                                                
-                                                Capsule()
-                                                    .fill(Color.white.opacity(0.85))
-                                                    .frame(width: 42, height: 4)
-                                            }
-                                            .padding(.horizontal, 9)
-                                            .frame(height: 19)
-                                            .background(Color.black.opacity(0.75))
-                                            .cornerRadius(10)
-                                            .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
-                                            
-                                            Spacer(minLength: 4)
-                                            
-                                            // Bottom Dock with floating action buttons
-                                            HStack(spacing: 4) {
-                                                HStack(spacing: 3) {
-                                                    Image(systemName: "slider.horizontal.3")
-                                                        .font(.system(size: 6))
-                                                    Text("Controls")
-                                                        .font(.system(size: 6.5, weight: .bold))
-                                                }
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 3)
-                                                .background(Color.white)
-                                                .foregroundColor(.indigo)
-                                                .cornerRadius(6)
-                                                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
-                                                
-                                                HStack(spacing: 3) {
-                                                    Image(systemName: "pip")
-                                                        .font(.system(size: 6))
-                                                    Text("Position")
-                                                        .font(.system(size: 6.5, weight: .medium))
-                                                }
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 3)
-                                                .background(Color.white.opacity(0.65))
-                                                .foregroundColor(.primary)
-                                                .cornerRadius(6)
-                                            }
-                                            .padding(3)
-                                            .background(Color.white.opacity(0.3))
-                                            .cornerRadius(8)
-                                            .padding(.bottom, 6)
-                                        }
-                                        
-                                        // Cursor arrow pointing at controls dock
-                                        Image(systemName: "cursorarrow")
-                                            .font(.system(size: 9, weight: .bold))
-                                            .foregroundColor(.primary)
-                                            .shadow(color: .black.opacity(0.2), radius: 2, y: 1)
-                                            .offset(x: -8, y: 28)
-                                    }
-                                }
-                                .frame(width: 154, height: 104)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
-                                )
-                                .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
-                            }
-                        )
-                        
-                        ChangelogCard(
-                            icon: "sparkles",
-                            title: "Entrance & Exit Animations",
-                            description: "Customize overlay transition dynamics with your choice of animation style: Default, Scale, Fluid Bounce, or the re-engineered Fluid Drop with droplet morphing physics and real-time preview testing.",
-                            preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.cyan.opacity(0.06))
-                                
-                                VStack(spacing: 8) {
-                                    // Dynamic animation stage: Drop morphing into overlay
-                                    ZStack {
-                                        // Motion ripple rings
                                         Circle()
-                                            .stroke(Color.cyan.opacity(0.2), lineWidth: 1.5)
-                                            .frame(width: 44, height: 44)
-                                            .offset(y: -14)
+                                            .fill(Color.cyan.opacity(0.85))
+                                            .frame(width: 32, height: 32)
+                                            .shadow(color: .black.opacity(0.12), radius: 3, y: 1.5)
                                         
-                                        // Small Droplet entering at the top
-                                        Circle()
-                                            .fill(LinearGradient(colors: [Color.cyan, Color.blue], startPoint: .top, endPoint: .bottom))
-                                            .frame(width: 14, height: 14)
-                                            .shadow(color: Color.cyan.opacity(0.6), radius: 4, y: 1)
-                                            .offset(y: -15)
-                                        
-                                        // Motion down arrow
-                                        Image(systemName: "chevron.down")
-                                            .font(.system(size: 8, weight: .bold))
-                                            .foregroundColor(Color.cyan.opacity(0.7))
-                                            .offset(y: -2)
-                                        
-                                        // Expanded result overlay capsule at bottom
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "sparkles")
-                                                .font(.system(size: 11, weight: .semibold))
-                                                .foregroundColor(.cyan)
-                                            
-                                            Capsule()
-                                                .fill(
-                                                    LinearGradient(colors: [Color.cyan, Color.blue.opacity(0.8)], startPoint: .leading, endPoint: .trailing)
-                                                )
-                                                .frame(width: 50, height: 4)
-                                            
-                                            Text("100%")
-                                                .font(.system(size: 9, weight: .bold))
-                                                .foregroundColor(.primary)
-                                        }
-                                        .padding(.horizontal, 12)
-                                        .frame(height: 26)
-                                        .background(Color(NSColor.controlBackgroundColor))
-                                        .cornerRadius(13)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 13)
-                                                .stroke(Color.cyan.opacity(0.4), lineWidth: 1)
-                                        )
-                                        .shadow(color: Color.cyan.opacity(0.25), radius: 6, y: 3)
-                                        .offset(y: 17)
-                                    }
-                                    .frame(height: 64)
-                                    
-                                    // Animation pills selector
-                                    HStack(spacing: 4) {
-                                        Text("Default")
-                                            .font(.system(size: 7.5, weight: .medium))
-                                            .padding(.horizontal, 5).padding(.vertical, 2.5)
-                                            .background(Color.secondary.opacity(0.08))
-                                            .foregroundColor(.secondary)
-                                            .cornerRadius(4)
-                                        
-                                        Text("Scale")
-                                            .font(.system(size: 7.5, weight: .medium))
-                                            .padding(.horizontal, 5).padding(.vertical, 2.5)
-                                            .background(Color.secondary.opacity(0.08))
-                                            .foregroundColor(.secondary)
-                                            .cornerRadius(4)
-                                            
-                                        Text("Bounce")
-                                            .font(.system(size: 7.5, weight: .medium))
-                                            .padding(.horizontal, 5).padding(.vertical, 2.5)
-                                            .background(Color.secondary.opacity(0.08))
-                                            .foregroundColor(.secondary)
-                                            .cornerRadius(4)
-                                            
-                                        HStack(spacing: 2) {
-                                            Image(systemName: "drop.fill").font(.system(size: 6.5))
-                                            Text("Fluid Drop")
-                                                .font(.system(size: 7.5, weight: .bold))
-                                        }
-                                        .padding(.horizontal, 6).padding(.vertical, 2.5)
-                                        .background(Color.cyan.opacity(0.18))
-                                        .foregroundColor(.cyan)
-                                        .cornerRadius(4)
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .offset(x: -0.75)
                                     }
                                 }
                             }
@@ -344,89 +217,19 @@ struct ChangelogSettingsView: View {
                         ChangelogCard(
                             icon: "speedometer",
                             title: "Refined Speed Test Engine",
-                            description: "Optimized the built-in Wi-Fi Speed Test for lighter background execution. Features low-latency ICMP ping measurement and smoother, more responsive throughput tracking.",
+                            description: "Optimized the built-in Wi-Fi Speed Test for lighter background execution. Features low-latency ping measurement and smoother, more responsive throughput tracking.",
                             preview: ZStack {
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.orange.opacity(0.06))
+                                    .fill(Color.orange.opacity(0.05))
                                 
-                                HStack(spacing: 14) {
-                                    // Speedometer Gauge Dial
-                                    ZStack {
-                                        // Background arc track
-                                        Circle()
-                                            .trim(from: 0.15, to: 0.85)
-                                            .stroke(Color.secondary.opacity(0.15), style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                                            .frame(width: 66, height: 66)
-                                            .rotationEffect(.degrees(90))
-                                        
-                                        // Active Speed colored arc
-                                        Circle()
-                                            .trim(from: 0.15, to: 0.68)
-                                            .stroke(
-                                                AngularGradient(colors: [Color.yellow, Color.orange, Color.red], center: .center),
-                                                style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                                            )
-                                            .frame(width: 66, height: 66)
-                                            .rotationEffect(.degrees(90))
-                                            .shadow(color: Color.orange.opacity(0.5), radius: 4, y: 1)
-                                        
-                                        // Center gauge content
-                                        VStack(spacing: 0) {
-                                            Image(systemName: "wifi")
-                                                .font(.system(size: 11, weight: .bold))
-                                                .foregroundColor(.orange)
-                                            Text("580")
-                                                .font(.system(size: 13, weight: .heavy))
-                                                .foregroundColor(.primary)
-                                            Text("Mbps")
-                                                .font(.system(size: 7, weight: .semibold))
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
+                                ZStack {
+                                    Circle()
+                                        .stroke(Color.orange.opacity(0.25), lineWidth: 4)
+                                        .frame(width: 60, height: 60)
                                     
-                                    // Live Telemetry Badges
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        // Download row
-                                        HStack(spacing: 5) {
-                                            Circle().fill(Color.orange).frame(width: 6, height: 6)
-                                            Image(systemName: "arrow.down")
-                                                .font(.system(size: 8, weight: .bold))
-                                                .foregroundColor(.orange)
-                                            Text("580.4 Mbps")
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(.primary)
-                                        }
-                                        .padding(.horizontal, 7)
-                                        .padding(.vertical, 4)
-                                        .background(Color(NSColor.controlBackgroundColor))
-                                        .cornerRadius(6)
-                                        .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-                                        
-                                        // Upload row
-                                        HStack(spacing: 5) {
-                                            Circle().fill(Color.blue).frame(width: 6, height: 6)
-                                            Image(systemName: "arrow.up")
-                                                .font(.system(size: 8, weight: .bold))
-                                                .foregroundColor(.blue)
-                                            Text("124.8 Mbps")
-                                                .font(.system(size: 10, weight: .bold))
-                                                .foregroundColor(.primary)
-                                        }
-                                        .padding(.horizontal, 7)
-                                        .padding(.vertical, 4)
-                                        .background(Color(NSColor.controlBackgroundColor))
-                                        .cornerRadius(6)
-                                        .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-                                        
-                                        // Latency / Ping badge
-                                        HStack(spacing: 4) {
-                                            Circle().fill(Color.green).frame(width: 5, height: 5)
-                                            Text("Ping 12 ms • 0% loss")
-                                                .font(.system(size: 7.5, weight: .semibold))
-                                                .foregroundColor(.secondary)
-                                        }
-                                        .padding(.leading, 2)
-                                    }
+                                    Image(systemName: "speedometer")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(.orange)
                                 }
                             }
                         )

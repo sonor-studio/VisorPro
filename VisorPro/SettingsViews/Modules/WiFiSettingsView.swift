@@ -13,209 +13,297 @@ struct WiFiSettingsView: View {
     @State private var showLocationPermissionAlert: Bool = false
     
     var body: some View {
-        ModuleSettingsLayout(
-            title: "Wi-Fi",
-            isEnabled: Binding(
-                get: { mediaKeyManager.enableWiFi },
-                set: { newValue in
-                    if newValue {
-                        if PermissionHelper.hasLocationPermission() {
-                            mediaKeyManager.enableWiFi = true
-                        } else if PermissionHelper.isLocationNotDetermined() {
-                            PermissionHelper.requestLocationPermission()
-                        } else {
-                            showLocationPermissionAlert = true
-                        }
-                    } else {
-                        mediaKeyManager.enableWiFi = false
-                    }
-                }
-            ),
-            isPremium: true,
-            preview: {
-                HStack(alignment: .center, spacing: 20) {
-                    WiFiOverlayView(isPreview: true, previewIsConnected: true, previewSSID: "Home Network").applyTheme(mediaKeyManager.overlayTheme)
-                        .frame(height: 56, alignment: .center)
-                
-                    WiFiOverlayView(isPreview: true, previewIsConnected: false, previewSSID: "Biuro_5GHz").applyTheme(mediaKeyManager.overlayTheme)
-                        .frame(height: 56, alignment: .center)
-                }
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(height: 56, alignment: .center)
-            },
-            popovers: [
-                ModulePopover(
-                    icon: "bell.fill",
-                    title: "Overlay Triggers",
-                    content: AnyView(
-                        Group {
-                            if savedLicenseKey.isEmpty {
-                                PremiumLockedView()
-                            } else {
-                                VStack(spacing: 0) {
-                                    CustomSettingsRow(icon: "link", iconColor: .cyan, title: "On Connect", subtitle: "Show an overlay when connecting to a network") {
-                                        HStack(spacing: 8) { 
-                                            if mediaKeyManager.notifyOnWiFiConnect { 
-                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnWiFiConnect) 
-                                                if mediaKeyManager.overlayColorMode == "custom" { 
-                                                    ColorPickerControl(selectedColor: $mediaKeyManager.colorOnWiFiConnect) 
-                                                } 
+        ScrollView {
+            VStack(spacing: 24) {
+                if !savedLicenseKey.isEmpty {
+    VStack(alignment: .leading, spacing: 12) {
+                        Text("Wi-Fi Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "power", iconColor: .cyan, title: "Enable Wi-Fi Module", subtitle: "When disabled, VisorPro completely ignores Wi-Fi network changes") {
+                                Toggle("", isOn: Binding(
+                                    get: { mediaKeyManager.enableWiFi },
+                                    set: { newValue in
+                                        if newValue {
+                                            print("PERMISSIONS DEBUG: Toggle Wi-Fi clicked ON")
+                                            if PermissionHelper.hasLocationPermission() {
+                                                print("PERMISSIONS DEBUG: hasLocationPermission is true -> enabling WiFi")
+                                                mediaKeyManager.enableWiFi = true
+                                            } else if PermissionHelper.isLocationNotDetermined() {
+                                                print("PERMISSIONS DEBUG: isLocationNotDetermined is true -> requesting")
+                                                PermissionHelper.requestLocationPermission()
+                                            } else {
+                                                print("PERMISSIONS DEBUG: permission missing/denied -> showing alert")
+                                                showLocationPermissionAlert = true
                                             }
-                                            Toggle("", isOn: $mediaKeyManager.notifyOnWiFiConnect).labelsHidden() 
+                                        } else {
+                                            print("PERMISSIONS DEBUG: Toggle Wi-Fi clicked OFF")
+                                            mediaKeyManager.enableWiFi = false
                                         }
                                     }
-                                    Divider().padding(.leading, 40)
-                                    CustomSettingsRow(icon: "link.badge.plus", iconColor: .cyan, title: "On Disconnect", subtitle: "Show an overlay when disconnecting from a network") {
-                                        HStack(spacing: 8) { 
-                                            if mediaKeyManager.notifyOnWiFiDisconnect { 
-                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnWiFiDisconnect) 
-                                            }
-                                            Toggle("", isOn: $mediaKeyManager.notifyOnWiFiDisconnect).labelsHidden() 
-                                        }
-                                    }
-                                }
+                                )).labelsHidden()
                             }
                         }
-                    )
-                ),
-                ModulePopover(
-                    icon: "clock.arrow.circlepath",
-                    title: "Remembered Networks",
-                    content: AnyView(
-                        Group {
-                            if savedLicenseKey.isEmpty {
-                                PremiumLockedView()
-                            } else {
-                                VStack(spacing: 0) {
-                                    if mediaKeyManager.wifiHistory.isEmpty {
-                                        Text("No networks remembered yet")
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
-                                            .padding()
-                                    } else {
-                                        let displayedHistory = isHistoryExpanded ? mediaKeyManager.wifiHistory : Array(mediaKeyManager.wifiHistory.prefix(3))
-                                        
-                                        ForEach(displayedHistory, id: \.self) { network in
-                                            CustomSettingsRow(icon: "wifi", iconColor: .cyan, title: network, subtitle: "Show notifications for this network") {
-                                                HStack(spacing: 12) {
-                                                    Toggle("", isOn: Binding(
-                                                        get: { !mediaKeyManager.wifiBlocklist.contains(network) },
-                                                        set: { isEnabled in
-                                                            if isEnabled {
-                                                                mediaKeyManager.wifiBlocklist.removeAll { $0 == network }
-                                                            } else {
-                                                                if !mediaKeyManager.wifiBlocklist.contains(network) {
-                                                                    mediaKeyManager.wifiBlocklist.append(network)
-                                                                }
-                                                            }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
+                }
+
+                if mediaKeyManager.enableWiFi || savedLicenseKey.isEmpty {
+                
+                    VStack(alignment: .center) {
+                        Text("Preview")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                    
+                        ZStack {
+                            PreviewBackgroundView()
+                        
+                            HStack(spacing: -10) {
+                                WiFiOverlayView(isPreview: true, previewIsConnected: true, previewSSID: "Home Network").applyTheme(mediaKeyManager.overlayTheme)
+                                    .scaleEffect(0.85)
+                            
+                                WiFiOverlayView(isPreview: true, previewIsConnected: false, previewSSID: "Biuro_5GHz").applyTheme(mediaKeyManager.overlayTheme)
+                                    .scaleEffect(0.85)
+                            }
+                        }
+                        .frame(minHeight: 180)
+                        .padding(.horizontal)
+                    }
+                    .padding(.top, 20)
+                
+                    Divider()
+                
+                    if savedLicenseKey.isEmpty {
+                        PremiumLockedView()
+                    } else {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Overlay Content")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                            
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "gauge.with.dots.needle.bottom.50percent", iconColor: .green, title: "Speedtest", subtitle: "Show speedtest results in the expanded overlay") {
+                                Toggle("", isOn: $mediaKeyManager.wifiShowSpeedTest)
+                                    .labelsHidden()
+                                    .disabled(mediaKeyManager.wifiShowSpeedTest && !mediaKeyManager.wifiShowDetails)
+                            }
+                            
+                            Divider().padding(.leading, 40)
+                            
+                            CustomSettingsRow(icon: "info.circle", iconColor: .blue, title: "Detailed Data", subtitle: "Display network details like IP address and security type in the expanded overlay") {
+                                Toggle("", isOn: $mediaKeyManager.wifiShowDetails)
+                                    .labelsHidden()
+                                    .disabled(mediaKeyManager.wifiShowDetails && !mediaKeyManager.wifiShowSpeedTest)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.2), lineWidth: 1))
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 16)
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Overlay Triggers")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                    
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "link", iconColor: .cyan, title: "On Connect", subtitle: "Show an overlay when connecting to a network") {
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnWiFiConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnWiFiConnect) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnWiFiConnect) } }
+    Toggle("", isOn: $mediaKeyManager.notifyOnWiFiConnect).labelsHidden() }
+                       
+                                }
+                            Divider().padding(.leading, 40)
+                            CustomSettingsRow(icon: "link.badge.plus", iconColor: .cyan, title: "On Disconnect", subtitle: "Show an overlay when disconnecting from a network") {
+                                HStack(spacing: 8) { if mediaKeyManager.notifyOnWiFiDisconnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnWiFiDisconnect) }
+    Toggle("", isOn: $mediaKeyManager.notifyOnWiFiDisconnect).labelsHidden() }
+                       
+                                }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    
+                        if !mediaKeyManager.wifiHistory.isEmpty {
+                            let displayedHistory = isHistoryExpanded ? mediaKeyManager.wifiHistory : Array(mediaKeyManager.wifiHistory.prefix(3))
+                        
+                            Text("Remembered Networks (\(mediaKeyManager.wifiHistory.count))")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                                .padding(.bottom, 4)
+                                .padding(.leading, 4)
+                        
+                            VStack(spacing: 0) {
+                                ForEach(displayedHistory, id: \.self) { network in
+                                    CustomSettingsRow(icon: "wifi", iconColor: .cyan, title: network, subtitle: "Show notifications for this network") {
+                                        HStack(spacing: 12) {
+                                            Toggle("", isOn: Binding(
+                                                get: { !mediaKeyManager.wifiBlocklist.contains(network) },
+                                                set: { isEnabled in
+                                                    if isEnabled {
+                                                        mediaKeyManager.wifiBlocklist.removeAll { $0 == network }
+                                                    } else {
+                                                        if !mediaKeyManager.wifiBlocklist.contains(network) {
+                                                            mediaKeyManager.wifiBlocklist.append(network)
                                                         }
-                                                    )).labelsHidden()
-                                                
-                                                    Button(action: {
-                                                        withAnimation {
-                                                            mediaKeyManager.wifiHistory.removeAll { $0 == network }
-                                                            mediaKeyManager.wifiBlocklist.removeAll { $0 == network }
-                                                        }
-                                                    }) {
-                                                        Image(systemName: "trash")
-                                                            .foregroundColor(.red.opacity(0.7))
-                                                            .font(.system(size: 14))
-                                                    }
-                                                    .buttonStyle(.plain)
-                                                    .onHover { hovering in
-                                                        if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
                                                     }
                                                 }
-                                            }
-                                            if network != displayedHistory.last || (mediaKeyManager.wifiHistory.count > 3) {
-                                                Divider().padding(.leading, 40)
-                                            }
-                                        }
-                                    
-                                        if mediaKeyManager.wifiHistory.count > 3 {
+                                            )).labelsHidden()
+                                        
                                             Button(action: {
-                                                withAnimation(.easeInOut) {
-                                                    isHistoryExpanded.toggle()
+                                                withAnimation {
+                                                    mediaKeyManager.wifiHistory.removeAll { $0 == network }
+                                                    mediaKeyManager.wifiBlocklist.removeAll { $0 == network }
                                                 }
                                             }) {
-                                                HStack(spacing: 6) {
-                                                    Spacer()
-                                                    Text(isHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.wifiHistory.count - 3) more)")
-                                                        .font(.system(size: 12, weight: .semibold))
-                                                        .foregroundColor(.accentColor)
-                                                    Image(systemName: isHistoryExpanded ? "chevron.up" : "chevron.down")
-                                                        .font(.system(size: 11, weight: .semibold))
-                                                        .foregroundColor(.accentColor)
-                                                    Spacer()
-                                                }
-                                                .padding(.vertical, 10)
-                                                .contentShape(Rectangle())
+                                                Image(systemName: "trash")
+                                                    .foregroundColor(.red.opacity(0.7))
+                                                    .font(.system(size: 14))
                                             }
                                             .buttonStyle(.plain)
+                                            .onHover { hovering in
+                                                if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                                            }
                                         }
                                     }
-                                }
-                            }
-                        }
-                    )
-                ),
-                ModulePopover(
-                    icon: "slider.horizontal.3",
-                    title: "Expanded View",
-                    content: AnyView(
-                        Group {
-                            if savedLicenseKey.isEmpty {
-                                PremiumLockedView()
-                            } else {
-                                VStack(spacing: 0) {
-                                    CustomSettingsRow(icon: "network", iconColor: .cyan, title: "Speed Test", subtitle: "Show network speed test in expanded view") {
-                                        Toggle("", isOn: $wifiShowSpeedTest).labelsHidden()
-                                            .disabled(wifiShowSpeedTest && !wifiShowDetails)
-                                    }
-                                    
-                                    Divider().padding(.leading, 40)
-                                    
-                                    CustomSettingsRow(icon: "info.circle", iconColor: .cyan, title: "Network Details", subtitle: "Show IP address, Tx rate and other details") {
-                                        Toggle("", isOn: $wifiShowDetails).labelsHidden()
-                                            .disabled(wifiShowDetails && !wifiShowSpeedTest)
-                                    }
-                                    
-                                    Divider().padding(.leading, 40)
-                                    
-                                    CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .cyan, title: "Allow Expansion", subtitle: "Allow overlay to expand and show network details") {
-                                        Toggle("", isOn: $wifiAllowExpansion).labelsHidden()
+                                    if network != displayedHistory.last || (mediaKeyManager.wifiHistory.count > 3) {
+                                        Divider().padding(.leading, 40)
                                     }
                                 }
-                            }
-                        }
-                    )
-                ),
-                ModulePopover(
-                    icon: "pip",
-                    title: "Overlay Position",
-                    show: overlayPositionMode == "custom",
-                    content: AnyView(
-                        Group {
-                            if savedLicenseKey.isEmpty {
-                                PremiumLockedView()
-                            } else {
-                                Group {
-                                    if overlayPositionMode == "custom" {
-                                        PositionPickerGroup(selection: $wifiOverlayPosition)
-                                            .padding(.vertical, 8)
-                                    } else {
-                                        CustomSettingsRow(icon: "exclamationmark.triangle.fill", iconColor: .orange, title: "Custom Positioning Disabled", subtitle: "Enable Custom Positioning in General Settings to modify overlay placement.") {
-                                            EmptyView()
+                            
+                                if mediaKeyManager.wifiHistory.count > 3 {
+                                    Button(action: {
+                                        withAnimation(.easeInOut) {
+                                            isHistoryExpanded.toggle()
                                         }
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            Spacer()
+                                            Text(isHistoryExpanded ? "Show Less" : "Show All (\(mediaKeyManager.wifiHistory.count - 3) more)")
+                                                .font(.system(size: 12, weight: .semibold))
+                                                .foregroundColor(.accentColor)
+                                            Image(systemName: isHistoryExpanded ? "chevron.up" : "chevron.down")
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .foregroundColor(.accentColor)
+                                            Spacer()
+                                        }
+                                        .padding(.vertical, 10)
+                                        .contentShape(Rectangle())
                                     }
+                                    .buttonStyle(.plain)
                                 }
                             }
+                            .toggleStyle(.switch)
+                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                            )
                         }
-                    )
-                )
-            ]
-        )
+                    
+                        
+                        Text("Expanded View Features")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                    
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "network", iconColor: .cyan, title: "Speed Test", subtitle: "Show network speed test in expanded view") {
+                                Toggle("", isOn: $wifiShowSpeedTest).labelsHidden()
+                                    .disabled(wifiShowSpeedTest && !wifiShowDetails)
+                            }
+                            
+                            Divider().padding(.leading, 40)
+                            
+                            CustomSettingsRow(icon: "info.circle", iconColor: .cyan, title: "Network Details", subtitle: "Show IP address, Tx rate and other details") {
+                                Toggle("", isOn: $wifiShowDetails).labelsHidden()
+                                    .disabled(wifiShowDetails && !wifiShowSpeedTest)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                        
+                        Text("Behavior")
+
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.top, 10)
+                            .padding(.bottom, 4)
+                            .padding(.leading, 4)
+                    
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .cyan, title: "Allow Expansion", subtitle: "Allow overlay to expand and show network details") {
+                                Toggle("", isOn: $wifiAllowExpansion).labelsHidden()
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    
+                        Group {
+                            if overlayPositionMode == "custom" {
+                            Text("Overlay Position")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                        
+                            PositionPickerGroup(selection: $wifiOverlayPosition)
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                
+                    Spacer()
+            
+                }
+                } else {
+                    DisabledModuleView(icon: "wifi.slash", title: "Wi-Fi Module is Disabled", description: "Turn on the module to configure Wi-Fi overlays.")
+                }
+            }
+            .padding(.vertical, 20)
+        }
         .navigationTitle("Wi-Fi")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.clear)
         .alert(isPresented: $showLocationPermissionAlert) {
             Alert(
                 title: Text("Location Access Required"),

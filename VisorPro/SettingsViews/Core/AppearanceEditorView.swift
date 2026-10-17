@@ -178,7 +178,7 @@ struct AppearanceEditorView: View {
             }
             .padding(.horizontal, 20)
         }
-        .navigationTitle("Appearance")
+        .navigationTitle("Design Studio")
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PreviewDismissTriggered"))) { _ in
             if !isPreviewPlaying {
                 isPreviewPlaying = true
@@ -720,9 +720,10 @@ struct InteractiveCircleGlassButtonStyle: ButtonStyle {
 struct DropletClipModifier: ViewModifier {
     let animType: String
     let cornerRadius: CGFloat
+    var isAnimating: Bool = true
     
     func body(content: Content) -> some View {
-        if animType == "fluid_drop" {
+        if animType == "fluid_drop" && isAnimating {
             content.clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         } else {
             content
@@ -758,7 +759,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
     
     var body: some View {
         content
-            .modifier(DropletClipModifier(animType: animType, cornerRadius: appearCornerRadius))
+            .modifier(DropletClipModifier(animType: animType, cornerRadius: appearCornerRadius, isAnimating: isPlaying))
             .scaleEffect(x: appearScaleX, y: appearScaleY)
             .blur(radius: appearBlur)
             .offset(y: appearOffset)

@@ -52,7 +52,7 @@ struct SettingsView: View {
                         }
                     .tag(SidebarItem.general)
                     Label {
-                            Text("Appearance")
+                            Text("Design Studio")
                         } icon: {
                             SidebarIcon(systemName: "paintbrush.fill", color: .purple)
                         }
@@ -291,7 +291,7 @@ struct SettingsView: View {
             .frame(minWidth: 400, maxWidth: .infinity, maxHeight: .infinity)
             .scrollContentBackground(.hidden)
                     }
-        .frame(minWidth: 850, maxWidth: .infinity, minHeight: 620, maxHeight: .infinity)
+        .frame(minWidth: 850, maxWidth: .infinity, minHeight: 500, maxHeight: .infinity)
         .background(WindowAccessor(window: $window))
         .background(VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow).ignoresSafeArea())
         .onChange(of: mediaKeyManager.accessoryBatteryHistory) { _, newHistory in
@@ -322,10 +322,10 @@ struct SettingsView: View {
                 w.styleMask.insert(.fullSizeContentView)
                 w.styleMask.insert(.miniaturizable)
                 w.styleMask.insert(.resizable)
-                w.minSize = NSSize(width: 850, height: 620)
+                w.minSize = NSSize(width: 850, height: 500)
                 
-                if w.frame.width < 850 || w.frame.height < 620 {
-                    w.setContentSize(NSSize(width: 850, height: 620))
+                if w.frame.width < 850 || w.frame.height < 500 {
+                    w.setContentSize(NSSize(width: 850, height: 500))
                     w.center()
                 }
                 

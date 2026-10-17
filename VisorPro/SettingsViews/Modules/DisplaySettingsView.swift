@@ -8,105 +8,144 @@ struct DisplaySettingsView: View {
     @AppStorage("displayAllowExpansion") private var displayAllowExpansion: Bool = true
     
     var body: some View {
-        ModuleSettingsLayout(
-            title: "Displays",
-            isEnabled: $mediaKeyManager.enableDisplay,
-            isPremium: true,
-            preview: {
-                ZStack {
-                    HStack(alignment: .center, spacing: 20) {
-                        DisplayOverlayView(isPreview: true, previewIsConnected: true).applyTheme(mediaKeyManager.overlayTheme)
-                            .frame(height: 56, alignment: .center)
-                        DisplayOverlayView(isPreview: true, previewIsConnected: false).applyTheme(mediaKeyManager.overlayTheme)
-                            .frame(height: 56, alignment: .center)
-                    }
-                    .fixedSize(horizontal: true, vertical: false)
-                    .frame(height: 56, alignment: .center)
-                }
-            },
-            popovers: [
-                ModulePopover(
-                    icon: "display",
-                    title: "Overlay Triggers",
-                    content: AnyView(
-                        Group {
-                            if savedLicenseKey.isEmpty {
-                                PremiumLockedView()
-                            } else {
-                                VStack(spacing: 0) {
-                                    CustomSettingsRow(icon: "display.2", iconColor: .blue, title: "Monitor Connected", subtitle: "Show overlay when a new screen is plugged in") {
-                                        HStack(spacing: 8) { 
-                                            if mediaKeyManager.notifyOnDisplayConnect { 
-                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayConnect) 
-                                                if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnDisplayConnect) } 
-                                            }
-                                            Toggle("", isOn: $mediaKeyManager.notifyOnDisplayConnect).labelsHidden() 
-                                        }
-                                    }
-                                    Divider().padding(.leading, 48)
-                                    CustomSettingsRow(icon: "macwindow.badge.plus", iconColor: .blue, title: "Mode Change", subtitle: "Show overlay when switching between extend and mirror") {
-                                        HStack(spacing: 8) { 
-                                            if mediaKeyManager.notifyOnDisplayModeChange { 
-                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayModeChange) 
-                                                if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnDisplayModeChange) } 
-                                            }
-                                            Toggle("", isOn: $mediaKeyManager.notifyOnDisplayModeChange).labelsHidden() 
-                                        }
-                                    }
-                                    Divider().padding(.leading, 48)
-                                    CustomSettingsRow(icon: "display", iconColor: .blue, title: "Monitor Disconnected", subtitle: "Show overlay when a screen is unplugged") {
-                                        HStack(spacing: 8) { 
-                                            if mediaKeyManager.notifyOnDisplayDisconnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayDisconnect) }
-                                            Toggle("", isOn: $mediaKeyManager.notifyOnDisplayDisconnect).labelsHidden() 
-                                        }
-                                    }
-                                }
+        ScrollView {
+            VStack(spacing: 24) {
+                if !savedLicenseKey.isEmpty {
+    VStack(alignment: .leading, spacing: 12) {
+                        Text("Displays Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "display", iconColor: .blue, title: "Enable Displays Module", subtitle: "When disabled, VisorPro will not show overlays when external monitors are plugged in") {
+                                Toggle("", isOn: $mediaKeyManager.enableDisplay).labelsHidden()
                             }
                         }
-                    )
-                ),
-                ModulePopover(
-                    icon: "pip",
-                    title: "Position",
-                    show: overlayPositionMode == "custom",
-                    content: AnyView(
-                        Group {
-                            if savedLicenseKey.isEmpty {
-                                PremiumLockedView()
-                            } else {
-                                if overlayPositionMode == "custom" {
-                                    PositionPickerGroup(selection: $displayOverlayPosition)
-                                        .padding(.vertical, 8)
-                                } else {
-                                    CustomSettingsRow(icon: "exclamationmark.triangle.fill", iconColor: .orange, title: "Custom Positioning Disabled", subtitle: "Enable Custom Positioning in General Settings to modify overlay placement.") {
-                                        EmptyView()
-                                    }
-                                }
-                            }
-                        }
-                    )
-                )
-            ],
-            inlineControls: [
-                AnyView(
-                    InlineControlView(
-                        icon: "arrow.up.left.and.arrow.down.right",
-                        title: "Allow Expansion",
-                        control: AnyView(
-                            Group {
-                                if savedLicenseKey.isEmpty {
-                                    Image(systemName: "lock.fill").foregroundColor(.secondary)
-                                } else {
-                                    Toggle("", isOn: $displayAllowExpansion)
-                                        .labelsHidden()
-                                        .toggleStyle(.switch)
-                                }
-                            }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                         )
-                    )
-                )
-            ]
-        )
+                    }
+                    .padding(.horizontal)
+                }
+
+                if mediaKeyManager.enableDisplay || savedLicenseKey.isEmpty {
+                
+                    if mediaKeyManager.enableDisplay {
+                        VStack(alignment: .center) {
+                            Text("Preview")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                        
+                            ZStack {
+                                PreviewBackgroundView()
+                            
+                                HStack(spacing: 20) {
+                                    DisplayOverlayView(isPreview: true, previewIsConnected: true).applyTheme(mediaKeyManager.overlayTheme)
+                                        .scaleEffect(0.85)
+                                    DisplayOverlayView(isPreview: true, previewIsConnected: false).applyTheme(mediaKeyManager.overlayTheme)
+                                        .scaleEffect(0.85)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .padding(.top, 20)
+                    
+                        Divider()
+                    
+                        if savedLicenseKey.isEmpty {
+                            PremiumLockedView()
+                        } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Overlay Triggers")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.bottom, 4)
+                                .padding(.leading, 4)
+                        
+                            VStack(spacing: 0) {
+                                CustomSettingsRow(icon: "display.2", iconColor: .blue, title: "Monitor Connected", subtitle: "Show overlay when a new screen is plugged in") {
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnDisplayConnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayConnect) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnDisplayConnect) } }
+    Toggle("", isOn: $mediaKeyManager.notifyOnDisplayConnect).labelsHidden() }
+                           
+                                }
+                                Divider().padding(.leading, 48)
+                                CustomSettingsRow(icon: "macwindow.badge.plus", iconColor: .blue, title: "Mode Change", subtitle: "Show overlay when switching between extend and mirror") {
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnDisplayModeChange { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayModeChange) 
+ if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnDisplayModeChange) } }
+    Toggle("", isOn: $mediaKeyManager.notifyOnDisplayModeChange).labelsHidden() }
+                           
+                                }
+                                Divider().padding(.leading, 48)
+                                CustomSettingsRow(icon: "display", iconColor: .blue, title: "Monitor Disconnected", subtitle: "Show overlay when a screen is unplugged") {
+                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnDisplayDisconnect { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnDisplayDisconnect) }
+    Toggle("", isOn: $mediaKeyManager.notifyOnDisplayDisconnect).labelsHidden() }
+                           
+                                }
+                            }
+                            .toggleStyle(.switch)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                            )
+                        
+                            Text("Behavior")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                                .padding(.bottom, 4)
+                                .padding(.leading, 4)
+                        
+                            VStack(spacing: 0) {
+                                CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .blue, title: "Allow Expansion", subtitle: "Allow overlay to expand and show display details") {
+                                    Toggle("", isOn: $displayAllowExpansion).labelsHidden()
+                                }
+                            }
+                            .toggleStyle(.switch)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                            )
+                        
+                            Group {
+                                if overlayPositionMode == "custom" {
+                                Text("Overlay Position")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                                    .padding(.top, 10)
+                            
+                                PositionPickerGroup(selection: $displayOverlayPosition)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                
+                    Spacer()
+            
+                }
+                } else {
+                    DisabledModuleView(icon: "display", title: "Displays Module is Disabled", description: "Turn on the module to configure display overlays.")
+                }
+            }
+            .padding(.vertical, 20)
+        }
         .navigationTitle("Displays")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.clear)
     }
 }

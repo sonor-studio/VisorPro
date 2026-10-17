@@ -9,160 +9,229 @@ struct SystemSettingsView: View {
     @AppStorage("fanOverlayPosition") private var fanOverlayPosition: String = "bottom"
     @AppStorage("cpuOverlayPosition") private var cpuOverlayPosition: String = "top"
     @AppStorage("trashOverlayPosition") private var trashOverlayPosition: String = "top"
-    @AppStorage("systemAllowExpansion") private var systemAllowExpansion: Bool = true
+    @AppStorage("cpuAllowExpansion") private var cpuAllowExpansion: Bool = true
+    @AppStorage("ramAllowExpansion") private var ramAllowExpansion: Bool = true
     
     var body: some View {
-        ModuleSettingsLayout(
-            title: "System",
-            isEnabled: $showSystemModule,
-            isPremium: true,
-            preview: {
-                ZStack {
-                    HStack(alignment: .center, spacing: 20) {
-                        CpuTemperatureOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-                            .id("\(mediaKeyManager.colorOnHighCpuTemp)_\(mediaKeyManager.overlayColorMode)")
-                            .frame(height: 56, alignment: .center)
-                        RamOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-                            .id("\(mediaKeyManager.colorOnHighRam)_\(mediaKeyManager.overlayColorMode)")
-                            .frame(height: 56, alignment: .center)
+        ScrollView {
+            VStack(spacing: 24) {
+                if !savedLicenseKey.isEmpty {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("System Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "cpu", iconColor: .red, title: "Enable System Module", subtitle: "When disabled, VisorPro will not show system overlays") {
+                                Toggle("", isOn: $showSystemModule).labelsHidden()
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
                     }
-                    .fixedSize(horizontal: true, vertical: false)
-                    .frame(height: 56, alignment: .center)
+                    .padding(.horizontal)
                 }
-            },
-            popovers: [
-                ModulePopover(
-                    icon: "cpu",
-                    title: "CPU Alert",
-                    content: AnyView(
-                        Group {
-                            if savedLicenseKey.isEmpty {
-                                PremiumLockedView()
-                            } else {
-                                VStack(spacing: 0) {
-                                    CustomSettingsRow(icon: "thermometer", iconColor: .red, title: "High CPU Temp", subtitle: "Show overlay when CPU temperature is high") {
-                                        HStack(spacing: 8) {
-                                            if mediaKeyManager.notifyOnHighCpuTemp {
-                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnHighCpuTemp)
-                                                if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnHighCpuTemp) }
+
+                if showSystemModule || savedLicenseKey.isEmpty {
+                    if showSystemModule {
+                        VStack(alignment: .center) {
+                            Text("Preview")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                        
+                            ZStack {
+                                PreviewBackgroundView()
+                            
+                                HStack(spacing: 20) {
+                                    CpuTemperatureOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
+                                        .scaleEffect(0.85)
+                                        .id("\(mediaKeyManager.colorOnHighCpuTemp)_\(mediaKeyManager.overlayColorMode)")
+                                    RamOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
+                                        .scaleEffect(0.85)
+                                        .id("\(mediaKeyManager.colorOnHighRam)_\(mediaKeyManager.overlayColorMode)")
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .padding(.top, 20)
+                    
+                        Divider()
+                    
+                        if savedLicenseKey.isEmpty {
+                            PremiumLockedView()
+                        } else {
+                            VStack(alignment: .leading, spacing: 24) {
+                                // CPU Alert Section
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("CPU Alert")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.primary)
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                    
+                                    Text("Overlay Triggers")
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                        .padding(.leading, 4)
+                                
+                                    VStack(spacing: 0) {
+                                        CustomSettingsRow(icon: "thermometer", iconColor: .red, title: "High CPU Temp", subtitle: "Show overlay when CPU temperature is high") {
+                                            HStack(spacing: 8) {
+                                                if mediaKeyManager.notifyOnHighCpuTemp {
+                                                    SoundPickerControl(selectedSound: $mediaKeyManager.soundOnHighCpuTemp)
+                                                    if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnHighCpuTemp) }
+                                                }
+                                                Toggle("", isOn: $mediaKeyManager.notifyOnHighCpuTemp).labelsHidden()
                                             }
-                                            Toggle("", isOn: $mediaKeyManager.notifyOnHighCpuTemp).labelsHidden()
                                         }
-                                    }
-                                    if mediaKeyManager.notifyOnHighCpuTemp {
-                                        Divider().padding(.leading, 48)
-                                        HStack {
-                                            Text("Threshold")
-                                                .font(.system(size: 13, weight: .medium))
-                                                .foregroundColor(.primary)
-                                            Spacer()
-                                            Slider(value: $mediaKeyManager.highCpuTempThreshold, in: 60...100, step: 5)
-                                                .frame(width: 150)
-                                            Text("\(Int(mediaKeyManager.highCpuTempThreshold))°C")
-                                                .font(.system(size: 13))
-                                                .foregroundColor(.secondary)
-                                                .frame(width: 45, alignment: .trailing)
-                                        }
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
-                                    }
-                                }
-                            }
-                        }
-                    )
-                ),
-                ModulePopover(
-                    icon: "pip",
-                    title: "CPU Position",
-                    show: overlayPositionMode == "custom",
-                    content: AnyView(
-                        Group {
-                            if savedLicenseKey.isEmpty {
-                                PremiumLockedView()
-                            } else {
-                                if overlayPositionMode == "custom" {
-                                    PositionPickerGroup(selection: $cpuOverlayPosition)
-                                        .padding(.vertical, 8)
-                                } else {
-                                    CustomSettingsRow(icon: "exclamationmark.triangle.fill", iconColor: .orange, title: "Custom Positioning Disabled", subtitle: "Enable Custom Positioning in General Settings to modify overlay placement.") {
-                                        EmptyView()
-                                    }
-                                }
-                            }
-                        }
-                    )
-                ),
-                ModulePopover(
-                    icon: "memorychip",
-                    title: "RAM Alert",
-                    content: AnyView(
-                        Group {
-                            if savedLicenseKey.isEmpty {
-                                PremiumLockedView()
-                            } else {
-                                VStack(spacing: 0) {
-                                    CustomSettingsRow(icon: "memorychip", iconColor: .red, title: "High RAM Usage", subtitle: "Show overlay when RAM usage is high") {
-                                        HStack(spacing: 8) {
-                                            if mediaKeyManager.notifyOnHighRam {
-                                                SoundPickerControl(selectedSound: $mediaKeyManager.soundOnHighRam) 
-                                                if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnHighRam) }
+                                        if mediaKeyManager.notifyOnHighCpuTemp {
+                                            Divider().padding(.leading, 48)
+                                            HStack {
+                                                Text("Threshold")
+                                                    .font(.system(size: 13, weight: .medium))
+                                                    .foregroundColor(.primary)
+                                                Spacer()
+                                                Slider(value: $mediaKeyManager.highCpuTempThreshold, in: 60...100, step: 5)
+                                                    .frame(width: 150)
+                                                Text("\(Int(mediaKeyManager.highCpuTempThreshold))°C")
+                                                    .font(.system(size: 13))
+                                                    .foregroundColor(.secondary)
+                                                    .frame(width: 45, alignment: .trailing)
                                             }
-                                            Toggle("", isOn: $mediaKeyManager.notifyOnHighRam).labelsHidden()
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 12)
                                         }
                                     }
-                                    if mediaKeyManager.notifyOnHighRam {
-                                        Divider().padding(.leading, 48)
-                                        HStack {
-                                            Text("Threshold")
-                                            Spacer()
-                                            Text("\(Int(mediaKeyManager.highRamThreshold))%")
-                                                .foregroundColor(.secondary)
-                                                .frame(width: 40, alignment: .trailing)
-                                            Slider(value: $mediaKeyManager.highRamThreshold, in: 70.0...95.0, step: 5.0)
-                                                .frame(width: 150)
+                                    .toggleStyle(.switch)
+                                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                                    )
+                                    
+                                    Text("Behavior")
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                        .padding(.leading, 4)
+                                    
+                                    VStack(spacing: 0) {
+                                        CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .red, title: "Allow Expansion", subtitle: "Allow overlay to expand and show temperature history chart") {
+                                            Toggle("", isOn: $cpuAllowExpansion).labelsHidden()
                                         }
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 12)
+                                    }
+                                    .toggleStyle(.switch)
+                                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                                    )
+                                    
+                                    if overlayPositionMode == "custom" {
+                                        Text("CPU Overlay Position")
+                                            .font(.headline)
+                                            .foregroundColor(.secondary)
+                                            .padding(.top, 4)
+                                            .padding(.leading, 4)
+                                    
+                                        PositionPickerGroup(selection: $cpuOverlayPosition)
+                                    }
+                                }
+                                
+                                Divider()
+                                
+                                // RAM Alert Section
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("RAM Alert")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(.primary)
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                
+                                    Text("Overlay Triggers")
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                        .padding(.leading, 4)
+                                
+                                    VStack(spacing: 0) {
+                                        CustomSettingsRow(icon: "memorychip", iconColor: .red, title: "High RAM Usage", subtitle: "Show overlay when RAM usage is high") {
+                                            HStack(spacing: 8) {
+                                                if mediaKeyManager.notifyOnHighRam {
+                                                    SoundPickerControl(selectedSound: $mediaKeyManager.soundOnHighRam) 
+                                                    if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnHighRam) }
+                                                }
+                                                Toggle("", isOn: $mediaKeyManager.notifyOnHighRam).labelsHidden()
+                                            }
+                                        }
+                                        if mediaKeyManager.notifyOnHighRam {
+                                            Divider().padding(.leading, 48)
+                                            HStack {
+                                                Text("Threshold")
+                                                Spacer()
+                                                Text("\(Int(mediaKeyManager.highRamThreshold))%")
+                                                    .foregroundColor(.secondary)
+                                                    .frame(width: 40, alignment: .trailing)
+                                                Slider(value: $mediaKeyManager.highRamThreshold, in: 70.0...95.0, step: 5.0)
+                                                    .frame(width: 150)
+                                            }
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 12)
+                                        }
+                                    }
+                                    .toggleStyle(.switch)
+                                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                                    )
+                                    
+                                    Text("Behavior")
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                        .padding(.leading, 4)
+                                    
+                                    VStack(spacing: 0) {
+                                        CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .red, title: "Allow Expansion", subtitle: "Allow overlay to expand and show top memory processes") {
+                                            Toggle("", isOn: $ramAllowExpansion).labelsHidden()
+                                        }
+                                    }
+                                    .toggleStyle(.switch)
+                                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                                    )
+                                    
+                                    if overlayPositionMode == "custom" {
+                                        Text("Overlay Position")
+                                            .font(.headline)
+                                            .foregroundColor(.secondary)
+                                            .padding(.top, 4)
+                                            .padding(.leading, 4)
+                                        
+                                        PositionPickerGroup(selection: $ramOverlayPosition)
                                     }
                                 }
                             }
+                            .padding(.horizontal)
                         }
-                    )
-                ),
-                ModulePopover(
-                    icon: "pip",
-                    title: "RAM Position",
-                    show: overlayPositionMode == "custom",
-                    content: AnyView(
-                        Group {
-                            if savedLicenseKey.isEmpty {
-                                PremiumLockedView()
-                            } else {
-                                if overlayPositionMode == "custom" {
-                                    PositionPickerGroup(selection: $ramOverlayPosition)
-                                        .padding(.vertical, 8)
-                                } else {
-                                    CustomSettingsRow(icon: "exclamationmark.triangle.fill", iconColor: .orange, title: "Custom Positioning Disabled", subtitle: "Enable Custom Positioning in General Settings to modify overlay placement.") {
-                                        EmptyView()
-                                    }
-                                }
-                            }
-                        }
-                    )
-                )
-            ],
-            inlineControls: [
-                AnyView(
-                    InlineControlView(
-                        icon: "arrow.up.left.and.arrow.down.right",
-                        title: "Allow Expansion",
-                        control: Toggle("", isOn: $systemAllowExpansion)
-                            .labelsHidden()
-                            .toggleStyle(.switch)
-                    )
-                )
-            ]
-        )
+                    }
+                }
+            }
+            .padding(.vertical, 24)
+        }
         .navigationTitle("System")
     }
 }
