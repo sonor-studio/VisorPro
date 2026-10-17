@@ -712,7 +712,9 @@ class VisorProWindowManager: ObservableObject {
         let view = SingleOverlayContainer(overlay: overlay)
             .environmentObject(MediaKeyManager.shared)
             .environmentObject(OverlayStateRelay.shared)
-        panel.contentView = TrackingHostingView(rootView: view)
+        let hostingView = TrackingHostingView(rootView: view)
+        hostingView.overlayId = overlay.id
+        panel.contentView = hostingView
         
         panel.isFloatingPanel = true
         panel.level = .floating
@@ -736,25 +738,30 @@ class VisorProWindowManager: ObservableObject {
     func isWindowUnderMouse(for overlayId: String) -> Bool {
         let mouseLoc = NSEvent.mouseLocation
         
-        var hitPanels: [(key: String, panel: NSWindow)] = []
         for (key, panel) in windows {
-            // Inset by 16px padding to match the visible pill bounds
+            guard key.hasPrefix(overlayId) else { continue }
+            guard panel.isVisible else { continue }
             let visibleFrame = panel.frame.insetBy(dx: 16, dy: 16)
             if visibleFrame.contains(mouseLoc) {
-                hitPanels.append((key, panel))
-            }
-        }
-        
-        if hitPanels.isEmpty { return false }
-        
-        // NSApp.orderedWindows is ordered from front to back
-        for window in NSApp.orderedWindows {
-            if let match = hitPanels.first(where: { $0.panel === window }) {
-                return match.key.hasPrefix(overlayId)
+                return true
             }
         }
         
         return false
+    }
+
+    func isOverlayHit(by event: NSEvent, overlayId: String) -> Bool {
+        if let eventWindow = event.window {
+            if let match = windows.first(where: { $0.value === eventWindow }), match.key.hasPrefix(overlayId) {
+                let localPoint = event.locationInWindow
+                let pillBounds = NSRect(origin: .zero, size: eventWindow.frame.size).insetBy(dx: 16, dy: 16)
+                if pillBounds.contains(localPoint) {
+                    return true
+                }
+            }
+        }
+        
+        return isWindowUnderMouse(for: overlayId)
     }
 }
 
@@ -830,8 +837,36 @@ class VisorProOverlayPanel: NSPanel {
 }
 
 class TrackingHostingView<Content: View>: NSHostingView<Content> {
+    var overlayId: String?
+    
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         return true
+    }
+    
+    override func rightMouseDown(with event: NSEvent) {
+        if handleSecondaryClick(event: event) {
+            return
+        }
+        super.rightMouseDown(with: event)
+    }
+    
+    override func otherMouseDown(with event: NSEvent) {
+        if handleSecondaryClick(event: event) {
+            return
+        }
+        super.otherMouseDown(with: event)
+    }
+    
+    private func handleSecondaryClick(event: NSEvent) -> Bool {
+        let enable = UserDefaults.standard.object(forKey: "enableThreeFingerClickToDismiss") as? Bool ?? (UserDefaults.standard.object(forKey: "enableTwoFingerClickToDismiss") as? Bool ?? true)
+        guard enable, let overlayId = overlayId else { return false }
+        
+        let pillBounds = NSRect(origin: .zero, size: self.frame.size).insetBy(dx: 16, dy: 16)
+        if pillBounds.contains(event.locationInWindow) || VisorProWindowManager.shared.isWindowUnderMouse(for: overlayId) {
+            MediaKeyManager.shared.forceHide(overlayId: overlayId)
+            return true
+        }
+        return false
     }
 }
 
@@ -843,7 +878,6 @@ struct SingleOverlayContainer: View {
     @State private var appearScaleY: CGFloat
     @State private var appearBlur: CGFloat
     @State private var appearCornerRadius: CGFloat
-    @State private var isAnimatingDroplet: Bool
     @AppStorage("overlayAnimationType") private var animType = "default"
     
     private var targetCornerRadius: CGFloat {
@@ -853,7 +887,6 @@ struct SingleOverlayContainer: View {
     init(overlay: VisorProWindowManager.ActiveOverlay) {
         self.overlay = overlay
         let anim = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "default"
-        _isAnimatingDroplet = State(initialValue: anim == "fluid_drop")
         if anim == "fluid_drop" {
             _appearScaleX = State(initialValue: 0.0846)
             _appearScaleY = State(initialValue: 0.4231)
@@ -882,7 +915,7 @@ struct SingleOverlayContainer: View {
             overlayView(for: overlay)
                 .applyTheme(mediaKeyManager.overlayTheme)
                 .swipeToDismiss(overlayId: overlay.id, isTopPosition: overlay.position.hasPrefix("top"))
-                .modifier(DropletClipModifier(animType: animType, cornerRadius: appearCornerRadius, isAnimating: isAnimatingDroplet))
+                .threeFingerClickToDismiss(overlayId: overlay.id)
                 .scaleEffect(x: appearScaleX, y: appearScaleY)
                 .blur(radius: appearBlur)
         }
@@ -915,7 +948,6 @@ struct SingleOverlayContainer: View {
                 appearScaleY = 0.4231
                 appearBlur = 5.0
                 appearCornerRadius = 26.0
-                isAnimatingDroplet = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
                     withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
                         appearScaleX = 1.0
@@ -923,9 +955,6 @@ struct SingleOverlayContainer: View {
                         appearBlur = 0.0
                         appearCornerRadius = targetCornerRadius
                     }
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    isAnimatingDroplet = false
                 }
             }
         }
@@ -944,7 +973,6 @@ struct SingleOverlayContainer: View {
                         appearBlur = 0.0
                     }
                 } else if animType == "fluid_drop" {
-                    isAnimatingDroplet = true
                     withAnimation(.spring(response: 0.26, dampingFraction: 0.75)) {
                         appearScaleX = 0.0846
                         appearScaleY = 0.4231
@@ -1166,6 +1194,89 @@ struct ScrollSwipeModifier: ViewModifier {
 extension View {
     func swipeToDismiss(overlayId: String, isTopPosition: Bool) -> some View {
         self.modifier(ScrollSwipeModifier(overlayId: overlayId, isTopPosition: isTopPosition))
+    }
+    
+    func threeFingerClickToDismiss(overlayId: String) -> some View {
+        self.modifier(ThreeFingerClickDismissModifier(overlayId: overlayId))
+    }
+    
+    // Alias for backward compatibility
+    func twoFingerClickToDismiss(overlayId: String) -> some View {
+        self.threeFingerClickToDismiss(overlayId: overlayId)
+    }
+}
+
+typealias TwoFingerClickDismissModifier = ThreeFingerClickDismissModifier
+
+struct ThreeFingerClickDismissModifier: ViewModifier {
+    let overlayId: String
+    
+    @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @AppStorage("enableThreeFingerClickToDismiss") private var enableThreeFingerClickToDismiss = true
+    
+    @State private var globalMonitor: Any?
+    @State private var localMonitor: Any?
+    @State private var isDismissing = false
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                isDismissing = false
+                setupMonitors()
+            }
+            .onDisappear {
+                removeMonitors()
+            }
+    }
+    
+    private func setupMonitors() {
+        removeMonitors()
+        
+        let handleDismiss: (NSEvent) -> Bool = { event in
+            let enable = UserDefaults.standard.object(forKey: "enableThreeFingerClickToDismiss") as? Bool ?? (UserDefaults.standard.object(forKey: "enableTwoFingerClickToDismiss") as? Bool ?? true)
+            guard enable else { return false }
+            
+            let isHit = VisorProWindowManager.shared.isOverlayHit(by: event, overlayId: overlayId)
+            if isHit && !isDismissing {
+                isDismissing = true
+                Task { @MainActor in
+                    mediaKeyManager.forceHide(overlayId: overlayId)
+                }
+                return true
+            }
+            return false
+        }
+        
+        // Catches secondary / three-finger clicks when VisorPro is in background
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.rightMouseDown, .otherMouseDown]) { event in
+            _ = handleDismiss(event)
+        }
+        
+        // Catches secondary / three-finger clicks when VisorPro is active and consumes them
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown, .otherMouseDown, .rightMouseUp, .otherMouseUp]) { event in
+            if event.type == .rightMouseDown || event.type == .otherMouseDown {
+                if handleDismiss(event) {
+                    return nil
+                }
+            } else if event.type == .rightMouseUp || event.type == .otherMouseUp {
+                if isDismissing {
+                    isDismissing = false
+                    return nil
+                }
+            }
+            return event
+        }
+    }
+    
+    private func removeMonitors() {
+        if let g = globalMonitor {
+            NSEvent.removeMonitor(g)
+            globalMonitor = nil
+        }
+        if let l = localMonitor {
+            NSEvent.removeMonitor(l)
+            localMonitor = nil
+        }
     }
 }
 import SwiftUI

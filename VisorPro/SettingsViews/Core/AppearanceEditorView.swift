@@ -23,6 +23,7 @@ struct AppearanceEditorView: View {
     
     // AppStorage bindings for appearance options
     @AppStorage("enableSwipeToDismiss") private var enableSwipeToDismiss = true
+    @AppStorage("enableThreeFingerClickToDismiss") private var enableThreeFingerClickToDismiss = true
     @AppStorage("enableCloseButton") private var enableCloseButton = true
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
@@ -37,8 +38,10 @@ struct AppearanceEditorView: View {
     @State private var skipExitAnimation = false
     @State private var previewDismissTrigger = false
     @State private var scrollMonitor: Any?
+    @State private var rightClickMonitor: Any?
     @State private var previewSwipeOffset: CGFloat = 0
     @State private var isDismissingSwipe = false
+    @State private var isDismissingRightClick = false
     @State private var previewForceStopTrigger = false
     @State private var ignoreUntilNewGesture = false
     @State private var isHoveringPreview = false
@@ -166,6 +169,7 @@ struct AppearanceEditorView: View {
                     .offset(y: previewSwipeOffset)
                     .opacity(max(0.0, 1.0 - (abs(previewSwipeOffset) / 60.0)))
                     .frame(height: 140)
+                    .contentShape(Rectangle())
                     .onHover { isHoveringPreview = $0 } // Keep space reserved
                 }
 
@@ -193,14 +197,28 @@ struct AppearanceEditorView: View {
             // Eliminuje to dublowanie animacji i glitche wywołane poruszeniem gładzika podczas wjazdu.
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 if self.isDismissingSwipe { self.isDismissingSwipe = false }
+                if self.isDismissingRightClick { self.isDismissingRightClick = false }
             }
         }
+        .onChange(of: enableThreeFingerClickToDismiss) { _, newValue in
+            UserDefaults.standard.set(newValue, forKey: "enableTwoFingerClickToDismiss")
+        }
         .onAppear {
+            let hasThree = UserDefaults.standard.object(forKey: "enableThreeFingerClickToDismiss") != nil
+            if !hasThree, let oldTwo = UserDefaults.standard.object(forKey: "enableTwoFingerClickToDismiss") as? Bool {
+                enableThreeFingerClickToDismiss = oldTwo
+            }
             setupPreviewScrollMonitor()
+            setupPreviewRightClickMonitor()
         }
         .onDisappear {
             if let monitor = scrollMonitor {
                 NSEvent.removeMonitor(monitor)
+                scrollMonitor = nil
+            }
+            if let monitor = rightClickMonitor {
+                NSEvent.removeMonitor(monitor)
+                rightClickMonitor = nil
             }
         }
     }
@@ -455,6 +473,32 @@ struct AppearanceEditorView: View {
         }
     }
 
+    private func setupPreviewRightClickMonitor() {
+        if let monitor = rightClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            rightClickMonitor = nil
+        }
+        rightClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown, .otherMouseDown, .rightMouseUp, .otherMouseUp]) { event in
+            let enable = UserDefaults.standard.object(forKey: "enableThreeFingerClickToDismiss") as? Bool ?? (UserDefaults.standard.object(forKey: "enableTwoFingerClickToDismiss") as? Bool ?? true)
+            guard enable else { return event }
+            guard self.isHoveringPreview else { return event }
+            
+            if event.type == .rightMouseDown || event.type == .otherMouseDown {
+                if !self.isDismissingRightClick {
+                    self.isDismissingRightClick = true
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDismissTriggered"), object: nil)
+                    return nil
+                }
+            } else if event.type == .rightMouseUp || event.type == .otherMouseUp {
+                if self.isDismissingRightClick {
+                    self.isDismissingRightClick = false
+                    return nil
+                }
+            }
+            return event
+        }
+    }
+
     // MARK: - Glow Popover Content
     private var glowPopoverContent: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -672,6 +716,23 @@ struct AppearanceEditorView: View {
                 }
                 .padding(.leading, 12)
             }
+            
+            Divider()
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Three-finger click to dismiss")
+                        .font(.system(size: 13, weight: .medium))
+                    Text("Click with three fingers or middle-click.")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                Spacer(minLength: 20)
+                Toggle("", isOn: $enableThreeFingerClickToDismiss)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+            }
         }
         .frame(width: 280)
     }
@@ -720,14 +781,10 @@ struct InteractiveCircleGlassButtonStyle: ButtonStyle {
 struct DropletClipModifier: ViewModifier {
     let animType: String
     let cornerRadius: CGFloat
-    var isAnimating: Bool = true
+    var isAnimating: Bool = false
     
     func body(content: Content) -> some View {
-        if animType == "fluid_drop" && isAnimating {
-            content.clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        } else {
-            content
-        }
+        content
     }
 }
 
@@ -755,11 +812,12 @@ struct PreviewAnimationWrapper<Content: View>: View {
     @State private var appearOffset: CGFloat = 0.0
     @State private var appearOpacity: Double = 1.0
     @State private var appearCornerRadius: CGFloat = 26.0
+    @State private var isDropletClipping: Bool = false
     @StateObject private var animState = PreviewAnimationState()
     
     var body: some View {
         content
-            .modifier(DropletClipModifier(animType: animType, cornerRadius: appearCornerRadius, isAnimating: isPlaying))
+            .modifier(DropletClipModifier(animType: animType, cornerRadius: appearCornerRadius, isAnimating: isDropletClipping))
             .scaleEffect(x: appearScaleX, y: appearScaleY)
             .blur(radius: appearBlur)
             .offset(y: appearOffset)
@@ -787,6 +845,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
                     appearOpacity = 1.0
                     appearCornerRadius = targetCornerRadius
                     isPlaying = false
+                    isDropletClipping = false
                 }
             }
             .onAppear {
@@ -796,6 +855,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 appearOffset = 0.0
                 appearOpacity = 1.0
                 appearCornerRadius = targetCornerRadius
+                isDropletClipping = false
             }
     }
     
@@ -841,6 +901,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 appearOpacity = 0.0
             }
         } else if animType == "fluid_drop" {
+            isDropletClipping = true
             // First: fluidly retracts from full overlay into the small circular droplet (22x22 circle)
             withAnimation(.spring(response: 0.26, dampingFraction: 0.75)) {
                 appearScaleX = 0.0846
@@ -889,6 +950,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
             appearOffset = -40
             appearOpacity = 0.0
         } else if animType == "fluid_drop" {
+            isDropletClipping = true
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) {
@@ -927,10 +989,18 @@ struct PreviewAnimationWrapper<Content: View>: View {
                         appearCornerRadius = targetCornerRadius
                     }
                 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    guard stateRef.tokenId == currentToken else { return }
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
+                }
             } else if animType != "scale" {
                 withAnimation(.easeOut(duration: 0.15)) {
                     appearOffset = 0.0
                     appearOpacity = 1.0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    guard stateRef.tokenId == currentToken else { return }
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
                 }
             }
             
@@ -942,6 +1012,10 @@ struct PreviewAnimationWrapper<Content: View>: View {
                     appearScaleX = 1.0
                     appearScaleY = 1.0
                     appearBlur = 0.0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    guard stateRef.tokenId == currentToken else { return }
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
                 }
             } else if animType == "fluid_bounce" {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {

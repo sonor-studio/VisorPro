@@ -1981,6 +1981,14 @@ class MediaKeyManager: ObservableObject {
     
     @MainActor
     func forceHide(overlayId: String) {
+        OverlayStateRelay.shared.actualHoveredTypes.remove(overlayId)
+        OverlayStateRelay.shared.globalHoveredTypes.remove(overlayId)
+        for type in OverlayStateRelay.shared.actualHoveredTypes where overlayId.hasPrefix(type) {
+            OverlayStateRelay.shared.actualHoveredTypes.remove(type)
+        }
+        for type in OverlayStateRelay.shared.globalHoveredTypes where overlayId.hasPrefix(type) {
+            OverlayStateRelay.shared.globalHoveredTypes.remove(type)
+        }
         withAnimation(.easeInOut(duration: 0.25)) {
             if overlayId == "volume" { showVolumeIndicator = false }
             else if overlayId == "brightness" { showBrightnessIndicator = false }

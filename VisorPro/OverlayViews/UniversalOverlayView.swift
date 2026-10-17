@@ -111,11 +111,11 @@ struct BendedCornerShape: InsettableShape, Sendable {
             }
         }
         
-        let leftLineEndY = (bendAmount > 0.0001 && intA.y > cornerCenterY) ? intA.y : cornerCenterY
+        let leftLineEndY = (effectiveBend > 0.03 && intA.y > cornerCenterY) ? intA.y : cornerCenterY
         p.addLine(to: CGPoint(x: insetAmount, y: leftLineEndY))
         
         // Top left corner (the bended one)
-        if bendAmount > 0.0001 {
+        if effectiveBend > 0.03 {
             func norm(_ a: CGFloat) -> CGFloat { return a < 0 ? a + 2 * .pi : a }
             
             if intA.y <= cornerCenterY {
@@ -230,6 +230,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var expandedKeepAliveTimer: Timer? = nil
     @State private var expandedHeight: CGFloat = 0
     @State private var bendProgress: CGFloat = 0
+    @State private var hasLanded: Bool = false
     @State private var lastTapTime: TimeInterval = 0
     @AppStorage("enableCloseButton") private var enableCloseButton = false
     @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = true
@@ -523,7 +524,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .fill(Color.black)
                     .blendMode(.destinationOut)
                 
-                if bendProgress > 0 {
+                if bendProgress > 0.03 {
                     Circle()
                         .fill(Color.black)
                         .frame(width: (cutoutSize + 1) * 2, height: (cutoutSize + 1) * 2)
@@ -535,16 +536,30 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             .compositingGroup()
         )
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PreviewWillExit"))) { _ in
-            if isPreview && isExpanded {
-                withAnimation(.easeOut(duration: 0.2)) {
-                    isExpanded = false
+            if isPreview {
+                hasLanded = false
+                bendProgress = 0.0
+                if isExpanded {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        isExpanded = false
+                    }
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PreviewDidEnter"))) { _ in
+            if isPreview {
+                hasLanded = true
+                updateBendProgress()
+            }
+        }
         .onChange(of: OverlayStateRelay.shared.closingPanels.contains(keepAliveId ?? "")) { _, isClosing in
-            if isClosing && isExpanded {
-                withAnimation(.easeOut(duration: 0.2)) {
-                    isExpanded = false
+            if isClosing {
+                hasLanded = false
+                bendProgress = 0.0
+                if isExpanded {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        isExpanded = false
+                    }
                 }
             }
         }
@@ -566,7 +581,22 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 }
             }
         }
+        .onChange(of: hasLanded) { _, _ in
+            updateBendProgress()
+        }
+        .onAppear {
+            if isPreview {
+                hasLanded = true
+                updateBendProgress()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    hasLanded = true
+                    updateBendProgress()
+                }
+            }
+        }
         .onDisappear {
+            hasLanded = false
             expandedKeepAliveTimer?.invalidate()
             expandedKeepAliveTimer = nil
         }
@@ -619,7 +649,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .conditionalPointingHandCursor(isEnabled: !isPreview)
                 .offset(x: buttonCenter.x - 10, y: dynamicOffset)
                 .opacity(shouldShowCloseButton ? 1 : 0)
-                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: shouldShowCloseButton)
+                .animation(shouldShowCloseButton ? .spring(response: 0.3, dampingFraction: 0.7) : .easeOut(duration: 0.2), value: shouldShowCloseButton)
             }
         }
 
@@ -643,7 +673,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     private var shouldShowCloseButton: Bool {
-        guard enableCloseButton else { return false }
+        guard enableCloseButton && hasLanded else { return false }
         if keepCloseButtonWhenExpanded {
             return isHovering || isExpanded
         } else {
@@ -654,8 +684,14 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     private func updateBendProgress() {
         let target: CGFloat = shouldShowCloseButton ? 1.0 : 0.0
         if bendProgress != target {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                bendProgress = target
+            if target == 0.0 {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    bendProgress = 0.0
+                }
+            } else {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    bendProgress = 1.0
+                }
             }
         }
     }
