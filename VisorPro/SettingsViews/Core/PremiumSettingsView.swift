@@ -287,7 +287,9 @@ struct PremiumSettingsView: View {
                                     customWidth: 160,
                                     customCornerRadius: 24,
                                     forceGlow: false,
-                                    isExpandable: true,
+                                    isExpandable: false,
+                                    fixedExpandedHeight: 46,
+                                    allowCloseButton: false,
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
                                             Image(systemName: "airpodsmax")
@@ -861,6 +863,7 @@ struct WidgetPreviewCard<Preview: View>: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
             )
+            .allowsHitTesting(false)
             
             // Text Area
             VStack(alignment: .leading, spacing: 4) {

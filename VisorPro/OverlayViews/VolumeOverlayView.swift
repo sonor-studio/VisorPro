@@ -36,15 +36,112 @@ struct VolumeOverlayView: View {
     }
     
     private var iconName: String {
-        if actualIsMuted || actualVolume == 0 {
-            return "speaker.slash.fill"
-        } else if actualVolume < 33 {
-            return "speaker.wave.1.fill"
-        } else if actualVolume < 66 {
-            return "speaker.wave.2.fill"
-        } else {
-            return "speaker.wave.3.fill"
+        VolumeOverlayView.iconForAudioDevice(
+            name: actualDeviceName,
+            volume: actualVolume,
+            isMuted: actualIsMuted
+        )
+    }
+    
+    // MARK: - Audio Device Icon Helpers
+    
+    static func isSystemSpeakers(name: String) -> Bool {
+        let lower = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if lower.isEmpty { return true }
+        
+        // Explicit internal / built-in keywords
+        if lower.contains("internal speaker") || lower.contains("internal speakers") { return true }
+        if lower.contains("built-in") || lower.contains("builtin") { return true }
+        if lower.contains("wbudowane") || lower.contains("wewnętrzne") { return true }
+        
+        // Mac model speakers across multiple system languages (English, Polish, etc.)
+        let isMacModel = lower.contains("macbook") || lower.contains("imac") || lower.contains("mac mini") || lower.contains("mac studio") || lower.contains("mac pro") || lower.contains("maca")
+        let isSpeakerWord = lower.contains("speaker") || lower.contains("głośnik") || lower.contains("haut-parleur") || lower.contains("lautsprecher") || lower.contains("altavoz")
+        
+        if isMacModel && isSpeakerWord {
+            return true
         }
+        
+        // Standalone generic names
+        if lower == "speakers" || lower == "głośniki" || lower == "internal" || lower == "wbudowane" {
+            return true
+        }
+        
+        return false
+    }
+    
+    static func iconForAudioDevice(name: String, volume: Int, isMuted: Bool) -> String {
+        if isSystemSpeakers(name: name) {
+            if isMuted || volume == 0 {
+                return "speaker.slash.fill"
+            } else if volume < 33 {
+                return "speaker.wave.1.fill"
+            } else if volume < 66 {
+                return "speaker.wave.2.fill"
+            } else {
+                return "speaker.wave.3.fill"
+            }
+        }
+        
+        return iconForExternalDevice(name: name)
+    }
+    
+    static func iconForExternalDevice(name: String) -> String {
+        let lower = name.lowercased()
+        
+        // 1. AirPods Max (Over-ear)
+        if lower.contains("airpods max") || (lower.contains("airpod") && (lower.contains("max") || lower.contains("nauszne") || lower.contains("over-ear"))) {
+            return "airpodsmax"
+        }
+        
+        // 2. AirPods Pro (In-ear with silicon tips)
+        if lower.contains("airpods pro") || lower.contains("airpod pro") {
+            return "airpodspro"
+        }
+        
+        // 3. Regular AirPods (Earbuds)
+        if lower.contains("airpod") {
+            return "airpods"
+        }
+        
+        // 4. Beats
+        if lower.contains("beats") {
+            if lower.contains("fit") || lower.contains("bud") || lower.contains("flex") || lower.contains("powerbeats") || lower.contains("ear") {
+                return "beats.earphones"
+            }
+            return "beats.headphones"
+        }
+        
+        // 5. In-ear Earbuds (Galaxy Buds, Pixel Buds, FreeBuds, Sony WF, etc.)
+        if lower.contains("bud") || lower.contains("buds") || lower.contains("earbud") || lower.contains("earbuds") || lower.contains("earphone") || lower.contains("earphones") || lower.contains("airdot") || lower.contains("airdots") || lower.contains("in-ear") || lower.contains("douszne") || lower.contains("wf-1000") || lower.contains("wf-c") || lower.contains("linkbuds") {
+            return "earbuds"
+        }
+        
+        // 6. Over-ear / On-ear Headphones (Sony WH, Bose QC, Sennheiser, Marshall, etc.)
+        if lower.contains("headphone") || lower.contains("headphones") || lower.contains("headset") || lower.contains("słuchawk") || lower.contains("wh-1000") || lower.contains("wh-ch") || lower.contains("quietcomfort") || lower.contains("qc35") || lower.contains("qc45") || lower.contains("qc ultra") || lower.contains("momentum") || lower.contains("major") || lower.contains("anc") || lower.contains("over-ear") || lower.contains("on-ear") || lower.contains("arctis") || lower.contains("kraken") || lower.contains("blackshark") || lower.contains("cloud") {
+            return "headphones"
+        }
+        
+        // 7. HomePod
+        if lower.contains("homepod") {
+            return "homepod.fill"
+        }
+        
+        // 8. External Speakers & Soundbars (JBL, Bose SoundLink, Sonos, Marshall, etc.)
+        if lower.contains("speaker") || lower.contains("speakers") || lower.contains("głośnik") || lower.contains("soundbar") || lower.contains("soundlink") || lower.contains("flip") || lower.contains("charge") || lower.contains("boombox") || lower.contains("xtreme") || lower.contains("clip") || lower.contains("megaboom") || lower.contains("wonderboom") || lower.contains("emberton") || lower.contains("acton") || lower.contains("stanmore") || lower.contains("woburn") || lower.contains("sonos") || lower.contains("soundcore") || lower.contains("anker") || lower.contains("jbl") || lower.contains("audioengine") || lower.contains("harman") || lower.contains("kardon") || lower.contains("onyx") || lower.contains("echo") || lower.contains("alexa") || lower.contains("nest audio") || lower.contains("hifi") {
+            return "hifispeaker.fill"
+        }
+        
+        // 9. Displays / TVs
+        if lower.contains("tv") || lower.contains("television") || lower.contains("apple tv") {
+            return "tv.fill"
+        }
+        if lower.contains("display") || lower.contains("monitor") || lower.contains("ultrafine") || lower.contains("studio display") || lower.contains("pro display") || lower.contains("dell") || lower.contains("lg") || lower.contains("samsung") || lower.contains("benq") || lower.contains("asus") || lower.contains("acer") || lower.contains("hdmi") || lower.contains("displayport") {
+            return "display"
+        }
+        
+        // 10. Default fallback for other external audio devices
+        return "headphones"
     }
     @State private var isExpanded: Bool = false
     @State private var availableDevices: [(id: UInt32, name: String)] = []
@@ -106,10 +203,13 @@ struct VolumeOverlayView: View {
             expandedContent: {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(currentDevices, id: \.id) { device in
+                        let isDeviceCurrent = isPreview ? (device.id == previewSelectedDevice) : device.name == overlayState.currentAudioDeviceName
+                        let deviceIcon = VolumeOverlayView.isSystemSpeakers(name: device.name) ? "speaker.wave.2.fill" : VolumeOverlayView.iconForExternalDevice(name: device.name)
                         DeviceRowView(
                             device: device,
-                            isCurrent: isPreview ? (device.id == previewSelectedDevice) : device.name == overlayState.currentAudioDeviceName,
+                            isCurrent: isDeviceCurrent,
                             tintColor: actionColor,
+                            icon: deviceIcon,
                             onSelect: {
                                 if isPreview {
                                     previewSelectedDevice = device.id

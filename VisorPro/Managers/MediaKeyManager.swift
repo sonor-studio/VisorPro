@@ -1399,6 +1399,10 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.isFocusSwitched }
         set { OverlayStateRelay.shared.isFocusSwitched = newValue }
     }
+    var focusActiveDate: Date? {
+        get { OverlayStateRelay.shared.focusActiveDate }
+        set { OverlayStateRelay.shared.focusActiveDate = newValue }
+    }
     struct ActiveFocusDetails: Equatable {
         var startDate: Date?
         var endDate: Date?
@@ -1422,12 +1426,14 @@ class MediaKeyManager: ObservableObject {
     }
     var focusTimer: Timer?
     private var focusObserver: FocusObserver?
+    var micMuteObserver: MicMuteObserver?
     
     // Privacy
     @Published var enablePrivacy: Bool = UserDefaults.standard.object(forKey: "enablePrivacy") as? Bool ?? false {
         didSet { 
             UserDefaults.standard.set(enablePrivacy, forKey: "enablePrivacy")
             if !enablePrivacy { withAnimation { self.showMicIndicator = false; self.showCameraIndicator = false; self.showLocationIndicator = false } }
+            updateMicMuteReminderState()
         }
     }
     @Published var notifyOnMicOn: Bool = UserDefaults.standard.object(forKey: "notifyOnMicOn") as? Bool ?? true {
@@ -1443,6 +1449,25 @@ class MediaKeyManager: ObservableObject {
 
     @Published var soundOnMicOff: String = UserDefaults.standard.string(forKey: "soundOnMicOff") ?? "None" {
         didSet { UserDefaults.standard.set(soundOnMicOff, forKey: "soundOnMicOff") }
+    }
+    
+    @Published var enableMicMuteReminder: Bool = UserDefaults.standard.object(forKey: "enableMicMuteReminder") as? Bool ?? false {
+        didSet {
+            UserDefaults.standard.set(enableMicMuteReminder, forKey: "enableMicMuteReminder")
+            updateMicMuteReminderState()
+        }
+    }
+    @Published var micMuteReminderInterval: Int = UserDefaults.standard.integer(forKey: "micMuteReminderInterval") == 0 ? 15 : UserDefaults.standard.integer(forKey: "micMuteReminderInterval") {
+        didSet {
+            UserDefaults.standard.set(micMuteReminderInterval, forKey: "micMuteReminderInterval")
+            updateMicMuteReminderTimer()
+        }
+    }
+    
+    var micMuteReminderTimer: Timer?
+    var isMicMuteReminder: Bool {
+        get { OverlayStateRelay.shared.isMicMuteReminder }
+        set { OverlayStateRelay.shared.isMicMuteReminder = newValue }
     }
     
     @Published var notifyOnCameraOn: Bool = UserDefaults.standard.object(forKey: "notifyOnCameraOn") as? Bool ?? true {
@@ -1486,6 +1511,10 @@ class MediaKeyManager: ObservableObject {
     var isMicActive: Bool {
         get { OverlayStateRelay.shared.isMicActive }
         set { OverlayStateRelay.shared.isMicActive = newValue }
+    }
+    var micMutedDate: Date? {
+        get { OverlayStateRelay.shared.micMutedDate }
+        set { OverlayStateRelay.shared.micMutedDate = newValue }
     }
     var activeMicName: String {
         get { OverlayStateRelay.shared.activeMicName }
@@ -1887,10 +1916,11 @@ class MediaKeyManager: ObservableObject {
             if !self.isMicTimerScheduledInstantly {
                 self.notificationTimers["mic"]?.invalidate()
                 self.micEventId = UUID()
-                if !self.isMicExpanded {
+                if !self.isOverlayHoveredOrExpanded("mic") {
                     self.notificationTimers["mic"] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                        guard let self = self, !self.isOverlayHoveredOrExpanded("mic") else { return }
                         withAnimation(.easeInOut(duration: 0.25)) {
-                            self?.showMicIndicator = false
+                            self.showMicIndicator = false
                         }
                     }
                 }
@@ -1927,10 +1957,11 @@ class MediaKeyManager: ObservableObject {
             
             if !self.isCameraTimerScheduledInstantly {
                 self.cameraTimer?.invalidate()
-                if !self.isCameraExpanded {
+                if !self.isOverlayHoveredOrExpanded("camera") {
                     self.cameraTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                        guard let self = self, !self.isOverlayHoveredOrExpanded("camera") else { return }
                         withAnimation(.easeInOut(duration: 0.25)) {
-                            self?.showCameraIndicator = false
+                            self.showCameraIndicator = false
                         }
                     }
                 }
@@ -2002,9 +2033,9 @@ class MediaKeyManager: ObservableObject {
             else if overlayId == "media" { showMediaIndicator = false }
             else if overlayId == "theme" { showThemeIndicator = false }
             else if overlayId == "focus" { showFocusIndicator = false }
-            else if overlayId == "mic" { showMicIndicator = false }
-            else if overlayId == "camera" { showCameraIndicator = false }
-            else if overlayId == "location" { showLocationIndicator = false }
+            else if overlayId == "mic" { showMicIndicator = false; isMicExpanded = false }
+            else if overlayId == "camera" { showCameraIndicator = false; isCameraExpanded = false }
+            else if overlayId == "location" { showLocationIndicator = false; isLocationActive = false; isLocationExpanded = false }
             else if overlayId == "wifi" { showWiFiIndicator = false }
             else if overlayId == "date" { showDateIndicator = false }
             else if overlayId.hasPrefix("peripheral") { activePeripheralNotifications.removeAll(where: { "peripheral_\($0.id)" == overlayId }) }
@@ -2043,9 +2074,9 @@ class MediaKeyManager: ObservableObject {
         else if overlayId == "media" { showMediaIndicator = false }
         else if overlayId == "theme" { showThemeIndicator = false }
         else if overlayId == "focus" { showFocusIndicator = false }
-        else if overlayId == "mic" { showMicIndicator = false }
-        else if overlayId == "camera" { showCameraIndicator = false }
-        else if overlayId == "location" { showLocationIndicator = false }
+        else if overlayId == "mic" { showMicIndicator = false; isMicExpanded = false }
+        else if overlayId == "camera" { showCameraIndicator = false; isCameraExpanded = false }
+        else if overlayId == "location" { showLocationIndicator = false; isLocationActive = false; isLocationExpanded = false }
         else if overlayId == "wifi" { showWiFiIndicator = false }
         else if overlayId == "date" { showDateIndicator = false }
         else if overlayId.hasPrefix("peripheral") { activePeripheralNotifications.removeAll(where: { "peripheral_\($0.id)" == overlayId }) }
@@ -2516,11 +2547,31 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
+    func isOverlayHoveredOrExpanded(_ overlayId: String) -> Bool {
+        if OverlayStateRelay.shared.globalHoveredTypes.contains(overlayId) || OverlayStateRelay.shared.actualHoveredTypes.contains(overlayId) {
+            return true
+        }
+        for type in OverlayStateRelay.shared.globalHoveredTypes where overlayId.hasPrefix(type) {
+            return true
+        }
+        for type in OverlayStateRelay.shared.actualHoveredTypes where overlayId.hasPrefix(type) {
+            return true
+        }
+        switch overlayId {
+        case "mic": return isMicExpanded
+        case "camera": return isCameraExpanded
+        case "location": return isLocationExpanded
+        default: return false
+        }
+    }
+    
     func scheduleOverlayHide(for overlayId: String, delay: TimeInterval = MediaKeyManager.notificationDuration) {
         cancelOverlayHide(for: overlayId)
         
         let timer = Timer.scheduledTimerInCommonModes(withTimeInterval: delay, repeats: false) { [weak self] _ in
-                self?.forceHide(overlayId: overlayId)
+            guard let self = self else { return }
+            guard !self.isOverlayHoveredOrExpanded(overlayId) else { return }
+            self.forceHide(overlayId: overlayId)
         }
         overlayHideTimers[overlayId] = timer
     }
@@ -2543,9 +2594,15 @@ class MediaKeyManager: ObservableObject {
         case "copy": copyTimer?.invalidate(); copyTimer = nil
         case "capsLock": capsLockTimer?.invalidate(); capsLockTimer = nil
         case "language": languageTimer?.invalidate(); languageTimer = nil
-        case "mic": notificationTimers["mic"]?.invalidate(); notificationTimers.removeValue(forKey: "mic")
-        case "camera": cameraTimer?.invalidate(); cameraTimer = nil
-        case "location": locationTimer?.invalidate(); locationTimer = nil
+        case "mic":
+            micTimer?.invalidate(); micTimer = nil
+            notificationTimers["mic"]?.invalidate(); notificationTimers.removeValue(forKey: "mic")
+        case "camera":
+            cameraTimer?.invalidate(); cameraTimer = nil
+            notificationTimers["camera"]?.invalidate(); notificationTimers.removeValue(forKey: "camera")
+        case "location":
+            locationTimer?.invalidate(); locationTimer = nil
+            notificationTimers["location"]?.invalidate(); notificationTimers.removeValue(forKey: "location")
         case "bluetooth": bluetoothTimer?.invalidate(); bluetoothTimer = nil
         case "wifi": wiFiTimer?.invalidate(); wiFiTimer = nil
         case "media":
@@ -2745,6 +2802,9 @@ class MediaKeyManager: ObservableObject {
         
         self.cameraClientObserver = CameraClientObserver(manager: self)
         self.cameraClientObserver?.startObserving()
+        
+        self.micMuteObserver = MicMuteObserver(manager: self)
+        self.updateMicMuteReminderState()
         
         if let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() {
             if let ptr = TISGetInputSourceProperty(source, kTISPropertyLocalizedName),

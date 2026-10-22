@@ -4,12 +4,19 @@ struct DeviceRowView: View {
     let device: (id: UInt32, name: String)
     let isCurrent: Bool
     var tintColor: Color = .blue
+    var icon: String? = nil
     let onSelect: () -> Void
     @State private var isHovering: Bool = false
     
     var body: some View {
         Button(action: onSelect) {
-            HStack {
+            HStack(spacing: 8) {
+                if let icon = icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.primary)
+                        .frame(width: 18)
+                }
                 Text(device.name)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.primary)

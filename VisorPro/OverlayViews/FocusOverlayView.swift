@@ -87,12 +87,11 @@ struct FocusOverlayView: View {
         let lastEnded: MediaKeyManager.ActiveFocusDetails?
         
         if isPreview {
+            let start = Date().addingTimeInterval(-3600)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy/MM/dd HH:mm"
+            let end = formatter.date(from: "2030/01/01 20:00") ?? Date().addingTimeInterval(3600)
             if UserDefaults.standard.bool(forKey: "focusDetailMode") {
-                let start = Date().addingTimeInterval(-3600)
-                // Fixed dummy date for preview to avoid recalculations
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy/MM/dd HH:mm"
-                let end = formatter.date(from: "2030/01/01 20:00") ?? Date().addingTimeInterval(3600)
                 if active {
                     details = MediaKeyManager.ActiveFocusDetails(startDate: start, endDate: end, source: "com.apple.focus", device: "This Mac", untilLocationLeft: false, endedAt: nil, endedReason: nil)
                     lastEnded = nil
@@ -101,15 +100,20 @@ struct FocusOverlayView: View {
                     lastEnded = MediaKeyManager.ActiveFocusDetails(startDate: start, endDate: end, source: "com.apple.focus", device: "This Mac", untilLocationLeft: false, endedAt: Date(), endedReason: "turned off")
                 }
             } else {
-                details = nil
-                lastEnded = nil
+                if active {
+                    details = nil
+                    lastEnded = nil
+                } else {
+                    details = nil
+                    lastEnded = MediaKeyManager.ActiveFocusDetails(startDate: start, endDate: nil, source: "com.apple.focus", device: "This Mac", untilLocationLeft: false, endedAt: Date(), endedReason: "turned off")
+                }
             }
         } else {
             details = overlayState.activeFocusDetails
             lastEnded = overlayState.lastEndedFocusDetails
         }
         
-        let isExpandable = (active && details != nil) || (!active && lastEnded != nil)
+        let isExpandable = (active && (details != nil || overlayState.isFocusReminder)) || (!active && lastEnded != nil)
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -133,7 +137,7 @@ struct FocusOverlayView: View {
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        if active && details != nil && overlayState.isFocusReminder, let startDate = details?.startDate {
+                        if active && overlayState.isFocusReminder {
                             HStack(spacing: 4) {
                                 Text(displayTitle)
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -147,7 +151,8 @@ struct FocusOverlayView: View {
                                         .monospacedDigit()
                                         .foregroundColor(.secondary)
                                 } else {
-                                    Text(startDate, style: .timer)
+                                    let timerDate = details?.startDate ?? overlayState.focusActiveDate ?? Date().addingTimeInterval(-Double(mediaKeyManager.focusReminderInterval * 60))
+                                    Text(timerDate, style: .timer)
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .monospacedDigit()
                                         .foregroundColor(.secondary)
@@ -201,7 +206,31 @@ struct FocusOverlayView: View {
                 .padding(.horizontal, 16 + 4 + 3)
             },
             expandedContent: {
-                if active, let details = details {
+                if active && overlayState.isFocusReminder {
+                    let timerDate = details?.startDate ?? overlayState.focusActiveDate ?? Date().addingTimeInterval(-Double(mediaKeyManager.focusReminderInterval * 60))
+                    VStack(alignment: .center, spacing: 2) {
+                        Text("Active For")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                        if isPreview {
+                            Text("1:02:15")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                        } else {
+                            Text(timerDate, style: .timer)
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                } else if active, let details = details {
                     HStack(spacing: 0) {
                         if let startDate = details.startDate {
                             VStack(alignment: .center, spacing: 4) {

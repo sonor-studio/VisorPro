@@ -221,6 +221,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var keepAliveId: String? = nil
     var disableTimeoutMode: Bool = false
     var fixedExpandedHeight: CGFloat? = nil
+    var allowCloseButton: Bool = true
     
     @ViewBuilder var baseContent: () -> BaseContent
     @ViewBuilder var expandedContent: () -> ExpandedContent
@@ -376,7 +377,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
                         DispatchQueue.main.async {
                             if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 2.0 {
-                                if isExpanded {
+                                if isExpanded && expandedHeight > 0 {
                                     let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
                                     withAnimation(anim) {
                                         expandedHeight = height
@@ -566,7 +567,9 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         .onHoverExact { hovering in
             isHovering = hovering
             triggerKeepAlive(hoveringOverride: hovering)
-            updateBendProgress()
+            if allowCloseButton {
+                updateBendProgress()
+            }
         }
         .onChange(of: isGloballyHovered) { _, _ in
             updateBendProgress()
@@ -624,7 +627,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             updateBendProgress()
         }
         
-        if enableCloseButton {
+        if enableCloseButton && allowCloseButton {
             Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.secondary)
@@ -673,6 +676,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     private var shouldShowCloseButton: Bool {
+        guard allowCloseButton else { return false }
         guard enableCloseButton && hasLanded else { return false }
         if keepCloseButtonWhenExpanded {
             return isHovering || isExpanded
@@ -682,6 +686,12 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     private func updateBendProgress() {
+        guard allowCloseButton else {
+            if bendProgress != 0 {
+                bendProgress = 0
+            }
+            return
+        }
         let target: CGFloat = shouldShowCloseButton ? 1.0 : 0.0
         if bendProgress != target {
             if target == 0.0 {

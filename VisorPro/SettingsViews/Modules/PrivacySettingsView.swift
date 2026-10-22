@@ -144,6 +144,39 @@ Toggle("", isOn: $mediaKeyManager.notifyOnMicOff).labelsHidden() }
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
                             
+                            Text("Reminders")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                                .padding(.top, 10)
+                                .padding(.bottom, 4)
+                                .padding(.leading, 4)
+                                
+                            VStack(spacing: 0) {
+                                CustomSettingsRow(icon: "bell.badge", iconColor: .blue, title: "Mute Reminder", subtitle: "Periodically remind you that microphone is muted") {
+                                    HStack(spacing: 8) {
+                                        if mediaKeyManager.enableMicMuteReminder {
+                                            Picker("", selection: $mediaKeyManager.micMuteReminderInterval) {
+                                                Text("1 minute (test)").tag(1)
+                                                Text("5 minutes").tag(5)
+                                                Text("15 minutes").tag(15)
+                                                Text("30 minutes").tag(30)
+                                                Text("1 hour").tag(60)
+                                            }
+                                            .frame(width: 140)
+                                            .labelsHidden()
+                                        }
+                                        Toggle("", isOn: $mediaKeyManager.enableMicMuteReminder).labelsHidden()
+                                    }
+                                }
+                            }
+                            .toggleStyle(.switch)
+                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                            )
+                            
                             Text("Behavior")
                                 .font(.headline)
                                 .foregroundColor(.secondary)

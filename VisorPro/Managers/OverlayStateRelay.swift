@@ -170,6 +170,7 @@ class OverlayStateRelay: ObservableObject {
     @Published var focusSymbol: String = "moon.fill"
     @Published var isFocusReminder: Bool = false
     @Published var isFocusSwitched: Bool = false
+    @Published var focusActiveDate: Date? = nil
     @Published var focusEventId: UUID = UUID()
     @Published var activeFocusDetails: MediaKeyManager.ActiveFocusDetails? = nil
     @Published var lastEndedFocusDetails: MediaKeyManager.ActiveFocusDetails? = nil
@@ -179,6 +180,8 @@ class OverlayStateRelay: ObservableObject {
     @Published var showMicIndicator: Bool = false
     @Published var isMicExpanded: Bool = false
     @Published var isMicActive: Bool = false
+    @Published var isMicMuteReminder: Bool = false
+    @Published var micMutedDate: Date? = nil
     @Published var activeMicName: String = ""
     @Published var currentMicDeviceName: String = ""
     @Published var micEventId: UUID = UUID()

@@ -89,7 +89,10 @@ class FocusObserver {
                 self.manager?.focusColorName = colorName
                 self.manager?.focusSymbol = symbol
                 if isActive {
+                    self.manager?.focusActiveDate = details?.startDate ?? self.manager?.focusActiveDate ?? Date()
                     self.manager?.activeFocusDetails = details
+                } else {
+                    self.manager?.focusActiveDate = nil
                 }
                 
                 self.setupFolderWatcher()
@@ -202,7 +205,10 @@ class FocusObserver {
                     self.manager?.focusColorName = colorName
                     self.manager?.focusSymbol = symbol
                     if active {
+                        self.manager?.focusActiveDate = details?.startDate ?? self.manager?.focusActiveDate ?? Date()
                         self.manager?.activeFocusDetails = details
+                    } else {
+                        self.manager?.focusActiveDate = nil
                     }
                 }
             }

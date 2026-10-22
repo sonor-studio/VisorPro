@@ -27,7 +27,7 @@ struct AppearanceEditorView: View {
     @AppStorage("enableCloseButton") private var enableCloseButton = true
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
-    @AppStorage("overlayAnimationType") private var overlayAnimationType: String = "default"
+    @AppStorage("overlayAnimationType") private var overlayAnimationType: String = "fluid_bounce"
     @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
@@ -208,6 +208,12 @@ struct AppearanceEditorView: View {
             if !hasThree, let oldTwo = UserDefaults.standard.object(forKey: "enableTwoFingerClickToDismiss") as? Bool {
                 enableThreeFingerClickToDismiss = oldTwo
             }
+            if UserDefaults.standard.object(forKey: "hasMigratedOverlayAnimationToFluid") == nil {
+                if UserDefaults.standard.string(forKey: "overlayAnimationType") == nil || UserDefaults.standard.string(forKey: "overlayAnimationType") == "default" {
+                    overlayAnimationType = "fluid_bounce"
+                }
+                UserDefaults.standard.set(true, forKey: "hasMigratedOverlayAnimationToFluid")
+            }
             setupPreviewScrollMonitor()
             setupPreviewRightClickMonitor()
         }
@@ -346,14 +352,18 @@ struct AppearanceEditorView: View {
                     .foregroundColor(.primary)
                 
                 Picker("", selection: $overlayAnimationType) {
-                    Text("Slide").tag("default")
+                    Text("Slide").tag("slide")
                     Text("Scale").tag("scale")
                     Text("Fluid").tag("fluid_bounce")
                     Text("Droplet").tag("fluid_drop")
+                    Text("Ripple").tag("ripple")
+                    Text("3D Flip").tag("flip")
+                    Text("Unfold").tag("unfold")
+                    Text("Glance").tag("pop")
                 }
                 .labelsHidden()
                 .pickerStyle(MenuPickerStyle())
-                .frame(width: 90)
+                .frame(width: 95)
                 .onChange(of: overlayAnimationType) { _, _ in
                     triggerPreviewAnimation()
                 }
@@ -810,6 +820,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
     @State private var appearScaleY: CGFloat = 1.0
     @State private var appearBlur: CGFloat = 0.0
     @State private var appearOffset: CGFloat = 0.0
+    @State private var appearAngle: Double = 0.0
     @State private var appearOpacity: Double = 1.0
     @State private var appearCornerRadius: CGFloat = 26.0
     @State private var isDropletClipping: Bool = false
@@ -818,6 +829,12 @@ struct PreviewAnimationWrapper<Content: View>: View {
     var body: some View {
         content
             .modifier(DropletClipModifier(animType: animType, cornerRadius: appearCornerRadius, isAnimating: isDropletClipping))
+            .rotation3DEffect(
+                .degrees(appearAngle),
+                axis: (x: 1, y: 0, z: 0),
+                anchor: .top,
+                perspective: 0.45
+            )
             .scaleEffect(x: appearScaleX, y: appearScaleY)
             .blur(radius: appearBlur)
             .offset(y: appearOffset)
@@ -842,6 +859,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
                     appearScaleY = 1.0
                     appearBlur = 0.0
                     appearOffset = 0.0
+                    appearAngle = 0.0
                     appearOpacity = 1.0
                     appearCornerRadius = targetCornerRadius
                     isPlaying = false
@@ -853,6 +871,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 appearScaleY = 1.0
                 appearBlur = 0.0
                 appearOffset = 0.0
+                appearAngle = 0.0
                 appearOpacity = 1.0
                 appearCornerRadius = targetCornerRadius
                 isDropletClipping = false
@@ -885,31 +904,30 @@ struct PreviewAnimationWrapper<Content: View>: View {
             return
         }
         
-        if animType == "scale" {
-            withAnimation(.easeIn(duration: 0.2)) {
+        switch animType {
+        case "scale":
+            withAnimation(.easeIn(duration: 0.20)) {
                 appearScaleX = 0.6
                 appearScaleY = 0.6
                 appearBlur = 15.0
                 appearOpacity = 0.0
             }
-        } else if animType == "fluid_bounce" {
-            withAnimation(.easeIn(duration: 0.2)) {
+        case "fluid_bounce":
+            withAnimation(.easeIn(duration: 0.20)) {
                 appearScaleX = 0.3
                 appearScaleY = 0.3
                 appearBlur = 0.0
                 appearOffset = -50
                 appearOpacity = 0.0
             }
-        } else if animType == "fluid_drop" {
+        case "fluid_drop":
             isDropletClipping = true
-            // First: fluidly retracts from full overlay into the small circular droplet (22x22 circle)
             withAnimation(.spring(response: 0.26, dampingFraction: 0.75)) {
                 appearScaleX = 0.0846
                 appearScaleY = 0.4231
                 appearBlur = 5.0
                 appearCornerRadius = 26.0
             }
-            // Seamlessly starts shooting up while still condensing into the droplet (at 0.10s)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
                 guard stateRef.tokenId == currentToken else { return }
                 withAnimation(.easeIn(duration: 0.20)) {
@@ -917,14 +935,56 @@ struct PreviewAnimationWrapper<Content: View>: View {
                     appearOpacity = 0.0
                 }
             }
-        } else {
-            withAnimation(.easeIn(duration: 0.2)) {
+        case "ripple":
+            // Squeezes horizontally into thin vertical glass beam - strictly zero vertical movement
+            withAnimation(.easeIn(duration: 0.22)) {
+                appearScaleX = 0.08
+                appearScaleY = 1.0
+                appearBlur = 8.0
+                appearOffset = 0.0
+                appearOpacity = 0.0
+            }
+        case "flip":
+            // 3D visor flip up into bezel
+            withAnimation(.easeIn(duration: 0.22)) {
+                appearAngle = -75.0
+                appearBlur = 4.0
+                appearOffset = 0.0
+                appearOpacity = 0.0
+            }
+        case "unfold":
+            // Aperture folds flat horizontally into a razor-thin slit
+            withAnimation(.easeIn(duration: 0.20)) {
+                appearScaleX = 1.0
+                appearScaleY = 0.03
+                appearBlur = 6.0
+                appearOffset = 0.0
+                appearOpacity = 0.0
+            }
+        case "pop":
+            // Elastic pull back into top bezel
+            withAnimation(.easeIn(duration: 0.20)) {
+                appearScaleX = 0.75
+                appearScaleY = 0.35
+                appearOffset = -35.0
+                appearBlur = 4.0
+                appearOpacity = 0.0
+            }
+        default: // Slide
+            withAnimation(.easeIn(duration: 0.20)) {
                 appearOffset = -50
                 appearOpacity = 0.0
             }
         }
         
-        let exitDelay = (animType == "fluid_drop") ? 0.38 : 0.45
+        let exitDelay: Double
+        switch animType {
+        case "fluid_drop": exitDelay = 0.38
+        case "ripple", "flip": exitDelay = 0.30
+        case "unfold", "pop": exitDelay = 0.28
+        default: exitDelay = 0.45
+        }
+        
         if thenEnter {
             DispatchQueue.main.asyncAfter(deadline: .now() + exitDelay) {
                 guard stateRef.tokenId == currentToken else { return }
@@ -937,49 +997,70 @@ struct PreviewAnimationWrapper<Content: View>: View {
         let stateRef = self.animState
         let currentToken = stateRef.tokenId
         
+        appearOffset = 0.0
+        appearAngle = 0.0
+        appearScaleX = 1.0
+        appearScaleY = 1.0
+        appearBlur = 0.0
+        appearOpacity = 0.0
+        isDropletClipping = false
+        
         if animType == "scale" {
             appearScaleX = 0.6
             appearScaleY = 0.6
             appearBlur = 15.0
-            appearOffset = 0.0
-            appearOpacity = 0.0
         } else if animType == "fluid_bounce" {
             appearScaleX = 0.3
             appearScaleY = 0.3
-            appearBlur = 0.0
             appearOffset = -40
-            appearOpacity = 0.0
         } else if animType == "fluid_drop" {
             isDropletClipping = true
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) {
-                // Exact small 22x22 circular dot (260 * 0.0846 = 22, 52 * 0.4231 = 22)
                 appearScaleX = 0.0846
                 appearScaleY = 0.4231
                 appearBlur = 5.0
                 appearCornerRadius = 26.0
                 appearOffset = -50
-                appearOpacity = 0.0
             }
-        } else {
-            appearScaleX = 1.0
+        } else if animType == "ripple" {
+            // Pure horizontal liquid emergence - zero vertical offset
+            appearScaleX = 0.08
             appearScaleY = 1.0
-            appearBlur = 0.0
+            appearBlur = 8.0
+            appearOffset = 0.0
+        } else if animType == "flip" {
+            // 3D perspective flip from top edge
+            appearAngle = -75.0
+            appearBlur = 4.0
+            appearOffset = 0.0
+        } else if animType == "unfold" {
+            // Razor-thin horizontal glass slit
+            appearScaleX = 1.0
+            appearScaleY = 0.03
+            appearBlur = 6.0
+            appearOffset = 0.0
+        } else if animType == "pop" {
+            // Elastic pop from top bezel
+            appearScaleX = 0.75
+            appearScaleY = 0.35
+            appearBlur = 4.0
+            appearOffset = -35.0
+        } else {
+            // Default slide
             appearOffset = -40
-            appearOpacity = 0.0
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             guard stateRef.tokenId == currentToken else { return }
             
-            if animType == "fluid_drop" {
-                // Drop slides down from top edge over 0.28s
+            switch animType {
+            case "fluid_drop":
                 withAnimation(.easeOut(duration: 0.28)) {
                     appearOffset = 0.0
                     appearOpacity = 1.0
                 }
-                // Seamlessly starts expanding near the end of sliding out (at 0.12s) while still in downward motion!
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
                     guard stateRef.tokenId == currentToken else { return }
                     withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
@@ -993,18 +1074,62 @@ struct PreviewAnimationWrapper<Content: View>: View {
                     guard stateRef.tokenId == currentToken else { return }
                     NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
                 }
-            } else if animType != "scale" {
-                withAnimation(.easeOut(duration: 0.15)) {
-                    appearOffset = 0.0
+                
+            case "ripple":
+                withAnimation(.easeOut(duration: 0.12)) {
                     appearOpacity = 1.0
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.60)) {
+                    appearScaleX = 1.0
+                    appearBlur = 0.0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                     guard stateRef.tokenId == currentToken else { return }
                     NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
                 }
-            }
-            
-            if animType == "scale" {
+                
+            case "flip":
+                withAnimation(.easeOut(duration: 0.10)) {
+                    appearOpacity = 1.0
+                }
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.65)) {
+                    appearAngle = 0.0
+                    appearBlur = 0.0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    guard stateRef.tokenId == currentToken else { return }
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
+                }
+                
+            case "unfold":
+                withAnimation(.easeOut(duration: 0.10)) {
+                    appearOpacity = 1.0
+                }
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.62)) {
+                    appearScaleY = 1.0
+                    appearBlur = 0.0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                    guard stateRef.tokenId == currentToken else { return }
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
+                }
+                
+            case "pop":
+                withAnimation(.easeOut(duration: 0.10)) {
+                    appearOpacity = 1.0
+                }
+                withAnimation(.spring(response: 0.40, dampingFraction: 0.55)) {
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
+                    appearOffset = 0.0
+                    appearBlur = 0.0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    guard stateRef.tokenId == currentToken else { return }
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
+                }
+                
+            case "scale":
                 withAnimation(.easeOut(duration: 0.15)) {
                     appearOpacity = 1.0
                 }
@@ -1017,15 +1142,29 @@ struct PreviewAnimationWrapper<Content: View>: View {
                     guard stateRef.tokenId == currentToken else { return }
                     NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
                 }
-            } else if animType == "fluid_bounce" {
+                
+            case "fluid_bounce":
+                withAnimation(.easeOut(duration: 0.15)) {
+                    appearOffset = 0.0
+                    appearOpacity = 1.0
+                }
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
                     appearScaleX = 1.0
                     appearScaleY = 1.0
                 }
-            } else if animType != "fluid_drop" {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    guard stateRef.tokenId == currentToken else { return }
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
+                }
+                
+            default: // Slide
                 withAnimation(.easeOut(duration: 0.15)) {
                     appearOffset = 0.0
                     appearOpacity = 1.0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    guard stateRef.tokenId == currentToken else { return }
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
                 }
             }
             

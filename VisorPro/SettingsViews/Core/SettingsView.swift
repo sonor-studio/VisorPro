@@ -54,13 +54,13 @@ struct SettingsView: View {
                     Label {
                             Text("Design Studio")
                         } icon: {
-                            SidebarIcon(systemName: "paintbrush.fill", color: .purple)
+                            SidebarIcon(systemName: "paintbrush.fill", color: .indigo)
                         }
                     .tag(SidebarItem.appearance)
                     Label {
                             Text("Changelog")
                         } icon: {
-                            SidebarIcon(systemName: "clock.arrow.circlepath", color: .indigo)
+                            SidebarIcon(systemName: "clock.arrow.circlepath", color: .orange)
                         }
                     .tag(SidebarItem.recentChanges)
                     Label {

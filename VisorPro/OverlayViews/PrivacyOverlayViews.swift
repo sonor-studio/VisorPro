@@ -68,12 +68,16 @@ struct MicOverlayView: View {
     }
     
     private var actionColor: Color {
+        if overlayState.isMicMuteReminder { return .offStateGray }
         if currentVolume == 0 { return .offStateGray }
         return actualIsActive ? OverlayColorManager.shared.getOverlayColor(for: "colorOnMicOn", defaultColor: Color(red: 1.0, green: 0.65, blue: 0.0)) : .offStateGray
     }
     
     private var actionTitle: String {
-        actualIsActive ? "Microphone in Use" : "Microphone Off"
+        if overlayState.isMicMuteReminder {
+            return "Mute Reminder"
+        }
+        return actualIsActive ? "Microphone in Use" : "Microphone Off"
     }
     
     private func loadInitialVolume() {
@@ -100,32 +104,59 @@ struct MicOverlayView: View {
             timeoutEventId: overlayState.micEventId,
             barColor: actionColor,
             fillCenter: false,
-            isMuted: currentVolume == 0,
+            isMuted: currentVolume == 0 || overlayState.isMicMuteReminder,
             customWidth: 260,
             customHeight: 56,
             supportDragGesture: false,
             onRightTap: nil,
-            isExpandable: actualIsActive && micAllowExpansion,
+            isExpandable: (actualIsActive || overlayState.isMicMuteReminder) && micAllowExpansion,
             expandUpwards: micPos.hasPrefix("bottom"),
             keepAliveId: "mic",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
-                    Image(systemName: actualIsActive ? "mic.fill" : "mic.slash.fill")
+                    Image(systemName: (overlayState.isMicMuteReminder || currentVolume == 0) ? "mic.slash.fill" : (actualIsActive ? "mic.fill" : "mic.slash.fill"))
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsActive ? .primary : .offStateGray)
+                        .foregroundColor((actualIsActive && !overlayState.isMicMuteReminder) ? .primary : .offStateGray)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(actionTitle)
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.secondary)
+                        if overlayState.isMicMuteReminder {
+                            HStack(spacing: 4) {
+                                Text(actionTitle)
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .foregroundColor(.secondary)
+                                Text("•")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.secondary)
+                                if isPreview {
+                                    Text("1:02:15")
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundColor(.secondary)
+                                } else if let mutedDate = overlayState.micMutedDate {
+                                    Text(mutedDate, style: .timer)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    Text(Date().addingTimeInterval(-Double(mediaKeyManager.micMuteReminderInterval * 60)), style: .timer)
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .monospacedDigit()
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        } else {
+                            Text(actionTitle)
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundColor(.secondary)
+                        }
                         
                         MarqueeText(text: isPreview ? "System Microphone" : (displayedMicName.isEmpty ? "Microphone" : displayedMicName), font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
                     
                     Spacer(minLength: 8)
                     
-                    if actualIsActive {
+                    if actualIsActive && !overlayState.isMicMuteReminder {
                         let path = isPreview ? "/System/Applications/VoiceMemos.app" : mediaKeyManager.activeMicClientBundleID
                         CachedAppIconView(
                             path: path,
@@ -139,6 +170,36 @@ struct MicOverlayView: View {
                 .padding(.trailing, 20)
             },
             expandedContent: {
+                if overlayState.isMicMuteReminder {
+                    VStack(alignment: .center, spacing: 2) {
+                        Text("Muted For")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                        if isPreview {
+                            Text("1:02:15")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                        } else if let mutedDate = overlayState.micMutedDate {
+                            Text(mutedDate, style: .timer)
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                        } else {
+                            Text(Date().addingTimeInterval(-Double(mediaKeyManager.micMuteReminderInterval * 60)), style: .timer)
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+                } else {
                 VStack(spacing: 0) {
                     if isPreview || !mediaKeyManager.activeMicClientName.isEmpty {
                         VStack(spacing: 12) {
@@ -237,6 +298,7 @@ struct MicOverlayView: View {
                         }
                     }
                 }
+                }
             }
         )
         
@@ -244,7 +306,7 @@ struct MicOverlayView: View {
             if !isPreview {
                 availableDevices = VolumeManager.shared.getAvailableInputDevices()
             }
-            if isExpanded && actualIsActive && !isPreview && micShowVisualizer {
+            if isExpanded && actualIsActive && !isPreview && micShowVisualizer && !overlayState.isMicMuteReminder {
                 MicLevelMonitor.shared.startMonitoring()
             }
         }
@@ -253,7 +315,7 @@ struct MicOverlayView: View {
                 overlayState.isMicExpanded = expanded
                 if expanded {
                     availableDevices = VolumeManager.shared.getAvailableInputDevices()
-                    if micShowVisualizer {
+                    if micShowVisualizer && !overlayState.isMicMuteReminder {
                         MicLevelMonitor.shared.startMonitoring()
                     }
                     loadInitialVolume()
@@ -264,9 +326,9 @@ struct MicOverlayView: View {
         }
         .onChange(of: actualIsActive) { _, isActive in
             if overlayState.isSwitchingMic { return }
-            if isActive && isExpanded && !isPreview && micShowVisualizer {
+            if isActive && isExpanded && !isPreview && micShowVisualizer && !overlayState.isMicMuteReminder {
                 MicLevelMonitor.shared.startMonitoring()
-            } else if !isActive && isExpanded {
+            } else if !isActive && isExpanded && !overlayState.isMicMuteReminder {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded = false
                 }
@@ -284,14 +346,13 @@ struct MicOverlayView: View {
         .onChange(of: overlayState.audioDevicesChanged) { _, _ in
             if !isPreview {
                 availableDevices = VolumeManager.shared.getAvailableInputDevices()
-                if isExpanded {
-                    loadInitialVolume()
-                }
             }
         }
         .onDisappear {
             if !isPreview {
                 overlayState.isMicExpanded = false
+                overlayState.globalHoveredTypes.remove("mic")
+                overlayState.actualHoveredTypes.remove("mic")
                 if !overlayState.isMicActive {
                     MicLevelMonitor.shared.stopMonitoring(immediately: true)
                 }
@@ -499,10 +560,11 @@ struct CameraOverlayView: View {
             }
         }
         .onDisappear {
-            if isExpanded {
+            if !isPreview {
                 overlayState.isCameraExpanded = false
+                overlayState.globalHoveredTypes.remove("camera")
+                overlayState.actualHoveredTypes.remove("camera")
             }
-            mediaKeyManager.keepAlive(for: "camera", isHovering: false)
         }
     }
 }
@@ -573,7 +635,10 @@ struct LocationOverlayView: View {
         )
         
                 .onDisappear {
-            mediaKeyManager.keepAlive(for: "location", isHovering: false)
+            if !isPreview {
+                overlayState.globalHoveredTypes.remove("location")
+                overlayState.actualHoveredTypes.remove("location")
+            }
         }
     }
 }

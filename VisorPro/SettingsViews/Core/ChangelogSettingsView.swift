@@ -53,7 +53,7 @@ struct ChangelogSettingsView: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.primary)
                     
-                    Text("Overlay bug fixes and stability improvements, new Overlay Design Studio, customizable entrance & exit animations, and refined Speed Test engine.")
+                    Text("Overlay bug fixes and stability improvements, new Overlay Design Studio, three-finger dismiss gesture, customizable entrance & exit animations, and refined Speed Test engine.")
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
                         .padding(.bottom, 8)
@@ -67,7 +67,7 @@ struct ChangelogSettingsView: View {
                             preview: ZStack {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color.teal.opacity(0.05))
-                                
+                                 
                                 ZStack {
                                     Circle()
                                         .stroke(Color.teal.opacity(0.25), lineWidth: 4)
@@ -86,14 +86,14 @@ struct ChangelogSettingsView: View {
                             description: "A new dedicated settings tab for fine-tuning overlay visuals. Adjust glass material, corner radius, swipe dismiss behavior, and close button style — all with a live interactive preview.",
                             preview: ZStack {
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.purple.opacity(0.05))
+                                    .fill(Color.indigo.opacity(0.05))
                                 
                                 VStack(spacing: 0) {
                                     // Row 1: Slider control
                                     HStack(spacing: 8) {
                                         Image(systemName: "slider.horizontal.3")
                                             .font(.system(size: 10, weight: .semibold))
-                                            .foregroundColor(.purple)
+                                            .foregroundColor(.indigo)
                                         
                                         Spacer(minLength: 4)
                                         
@@ -102,7 +102,7 @@ struct ChangelogSettingsView: View {
                                                 .fill(Color.secondary.opacity(0.2))
                                                 .frame(width: 58, height: 4)
                                             Capsule()
-                                                .fill(Color.purple.opacity(0.65))
+                                                .fill(Color.indigo.opacity(0.65))
                                                 .frame(width: 36, height: 4)
                                             Circle()
                                                 .fill(Color.white)
@@ -121,7 +121,7 @@ struct ChangelogSettingsView: View {
                                     HStack(spacing: 8) {
                                         Image(systemName: "paintbrush.fill")
                                             .font(.system(size: 10))
-                                            .foregroundColor(.purple.opacity(0.85))
+                                            .foregroundColor(.indigo.opacity(0.85))
                                         
                                         RoundedRectangle(cornerRadius: 2)
                                             .fill(Color.secondary.opacity(0.35))
@@ -130,7 +130,7 @@ struct ChangelogSettingsView: View {
                                         Spacer(minLength: 4)
                                         
                                         Capsule()
-                                            .fill(Color.purple.opacity(0.85))
+                                            .fill(Color.indigo.opacity(0.85))
                                             .frame(width: 22, height: 12)
                                             .overlay(
                                                 Circle()
@@ -149,7 +149,7 @@ struct ChangelogSettingsView: View {
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
                                         .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
-                                )
+                                 )
                                 .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
                             }
                         )
@@ -212,6 +212,13 @@ struct ChangelogSettingsView: View {
                                     }
                                 }
                             }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "hand.tap.fill",
+                            title: "Three-Finger Dismiss Gesture",
+                            description: "Dismiss any active overlay instantly with a quick three-finger tap on your trackpad. Seamlessly configurable in Design Studio alongside swipe to dismiss.",
+                            preview: ThreeFingerDismissChangelogPreview()
                         )
                         
                         ChangelogCard(
@@ -1321,6 +1328,7 @@ struct ChangelogCard<Preview: View>: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(Color.secondary.opacity(0.1), lineWidth: 1)
             )
+            .allowsHitTesting(false)
             
             // Text Area
             VStack(alignment: .leading, spacing: 6) {
@@ -1341,5 +1349,92 @@ struct ChangelogCard<Preview: View>: View {
             }
             .padding(.horizontal, 4)
         }
+    }
+}
+
+// MARK: - Three-Finger Dismiss Preview Component
+
+struct ThreeFingerDismissChangelogPreview: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.blue.opacity(0.05))
+            
+            // Centered Trackpad Glass Surface Mock
+            ZStack {
+                // Glass Body
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(NSColor.controlBackgroundColor).opacity(0.95),
+                                Color(NSColor.windowBackgroundColor).opacity(0.7)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 162, height: 96)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+                
+                // Trackpad top alignment seam / notch
+                VStack {
+                    Capsule()
+                        .fill(Color.secondary.opacity(0.22))
+                        .frame(width: 36, height: 2.5)
+                        .padding(.top, 6)
+                    Spacer()
+                }
+                .frame(width: 162, height: 96)
+                
+                // 3 Tactile Touch Points in an ergonomic arch
+                HStack(spacing: 20) {
+                    TouchPointPreviewDot(offsetY: 3)
+                    TouchPointPreviewDot(offsetY: -3)
+                    TouchPointPreviewDot(offsetY: 3)
+                }
+            }
+        }
+    }
+}
+
+private struct TouchPointPreviewDot: View {
+    let offsetY: CGFloat
+    
+    var body: some View {
+        ZStack {
+            // Pressure ripple
+            Circle()
+                .stroke(Color.blue.opacity(0.28), lineWidth: 1.5)
+                .frame(width: 30, height: 30)
+            
+            // Soft aura
+            Circle()
+                .fill(Color.blue.opacity(0.12))
+                .frame(width: 20, height: 20)
+            
+            // Vibrant touch core
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.blue, Color.blue.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 12, height: 12)
+                .shadow(color: Color.blue.opacity(0.4), radius: 2)
+            
+            // Specular reflection
+            Circle()
+                .fill(Color.white.opacity(0.85))
+                .frame(width: 3, height: 3)
+                .offset(x: -2, y: -2)
+        }
+        .offset(y: offsetY)
     }
 }
