@@ -222,6 +222,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var disableTimeoutMode: Bool = false
     var fixedExpandedHeight: CGFloat? = nil
     var allowCloseButton: Bool = true
+    var minimalText: String? = nil
+    var minimalIcon: String? = nil
     
     @ViewBuilder var baseContent: () -> BaseContent
     @ViewBuilder var expandedContent: () -> ExpandedContent
@@ -233,10 +235,12 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var bendProgress: CGFloat = 0
     @State private var hasLanded: Bool = false
     @State private var lastTapTime: TimeInterval = 0
+    @State private var isMinimalExpandedByClick: Bool = false
     @AppStorage("enableCloseButton") private var enableCloseButton = false
     @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = true
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
     @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
+    @AppStorage("enableMinimalMode") private var enableMinimalMode = false
     
     
     private var isGloballyHovered: Bool {
@@ -249,13 +253,22 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         return hasTimeoutProgress || (showProgressBar && customProgressMask == nil && progress >= 1.0)
     }
     
+    private var isEffectivelyMinimal: Bool {
+        enableMinimalMode && !isMinimalExpandedByClick && !isHovering && !isExpanded
+    }
+    
     var body: some View {
-        let width: CGFloat = customWidth
+        let isMinimal = isEffectivelyMinimal
+        let targetWidth: CGFloat = isMinimal ? 140 : customWidth
+        let targetHeight: CGFloat = isMinimal ? 38 : customHeight
+        let width: CGFloat = targetWidth
+        let baseHeight: CGFloat = targetHeight
         let dynamicOffset: CGFloat = -2
         let buttonCenter = CGPoint(x: closeButtonOnRight ? width - (dynamicOffset + 10) : dynamicOffset + 10, y: dynamicOffset + 10)
         let cutoutCenterForShape = CGPoint(x: closeButtonOnRight ? width - buttonCenter.x : buttonCenter.x, y: buttonCenter.y)
-        let baseHeight: CGFloat = customHeight
-        let outerRadius: CGFloat = customCornerRadius ?? ((baseHeight / 2) * CGFloat(mediaKeyManager.cornerRoundingMultiplier))
+        let outerRadius: CGFloat = isMinimal 
+            ? ((baseHeight / 2) * CGFloat(mediaKeyManager.cornerRoundingMultiplier)) 
+            : (customCornerRadius ?? ((baseHeight / 2) * CGFloat(mediaKeyManager.cornerRoundingMultiplier)))
         let trackPadding: CGFloat = 3
         let innerRadius: CGFloat = max(0, outerRadius - trackPadding)
         let innerPadding: CGFloat = 3
@@ -264,93 +277,134 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         let trackWidth: CGFloat = width - (trackPadding * 2)
         let effectiveBarColor: Color = isMuted ? Color.offStateGray.opacity(0.95) : barColor.opacity(0.95)
         
-        ZStack(alignment: .topLeading) {
-            VStack(spacing: 0) {
-                                ZStack(alignment: .leading) {
-                    Group {
-                        baseContent()
-                            .frame(width: width, height: baseHeight)
-                            .allowsHitTesting(allowBaseHitTesting)
-                            .animation(nil, value: isExpanded)
+        VStack(spacing: 0) {
+            ZStack(alignment: .center) {
+                if enableMinimalMode {
+                    // Minimal content (Icon + Key text)
+                    HStack(spacing: 7) {
+                        if let icon = minimalIcon, !icon.isEmpty {
+                            Image(systemName: icon)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.primary)
+                        }
+                        Text(minimalText ?? "Visor")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
                     }
-                    .modifier(ConditionalDrawingGroup(enabled: !allowBaseHitTesting))
-        
-                        
-                    HStack(spacing: 0) {
-                        if onLeftTap != nil {
-                            Rectangle()
-                                .fill(Color.clear)
-                                .frame(width: 60)
-                                .contentShape(Rectangle())
-                                .conditionalPointingHandCursor(isEnabled: !isPreview)
-                        }
-                        if (!isExpandable && onSimpleTap != nil) || isExpandable {
-                            Rectangle()
-                                .fill(Color.clear)
-                                .contentShape(Rectangle())
-                                .conditionalPointingHandCursor(isEnabled: isExpandable || onSimpleTap != nil)
-                        } else {
-                            Spacer()
-                        }
-                        if onRightTap != nil && !supportDragGesture {
-                            Rectangle()
-                                .fill(Color.clear)
-                                .frame(width: 50)
-                                .contentShape(Rectangle())
-                                .conditionalPointingHandCursor(isEnabled: !isPreview)
-                        }
-                    }
-                    .frame(width: width, height: baseHeight)
-                    .allowsHitTesting(!allowBaseHitTesting)
+                    .padding(.horizontal, 14)
+                    .frame(width: 140, height: 38, alignment: .center)
+                    .opacity(isMinimal ? 1.0 : 0.0)
+                    .blur(radius: isMinimal ? 0.0 : 8.0)
+                    .scaleEffect(isMinimal ? 1.0 : 0.88)
+                    .allowsHitTesting(isMinimal)
+                    
+                    // Full base content
+                    baseContent()
+                        .frame(width: customWidth, height: customHeight, alignment: .center)
+                        .allowsHitTesting(allowBaseHitTesting && !isMinimal)
+                        .animation(nil, value: isExpanded)
+                        .modifier(ConditionalDrawingGroup(enabled: !allowBaseHitTesting && !isMinimal))
+                        .opacity(isMinimal ? 0.0 : 1.0)
+                        .blur(radius: isMinimal ? 8.0 : 0.0)
+                        .scaleEffect(isMinimal ? 0.92 : 1.0)
+                } else {
+                    baseContent()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                        .allowsHitTesting(allowBaseHitTesting)
+                        .animation(nil, value: isExpanded)
+                        .modifier(ConditionalDrawingGroup(enabled: !allowBaseHitTesting))
                 }
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 10)
-                        .onChanged { value in
-                            if isPreview {
-                                // ScrollWheel event w AppearanceEditorView dba o fizyczne machnięcie gładzikiem
-                            }
-                            if supportDragGesture {
-                                if !isDragging {
-                                    isDragging = true
-                                }
-                                let v = max(0, min(1, value.location.x / width))
-                                onDrag?(v)
-                            }
+                
+                HStack(spacing: 0) {
+                    if !isMinimal && onLeftTap != nil {
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(width: 60)
+                            .contentShape(Rectangle())
+                            .conditionalPointingHandCursor(isEnabled: !isPreview)
+                    }
+                    if (!isExpandable && onSimpleTap != nil) || isExpandable || isMinimal {
+                        Rectangle()
+                            .fill(Color.clear)
+                            .contentShape(Rectangle())
+                            .conditionalPointingHandCursor(isEnabled: isExpandable || onSimpleTap != nil || isMinimal)
+                    } else {
+                        Spacer()
+                    }
+                    if !isMinimal && onRightTap != nil && !supportDragGesture {
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(width: 50)
+                            .contentShape(Rectangle())
+                            .conditionalPointingHandCursor(isEnabled: !isPreview)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .allowsHitTesting(!allowBaseHitTesting)
+            }
+            .frame(width: width, height: baseHeight, alignment: .center)
+            .clipShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
+            .gesture(
+                DragGesture(minimumDistance: 10)
+                    .onChanged { value in
+                        if isPreview {
+                            // ScrollWheel event w AppearanceEditorView dba o fizyczne machnięcie gładzikiem
                         }
-                        .onEnded { value in
-                            if isDragging {
-                                isDragging = false
+                        if supportDragGesture && !isMinimal {
+                            if !isDragging {
+                                isDragging = true
                             }
+                            let v = max(0, min(1, value.location.x / width))
+                            onDrag?(v)
                         }
-                )
-                .simultaneousGesture(
-                    SpatialTapGesture()
-                        .onEnded { event in
-                            if isDragging {
-                                return
+                    }
+                    .onEnded { value in
+                        if isDragging {
+                            isDragging = false
+                        }
+                    }
+            )
+            .simultaneousGesture(
+                SpatialTapGesture()
+                    .onEnded { event in
+                        if isDragging {
+                            return
+                        }
+                        
+                        let now = CACurrentMediaTime()
+                        guard now - lastTapTime > 0.25 else { return }
+                        lastTapTime = now
+                        
+                        if enableMinimalMode && isExpandable && !isMinimalExpandedByClick {
+                            let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
+                            withAnimation(anim) {
+                                isMinimalExpandedByClick = true
+                                isExpanded = true
                             }
-                            
-                            let now = CACurrentMediaTime()
-                            guard now - lastTapTime > 0.25 else { return }
-                            lastTapTime = now
-                            
-                            let locX = event.location.x
-                            
-                            if onLeftTap != nil && locX <= 60 {
-                                onLeftTap?()
-                            } else if onRightTap != nil && !supportDragGesture && locX >= width - 50 {
-                                onRightTap?()
-                            } else {
-                                if isExpandable {
-                                    let anim: Animation = !isExpanded ? (enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)) : .easeOut(duration: 0.2)
-                                    withAnimation(anim) {
-                                        isExpanded.toggle()
+                            return
+                        }
+                        
+                        let locX = event.location.x
+                        
+                        if onLeftTap != nil && locX <= 60 {
+                            onLeftTap?()
+                        } else if onRightTap != nil && !supportDragGesture && locX >= width - 50 {
+                            onRightTap?()
+                        } else {
+                            if isExpandable {
+                                let anim: Animation = !isExpanded ? (enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)) : .easeOut(duration: 0.2)
+                                withAnimation(anim) {
+                                    isExpanded.toggle()
+                                    if !isExpanded {
+                                        isMinimalExpandedByClick = false
                                     }
-                                } else {
-                                    onSimpleTap?()
                                 }
+                            } else {
+                                onSimpleTap?()
                             }
+                        }
                         }
                 )
                 
@@ -389,7 +443,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         }
                     }
             }
-            .frame(width: width, alignment: expandUpwards ? .bottom : .top)
+            .frame(width: width, alignment: isPreview ? .center : (expandUpwards ? .bottom : .top))
 
         .background(
             ZStack(alignment: .leading) {
@@ -540,6 +594,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             if isPreview {
                 hasLanded = false
                 bendProgress = 0.0
+                isMinimalExpandedByClick = false
                 if isExpanded {
                     withAnimation(.easeOut(duration: 0.2)) {
                         isExpanded = false
@@ -557,6 +612,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             if isClosing {
                 hasLanded = false
                 bendProgress = 0.0
+                isMinimalExpandedByClick = false
                 if isExpanded {
                     withAnimation(.easeOut(duration: 0.2)) {
                         isExpanded = false
@@ -565,7 +621,10 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             }
         }
         .onHoverExact { hovering in
-            isHovering = hovering
+            let anim: Animation = enableBouncyExpansion ? .spring(response: 0.38, dampingFraction: 0.65) : .easeInOut(duration: 0.22)
+            withAnimation(anim) {
+                isHovering = hovering
+            }
             triggerKeepAlive(hoveringOverride: hovering)
             if allowCloseButton {
                 updateBendProgress()
@@ -602,6 +661,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             hasLanded = false
             expandedKeepAliveTimer?.invalidate()
             expandedKeepAliveTimer = nil
+            isMinimalExpandedByClick = false
         }
         .onChange(of: isExpanded) { _, expanded in
             updateBendProgress()
@@ -616,6 +676,10 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     triggerKeepAlive(expandedOverride: true)
                 }
             } else {
+                let anim: Animation = enableBouncyExpansion ? .spring(response: 0.38, dampingFraction: 0.65) : .easeInOut(duration: 0.22)
+                withAnimation(anim) {
+                    isMinimalExpandedByClick = false
+                }
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = nil
                 DispatchQueue.main.async {
@@ -626,9 +690,9 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         .onChange(of: enableCloseButton) { _, _ in
             updateBendProgress()
         }
-        
-        if enableCloseButton && allowCloseButton {
-            Image(systemName: "xmark")
+        .overlay(alignment: .topLeading) {
+            if enableCloseButton && allowCloseButton {
+                Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.secondary)
                     .frame(width: 20, height: 20)
@@ -650,12 +714,12 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         }
                     }
                     .conditionalPointingHandCursor(isEnabled: !isPreview)
-                .offset(x: buttonCenter.x - 10, y: dynamicOffset)
-                .opacity(shouldShowCloseButton ? 1 : 0)
-                .animation(shouldShowCloseButton ? .spring(response: 0.3, dampingFraction: 0.7) : .easeOut(duration: 0.2), value: shouldShowCloseButton)
+                    .offset(x: buttonCenter.x - 10, y: dynamicOffset)
+                    .opacity(shouldShowCloseButton ? 1 : 0)
+                    .animation(shouldShowCloseButton ? .spring(response: 0.3, dampingFraction: 0.7) : .easeOut(duration: 0.2), value: shouldShowCloseButton)
             }
         }
-
+        .frame(width: width, alignment: .center)
     }
     
     
@@ -678,6 +742,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     private var shouldShowCloseButton: Bool {
         guard allowCloseButton else { return false }
         guard enableCloseButton && hasLanded else { return false }
+        guard !isEffectivelyMinimal else { return false }
         if keepCloseButtonWhenExpanded {
             return isHovering || isExpanded
         } else {

@@ -71,12 +71,41 @@ class VisorProWindowManager: ObservableObject {
         return slotMap
     }
 
+    private func isOverlayHovered(id: String) -> Bool {
+        let actual = OverlayStateRelay.shared.actualHoveredTypes
+        let global = OverlayStateRelay.shared.globalHoveredTypes
+        if actual.contains(id) || global.contains(id) { return true }
+        for prefix in ["ram", "bluetooth", "peripheral", "display", "battery"] {
+            if id.hasPrefix(prefix) && (actual.contains(prefix) || global.contains(prefix)) {
+                return true
+            }
+        }
+        return false
+    }
+    
+    private func effectiveOverlayWidth(for overlay: ActiveOverlay) -> CGFloat {
+        let enableMinimal = UserDefaults.standard.bool(forKey: "enableMinimalMode")
+        if enableMinimal {
+            if !isOverlayHovered(id: overlay.id) {
+                return 140
+            }
+        }
+        if overlay.type == .capsLock || overlay.type == .theme {
+            return 230
+        } else if overlay.type == .focus {
+            return 240
+        } else {
+            return 260
+        }
+    }
+
     private func getSlotX(index: Int, totalSlots: Int, in size: CGSize) -> CGFloat {
         if totalSlots <= 1 {
             return size.width / 2
         }
         let margin: CGFloat = 40
-        let averageWidth: CGFloat = 260
+        let enableMinimal = UserDefaults.standard.bool(forKey: "enableMinimalMode")
+        let averageWidth: CGFloat = enableMinimal ? 140 : 260
         let availableWidth = size.width - 2 * margin
         let spacing = (availableWidth - CGFloat(totalSlots) * averageWidth) / CGFloat(totalSlots - 1)
         
@@ -88,26 +117,43 @@ class VisorProWindowManager: ObservableObject {
         let rights = overlays.filter { $0.position.hasSuffix("_right") }
         let centers = overlays.filter { !$0.position.hasSuffix("_left") && !$0.position.hasSuffix("_right") }
         
-        let w: CGFloat = 260
-        let s: CGFloat = 24
-        let marginVal = UserDefaults.standard.object(forKey: "overlayMargin"); let m: CGFloat = marginVal != nil ? CGFloat((marginVal as? NSNumber)?.doubleValue ?? 30.0) : 30.0
+        let enableMinimal = UserDefaults.standard.bool(forKey: "enableMinimalMode")
+        let isAllMinimal = enableMinimal && overlays.allSatisfy { !isOverlayHovered(id: $0.id) }
+        let s: CGFloat = isAllMinimal ? 12 : 20
+        let marginVal = UserDefaults.standard.object(forKey: "overlayMargin")
+        let m: CGFloat = marginVal != nil ? CGFloat((marginVal as? NSNumber)?.doubleValue ?? 30.0) : 30.0
         
         let countLeft = lefts.count
         let countCenter = centers.count
         let countRight = rights.count
         
-        let leftEnd = countLeft > 0 ? (m + CGFloat(countLeft) * w + CGFloat(countLeft - 1) * s) : 0
-        let rightStart = countRight > 0 ? (size.width - m - (CGFloat(countRight) * w + CGFloat(countRight - 1) * s)) : size.width
+        var currentX = m
+        var leftPositions: [String: CGFloat] = [:]
+        for overlay in lefts {
+            let w = effectiveOverlayWidth(for: overlay)
+            leftPositions[overlay.id] = currentX + (w / 2)
+            currentX += w + s
+        }
+        let leftEnd = countLeft > 0 ? (currentX - s) : 0
+        
+        var currentRightX = size.width - m
+        var rightPositions: [String: CGFloat] = [:]
+        for overlay in rights {
+            let w = effectiveOverlayWidth(for: overlay)
+            rightPositions[overlay.id] = currentRightX - (w / 2)
+            currentRightX -= (w + s)
+        }
+        let rightStart = countRight > 0 ? (currentRightX + s) : size.width
+        
+        let totalCenterWidth = centers.reduce(CGFloat(0)) { $0 + effectiveOverlayWidth(for: $1) } + CGFloat(max(0, countCenter - 1)) * s
+        let centerStart = (size.width - totalCenterWidth) / 2
+        let centerEnd = centerStart + totalCenterWidth
         
         var hasCollision = false
         if countLeft > 0 && countRight > 0 && countCenter == 0 {
             if leftEnd + s > rightStart { hasCollision = true }
         }
         if countCenter > 0 {
-            let totalCenterWidth = CGFloat(countCenter) * w + CGFloat(max(0, countCenter - 1)) * s
-            let centerStart = (size.width - totalCenterWidth) / 2
-            let centerEnd = centerStart + totalCenterWidth
-            
             if countLeft > 0 && (leftEnd + s > centerStart) { hasCollision = true }
             if countRight > 0 && (centerEnd + s > rightStart) { hasCollision = true }
         }
@@ -115,18 +161,14 @@ class VisorProWindowManager: ObservableObject {
         var result: [String: CGFloat] = [:]
         
         if !hasCollision {
-            for (index, overlay) in lefts.enumerated() {
-                let startX = m + (w / 2)
-                result[overlay.id] = startX + CGFloat(index) * (w + s)
-            }
-            for (index, overlay) in rights.enumerated() {
-                let startX = size.width - m - (w / 2)
-                result[overlay.id] = startX - CGFloat(index) * (w + s)
-            }
-            let totalCenterWidth = CGFloat(countCenter) * w + CGFloat(max(0, countCenter - 1)) * s
-            let startX = (size.width - totalCenterWidth) / 2 + (w / 2)
-            for (index, overlay) in centers.enumerated() {
-                result[overlay.id] = startX + CGFloat(index) * (w + s)
+            result.merge(leftPositions) { (current, _) in current }
+            result.merge(rightPositions) { (current, _) in current }
+            
+            var currentCenterX = centerStart
+            for overlay in centers {
+                let w = effectiveOverlayWidth(for: overlay)
+                result[overlay.id] = currentCenterX + (w / 2)
+                currentCenterX += w + s
             }
         } else {
             let slotMap = assignSlots(overlays: overlays, limit: limit)
@@ -173,6 +215,13 @@ class VisorProWindowManager: ObservableObject {
         
         SwipeStateRelay.shared.$activeSwipeIds
             .throttle(for: .milliseconds(16), scheduler: DispatchQueue.main, latest: true)
+            .sink { [weak self] _ in
+                self?.updateWindows()
+            }
+            .store(in: &cancellables)
+        
+        OverlayStateRelay.shared.$actualHoveredTypes
+            .throttle(for: .milliseconds(50), scheduler: DispatchQueue.main, latest: true)
             .sink { [weak self] _ in
                 self?.updateWindows()
             }
@@ -477,11 +526,7 @@ class VisorProWindowManager: ObservableObject {
                             }
                         })
                     } else {
-                        let screenHeight = cachedScreens.first?.frame.height ?? 800
-                        let isTop = (window.frame.origin.y + window.frame.height / 2) > (screenHeight / 2)
-                        let offsetAmount: CGFloat = isTop ? 50 : -50 
                         let animType = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "fluid_bounce"
-                        let isCenterAnim = animType == "scale" || animType == "ripple" || animType == "flip" || animType == "unfold" || animType == "pop"
                         
                         // Notify SwiftUI IMMEDIATELY (synchronously) so the view's exit animation begins on frame 0
                         OverlayStateRelay.shared.closingPanels.insert(overlayId)
@@ -492,80 +537,26 @@ class VisorProWindowManager: ObservableObject {
                             exitDuration = 0.22
                         case "unfold", "pop", "scale":
                             exitDuration = 0.20
+                        case "fluid_drop":
+                            exitDuration = 0.24
                         default:
-                            exitDuration = 0.20
+                            exitDuration = 0.18
                         }
                         
-                        if isCenterAnim {
-                            // For in-place/spatial animations (3D Flip, Ripple, Unfold, Glance, Scale):
-                            // The SwiftUI content inside SingleOverlayContainer animates its own transforms
-                            // and its own appearOpacity -> 0.0. The window itself MUST remain at full alpha (1.0)
-                            // so macOS doesn't fade it out with a generic AppKit fade!
-                            DispatchQueue.main.asyncAfter(deadline: .now() + exitDuration + 0.03) {
-                                Task { @MainActor in
-                                    OverlayStateRelay.shared.closingPanels.remove(overlayId)
-                                    if self.exitingPanels.contains(id) {
-                                        window.orderOut(nil)
-                                        window.contentView = nil
-                                        window.close()
-                                        self.windows.removeValue(forKey: id)
-                                        self.targetOrigins.removeValue(forKey: id)
-                                        self.shownPanels.remove(id)
-                                        self.exitingPanels.remove(id)
-                                    }
-                                }
-                            }
-                        } else if animType == "fluid_drop" {
-                            // For droplet: content condenses into 22x22 circle dot first (0.10s),
-                            // then window shoots up into bezel
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
+                        // Unified spatial & exit animation handled inside SingleOverlayContainer in SwiftUI
+                        DispatchQueue.main.asyncAfter(deadline: .now() + exitDuration + 0.03) {
+                            Task { @MainActor in
+                                OverlayStateRelay.shared.closingPanels.remove(overlayId)
                                 if self.exitingPanels.contains(id) {
-                                    NSAnimationContext.runAnimationGroup({ ctx in
-                                        ctx.duration = 0.20
-                                        ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                                        var finalFrame = window.frame
-                                        finalFrame.origin.y += offsetAmount
-                                        window.animator().setFrame(finalFrame, display: false)
-                                        window.animator().alphaValue = 0.0
-                                    }, completionHandler: {
-                                        Task { @MainActor in
-                                            OverlayStateRelay.shared.closingPanels.remove(overlayId)
-                                            if self.exitingPanels.contains(id) {
-                                                window.orderOut(nil)
-                                                window.contentView = nil
-                                                window.close()
-                                                self.windows.removeValue(forKey: id)
-                                                self.targetOrigins.removeValue(forKey: id)
-                                                self.shownPanels.remove(id)
-                                                self.exitingPanels.remove(id)
-                                            }
-                                        }
-                                    })
+                                    window.orderOut(nil)
+                                    window.contentView = nil
+                                    window.close()
+                                    self.windows.removeValue(forKey: id)
+                                    self.targetOrigins.removeValue(forKey: id)
+                                    self.shownPanels.remove(id)
+                                    self.exitingPanels.remove(id)
                                 }
                             }
-                        } else {
-                            // Default Slide / Fluid Bounce: window slides and fades out via AppKit
-                            NSAnimationContext.runAnimationGroup({ ctx in
-                                ctx.duration = exitDuration
-                                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                                var finalFrame = window.frame
-                                finalFrame.origin.y += offsetAmount
-                                window.animator().setFrame(finalFrame, display: false)
-                                window.animator().alphaValue = 0.0
-                            }, completionHandler: {
-                                Task { @MainActor in
-                                    OverlayStateRelay.shared.closingPanels.remove(overlayId)
-                                    if self.exitingPanels.contains(id) {
-                                        window.orderOut(nil)
-                                        window.contentView = nil
-                                        window.close()
-                                        self.windows.removeValue(forKey: id)
-                                        self.targetOrigins.removeValue(forKey: id)
-                                        self.shownPanels.remove(id)
-                                        self.exitingPanels.remove(id)
-                                    }
-                                }
-                            })
                         }
                     }
                 }
@@ -658,28 +649,20 @@ class VisorProWindowManager: ObservableObject {
                     logicalTargetOrigins[windowId] = logicalTarget
                     animatingEntryPanels.insert(windowId)
                     
-                    let isTop = (targetOrigin.y + currentHeight / 2) > (screenSize.height / 2)
                     let animType = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "fluid_bounce"
-                    let isCenterAnim = animType == "scale" || animType == "ripple" || animType == "flip" || animType == "unfold" || animType == "pop"
-                    let offsetAmount: CGFloat = isTop ? 45 : -45
-                    let startOrigin = isCenterAnim ? targetOrigin : NSPoint(x: targetOrigin.x, y: targetOrigin.y + offsetAmount)
+                    let entryDuration: Double = (animType == "fluid_drop" ? 0.28 : 0.18)
                     
                     panel.alphaValue = 0.0
-                    panel.setFrame(NSRect(origin: startOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
+                    panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                     panel.orderFront(nil)
                     
                     panel.contentView?.layoutSubtreeIfNeeded()
                     panel.displayIfNeeded()
                     
-                    let entryDuration: Double = (animType == "fluid_drop" ? 0.28 : 0.15)
-                    
                     DispatchQueue.main.async {
                         NSAnimationContext.runAnimationGroup({ ctx in
                             ctx.duration = entryDuration
                             ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                            if !isCenterAnim {
-                                panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
-                            }
                             panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
                         }, completionHandler: {
                             Task { @MainActor in
@@ -834,7 +817,6 @@ class VisorProOverlayPanel: NSPanel {
     private var stableMaxY: CGFloat?
     private var stableMinY: CGFloat?
     private var stableMidY: CGFloat?
-    private var stableMidX: CGFloat?
     
     override var canBecomeKey: Bool { return false }
     override var canBecomeMain: Bool { return false }
@@ -848,15 +830,6 @@ class VisorProOverlayPanel: NSPanel {
         let oldFrame = self.frame
         
         let isResize = oldFrame.size.height > 0 && oldFrame.size.height != newFrame.size.height
-        let isWidthResize = oldFrame.size.width > 0 && oldFrame.size.width != newFrame.size.width
-        
-        if isWidthResize {
-            let centerX = stableMidX ?? oldFrame.midX
-            newFrame.origin.x = round(centerX - (newFrame.width / 2))
-            stableMidX = centerX
-        } else {
-            stableMidX = newFrame.midX
-        }
         
         if isResize {
             switch anchorMode {
@@ -950,15 +923,16 @@ struct SingleOverlayContainer: View {
         self.overlay = overlay
         let anim = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "fluid_bounce"
         let isTop = overlay.position.hasPrefix("top")
+        let verticalOffset: CGFloat = isTop ? -40.0 : 40.0
         
         switch anim {
         case "fluid_drop":
             _appearScaleX = State(initialValue: 0.0846)
             _appearScaleY = State(initialValue: 0.4231)
             _appearBlur = State(initialValue: 5.0)
-            _appearOffset = State(initialValue: 0.0)
+            _appearOffset = State(initialValue: isTop ? -50.0 : 50.0)
             _appearAngle = State(initialValue: 0.0)
-            _appearOpacity = State(initialValue: 1.0)
+            _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
         case "scale":
             _appearScaleX = State(initialValue: 0.6)
@@ -972,9 +946,9 @@ struct SingleOverlayContainer: View {
             _appearScaleX = State(initialValue: 0.3)
             _appearScaleY = State(initialValue: 0.3)
             _appearBlur = State(initialValue: 0.0)
-            _appearOffset = State(initialValue: 0.0)
+            _appearOffset = State(initialValue: isTop ? -35.0 : 35.0)
             _appearAngle = State(initialValue: 0.0)
-            _appearOpacity = State(initialValue: 1.0)
+            _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
         case "ripple":
             _appearScaleX = State(initialValue: 0.08)
@@ -1012,9 +986,9 @@ struct SingleOverlayContainer: View {
             _appearScaleX = State(initialValue: 1.0)
             _appearScaleY = State(initialValue: 1.0)
             _appearBlur = State(initialValue: 0.0)
-            _appearOffset = State(initialValue: 0.0)
+            _appearOffset = State(initialValue: verticalOffset)
             _appearAngle = State(initialValue: 0.0)
-            _appearOpacity = State(initialValue: 1.0)
+            _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
         }
     }
@@ -1024,7 +998,7 @@ struct SingleOverlayContainer: View {
         let isBottom = overlay.position.hasPrefix("bottom")
         let anchor: UnitPoint = isTop ? .top : (isBottom ? .bottom : .center)
         
-        ZStack {
+        ZStack(alignment: isTop ? .top : (isBottom ? .bottom : .center)) {
             overlayView(for: overlay)
                 .applyTheme(mediaKeyManager.overlayTheme)
                 .swipeToDismiss(overlayId: overlay.id, isTopPosition: isTop)
@@ -1041,7 +1015,7 @@ struct SingleOverlayContainer: View {
                 .opacity(appearOpacity)
         }
         .padding(16)
-        .fixedSize()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: isTop ? .top : (isBottom ? .bottom : .center))
         .onAppear {
             let isTop = overlay.position.hasPrefix("top")
             
@@ -1063,11 +1037,17 @@ struct SingleOverlayContainer: View {
             } else if animType == "fluid_bounce" {
                 appearScaleX = 0.3
                 appearScaleY = 0.3
+                appearOffset = isTop ? -35.0 : 35.0
                 appearBlur = 0.0
+                appearOpacity = 0.0
                 DispatchQueue.main.async {
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        appearOpacity = 1.0
+                    }
+                    withAnimation(.spring(response: 0.45, dampingFraction: 0.62)) {
                         appearScaleX = 1.0
                         appearScaleY = 1.0
+                        appearOffset = 0.0
                     }
                 }
             } else if animType == "fluid_drop" {
@@ -1075,8 +1055,12 @@ struct SingleOverlayContainer: View {
                 appearScaleY = 0.4231
                 appearBlur = 5.0
                 appearCornerRadius = 26.0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
+                appearOffset = isTop ? -50.0 : 50.0
+                appearOpacity = 0.0
+                DispatchQueue.main.async {
+                    withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
+                        appearOffset = 0.0
+                        appearOpacity = 1.0
                         appearScaleX = 1.0
                         appearScaleY = 1.0
                         appearBlur = 0.0
@@ -1149,6 +1133,19 @@ struct SingleOverlayContainer: View {
                         appearBlur = 0.0
                     }
                 }
+            } else {
+                // Default Slide
+                appearScaleX = 1.0
+                appearScaleY = 1.0
+                appearBlur = 0.0
+                appearOffset = isTop ? -40.0 : 40.0
+                appearOpacity = 0.0
+                DispatchQueue.main.async {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        appearOffset = 0.0
+                        appearOpacity = 1.0
+                    }
+                }
             }
         }
         .onChange(of: stateRelay.closingPanels.contains(overlay.id)) { oldValue, isClosing in
@@ -1165,6 +1162,7 @@ struct SingleOverlayContainer: View {
                     withAnimation(.easeIn(duration: 0.20)) {
                         appearScaleX = 0.3
                         appearScaleY = 0.3
+                        appearOffset = isTop ? -35.0 : 35.0
                         appearBlur = 0.0
                         appearOpacity = 0.0
                     }
@@ -1174,6 +1172,8 @@ struct SingleOverlayContainer: View {
                         appearScaleY = 0.4231
                         appearBlur = 5.0
                         appearCornerRadius = 26.0
+                        appearOffset = isTop ? -50.0 : 50.0
+                        appearOpacity = 0.0
                     }
                 } else if animType == "ripple" {
                     withAnimation(.easeIn(duration: 0.22)) {
@@ -1201,6 +1201,12 @@ struct SingleOverlayContainer: View {
                         appearScaleY = 0.35
                         appearOffset = isTop ? -35.0 : 35.0
                         appearBlur = 4.0
+                        appearOpacity = 0.0
+                    }
+                } else {
+                    // Default Slide
+                    withAnimation(.easeIn(duration: 0.18)) {
+                        appearOffset = isTop ? -40.0 : 40.0
                         appearOpacity = 0.0
                     }
                 }

@@ -114,6 +114,14 @@ struct DateOverlayView: View {
         formatter.dateFormat = format
         return formatter.string(from: baseDate)
     }
+
+    private var shortFormattedDate: String {
+        let cal = Calendar.current
+        let baseDate = isPreview ? (cal.date(from: DateComponents(year: 2026, month: 9, day: 18)) ?? Date()) : Date()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd.MM.yy"
+        return formatter.string(from: baseDate)
+    }
     
     var body: some View {
         let datePos = MediaKeyManager.shared.getOverlayPosition(for: "dateOverlayPosition")
@@ -133,6 +141,8 @@ struct DateOverlayView: View {
             isExpandable: dateAllowExpansion,
             expandUpwards: datePos.hasPrefix("bottom"),
             keepAliveId: "date",
+            minimalText: shortFormattedDate,
+            minimalIcon: "calendar",
             baseContent: {
                 HStack(alignment: .center, spacing: 0) {
                     Image(systemName: "calendar")

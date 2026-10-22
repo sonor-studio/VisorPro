@@ -59,6 +59,8 @@ struct SurveyOverlayView: View {
                 isExpandable: false,
                 expandUpwards: false,
                 keepAliveId: "survey",
+                minimalText: "Feedback",
+                minimalIcon: "bubble.left.and.bubble.right.fill",
                 baseContent: {
                     ZStack {
                         // Thank you compact view

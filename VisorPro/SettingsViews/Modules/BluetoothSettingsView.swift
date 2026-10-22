@@ -66,11 +66,10 @@ struct BluetoothSettingsView: View {
                         
                             HStack(spacing: 20) {
                                 BluetoothOverlayView(isPreview: true, previewIsConnected: true, previewDeviceName: "AirPods Pro").applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
                             
                                 BluetoothOverlayView(isPreview: true, previewIsConnected: false, previewDeviceName: "Magic Mouse").applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
                             }
+                            .scaleEffect(0.85)
                         }
                         .frame(minHeight: 180)
                         .padding(.horizontal)

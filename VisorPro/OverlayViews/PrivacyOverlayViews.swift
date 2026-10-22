@@ -94,6 +94,7 @@ struct MicOverlayView: View {
         let maxListHeight: CGFloat = 160
         let listHeight = currentDevices.isEmpty ? 0 : min(CGFloat(currentDevices.count * 40 + 10), maxListHeight)
         let displayedMicName = actualIsActive && !overlayState.activeMicName.isEmpty ? overlayState.activeMicName : overlayState.currentMicDeviceName
+        let effectiveMicName = isPreview ? "System Microphone" : (displayedMicName.isEmpty ? "Microphone" : displayedMicName)
         let micPos = MediaKeyManager.shared.getOverlayPosition(for: "micOverlayPosition")
         
         return UniversalOverlayView(
@@ -112,6 +113,8 @@ struct MicOverlayView: View {
             isExpandable: (actualIsActive || overlayState.isMicMuteReminder) && micAllowExpansion,
             expandUpwards: micPos.hasPrefix("bottom"),
             keepAliveId: "mic",
+            minimalText: effectiveMicName,
+            minimalIcon: (overlayState.isMicMuteReminder || currentVolume == 0) ? "mic.slash.fill" : (actualIsActive ? "mic.fill" : "mic.slash.fill"),
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: (overlayState.isMicMuteReminder || currentVolume == 0) ? "mic.slash.fill" : (actualIsActive ? "mic.fill" : "mic.slash.fill"))
@@ -451,6 +454,8 @@ struct CameraOverlayView: View {
             isExpandable: actualIsActive && cameraAllowExpansion,
             expandUpwards: camPos.hasPrefix("bottom"),
             keepAliveId: "camera",
+            minimalText: actionTitle,
+            minimalIcon: actualIsActive ? "video.fill" : "video.slash.fill",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsActive ? "video.fill" : "video.slash.fill")
@@ -608,6 +613,8 @@ struct LocationOverlayView: View {
             isExpandable: false,
             expandUpwards: locPos.hasPrefix("bottom"),
             keepAliveId: "location",
+            minimalText: actionTitle,
+            minimalIcon: actualIsActive ? "location.fill" : "location.slash.fill",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsActive ? "location.fill" : "location.slash.fill")

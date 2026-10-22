@@ -216,7 +216,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         NotificationCenter.default.addObserver(forName: Notification.Name("LocationAuthorizationChanged"), object: nil, queue: .main) { _ in
-            if !PermissionHelper.hasLocationPermission() && !PermissionHelper.isLocationNotDetermined() {
+            if PermissionHelper.isLocationDenied() {
                 if MediaKeyManager.shared.enableWiFi {
                     MediaKeyManager.shared.enableWiFi = false
                 }

@@ -889,12 +889,7 @@ class VolumeManager {
                 MediaKeyManager.shared.currentVolume = volInt
                 MediaKeyManager.shared.isMuted = isMuted
                 
-                if OverlayStateRelay.shared.showVolumeIndicator {
-                    MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
-                } else {
-                    // The overlay is not triggered by external, programmatic volume changes.
-                    // MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
-                }
+                MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
             }
         }
     }

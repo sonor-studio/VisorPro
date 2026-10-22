@@ -448,6 +448,7 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "VisorPro requires Bluetooth access for the on-screen displays.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "VisorPro needs full access to your calendar to display upcoming events in the Date overlay.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "VisorPro needs access to your calendar to display upcoming events in the Date overlay.";
@@ -506,6 +507,7 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "VisorPro requires Bluetooth access for the on-screen displays.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "VisorPro needs full access to your calendar to display upcoming events in the Date overlay.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "VisorPro needs access to your calendar to display upcoming events in the Date overlay.";

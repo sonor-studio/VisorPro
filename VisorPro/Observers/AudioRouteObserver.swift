@@ -140,10 +140,10 @@ class AudioRouteObserver {
             mgr.isMuted = muted
             mgr.currentAudioDeviceName = VolumeManager.shared.getCurrentAudioDeviceName()
             
-            // The overlay is not triggered by external, programmatic volume changes.
-            // if timeSinceRoute > 2.5 {
-            //     mgr.triggerVolumeIndicator()
-            // }
+            let timeSinceRoute = Date().timeIntervalSince(self.lastRouteChangeTime)
+            if timeSinceRoute > 2.5 {
+                mgr.triggerVolumeIndicator(playSound: false)
+            }
         }
     }
 }

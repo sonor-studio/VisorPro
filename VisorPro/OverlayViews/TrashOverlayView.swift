@@ -40,6 +40,8 @@ struct TrashOverlayView: View {
             isExpandable: trashAllowExpansion && !(!isPreview && overlayState.trashAutoEmptied),
             expandUpwards: trashOverlayPosition.hasPrefix("bottom"),
             keepAliveId: "trash",
+            minimalText: (!isPreview && overlayState.trashAutoEmptied) ? "Trash Emptied" : "Trash Full",
+            minimalIcon: (!isPreview && overlayState.trashAutoEmptied) ? "trash" : "tray.full.fill",
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: (!isPreview && overlayState.trashAutoEmptied) ? "trash" : "tray.full.fill")

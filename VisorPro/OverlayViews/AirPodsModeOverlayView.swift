@@ -43,6 +43,8 @@ struct AirPodsModeOverlayView: View {
             } : nil,
             isExpandable: settings.allowExpansion,
             keepAliveId: "airpodsMode",
+            minimalText: textForMode(overlayState.airPodsModeValue),
+            minimalIcon: iconForMode(overlayState.airPodsModeValue),
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     iconViewForMode(overlayState.airPodsModeValue, size: 18, color: .primary)

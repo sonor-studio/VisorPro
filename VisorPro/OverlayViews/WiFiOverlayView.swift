@@ -146,6 +146,8 @@ struct WiFiOverlayView: View {
             isExpandable: (actualIsConnected || isPreview) && wifiAllowExpansion,
             expandUpwards: wifiPos.hasPrefix("bottom"),
             keepAliveId: "wifi",
+            minimalText: actualIsConnected ? (actualSSID.isEmpty ? "Connected" : actualSSID) : "No Wi-Fi",
+            minimalIcon: iconName,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)

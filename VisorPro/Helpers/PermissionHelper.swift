@@ -10,14 +10,17 @@ struct PermissionHelper {
     }()
     
     static func hasLocationPermission() -> Bool {
-        let locationManager = CLLocationManager()
-        let status = locationManager.authorizationStatus
+        let status = sharedLocationManager.authorizationStatus
         return status == .authorizedAlways || status == .authorized
     }
     
     static func isLocationNotDetermined() -> Bool {
-        let locationManager = CLLocationManager()
-        return locationManager.authorizationStatus == .notDetermined
+        return sharedLocationManager.authorizationStatus == .notDetermined
+    }
+    
+    static func isLocationDenied() -> Bool {
+        let status = sharedLocationManager.authorizationStatus
+        return status == .denied || status == .restricted
     }
     
     static func requestLocationPermission() {

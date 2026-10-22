@@ -7,54 +7,117 @@ extension MediaKeyManager {
         focusReminderTimer?.invalidate()
         focusReminderTimer = nil
         
-        if enableFocus && enableFocusReminder && isFocusModeActive {
-            let interval = TimeInterval(focusReminderInterval * 60)
+        guard enableFocus && enableFocusReminder && isFocusModeActive else {
+            if isFocusReminder {
+                isFocusReminder = false
+            }
+            return
+        }
+        
+        let interval = TimeInterval(focusReminderInterval * 60)
+        
+        focusReminderTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: interval, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
             
-            focusReminderTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: interval, repeats: false) { [weak self] _ in
-                guard let self = self else { return }
+            // Re-verify conditions when timer fires
+            guard self.enableFocus && self.enableFocusReminder && self.isFocusModeActive else {
+                self.isFocusReminder = false
+                return
+            }
+            
+            // Show reminder without playing a sound (or play a subtle sound if requested, but default is visual)
+            DispatchQueue.main.async {
+                self.focusTimer?.invalidate()
                 
-                // Show reminder without playing a sound (or play a subtle sound if requested, but default is visual)
-                DispatchQueue.main.async {
-                    self.focusTimer?.invalidate()
-                    
-                    let pos = self.getOverlayPosition(for: "focusOverlayPosition")
-                    self.dismissCollidingIndicators(newPosition: pos, source: "focus")
-                    
-                    let executeShow = {
-                        self.isFocusReminder = true
-                        self.isFocusSwitched = false
-                        self.focusEventId = UUID()
-                        if self.focusActiveDate == nil {
-                            self.focusActiveDate = self.activeFocusDetails?.startDate ?? Date().addingTimeInterval(-Double(self.focusReminderInterval * 60))
-                        }
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            self.showFocusIndicator = true
-                            self.notifyOverlayStateChanged()
-                            self.overlayTriggerTimes["focus"] = Date()
-                        }
-                        self.focusTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                self.showFocusIndicator = false
-                            }
-                        }
-                        // Schedule the next reminder instead of using repeats: true
-                        // This prevents runaway repeating timers from spamming right after Mac wakes up
-                        self.updateFocusReminderTimer()
+                let pos = self.getOverlayPosition(for: "focusOverlayPosition")
+                self.dismissCollidingIndicators(newPosition: pos, source: "focus")
+                
+                let executeShow = {
+                    self.isFocusReminder = true
+                    self.isFocusSwitched = false
+                    self.focusEventId = UUID()
+                    if self.focusActiveDate == nil {
+                        self.focusActiveDate = self.activeFocusDetails?.startDate ?? Date().addingTimeInterval(-Double(self.focusReminderInterval * 60))
                     }
-                    
-                    if self.showFocusIndicator {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        self.showFocusIndicator = true
+                        self.notifyOverlayStateChanged()
+                        self.overlayTriggerTimes["focus"] = Date()
+                    }
+                    self.focusTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
+                        guard let self = self else { return }
                         withAnimation(.easeInOut(duration: 0.25)) {
                             self.showFocusIndicator = false
+                            self.isFocusReminder = false
                         }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            executeShow()
-                        }
-                    } else {
+                    }
+                    // Schedule the next reminder instead of using repeats: true
+                    // This prevents runaway repeating timers from spamming right after Mac wakes up
+                    self.updateFocusReminderTimer()
+                }
+                
+                if self.showFocusIndicator {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self.showFocusIndicator = false
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         executeShow()
                     }
+                } else {
+                    executeShow()
                 }
             }
         }
+    }
+    
+    func cancelFocusReminderTimerForSleep() {
+        focusReminderTimer?.invalidate()
+        focusReminderTimer = nil
+        if isFocusReminder {
+            isFocusReminder = false
+        }
+    }
+    
+    func scheduleFocusReminderAfterWake() {
+        focusReminderTimer?.invalidate()
+        focusReminderTimer = nil
+        if isFocusReminder {
+            isFocusReminder = false
+        }
+        
+        guard enableFocus && enableFocusReminder && isFocusModeActive else { return }
+        
+        let interval = TimeInterval(focusReminderInterval * 60)
+        focusReminderTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: interval, repeats: false) { [weak self] _ in
+            self?.updateFocusReminderTimer()
+        }
+    }
+    
+    func silentlyUpdateFocusState(isActive: Bool, modeName: String, colorName: String = "systemIndigoColor", symbol: String = "moon.fill", details: ActiveFocusDetails? = nil) {
+        self.isFocusModeActive = isActive
+        self.focusModeName = modeName
+        self.focusColorName = colorName
+        self.focusSymbol = symbol
+        self.isFocusReminder = false
+        self.isFocusSwitched = false
+        if isActive {
+            self.focusActiveDate = details?.startDate ?? self.focusActiveDate ?? Date()
+            self.activeFocusDetails = details
+            self.lastEndedFocusDetails = nil
+        } else {
+            if var lastDetails = self.activeFocusDetails {
+                lastDetails.endedAt = Date()
+                self.lastEndedFocusDetails = lastDetails
+            } else if var d = details {
+                d.endedAt = Date()
+                self.lastEndedFocusDetails = d
+            } else if let start = self.focusActiveDate {
+                self.lastEndedFocusDetails = MediaKeyManager.ActiveFocusDetails(startDate: start, endedAt: Date(), endedReason: "turned off")
+            }
+            self.focusActiveDate = nil
+            self.activeFocusDetails = nil
+        }
+        self.updateFocusReminderTimer()
     }
     
     // MARK: - Microphone Mute Reminder
@@ -170,16 +233,53 @@ extension MediaKeyManager {
         // Notify NativeOverlayDismisser so it can disambiguate native empty banners
         NativeOverlayDismisser.shared.onSystemEvent(type: .focus)
 
-        if !enableFocus { return }
-        if isActive && !notifyOnFocusOn { return }
-        if !isActive && !notifyOnFocusOff { return }
-        
-        // Dismiss the native macOS Focus pill overlay (from MenuBarAgent)
-        
-        playNotificationSound(named: isActive ? soundOnFocusOn : soundOnFocusOff)
-        
+        if !enableFocus {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.isFocusModeActive = false
+                self.updateFocusReminderTimer()
+            }
+            return
+        }
+
+        let shouldShowVisual = (isActive && notifyOnFocusOn) || (!isActive && notifyOnFocusOff)
+
+        if shouldShowVisual {
+            playNotificationSound(named: isActive ? soundOnFocusOn : soundOnFocusOff)
+        }
+
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            
+            // Always update internal runtime state so timers and flags stay 100% in sync
+            self.isFocusModeActive = isActive
+            self.focusModeName = modeName ?? "Focus"
+            self.focusColorName = colorName
+            self.focusSymbol = symbol
+            self.isFocusReminder = false
+            self.isFocusSwitched = isSwitched
+            if isActive {
+                self.focusActiveDate = details?.startDate ?? self.focusActiveDate ?? Date()
+                self.activeFocusDetails = details
+                self.lastEndedFocusDetails = nil
+            } else {
+                if var lastDetails = self.activeFocusDetails {
+                    lastDetails.endedAt = Date()
+                    self.lastEndedFocusDetails = lastDetails
+                } else if var d = details {
+                    d.endedAt = Date()
+                    self.lastEndedFocusDetails = d
+                } else if let start = self.focusActiveDate {
+                    self.lastEndedFocusDetails = MediaKeyManager.ActiveFocusDetails(startDate: start, endedAt: Date(), endedReason: "turned off")
+                }
+                self.focusActiveDate = nil
+                self.activeFocusDetails = nil
+            }
+            
+            self.updateFocusReminderTimer()
+            
+            guard shouldShowVisual else { return }
+            
             self.focusTimer?.invalidate()
             
             let pos = self.getOverlayPosition(for: "focusOverlayPosition")
@@ -187,32 +287,6 @@ extension MediaKeyManager {
             
             let executeShow = { [weak self] in
                 guard let self = self else { return }
-                
-                self.isFocusModeActive = isActive
-                self.focusModeName = modeName ?? "Focus"
-                self.focusColorName = colorName
-                self.focusSymbol = symbol
-                self.isFocusReminder = false
-                self.isFocusSwitched = isSwitched
-                if isActive {
-                    self.focusActiveDate = details?.startDate ?? self.focusActiveDate ?? Date()
-                    self.activeFocusDetails = details
-                    self.lastEndedFocusDetails = nil
-                } else {
-                    if var lastDetails = self.activeFocusDetails {
-                        lastDetails.endedAt = Date()
-                        self.lastEndedFocusDetails = lastDetails
-                    } else if var d = details {
-                        d.endedAt = Date()
-                        self.lastEndedFocusDetails = d
-                    } else if let start = self.focusActiveDate {
-                        self.lastEndedFocusDetails = MediaKeyManager.ActiveFocusDetails(startDate: start, endedAt: Date(), endedReason: "turned off")
-                    }
-                    self.focusActiveDate = nil
-                    self.activeFocusDetails = nil
-                }
-                
-                self.updateFocusReminderTimer()
                 
                 self.focusEventId = UUID()
                 withAnimation(.easeInOut(duration: 0.15)) {
@@ -225,6 +299,7 @@ extension MediaKeyManager {
                         guard let self = self, !self.isOverlayHoveredOrExpanded("focus") else { return }
                         withAnimation(.easeInOut(duration: 0.25)) {
                             self.showFocusIndicator = false
+                            self.isFocusReminder = false
                         }
                     }
                 }
@@ -241,6 +316,36 @@ extension MediaKeyManager {
                 executeShow()
             }
         }
+    }
+    
+    func handleNativeFocusBanner(allText: String, nestedIds: [String]) {
+        let lower = allText.lowercased()
+        
+        let isActive: Bool?
+        if lower.contains(" | on | ") || lower.contains(" | on") || lower.hasSuffix(" on | ") || lower.hasSuffix(" on") || lower.contains(" | wł. | ") || lower.contains(" | wł.") || lower.contains("włączone") {
+            isActive = true
+        } else if lower.contains(" | off | ") || lower.contains(" | off") || lower.hasSuffix(" off | ") || lower.hasSuffix(" off") || lower.contains(" | wył. | ") || lower.contains(" | wył.") || lower.contains("wyłączone") {
+            isActive = false
+        } else {
+            isActive = nil
+        }
+        
+        guard let active = isActive else { return }
+        
+        var modeName = "Focus"
+        let parts = allText.components(separatedBy: " | ").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        if let first = parts.first, first.lowercased() != "focus" {
+            modeName = first
+        }
+        
+        let symbol = nestedIds.first(where: { 
+            $0.contains(".fill") || $0.contains("moon") || $0.contains("bed") || $0.contains("person") || $0.contains("briefcase") || $0.contains("book") 
+        }) ?? (active ? "moon.fill" : "moon.zzz")
+        
+        let colorName = focusObserver?.getColorName(for: modeName) ?? "systemIndigoColor"
+        
+        focusObserver?.syncStateFromNativeBanner(isActive: active, modeName: modeName, colorName: colorName, symbol: symbol)
+        triggerFocusIndicator(isActive: active, modeName: modeName, colorName: colorName, symbol: symbol)
     }
     
     func triggerMicIndicator(isActive: Bool, deviceName: String = "") {

@@ -129,6 +129,8 @@ struct FocusOverlayView: View {
             onSimpleTap: {},
             isExpandable: isExpandable && focusAllowExpansion,
             keepAliveId: "focus",
+            minimalText: displayTitle,
+            minimalIcon: displayIcon,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: displayIcon)
@@ -339,7 +341,5 @@ struct FocusOverlayView: View {
                 }
             }
         )
-        
-        .frame(width: 240, alignment: .top)
     }
 }

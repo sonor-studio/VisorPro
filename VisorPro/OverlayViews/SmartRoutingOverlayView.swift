@@ -64,6 +64,8 @@ struct SmartRoutingOverlayView: View {
             isExpandable: false,
             expandUpwards: batPos.hasPrefix("bottom"),
             keepAliveId: "smartRouting",
+            minimalText: displayTitle,
+            minimalIcon: deviceIcon,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: deviceIcon)

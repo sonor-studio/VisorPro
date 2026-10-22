@@ -24,12 +24,14 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
             let image = NSImage(named: "MenuBarIcon")
             image?.isTemplate = true
             button.image = image
+            button.toolTip = "VisorPro"
         }
         
         menu.delegate = self
         item.menu = menu
         self.statusItem = item
         
+        rebuildMenu()
         updateVisibility()
         
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
@@ -48,6 +50,14 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     // MARK: - NSMenuDelegate
     
     func menuNeedsUpdate(_ menu: NSMenu) {
+        rebuildMenu()
+    }
+    
+    func menuWillOpen(_ menu: NSMenu) {
+        rebuildMenu()
+    }
+    
+    private func rebuildMenu() {
         menu.removeAllItems()
         
         let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"

@@ -33,19 +33,15 @@ struct WiFiSettingsView: View {
                                     get: { mediaKeyManager.enableWiFi },
                                     set: { newValue in
                                         if newValue {
-                                            print("PERMISSIONS DEBUG: Toggle Wi-Fi clicked ON")
                                             if PermissionHelper.hasLocationPermission() {
-                                                print("PERMISSIONS DEBUG: hasLocationPermission is true -> enabling WiFi")
                                                 mediaKeyManager.enableWiFi = true
                                             } else if PermissionHelper.isLocationNotDetermined() {
-                                                print("PERMISSIONS DEBUG: isLocationNotDetermined is true -> requesting")
+                                                mediaKeyManager.enableWiFi = true
                                                 PermissionHelper.requestLocationPermission()
                                             } else {
-                                                print("PERMISSIONS DEBUG: permission missing/denied -> showing alert")
                                                 showLocationPermissionAlert = true
                                             }
                                         } else {
-                                            print("PERMISSIONS DEBUG: Toggle Wi-Fi clicked OFF")
                                             mediaKeyManager.enableWiFi = false
                                         }
                                     }
@@ -73,13 +69,12 @@ struct WiFiSettingsView: View {
                         ZStack {
                             PreviewBackgroundView()
                         
-                            HStack(spacing: -10) {
+                            HStack(spacing: 20) {
                                 WiFiOverlayView(isPreview: true, previewIsConnected: true, previewSSID: "Home Network").applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
                             
                                 WiFiOverlayView(isPreview: true, previewIsConnected: false, previewSSID: "Biuro_5GHz").applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
                             }
+                            .scaleEffect(0.85)
                         }
                         .frame(minHeight: 180)
                         .padding(.horizontal)
@@ -315,7 +310,7 @@ struct WiFiSettingsView: View {
             )
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LocationAuthorizationChanged"))) { _ in
-            if mediaKeyManager.enableWiFi && !PermissionHelper.hasLocationPermission() && !PermissionHelper.isLocationNotDetermined() {
+            if mediaKeyManager.enableWiFi && PermissionHelper.isLocationDenied() {
                 DispatchQueue.main.async {
                     mediaKeyManager.enableWiFi = true
                     DispatchQueue.main.async {

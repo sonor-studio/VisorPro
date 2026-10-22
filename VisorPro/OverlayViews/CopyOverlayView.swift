@@ -129,7 +129,7 @@ struct CopyOverlayView: View {
         let canExpand = (clipboardEnableHistory && !currentHistory.isEmpty) || (textNeedsExpansion && clipboardEnablePreview)
 
         let copyPos = MediaKeyManager.shared.getOverlayPosition(for: "copyOverlayPosition")
-        
+        let cleanCopiedText = masked(displayedItemText).replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -147,6 +147,8 @@ struct CopyOverlayView: View {
             isExpandable: canExpand && copyAllowExpansion,
             expandUpwards: copyPos.hasPrefix("bottom"),
             keepAliveId: "copy",
+            minimalText: cleanCopiedText.isEmpty ? actionFallbackText : cleanCopiedText,
+            minimalIcon: actionIcon,
             baseContent: {
                 HStack(alignment: .center, spacing: 0) {
                     Image(systemName: actionIcon)

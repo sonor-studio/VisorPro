@@ -91,6 +91,8 @@ struct DisplayOverlayView: View {
             isExpandable: displayAllowExpansion,
             expandUpwards: pos.hasPrefix("bottom"),
             keepAliveId: "display_\(notification?.id ?? deviceName)",
+            minimalText: deviceName,
+            minimalIcon: iconName,
             baseContent: {
                 HStack(alignment: .center, spacing: 0) {
                     Image(systemName: iconName)

@@ -46,12 +46,11 @@ struct ThemeSettingsView: View {
                             ZStack {
                                 PreviewBackgroundView()
                             
-                                HStack(spacing: -10) {
+                                HStack(spacing: 20) {
                                     ThemeOverlayView(isPreview: true, previewIsDark: false).applyTheme(mediaKeyManager.overlayTheme)
-                                        .scaleEffect(0.85)
                                     ThemeOverlayView(isPreview: true, previewIsDark: true).applyTheme(mediaKeyManager.overlayTheme)
-                                        .scaleEffect(0.85)
                                 }
+                                .scaleEffect(0.85)
                             }
                             .padding(.horizontal)
                         }

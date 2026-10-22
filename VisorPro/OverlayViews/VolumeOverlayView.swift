@@ -182,6 +182,8 @@ struct VolumeOverlayView: View {
             keepAliveId: "volume",
             disableTimeoutMode: true,
             fixedExpandedHeight: calcHeight,
+            minimalText: actualIsMuted ? "Muted" : "\(actualVolume)%",
+            minimalIcon: iconName,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

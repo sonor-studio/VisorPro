@@ -60,6 +60,8 @@ struct BrightnessOverlayView: View {
             expandUpwards: bPos.hasPrefix("bottom"),
             keepAliveId: "brightness",
             disableTimeoutMode: true,
+            minimalText: "\(actualBrightness)%",
+            minimalIcon: iconName,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

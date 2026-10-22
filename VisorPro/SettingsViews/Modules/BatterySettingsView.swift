@@ -53,11 +53,9 @@ struct BatterySettingsView: View {
                             HStack(alignment: .center, spacing: 20) {
                                 BatteryOverlayView(isWarningMode: false, isPreview: true, previewType: "plugged")
                                     .applyTheme(mediaKeyManager.overlayTheme)
-                                    .frame(height: 56, alignment: .center)
                                 
                                 BatteryOverlayView(isWarningMode: true, isPreview: true, previewType: "low20")
                                     .applyTheme(mediaKeyManager.overlayTheme)
-                                    .frame(height: 56, alignment: .center)
                             }
                             .scaleEffect(0.85)
                         }

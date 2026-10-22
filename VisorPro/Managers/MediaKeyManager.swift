@@ -1343,7 +1343,18 @@ class MediaKeyManager: ObservableObject {
     
     // Focus Mode
     @Published var enableFocus: Bool = UserDefaults.standard.object(forKey: "enableFocus") as? Bool ?? true {
-        didSet { UserDefaults.standard.set(enableFocus, forKey: "enableFocus") }
+        didSet {
+            UserDefaults.standard.set(enableFocus, forKey: "enableFocus")
+            if !enableFocus {
+                focusReminderTimer?.invalidate()
+                focusReminderTimer = nil
+                isFocusReminder = false
+                isFocusModeActive = false
+                showFocusIndicator = false
+            } else {
+                updateFocusReminderTimer()
+            }
+        }
     }
     @Published var notifyOnFocusOn: Bool = UserDefaults.standard.object(forKey: "notifyOnFocusOn") as? Bool ?? true {
         didSet { UserDefaults.standard.set(notifyOnFocusOn, forKey: "notifyOnFocusOn") }
@@ -1425,7 +1436,7 @@ class MediaKeyManager: ObservableObject {
         set { OverlayStateRelay.shared.lastEndedFocusDetails = newValue }
     }
     var focusTimer: Timer?
-    private var focusObserver: FocusObserver?
+    var focusObserver: FocusObserver?
     var micMuteObserver: MicMuteObserver?
     
     // Privacy

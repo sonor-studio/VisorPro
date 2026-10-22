@@ -302,6 +302,8 @@ struct BluetoothOverlayView: View {
             expandUpwards: btPos.hasPrefix("bottom"),
             keepAliveId: keepAliveType,
             disableTimeoutMode: isAccessoryType && actualIsConnected && averageBattery != nil,
+            minimalText: actualDeviceName,
+            minimalIcon: iconName,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)

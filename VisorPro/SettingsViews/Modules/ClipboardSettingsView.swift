@@ -54,13 +54,10 @@ struct ClipboardSettingsView: View {
                                 PreviewBackgroundView()
                             
                                 HStack(spacing: 20) {
-                                CopyOverlayView(isPreview: true, previewAction: "copy").applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
-                                    
-                                CopyOverlayView(isPreview: true, previewAction: "paste").applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
-
-                            }
+                                    CopyOverlayView(isPreview: true, previewAction: "copy").applyTheme(mediaKeyManager.overlayTheme)
+                                    CopyOverlayView(isPreview: true, previewAction: "paste").applyTheme(mediaKeyManager.overlayTheme)
+                                }
+                                .scaleEffect(0.85)
                             }
                             .frame(minHeight: 180)
                             .padding(.horizontal)

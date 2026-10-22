@@ -126,6 +126,8 @@ struct MediaOverlayView: View {
             keepAliveId: "media",
             disableTimeoutMode: true,
             fixedExpandedHeight: 50,
+            minimalText: actualTitle,
+            minimalIcon: actionIcon,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actionIcon)

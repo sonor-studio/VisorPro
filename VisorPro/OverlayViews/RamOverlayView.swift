@@ -52,6 +52,8 @@ struct RamOverlayView: View {
             isExpandable: ramAllowExpansion,
             expandUpwards: ramOverlayPosition.hasPrefix("bottom"),
             keepAliveId: "ram",
+            minimalText: "\(Int(percent))% RAM",
+            minimalIcon: "memorychip",
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: "memorychip")

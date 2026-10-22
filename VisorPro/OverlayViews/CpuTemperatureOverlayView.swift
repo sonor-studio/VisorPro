@@ -40,6 +40,8 @@ struct CpuTemperatureOverlayView: View {
             isExpandable: cpuAllowExpansion,
             expandUpwards: cpuPos.hasPrefix("bottom"),
             keepAliveId: "cpu",
+            minimalText: tempString,
+            minimalIcon: "thermometer",
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: "thermometer")

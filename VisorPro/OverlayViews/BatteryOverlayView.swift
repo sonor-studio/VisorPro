@@ -89,6 +89,8 @@ struct BatteryOverlayView: View {
             expandUpwards: batPos.hasPrefix("bottom"),
             keepAliveId: "battery",
             disableTimeoutMode: true,
+            minimalText: isFullyCharged ? "100%" : "\(actualPercentage)%",
+            minimalIcon: iconName,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

@@ -141,6 +141,8 @@ struct PeripheralOverlayView: View {
             isExpandable: isExpandable && peripheralAllowExpansion,
             expandUpwards: periPos.hasPrefix("bottom"),
             keepAliveId: keepAliveId,
+            minimalText: deviceName.isEmpty ? "Device" : deviceName,
+            minimalIcon: iconName,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)

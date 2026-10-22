@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AppKit
 
 class FocusObserver {
     private weak var manager: MediaKeyManager?
@@ -14,11 +15,21 @@ class FocusObserver {
     
     private var lastFocusActive: Bool = false
     private var lastModeName: String = "Focus"
+    private var lastFocusColorName: String = "systemIndigoColor"
+    private var lastFocusSymbol: String = "moon.fill"
+    private var lastFocusDetails: MediaKeyManager.ActiveFocusDetails?
+    
     private var lastSeenSize: UInt64? = nil
+    private var baselineOffSize: UInt64? = nil
+    private var baselineOnSize: UInt64? = nil
     
     private var folderWatcherSource: DispatchSourceFileSystemObject?
+    private var folderWatcherFd: Int32 = -1
     
     private var isInitialLoad: Bool = true
+    private var isSleeping: Bool = false
+    private var isWakeGracePeriod: Bool = false
+    
     private let dbPath = NSString(string: "~/Library/DoNotDisturb/DB").expandingTildeInPath
     private var assertionsPath: String { return dbPath + "/Assertions.json" }
     private var configPath: String { return dbPath + "/ModeConfigurations.json" }
@@ -31,9 +42,14 @@ class FocusObserver {
     
     // Cache for mode configs (Identifier -> ModeConfig)
     private var modeConfigsCache: [String: ModeConfig] = [:]
+    private var modeConfigsByName: [String: ModeConfig] = [:]
     
     init(manager: MediaKeyManager) {
         self.manager = manager
+        
+        let wsCenter = NSWorkspace.shared.notificationCenter
+        wsCenter.addObserver(self, selector: #selector(systemWillSleep), name: NSWorkspace.willSleepNotification, object: nil)
+        wsCenter.addObserver(self, selector: #selector(systemDidWake), name: NSWorkspace.didWakeNotification, object: nil)
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
             self?.isInitialLoad = false
@@ -41,6 +57,76 @@ class FocusObserver {
         
         loadModeConfigurations()
         startObserving()
+    }
+    
+    deinit {
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        timer?.invalidate()
+        timer = nil
+        closeFolderWatcher()
+    }
+    
+    @objc private func systemWillSleep() {
+        pollQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.isSleeping = true
+            DispatchQueue.main.async { [weak self] in
+                self?.timer?.invalidate()
+                self?.timer = nil
+                self?.manager?.cancelFocusReminderTimerForSleep()
+            }
+            self.closeFolderWatcher()
+        }
+    }
+    
+    @objc private func systemDidWake() {
+        pollQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.isSleeping = false
+            self.isWakeGracePeriod = true
+            
+            // Re-sync state silently after waking to absorb any iCloud changes made on other devices
+            if self.canReadAssertionsFile() {
+                let (isActive, modeName, colorName, symbol, details) = self.getDetailedFocusStatus()
+                let isDetailed = UserDefaults.standard.bool(forKey: "focusDetailMode")
+                let finalName = isDetailed ? modeName : (isActive ? "Focus" : self.lastModeName)
+                let finalColor = isDetailed ? colorName : "systemIndigoColor"
+                let finalSymbol = isDetailed ? symbol : (isActive ? "moon.fill" : "moon.zzz")
+                
+                self.lastFocusActive = isActive
+                self.lastModeName = finalName
+                self.lastFocusColorName = finalColor
+                self.lastFocusSymbol = finalSymbol
+                self.lastFocusDetails = details
+                
+                DispatchQueue.main.async { [weak self] in
+                    self?.manager?.silentlyUpdateFocusState(isActive: isActive, modeName: finalName, colorName: finalColor, symbol: finalSymbol, details: details)
+                }
+            } else if let currentSize = self.getAssertionsSize() {
+                // Re-baseline file size after wake so iCloud sync delta isn't mistaken for a manual toggle
+                self.lastSeenSize = currentSize
+                if !self.lastFocusActive {
+                    self.baselineOffSize = currentSize
+                }
+            }
+            
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.setupFolderWatcher()
+                self.timer?.invalidate()
+                self.timer = Timer.scheduledTimerInCommonModes(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+                    self?.pollQueue.async {
+                        self?.pollFocusStatus()
+                    }
+                }
+                
+                // Allow 6 seconds grace period before accepting live user changes or scheduling reminders
+                DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) { [weak self] in
+                    self?.isWakeGracePeriod = false
+                    self?.manager?.scheduleFocusReminderAfterWake()
+                }
+            }
+        }
     }
     
     private func loadModeConfigurations() {
@@ -52,20 +138,50 @@ class FocusObserver {
             return
         }
         
+        var byId: [String: ModeConfig] = [:]
+        var byName: [String: ModeConfig] = [:]
+        
         for (identifier, configData) in configs {
             if let configDict = configData as? [String: Any],
                let mode = configDict["mode"] as? [String: Any],
                let name = mode["name"] as? String {
                 let colorName = mode["tintColorName"] as? String ?? "systemIndigoColor"
                 let symbol = mode["symbolImageName"] as? String ?? "moon.fill"
-                modeConfigsCache[identifier] = ModeConfig(name: name, colorName: colorName, symbol: symbol)
+                let config = ModeConfig(name: name, colorName: colorName, symbol: symbol)
+                byId[identifier] = config
+                byName[name.lowercased()] = config
+            }
+        }
+        
+        self.modeConfigsCache = byId
+        self.modeConfigsByName = byName
+    }
+    
+    func getColorName(for modeName: String) -> String {
+        return modeConfigsByName[modeName.lowercased()]?.colorName ?? "systemIndigoColor"
+    }
+    
+    func getSymbol(for modeName: String) -> String {
+        return modeConfigsByName[modeName.lowercased()]?.symbol ?? "moon.fill"
+    }
+    
+    func syncStateFromNativeBanner(isActive: Bool, modeName: String, colorName: String = "systemIndigoColor", symbol: String = "moon.fill") {
+        pollQueue.async { [weak self] in
+            guard let self = self else { return }
+            self.lastFocusActive = isActive
+            self.lastModeName = modeName
+            self.lastFocusColorName = colorName
+            self.lastFocusSymbol = symbol
+            if let currentSize = self.getAssertionsSize() {
+                self.lastSeenSize = currentSize
+                if !isActive {
+                    self.baselineOffSize = currentSize
+                } else {
+                    self.baselineOnSize = currentSize
+                }
             }
         }
     }
-    
-    private var lastFocusColorName: String = "systemIndigoColor"
-    private var lastFocusSymbol: String = "moon.fill"
-    private var lastFocusDetails: MediaKeyManager.ActiveFocusDetails?
     
     func startObserving() {
         pollQueue.async { [weak self] in
@@ -75,25 +191,25 @@ class FocusObserver {
             
             // Initial state check
             let (isActive, modeName, colorName, symbol, details) = self.getDetailedFocusStatus()
+            let isDetailed = UserDefaults.standard.bool(forKey: "focusDetailMode")
+            let finalName = isDetailed ? modeName : (isActive ? "Focus" : "Focus")
+            let finalColor = isDetailed ? colorName : "systemIndigoColor"
+            let finalSymbol = isDetailed ? symbol : (isActive ? "moon.fill" : "moon.zzz")
+            
             self.lastFocusActive = isActive
-            self.lastModeName = modeName
-            self.lastFocusColorName = colorName
-            self.lastFocusSymbol = symbol
+            self.lastModeName = finalName
+            self.lastFocusColorName = finalColor
+            self.lastFocusSymbol = finalSymbol
             self.lastFocusDetails = details
+            
+            if !isActive, let initialSize = self.lastSeenSize {
+                self.baselineOffSize = initialSize
+            }
             
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 
-                self.manager?.isFocusModeActive = isActive
-                self.manager?.focusModeName = modeName
-                self.manager?.focusColorName = colorName
-                self.manager?.focusSymbol = symbol
-                if isActive {
-                    self.manager?.focusActiveDate = details?.startDate ?? self.manager?.focusActiveDate ?? Date()
-                    self.manager?.activeFocusDetails = details
-                } else {
-                    self.manager?.focusActiveDate = nil
-                }
+                self.manager?.silentlyUpdateFocusState(isActive: isActive, modeName: finalName, colorName: finalColor, symbol: finalSymbol, details: details)
                 
                 self.setupFolderWatcher()
                 
@@ -107,41 +223,52 @@ class FocusObserver {
     }
     
     private func setupFolderWatcher() {
+        closeFolderWatcher()
         let folderUrl = URL(fileURLWithPath: dbPath)
         let fd = open(folderUrl.path, O_EVTONLY)
         guard fd != -1 else { return }
         
+        self.folderWatcherFd = fd
         let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write], queue: pollQueue)
         source.setEventHandler { [weak self] in
             self?.pollFocusStatus()
         }
-        source.setCancelHandler {
-            close(fd)
+        source.setCancelHandler { [weak self] in
+            if let fd = self?.folderWatcherFd, fd != -1 {
+                close(fd)
+                self?.folderWatcherFd = -1
+            }
         }
         source.resume()
         self.folderWatcherSource = source
     }
     
+    private func closeFolderWatcher() {
+        folderWatcherSource?.cancel()
+        folderWatcherSource = nil
+        if folderWatcherFd != -1 {
+            close(folderWatcherFd)
+            folderWatcherFd = -1
+        }
+    }
+    
     private var lastDetailedMode: Bool? = nil
     
     private func pollFocusStatus() {
-        var isDetailedMode = UserDefaults.standard.bool(forKey: "focusDetailMode")
+        guard !isSleeping else { return }
         
-        // If Detailed Mode is on but Full Disk Access is temporarily missing (e.g. file lock during sleep/wake)
-        // we just treat it as false for this polling cycle instead of permanently disabling user's setting
-        if isDetailedMode && !PermissionHelper.hasFullDiskAccess() {
-            isDetailedMode = false
-        }
-        
-        let silentUpdate = (lastDetailedMode != nil && lastDetailedMode != isDetailedMode)
+        let isDetailedMode = UserDefaults.standard.bool(forKey: "focusDetailMode") && PermissionHelper.hasFullDiskAccess()
+        let silentUpdate = (lastDetailedMode != nil && lastDetailedMode != isDetailedMode) || isWakeGracePeriod || isInitialLoad
         self.lastDetailedMode = isDetailedMode
         
-        // Try reading exact JSON status first (requires Full Disk Access AND detailed mode enabled)
-        if isDetailedMode && canReadAssertionsFile() {
+        // 1. Primary: If Assertions.json is readable (Full Disk Access present), always use exact JSON database state
+        if canReadAssertionsFile() {
             let (isActive, modeName, colorName, symbol, details) = getDetailedFocusStatus()
+            let finalName = isDetailedMode ? modeName : (isActive ? "Focus" : self.lastModeName)
+            let finalColor = isDetailedMode ? colorName : "systemIndigoColor"
+            let finalSymbol = isDetailedMode ? symbol : (isActive ? "moon.fill" : "moon.zzz")
             
-            // If the state is exactly the same, but the details changed (e.g. user added an end time)
-            if isActive == lastFocusActive && modeName == lastModeName {
+            if isActive == lastFocusActive && finalName == lastModeName {
                 if details != lastFocusDetails {
                     lastFocusDetails = details
                     DispatchQueue.main.async { [weak self] in
@@ -149,19 +276,25 @@ class FocusObserver {
                     }
                 }
             } else {
-                let finalName = isActive ? modeName : self.lastModeName
-                let finalColor = isActive ? colorName : self.lastFocusColorName
-                let finalSymbol = isActive ? symbol : self.lastFocusSymbol
                 triggerChangeIfNeeded(active: isActive, name: finalName, colorName: finalColor, symbol: finalSymbol, details: details, silentUpdate: silentUpdate)
+            }
+            
+            if let currentSize = getAssertionsSize() {
+                self.lastSeenSize = currentSize
+                if !isActive {
+                    self.baselineOffSize = currentSize
+                } else {
+                    self.baselineOnSize = currentSize
+                }
             }
             return
         }
         
-        // Fallback to size logic
+        // 2. Fallback: Size-based inference when Full Disk Access is not granted
         guard let currentSize = getAssertionsSize() else {
             // File might be in the middle of being atomically replaced. Retry in 100ms.
             pollQueue.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                guard let self = self else { return }
+                guard let self = self, !self.isSleeping else { return }
                 if let newSize = self.getAssertionsSize() {
                     self.lastSeenSize = newSize
                     self.pollFocusStatus()
@@ -170,20 +303,44 @@ class FocusObserver {
             return
         }
         
+        if isInitialLoad || isWakeGracePeriod {
+            self.lastSeenSize = currentSize
+            if !lastFocusActive {
+                self.baselineOffSize = currentSize
+            }
+            return
+        }
+        
+        let lastSize = self.lastSeenSize ?? currentSize
         var inferredActive = self.lastFocusActive
         
-        if let lastSize = self.lastSeenSize {
-            // Turning Focus ON usually adds a whole assertion block (hundreds of bytes).
-            // Turning it OFF removes it. We use a 75-byte threshold to balance between ignoring minor metadata tweaks and detecting default DND.
-            if currentSize > lastSize + 75 {
+        if !self.lastFocusActive {
+            // Currently OFF
+            if let base = self.baselineOffSize {
+                if currentSize > base + 85 {
+                    inferredActive = true
+                    self.baselineOnSize = currentSize
+                } else {
+                    // Gradual drift while OFF - adjust baseline down
+                    self.baselineOffSize = min(base, currentSize)
+                }
+            } else if currentSize > lastSize + 85 {
                 inferredActive = true
-            } else if currentSize + 75 < lastSize {
+                self.baselineOnSize = currentSize
+            }
+        } else {
+            // Currently ON
+            if currentSize + 85 < lastSize {
                 inferredActive = false
+                self.baselineOffSize = currentSize
+            } else if let base = self.baselineOffSize, currentSize <= base + 45 {
+                // Absolute size returned near the recorded OFF baseline
+                inferredActive = false
+                self.baselineOffSize = currentSize
             }
         }
         
         self.lastSeenSize = currentSize
-        
         let fallbackName = inferredActive ? "Focus" : self.lastModeName
         triggerChangeIfNeeded(active: inferredActive, name: fallbackName, silentUpdate: silentUpdate)
     }
@@ -192,7 +349,7 @@ class FocusObserver {
         if active != lastFocusActive || (active && name != lastModeName) {
             let isSwitched = (lastFocusActive == true && active == true && name != lastModeName)
             
-            if !isInitialLoad && !silentUpdate {
+            if !isInitialLoad && !isWakeGracePeriod && !silentUpdate {
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
                     self.manager?.triggerFocusIndicator(isActive: active, modeName: name, colorName: colorName, symbol: symbol, isSwitched: isSwitched, details: details)
@@ -200,16 +357,7 @@ class FocusObserver {
             } else {
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self else { return }
-                    self.manager?.isFocusModeActive = active
-                    self.manager?.focusModeName = name
-                    self.manager?.focusColorName = colorName
-                    self.manager?.focusSymbol = symbol
-                    if active {
-                        self.manager?.focusActiveDate = details?.startDate ?? self.manager?.focusActiveDate ?? Date()
-                        self.manager?.activeFocusDetails = details
-                    } else {
-                        self.manager?.focusActiveDate = nil
-                    }
+                    self.manager?.silentlyUpdateFocusState(isActive: active, modeName: name, colorName: colorName, symbol: symbol, details: details)
                 }
             }
             
@@ -231,7 +379,7 @@ class FocusObserver {
         return FileManager.default.isReadableFile(atPath: assertionsPath)
     }
     
-    /// Parses Assertions.json to find if there is an active assertion, and returns its localized name.
+    /// Parses Assertions.json to find if there is an active assertion, filtering out internal sleep assertions and expired records.
     private func getDetailedFocusStatus() -> (isActive: Bool, modeName: String, colorName: String, symbol: String, details: MediaKeyManager.ActiveFocusDetails?) {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: assertionsPath)),
               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
@@ -240,55 +388,78 @@ class FocusObserver {
             return (false, "Focus", "systemIndigoColor", "moon.fill", nil)
         }
         
-        // If storeAssertionRecords is present and not empty, a Focus mode is active
-        if let assertions = firstData["storeAssertionRecords"] as? [[String: Any]],
-           let activeAssertion = assertions.first,
-           let details = activeAssertion["assertionDetails"] as? [String: Any],
-           let modeIdentifier = details["assertionDetailsModeIdentifier"] as? String {
-            var focusDetails = MediaKeyManager.ActiveFocusDetails()
-            
-            if let startTimestamp = activeAssertion["assertionStartDateTimestamp"] as? Double {
-                focusDetails.startDate = Date(timeIntervalSinceReferenceDate: startTimestamp)
-            }
-            if let endTimestamp = details["assertionDetailsUserVisibleEndDate"] as? Double {
-                focusDetails.endDate = Date(timeIntervalSinceReferenceDate: endTimestamp)
-            } else if let lifetime = details["assertionDetailsLifetime"] as? [String: Any] {
-                if let endTimestamp = lifetime["assertionDetailsDateIntervalLifetimeEndDateTimestamp"] as? Double {
-                    focusDetails.endDate = Date(timeIntervalSinceReferenceDate: endTimestamp)
-                } else if let lifetimeType = lifetime["assertionDetailsLifetimeType"] as? String, lifetimeType == "current-location" {
-                    focusDetails.untilLocationLeft = true
+        if let assertions = firstData["storeAssertionRecords"] as? [[String: Any]], !assertions.isEmpty {
+            for activeAssertion in assertions {
+                guard let details = activeAssertion["assertionDetails"] as? [String: Any],
+                      let modeIdentifier = details["assertionDetailsModeIdentifier"] as? String else {
+                    continue
                 }
-            }
-            if let source = activeAssertion["assertionSource"] as? [String: Any] {
-                if let client = source["assertionClientIdentifier"] as? String {
-                    if client.contains("controlcenter") { focusDetails.source = "Control Center" }
-                    else if client.contains("schedule") { focusDetails.source = "Schedule" }
-                    else if client.contains("sleeping") { 
-                        // Do not show an overlay for internal system sleep assertions
-                        return (false, "Focus", "systemIndigoColor", "moon.fill", nil)
+                
+                // Do not count internal system sleep assertions
+                if let source = activeAssertion["assertionSource"] as? [String: Any],
+                   let client = source["assertionClientIdentifier"] as? String,
+                   client.contains("sleeping") {
+                    continue
+                }
+                
+                // Check if assertion has an end date that has already passed
+                if let endTimestamp = details["assertionDetailsUserVisibleEndDate"] as? Double {
+                    let endDate = Date(timeIntervalSinceReferenceDate: endTimestamp)
+                    if endDate < Date() {
+                        continue
                     }
-                    else if client.contains("workout") { focusDetails.source = "Workout Trigger" }
-                    else if client.contains("activity-manager") { focusDetails.source = "System Activity" }
-                    else if client.contains("intents") { focusDetails.source = "Shortcuts App" }
-                    else { focusDetails.source = client }
+                } else if let lifetime = details["assertionDetailsLifetime"] as? [String: Any],
+                          let endTimestamp = lifetime["assertionDetailsDateIntervalLifetimeEndDateTimestamp"] as? Double {
+                    let endDate = Date(timeIntervalSinceReferenceDate: endTimestamp)
+                    if endDate < Date() {
+                        continue
+                    }
                 }
-                if source["assertionSourceDeviceIdentifier"] as? String != nil {
-                    focusDetails.device = "Other Device"
-                } else {
-                    focusDetails.device = "This Mac"
+                
+                var focusDetails = MediaKeyManager.ActiveFocusDetails()
+                
+                if let startTimestamp = activeAssertion["assertionStartDateTimestamp"] as? Double {
+                    focusDetails.startDate = Date(timeIntervalSinceReferenceDate: startTimestamp)
                 }
+                if let endTimestamp = details["assertionDetailsUserVisibleEndDate"] as? Double {
+                    focusDetails.endDate = Date(timeIntervalSinceReferenceDate: endTimestamp)
+                } else if let lifetime = details["assertionDetailsLifetime"] as? [String: Any] {
+                    if let endTimestamp = lifetime["assertionDetailsDateIntervalLifetimeEndDateTimestamp"] as? Double {
+                        focusDetails.endDate = Date(timeIntervalSinceReferenceDate: endTimestamp)
+                    } else if let lifetimeType = lifetime["assertionDetailsLifetimeType"] as? String, lifetimeType == "current-location" {
+                        focusDetails.untilLocationLeft = true
+                    }
+                }
+                if let source = activeAssertion["assertionSource"] as? [String: Any] {
+                    if let client = source["assertionClientIdentifier"] as? String {
+                        if client.contains("controlcenter") { focusDetails.source = "Control Center" }
+                        else if client.contains("schedule") { focusDetails.source = "Schedule" }
+                        else if client.contains("workout") { focusDetails.source = "Workout Trigger" }
+                        else if client.contains("activity-manager") { focusDetails.source = "System Activity" }
+                        else if client.contains("intents") { focusDetails.source = "Shortcuts App" }
+                        else { focusDetails.source = client }
+                    }
+                    if source["assertionSourceDeviceIdentifier"] as? String != nil {
+                        focusDetails.device = "Other Device"
+                    } else {
+                        focusDetails.device = "This Mac"
+                    }
+                }
+                
+                if let config = modeConfigsCache[modeIdentifier] {
+                    return (true, config.name, config.colorName, config.symbol, focusDetails)
+                }
+                
+                // If not cached, reload cache once to see if user recently added this mode
+                loadModeConfigurations()
+                if let config = modeConfigsCache[modeIdentifier] {
+                    return (true, config.name, config.colorName, config.symbol, focusDetails)
+                }
+                
+                return (true, "Focus", "systemIndigoColor", "moon.fill", focusDetails)
             }
-            
-            if let config = modeConfigsCache[modeIdentifier] {
-                return (true, config.name, config.colorName, config.symbol, focusDetails)
-            }
-            return (true, "Focus", "systemIndigoColor", "moon.fill", focusDetails)
         }
         
         return (false, "Focus", "systemIndigoColor", "moon.fill", nil)
-    }
-    
-    deinit {
-        timer?.invalidate()
     }
 }

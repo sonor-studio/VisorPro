@@ -42,6 +42,8 @@ struct LanguageOverlayView: View {
             isExpandable: languageAllowExpansion,
             expandUpwards: langPos.hasPrefix("bottom"),
             keepAliveId: "language",
+            minimalText: displayLanguage,
+            minimalIcon: "globe",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: "globe")

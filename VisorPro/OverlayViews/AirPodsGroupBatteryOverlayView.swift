@@ -51,6 +51,8 @@ struct AirPodsGroupBatteryOverlayView: View {
             expandUpwards: batPos.hasPrefix("bottom"),
             keepAliveId: "airpodsGroupBattery",
             disableTimeoutMode: true,
+            minimalText: isPreview ? "AirPods" : overlayState.airpodsDeviceName,
+            minimalIcon: "airpodspro",
             baseContent: {
                 VStack(spacing: 8) {
                     Text(overlayState.airpodsDeviceName)

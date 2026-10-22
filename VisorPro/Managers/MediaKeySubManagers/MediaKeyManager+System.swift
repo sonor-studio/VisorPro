@@ -115,11 +115,8 @@ extension MediaKeyManager {
             self.enableBluetooth = false
         }
         
-        let hasLoc = PermissionHelper.hasLocationPermission()
-        print("PERMISSIONS DEBUG: syncPermissions check - hasLocationPermission: \(hasLoc)")
-        if !hasLoc {
+        if PermissionHelper.isLocationDenied() {
             if self.enableWiFi { 
-                print("PERMISSIONS DEBUG: syncPermissions is disabling enableWiFi!")
                 self.enableWiFi = false 
             }
             if self.notifyOnLocationOn { self.notifyOnLocationOn = false }

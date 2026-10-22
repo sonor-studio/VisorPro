@@ -48,11 +48,10 @@ struct KeyboardSettingsView: View {
                         
                             HStack(spacing: 20) {
                                 CapsLockOverlayView(isPreview: true, previewIsOn: true).applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
                             
                                 LanguageOverlayView(isPreview: true, previewLanguage: "English (US)").applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
                             }
+                            .scaleEffect(0.85)
                         }
                         .frame(minHeight: 180)
                         .padding(.horizontal)

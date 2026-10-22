@@ -60,6 +60,8 @@ struct FileDeletedOverlayView: View {
             isExpandable: fileDeletedAllowExpansion,
             expandUpwards: overlayPosition.hasPrefix("bottom"),
             keepAliveId: "fileDeleted",
+            minimalText: fileName,
+            minimalIcon: getFileIconInfo(fileName: fileName),
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     if fileSizeMB < 0, let icon = fileIcon {

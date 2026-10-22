@@ -65,11 +65,10 @@ struct PrivacySettingsView: View {
                                 Spacer()
                                 HStack(spacing: 20) {
                                     MicOverlayView(isPreview: true, previewIsActive: true).applyTheme(mediaKeyManager.overlayTheme)
-                                        .scaleEffect(0.85)
                                     
                                     CameraOverlayView(isPreview: true, previewIsActive: true).applyTheme(mediaKeyManager.overlayTheme)
-                                        .scaleEffect(0.85)
                                 }
+                                .scaleEffect(0.85)
                                 Spacer()
                             }
                         }
@@ -558,7 +557,7 @@ Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
             )
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LocationAuthorizationChanged"))) { _ in
-            if mediaKeyManager.notifyOnLocationOn && !PermissionHelper.hasLocationPermission() && !PermissionHelper.isLocationNotDetermined() {
+            if mediaKeyManager.notifyOnLocationOn && PermissionHelper.isLocationDenied() {
                 DispatchQueue.main.async {
                     mediaKeyManager.notifyOnLocationOn = true
                     DispatchQueue.main.async {

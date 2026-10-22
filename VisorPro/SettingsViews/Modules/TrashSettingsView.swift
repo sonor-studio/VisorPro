@@ -50,13 +50,10 @@ struct TrashSettingsView: View {
                             
                             HStack(spacing: 20) {
                                 TrashOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
-                                    .frame(width: 260)
                                 
                                 FileDeletedOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
-                                    .frame(width: 260)
                             }
+                            .scaleEffect(0.85)
                         }
                         .padding(.horizontal)
                     }

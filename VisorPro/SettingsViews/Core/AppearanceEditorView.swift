@@ -29,6 +29,7 @@ struct AppearanceEditorView: View {
     @AppStorage("reverseSwipeDirection") private var reverseSwipeDirection = false
     @AppStorage("overlayAnimationType") private var overlayAnimationType: String = "fluid_bounce"
     @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
+    @AppStorage("enableMinimalMode") private var enableMinimalMode = false
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     
@@ -168,6 +169,7 @@ struct AppearanceEditorView: View {
                     }
                     .offset(y: previewSwipeOffset)
                     .opacity(max(0.0, 1.0 - (abs(previewSwipeOffset) / 60.0)))
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .frame(height: 140)
                     .contentShape(Rectangle())
                     .onHover { isHoveringPreview = $0 } // Keep space reserved
@@ -650,6 +652,24 @@ struct AppearanceEditorView: View {
                     .toggleStyle(.switch)
                     .controlSize(.small)
             }
+            
+            Divider()
+            
+            // Minimal mode
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Minimal mode")
+                        .font(.system(size: 13, weight: .medium))
+                    Text("Compact pill showing key text until hover or tap.")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                Spacer(minLength: 20)
+                Toggle("", isOn: $enableMinimalMode)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+            }
         }
         .frame(width: 320)
     }
@@ -997,59 +1017,59 @@ struct PreviewAnimationWrapper<Content: View>: View {
         let stateRef = self.animState
         let currentToken = stateRef.tokenId
         
-        appearOffset = 0.0
-        appearAngle = 0.0
-        appearScaleX = 1.0
-        appearScaleY = 1.0
-        appearBlur = 0.0
-        appearOpacity = 0.0
-        isDropletClipping = false
-        
-        if animType == "scale" {
-            appearScaleX = 0.6
-            appearScaleY = 0.6
-            appearBlur = 15.0
-        } else if animType == "fluid_bounce" {
-            appearScaleX = 0.3
-            appearScaleY = 0.3
-            appearOffset = -40
-        } else if animType == "fluid_drop" {
-            isDropletClipping = true
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
+        var initTransaction = Transaction()
+        initTransaction.disablesAnimations = true
+        withTransaction(initTransaction) {
+            appearOffset = 0.0
+            appearAngle = 0.0
+            appearScaleX = 1.0
+            appearScaleY = 1.0
+            appearBlur = 0.0
+            appearOpacity = 0.0
+            isDropletClipping = false
+            
+            if animType == "scale" {
+                appearScaleX = 0.6
+                appearScaleY = 0.6
+                appearBlur = 15.0
+            } else if animType == "fluid_bounce" {
+                appearScaleX = 0.3
+                appearScaleY = 0.3
+                appearOffset = -40
+            } else if animType == "fluid_drop" {
+                isDropletClipping = true
                 appearScaleX = 0.0846
                 appearScaleY = 0.4231
                 appearBlur = 5.0
                 appearCornerRadius = 26.0
                 appearOffset = -50
+            } else if animType == "ripple" {
+                // Pure horizontal liquid emergence - zero vertical offset
+                appearScaleX = 0.08
+                appearScaleY = 1.0
+                appearBlur = 8.0
+                appearOffset = 0.0
+            } else if animType == "flip" {
+                // 3D perspective flip from top edge
+                appearAngle = -75.0
+                appearBlur = 4.0
+                appearOffset = 0.0
+            } else if animType == "unfold" {
+                // Razor-thin horizontal glass slit
+                appearScaleX = 1.0
+                appearScaleY = 0.03
+                appearBlur = 6.0
+                appearOffset = 0.0
+            } else if animType == "pop" {
+                // Elastic pop from top bezel
+                appearScaleX = 0.75
+                appearScaleY = 0.35
+                appearBlur = 4.0
+                appearOffset = -35.0
+            } else {
+                // Default slide
+                appearOffset = -40
             }
-        } else if animType == "ripple" {
-            // Pure horizontal liquid emergence - zero vertical offset
-            appearScaleX = 0.08
-            appearScaleY = 1.0
-            appearBlur = 8.0
-            appearOffset = 0.0
-        } else if animType == "flip" {
-            // 3D perspective flip from top edge
-            appearAngle = -75.0
-            appearBlur = 4.0
-            appearOffset = 0.0
-        } else if animType == "unfold" {
-            // Razor-thin horizontal glass slit
-            appearScaleX = 1.0
-            appearScaleY = 0.03
-            appearBlur = 6.0
-            appearOffset = 0.0
-        } else if animType == "pop" {
-            // Elastic pop from top bezel
-            appearScaleX = 0.75
-            appearScaleY = 0.35
-            appearBlur = 4.0
-            appearOffset = -35.0
-        } else {
-            // Default slide
-            appearOffset = -40
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -1057,18 +1077,13 @@ struct PreviewAnimationWrapper<Content: View>: View {
             
             switch animType {
             case "fluid_drop":
-                withAnimation(.easeOut(duration: 0.28)) {
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
                     appearOffset = 0.0
                     appearOpacity = 1.0
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                    guard stateRef.tokenId == currentToken else { return }
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.68)) {
-                        appearScaleX = 1.0
-                        appearScaleY = 1.0
-                        appearBlur = 0.0
-                        appearCornerRadius = targetCornerRadius
-                    }
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
+                    appearBlur = 0.0
+                    appearCornerRadius = targetCornerRadius
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                     guard stateRef.tokenId == currentToken else { return }
@@ -1144,11 +1159,9 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 }
                 
             case "fluid_bounce":
-                withAnimation(.easeOut(duration: 0.15)) {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.62)) {
                     appearOffset = 0.0
                     appearOpacity = 1.0
-                }
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
                     appearScaleX = 1.0
                     appearScaleY = 1.0
                 }

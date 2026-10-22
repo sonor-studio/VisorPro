@@ -52,10 +52,9 @@ struct PeripheralSettingsView: View {
                             
                                 HStack(spacing: 20) {
                                     PeripheralOverlayView(isPreview: true, previewIsConnected: true).applyTheme(mediaKeyManager.overlayTheme)
-                                        .scaleEffect(0.85)
                                     PeripheralOverlayView(isPreview: true, previewIsConnected: false).applyTheme(mediaKeyManager.overlayTheme)
-                                        .scaleEffect(0.85)
                                 }
+                                .scaleEffect(0.85)
                             }
                             .padding(.horizontal)
                         }

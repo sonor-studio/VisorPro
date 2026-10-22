@@ -17,7 +17,9 @@ struct KeyboardBrightnessOverlayView: View {
     }
     
     var body: some View {
-        UniversalOverlayView(
+        let kbPos = MediaKeyManager.shared.getOverlayPosition(for: "keyboardBrightnessOverlayPosition")
+        
+        return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: .constant(false),
             showProgressBar: true,
@@ -31,8 +33,11 @@ struct KeyboardBrightnessOverlayView: View {
                 mediaKeyManager.setKeyboardBrightness(to: Int(v * 100))
             },
             isExpandable: false,
+            expandUpwards: kbPos.hasPrefix("bottom"),
             keepAliveId: "keyboardBrightness",
             disableTimeoutMode: true,
+            minimalText: "\(actualBrightness)%",
+            minimalIcon: iconName,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

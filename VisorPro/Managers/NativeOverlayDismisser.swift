@@ -189,7 +189,7 @@ final class NativeOverlayDismisser {
         
         let hasBannerPID = allText.contains("Banner PID")
         let isStructurallyBluetooth = hasBatteryIndicator || hasBannerPID || nestedIdentifiers.contains("smart-routing-system-banner") || nestedIdentifiers.contains(where: { $0.contains("accessory") })
-        let isStructurallyFocus = nestedIdentifiers.contains("focus-system-banner") || identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb"
+        let isStructurallyFocus = nestedIdentifiers.contains("focus-system-banner") || identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb" || nestedIdentifiers.contains(where: { $0.contains("focusmode") })
         
         // If it comes from Control Center and lacks structural Bluetooth identifiers, it's very likely a Focus banner
         let isAmbiguousControlCenterBanner = isShapeMatch && identifier == "" && isControlCenter
@@ -304,6 +304,7 @@ final class NativeOverlayDismisser {
         
         if isFocus && MediaKeyManager.shared.enableFocus {
             shouldIntercept = true
+            MediaKeyManager.shared.handleNativeFocusBanner(allText: allText, nestedIds: nestedIdentifiers)
         }
 
         if isBluetooth && MediaKeyManager.shared.enableBluetooth {

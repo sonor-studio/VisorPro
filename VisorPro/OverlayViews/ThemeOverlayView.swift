@@ -46,7 +46,7 @@ struct ThemeOverlayView: View {
             barColor: OverlayColorManager.shared.getOverlayColor(for: (isPreview ? previewIsDark : overlayState.isDarkMode) ? "colorOnThemeDark" : "colorOnThemeLight", defaultColor: iconColor),
             fillCenter: false, // It was using strokeBorder
             isMuted: false,
-            customWidth: 230,
+            customWidth: 260,
             supportDragGesture: false,
             onSimpleTap: {
                 if !isPreview && themeAllowInteractivity {
@@ -55,6 +55,8 @@ struct ThemeOverlayView: View {
             },
             isExpandable: false,
             keepAliveId: "theme",
+            minimalText: titleText,
+            minimalIcon: iconName,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)
@@ -77,8 +79,6 @@ struct ThemeOverlayView: View {
                 EmptyView()
             }
         )
-        
-        .frame(width: 230, height: 56, alignment: .top)
     }
     
     private func toggleSystemTheme() {

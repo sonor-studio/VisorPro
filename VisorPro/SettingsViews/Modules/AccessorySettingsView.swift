@@ -52,12 +52,11 @@ struct AccessorySettingsView: View {
                             HStack(spacing: 20) {
                                 BluetoothOverlayView(isPreview: true, previewIsAccessory: true, previewIsConnected: true, previewDeviceName: deviceName)
                                     .applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
                                     
                                 BluetoothOverlayView(isPreview: true, previewIsAccessory: true, previewIsConnected: false, previewDeviceName: deviceName)
                                     .applyTheme(mediaKeyManager.overlayTheme)
-                                    .scaleEffect(0.85)
                             }
+                            .scaleEffect(0.85)
                         }
                         .frame(minHeight: 180)
                         .padding(.horizontal)
