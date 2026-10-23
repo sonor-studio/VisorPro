@@ -198,7 +198,7 @@ final class NativeOverlayDismisser {
         
         let isFocus = isStructurallyFocus || isShapeMatchEmptyFocus
         
-        let isVolume = identifier == "volume-system-banner" || identifier == "volume" || (isShapeMatch && identifier == "" && isOSDUIHelper)
+        let isVolume = identifier == "volume-system-banner" || identifier == "volume" || nestedIdentifiers.contains("volume-slider") || (isShapeMatch && identifier == "" && isOSDUIHelper)
         
         var preventIntercept = false
         
@@ -328,6 +328,10 @@ final class NativeOverlayDismisser {
             shouldIntercept = false
         }
         
+        // Native banner dismissal is disabled/commented out because macOS (especially Sequoia+)
+        // does not allow reliable off-screen repositioning and doing so interrupts interactive
+        // system controls (such as the volume slider gesture from headphones, causing volume changes to freeze).
+        /*
         if shouldIntercept {
             print("NativeOverlayDismisser: ⚠️ INTERCEPTING BANNER. Trying hover-and-click method...")
             
@@ -378,8 +382,8 @@ final class NativeOverlayDismisser {
                     Thread.sleep(forTimeInterval: 0.02)
                 }
             }
-        } else {
         }
+        */
     }
     
     func clickUndoSmartRouting(targetName: String = "") {

@@ -8,6 +8,7 @@ struct MediaSettingsView: View {
     @AppStorage("mediaAllowExpansion") private var mediaAllowExpansion: Bool = true
     @AppStorage("mediaAllowInteractivity") private var mediaAllowInteractivity: Bool = true
     @State private var showAppleEventsPermissionAlert: Bool = false
+    @State private var selectedPreviewAction: String = "resume"
     
     var body: some View {
         ScrollView {
@@ -39,7 +40,7 @@ struct MediaSettingsView: View {
                     .padding(.horizontal)
                 
                 if mediaKeyManager.enableMediaNotification {
-                    VStack(alignment: .center) {
+                    VStack(alignment: .center, spacing: 12) {
                         Text("Preview")
                             .font(.headline)
                             .foregroundColor(.secondary)
@@ -47,10 +48,55 @@ struct MediaSettingsView: View {
                         ZStack {
                             PreviewBackgroundView()
                         
-                            MediaOverlayView(isPreview: true).applyTheme(mediaKeyManager.overlayTheme)
+                            MediaOverlayView(isPreview: true, previewAction: selectedPreviewAction)
+                                .applyTheme(mediaKeyManager.overlayTheme)
                                 .scaleEffect(0.85)
                         }
                         .padding(.horizontal)
+                        
+                        HStack(spacing: 8) {
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    selectedPreviewAction = "resume"
+                                }
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 11, weight: .semibold))
+                                    Text("Resumed")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                            }
+                            .buttonStyle(InteractiveGlassButtonStyle(isActive: selectedPreviewAction == "resume", tintColor: .green))
+                            
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    selectedPreviewAction = "pause"
+                                }
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "pause.fill")
+                                        .font(.system(size: 11, weight: .semibold))
+                                    Text("Paused")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                            }
+                            .buttonStyle(InteractiveGlassButtonStyle(isActive: selectedPreviewAction == "pause", tintColor: .red))
+                            
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    selectedPreviewAction = "start"
+                                }
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 11, weight: .semibold))
+                                    Text("Started")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                            }
+                            .buttonStyle(InteractiveGlassButtonStyle(isActive: selectedPreviewAction == "start", tintColor: .blue))
+                        }
                     }
                     .padding(.top, 20)
                 

@@ -10,7 +10,15 @@ struct MediaOverlayView: View {
     var previewTitle: String = "How to make a Neapolitan Pizza at home"
     var previewArtist: String = "YouTube • Vito Iacopelli"
     var previewProgress: Double = 0.4
-    var previewIsPlaying: Bool = false
+    var previewIsPlaying: Bool = true
+    var previewAction: String = "resume"
+    
+    @State private var internalPreviewAction: String? = nil
+    @State private var internalPreviewProgress: Double? = nil
+    
+    private var effectivePreviewProgress: Double {
+        internalPreviewProgress ?? previewProgress
+    }
     
     private var actualTitle: String {
         let t = isPreview ? previewTitle : overlayState.mediaTitle
@@ -29,19 +37,34 @@ struct MediaOverlayView: View {
         isPreview ? "com.apple.Safari" : overlayState.mediaBundleId
     }
     
+    private var actualAction: String {
+        if isPreview {
+            return internalPreviewAction ?? previewAction
+        }
+        return overlayState.mediaAction
+    }
+    
     private var actualIsPlaying: Bool {
-        isPreview ? previewIsPlaying : overlayState.mediaIsPlaying
+        if isPreview {
+            return actualAction == "resume" || actualAction == "start"
+        }
+        return overlayState.mediaIsPlaying
     }
     
     @State private var localElapsed: Double = 0
     let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     
-    private var actualAction: String {
-        isPreview ? "start" : overlayState.mediaAction
-    }
-    
     private var playbackProgress: CGFloat {
-        if isPreview { return CGFloat(previewProgress) }
+        if isPreview {
+            if actualAction == "start" && localElapsed == 0 {
+                return 0.0
+            }
+            let duration = actualDuration
+            if duration > 0 {
+                return CGFloat(min(max(localElapsed / duration, 0), 1))
+            }
+            return CGFloat(effectivePreviewProgress)
+        }
         let duration = actualDuration
         if duration > 0 {
             return CGFloat(min(max(localElapsed / duration, 0), 1))
@@ -114,7 +137,11 @@ struct MediaOverlayView: View {
             onDrag: { v in
                 let newTime = Double(v) * actualDuration
                 localElapsed = newTime
-                mediaKeyManager.simulateSeek(to: newTime)
+                if isPreview {
+                    internalPreviewProgress = Double(v)
+                } else {
+                    mediaKeyManager.simulateSeek(to: newTime)
+                }
             },
             onLeftTap: {
                 if !isPreview {
@@ -150,6 +177,18 @@ struct MediaOverlayView: View {
                                         .baselineOffset(1.0)
                                     
                                     MediaTimeText(elapsed: localElapsed, duration: actualDuration)
+                                }
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    if isPreview {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            if actualAction == "resume" {
+                                                internalPreviewAction = "pause"
+                                            } else {
+                                                internalPreviewAction = "resume"
+                                            }
+                                        }
+                                    }
                                 }
                             } else {
                                 Text(actionTitle)
@@ -223,7 +262,16 @@ struct MediaOverlayView: View {
                         .contentShape(Rectangle())
                         .highPriorityGesture(
                             DragGesture(minimumDistance: 0).onEnded { _ in
-                                if isPreview { return }
+                                if isPreview {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        if actualAction == "resume" {
+                                            internalPreviewAction = "pause"
+                                        } else {
+                                            internalPreviewAction = "resume"
+                                        }
+                                    }
+                                    return
+                                }
                                 mediaKeyManager.simulatePlayPause()
                             }
                         )
@@ -268,9 +316,24 @@ struct MediaOverlayView: View {
         
         .onAppear {
             if isPreview {
-                localElapsed = 180.0 * previewProgress
+                let action = actualAction
+                if action == "start" {
+                    localElapsed = 0.0
+                } else {
+                    localElapsed = 180.0 * effectivePreviewProgress
+                }
             } else {
                 localElapsed = overlayState.mediaElapsedTime
+            }
+        }
+        .onChange(of: previewAction) { _, newAction in
+            if isPreview {
+                internalPreviewAction = newAction
+                if newAction == "start" {
+                    localElapsed = 0.0
+                } else {
+                    localElapsed = 180.0 * effectivePreviewProgress
+                }
             }
         }
         .onChange(of: overlayState.mediaElapsedTime) { oldValue, newValue in
@@ -279,7 +342,7 @@ struct MediaOverlayView: View {
             }
         }
         .onReceive(timer) { _ in
-            if actualIsPlaying && actualAction != "end" {
+            if !isPreview && actualIsPlaying && actualAction != "end" {
                 localElapsed += 0.5
             }
         }

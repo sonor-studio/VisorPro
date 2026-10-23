@@ -8,6 +8,7 @@ struct AccessorySettingsView: View {
     @State private var settings: AccessoryDeviceSettings = AccessoryDeviceSettings()
     @State private var expandedThresholds: Set<UUID> = []
     @State private var isFullyChargedExpanded: Bool = false
+    @State private var showForgetConfirmation: Bool = false
     
     private var isHeadphones: Bool {
         let lower = deviceName.lowercased()
@@ -613,7 +614,7 @@ struct AccessorySettingsView: View {
                 }
                 
                 Button(action: {
-                    mediaKeyManager.forgetAccessory(name: deviceName)
+                    showForgetConfirmation = true
                 }) {
                     HStack {
                         Image(systemName: "trash")
@@ -631,6 +632,14 @@ struct AccessorySettingsView: View {
             }
             .toggleStyle(.switch)
             .padding(24)
+        }
+        .alert("Forget \"\(deviceName)\"?", isPresented: $showForgetConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Forget", role: .destructive) {
+                mediaKeyManager.forgetAccessory(name: deviceName)
+            }
+        } message: {
+            Text("Are you sure you want to forget this device? All custom settings and battery history for this device will be removed.")
         }
         .onAppear {
             self.settings = mediaKeyManager.accessorySettings[deviceName] ?? AccessoryDeviceSettings()

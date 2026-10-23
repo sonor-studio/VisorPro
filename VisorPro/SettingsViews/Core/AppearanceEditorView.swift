@@ -78,7 +78,7 @@ struct AppearanceEditorView: View {
     var body: some View {
         ZStack {
             // MARK: Full-bleed preview background
-            PreviewBackgroundView(minHeight: 500, fullBleed: true)
+            PreviewBackgroundView(minHeight: 620, fullBleed: true)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
             
@@ -106,6 +106,23 @@ struct AppearanceEditorView: View {
                 
                 // Center: Overlay preview with arrows
                 ZStack {
+                    PreviewAnimationWrapper(
+                        animType: overlayAnimationType, 
+                        playTrigger: animationTrigger,
+                        dismissTrigger: dismissTrigger,
+                        isPlaying: $isPreviewPlaying,
+                        skipExitAnimation: $skipExitAnimation,
+                        forceStopTrigger: $previewForceStopTrigger
+                    ) {
+                        currentOverlayView
+                            .applyTheme(mediaKeyManager.overlayTheme)
+                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    }
+                    .offset(y: previewSwipeOffset)
+                    .opacity(max(0.0, 1.0 - (abs(previewSwipeOffset) / 60.0)))
+                    .contentShape(Rectangle())
+                    .onHover { isHoveringPreview = $0 }
+                    
                     HStack {
                         Button {
                             let idx = currentPreviewIndex - 1
@@ -154,27 +171,14 @@ struct AppearanceEditorView: View {
                         .disabled(currentPreviewIndex == previewTypes.count - 1)
                     }
                     .padding(.horizontal, 40)
-                    
-                    PreviewAnimationWrapper(
-                        animType: overlayAnimationType, 
-                        playTrigger: animationTrigger,
-                        dismissTrigger: dismissTrigger,
-                        isPlaying: $isPreviewPlaying,
-                        skipExitAnimation: $skipExitAnimation,
-                        forceStopTrigger: $previewForceStopTrigger
-                    ) {
-                        currentOverlayView
-                            .applyTheme(mediaKeyManager.overlayTheme)
-                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                    }
-                    .offset(y: previewSwipeOffset)
-                    .opacity(max(0.0, 1.0 - (abs(previewSwipeOffset) / 60.0)))
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .frame(height: 140)
-                    .contentShape(Rectangle())
-                    .onHover { isHoveringPreview = $0 } // Keep space reserved
+                    .zIndex(10)
                 }
+                .frame(maxWidth: .infinity)
+                .frame(height: 140)
 
+                // Directly below preview: Mode switcher (Full / Mini)
+                overlayModeControl
+                    .padding(.top, 14)
                 
                 Spacer()
                 
@@ -261,9 +265,42 @@ struct AppearanceEditorView: View {
         .buttonStyle(InteractiveGlassButtonStyle(isActive: isSelected))
     }
     
+    // MARK: - Overlay Mode Control (Full vs Mini)
+    private var overlayModeControl: some View {
+        HStack(spacing: 8) {
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                    enableMinimalMode = false
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "rectangle.inset.filled")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Full")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+            }
+            .buttonStyle(InteractiveGlassButtonStyle(isActive: !enableMinimalMode))
+            
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                    enableMinimalMode = true
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "capsule.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Mini")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+            }
+            .buttonStyle(InteractiveGlassButtonStyle(isActive: enableMinimalMode, tintColor: .blue))
+        }
+    }
+    
     // MARK: - Bottom Controls (action buttons only)
     private var bottomControls: some View {
-        HStack {
+        HStack(alignment: .bottom) {
             // Left: Inner Glow + Animation
             VStack(alignment: .leading, spacing: 12) {
                 FloatingActionButton(
@@ -352,6 +389,8 @@ struct AppearanceEditorView: View {
                 Text("Animation")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.primary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                 
                 Picker("", selection: $overlayAnimationType) {
                     Text("Slide").tag("slide")
@@ -365,11 +404,12 @@ struct AppearanceEditorView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(MenuPickerStyle())
-                .frame(width: 95)
+                .frame(width: 100)
                 .onChange(of: overlayAnimationType) { _, _ in
                     triggerPreviewAnimation()
                 }
             }
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .nativeGlassBackground()
@@ -648,24 +688,6 @@ struct AppearanceEditorView: View {
                 }
                 Spacer(minLength: 20)
                 Toggle("", isOn: $enableBouncyExpansion)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-            }
-            
-            Divider()
-            
-            // Minimal mode
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Minimal mode")
-                        .font(.system(size: 13, weight: .medium))
-                    Text("Compact pill showing key text until hover or tap.")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-                Spacer(minLength: 20)
-                Toggle("", isOn: $enableMinimalMode)
                     .labelsHidden()
                     .toggleStyle(.switch)
                     .controlSize(.small)

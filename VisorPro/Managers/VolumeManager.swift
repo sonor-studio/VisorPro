@@ -889,7 +889,8 @@ class VolumeManager {
                 MediaKeyManager.shared.currentVolume = volInt
                 MediaKeyManager.shared.isMuted = isMuted
                 
-                MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
+                // Keep internal state updated, but DO NOT show UI overlay for external/programmatic changes.
+                // Overlay should only show when the user intentionally changes volume (hardware keys, headphones, Touch Bar).
             }
         }
     }

@@ -151,6 +151,7 @@ struct FloatingActionButton: View {
     let icon: String
     let label: String
     let isActive: Bool
+    var tintColor: Color = .accentColor
     let action: () -> Void
     
     var body: some View {
@@ -162,6 +163,6 @@ struct FloatingActionButton: View {
                     .font(.system(size: 12, weight: .medium))
             }
         }
-        .buttonStyle(InteractiveGlassButtonStyle(isActive: isActive))
+        .buttonStyle(InteractiveGlassButtonStyle(isActive: isActive, tintColor: tintColor))
     }
 }

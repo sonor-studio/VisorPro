@@ -140,10 +140,9 @@ class AudioRouteObserver {
             mgr.isMuted = muted
             mgr.currentAudioDeviceName = VolumeManager.shared.getCurrentAudioDeviceName()
             
-            let timeSinceRoute = Date().timeIntervalSince(self.lastRouteChangeTime)
-            if timeSinceRoute > 2.5 {
-                mgr.triggerVolumeIndicator(playSound: false)
-            }
+            // Keep state and device name synchronized, but DO NOT trigger overlay UI here.
+            // Spurious volume/mute modifications from background apps (Teams, Zoom, browser)
+            // will update the state quietly without popping up the overlay.
         }
     }
 }

@@ -6,10 +6,11 @@ struct KeyboardBrightnessOverlayView: View {
     @AppStorage("keyboardBrightnessFillCenter") private var keyboardBrightnessFillCenter: Bool = false
     @AppStorage("keyboardBrightnessAllowInteractivity") private var keyboardBrightnessAllowInteractivity: Bool = true
     @State private var animatedBrightnessProgress: CGFloat = 0.0
+    @State private var previewBrightness: Int = 75
     var isPreview: Bool = false
     
     private var actualBrightness: Int {
-        isPreview ? 75 : overlayState.currentKeyboardBrightness
+        isPreview ? previewBrightness : overlayState.currentKeyboardBrightness
     }
     
     private var iconName: String {
@@ -30,7 +31,13 @@ struct KeyboardBrightnessOverlayView: View {
             customHeight: 56,
             supportDragGesture: keyboardBrightnessAllowInteractivity,
             onDrag: { v in
-                mediaKeyManager.setKeyboardBrightness(to: Int(v * 100))
+                if isPreview {
+                    let val = max(0, min(100, Int(round(v * 100))))
+                    previewBrightness = val
+                    animatedBrightnessProgress = CGFloat(val) / 100.0
+                } else {
+                    mediaKeyManager.setKeyboardBrightness(to: Int(v * 100))
+                }
             },
             isExpandable: false,
             expandUpwards: kbPos.hasPrefix("bottom"),
@@ -65,7 +72,7 @@ struct KeyboardBrightnessOverlayView: View {
             if isPreview {
                 animatedBrightnessProgress = 0.1
                 withAnimation(.easeInOut(duration: 1.2)) {
-                    animatedBrightnessProgress = 0.8
+                    animatedBrightnessProgress = CGFloat(previewBrightness) / 100.0
                 }
             } else {
                 let targetProgress = CGFloat(actualBrightness) / 100.0
@@ -76,9 +83,11 @@ struct KeyboardBrightnessOverlayView: View {
             }
         }
         .onChange(of: actualBrightness) { _, newValue in
-            let targetProgress = CGFloat(newValue) / 100.0
-            withAnimation(.easeInOut(duration: 0.2)) {
-                animatedBrightnessProgress = targetProgress
+            if !isPreview {
+                let targetProgress = CGFloat(newValue) / 100.0
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    animatedBrightnessProgress = targetProgress
+                }
             }
         }
     }

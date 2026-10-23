@@ -71,12 +71,18 @@ class VisorProWindowManager: ObservableObject {
         return slotMap
     }
 
-    private func isOverlayHovered(id: String) -> Bool {
+    func isOverlayHovered(id: String) -> Bool {
+        let baseId = id.components(separatedBy: "_screen_").first ?? id
         let actual = OverlayStateRelay.shared.actualHoveredTypes
         let global = OverlayStateRelay.shared.globalHoveredTypes
-        if actual.contains(id) || global.contains(id) { return true }
-        for prefix in ["ram", "bluetooth", "peripheral", "display", "battery"] {
-            if id.hasPrefix(prefix) && (actual.contains(prefix) || global.contains(prefix)) {
+        if actual.contains(baseId) || global.contains(baseId) { return true }
+        for type in actual.union(global) {
+            if baseId.hasPrefix(type) || type.hasPrefix(baseId) {
+                return true
+            }
+        }
+        for prefix in ["ram", "bluetooth", "peripheral", "display", "battery", "focus"] {
+            if baseId.hasPrefix(prefix) && (actual.contains(prefix) || global.contains(prefix)) {
                 return true
             }
         }
@@ -775,13 +781,48 @@ class VisorProWindowManager: ObservableObject {
         return bottomPadding + (pillHeight / 2)
     }
 
+    func pillBounds(for panel: NSPanel, overlayKey: String) -> NSRect {
+        let enableMinimal = UserDefaults.standard.bool(forKey: "enableMinimalMode")
+        let isMinimal = enableMinimal && !isOverlayHovered(id: overlayKey)
+        
+        let pillWidth: CGFloat = isMinimal ? 140 : max(0, panel.frame.width - 32)
+        let pillHeight: CGFloat = isMinimal ? 38 : max(0, panel.frame.height - 32)
+        
+        let localX = (panel.frame.width - pillWidth) / 2
+        let localY: CGFloat
+        if let overlayPanel = panel as? VisorProOverlayPanel {
+            switch overlayPanel.anchorMode {
+            case .top:
+                localY = panel.frame.height - 16 - pillHeight
+            case .bottom:
+                localY = 16
+            case .center:
+                localY = (panel.frame.height - pillHeight) / 2
+            }
+        } else {
+            localY = (panel.frame.height - pillHeight) / 2
+        }
+        
+        return NSRect(x: localX, y: localY, width: pillWidth, height: pillHeight)
+    }
+
+    func pillScreenFrame(for panel: NSPanel, overlayKey: String) -> NSRect {
+        let local = pillBounds(for: panel, overlayKey: overlayKey)
+        return NSRect(
+            x: panel.frame.origin.x + local.origin.x,
+            y: panel.frame.origin.y + local.origin.y,
+            width: local.width,
+            height: local.height
+        )
+    }
+
     func isWindowUnderMouse(for overlayId: String) -> Bool {
         let mouseLoc = NSEvent.mouseLocation
         
         for (key, panel) in windows {
             guard key.hasPrefix(overlayId) else { continue }
             guard panel.isVisible else { continue }
-            let visibleFrame = panel.frame.insetBy(dx: 16, dy: 16)
+            let visibleFrame = pillScreenFrame(for: panel, overlayKey: key)
             if visibleFrame.contains(mouseLoc) {
                 return true
             }
@@ -791,13 +832,14 @@ class VisorProWindowManager: ObservableObject {
     }
 
     func isOverlayHit(by event: NSEvent, overlayId: String) -> Bool {
-        if let eventWindow = event.window {
+        if let eventWindow = event.window as? NSPanel {
             if let match = windows.first(where: { $0.value === eventWindow }), match.key.hasPrefix(overlayId) {
                 let localPoint = event.locationInWindow
-                let pillBounds = NSRect(origin: .zero, size: eventWindow.frame.size).insetBy(dx: 16, dy: 16)
-                if pillBounds.contains(localPoint) {
+                let pillRect = pillBounds(for: eventWindow, overlayKey: match.key)
+                if pillRect.contains(localPoint) {
                     return true
                 }
+                return false
             }
         }
         
@@ -869,6 +911,17 @@ class VisorProOverlayPanel: NSPanel {
 class TrackingHostingView<Content: View>: NSHostingView<Content> {
     var overlayId: String?
     
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if let panel = self.window as? NSPanel, let overlayId = overlayId {
+            let pillRect = VisorProWindowManager.shared.pillBounds(for: panel, overlayKey: overlayId)
+            if !pillRect.contains(point) {
+                return nil
+            }
+        }
+        let view = super.hitTest(point)
+        return view === self ? nil : view
+    }
+    
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         return true
     }
@@ -891,8 +944,13 @@ class TrackingHostingView<Content: View>: NSHostingView<Content> {
         let enable = UserDefaults.standard.object(forKey: "enableThreeFingerClickToDismiss") as? Bool ?? (UserDefaults.standard.object(forKey: "enableTwoFingerClickToDismiss") as? Bool ?? true)
         guard enable, let overlayId = overlayId else { return false }
         
-        let pillBounds = NSRect(origin: .zero, size: self.frame.size).insetBy(dx: 16, dy: 16)
-        if pillBounds.contains(event.locationInWindow) || VisorProWindowManager.shared.isWindowUnderMouse(for: overlayId) {
+        if let panel = self.window as? NSPanel {
+            let pillRect = VisorProWindowManager.shared.pillBounds(for: panel, overlayKey: overlayId)
+            if pillRect.contains(event.locationInWindow) {
+                MediaKeyManager.shared.forceHide(overlayId: overlayId)
+                return true
+            }
+        } else if VisorProWindowManager.shared.isWindowUnderMouse(for: overlayId) {
             MediaKeyManager.shared.forceHide(overlayId: overlayId)
             return true
         }
@@ -1294,11 +1352,8 @@ struct ScrollSwipeModifier: ViewModifier {
         guard enableSwipe else { return }
         guard !isDismissing else { return }
         
-        let isHovered = mediaKeyManager.actualHoveredTypes.contains(overlayId) ||
-                        (overlayId.hasPrefix("ram") && mediaKeyManager.actualHoveredTypes.contains("ram")) ||
-                        (overlayId.hasPrefix("bluetooth") && mediaKeyManager.actualHoveredTypes.contains("bluetooth")) ||
-                        (overlayId.hasPrefix("peripheral") && mediaKeyManager.actualHoveredTypes.contains("peripheral")) ||
-                        (overlayId.hasPrefix("display") && mediaKeyManager.actualHoveredTypes.contains("display"))
+        let isHovered = VisorProWindowManager.shared.isOverlayHovered(id: overlayId) ||
+                        VisorProWindowManager.shared.isWindowUnderMouse(for: overlayId)
         
         // We rely entirely on the precise onHoverExact system from UniversalOverlayView,
         // which perfectly tracks the interface edges (globalHoveredTypes), ignoring the hidden NSWindow area.
