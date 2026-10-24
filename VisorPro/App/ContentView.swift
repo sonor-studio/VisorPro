@@ -112,7 +112,7 @@ struct ContentView: View {
             active.append(ActiveOverlay(id: "airpodsMode_\(mediaKeyManager.airPodsModeEventId)", type: .airpodsMode, position: pos, notification: nil))
         }
         
-        let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)
+        let limit = (mediaKeyManager.overlayStyle == "system") ? 1 : max(1, mediaKeyManager.maxSimultaneousNotifications)
         
         let topCandidates = active.filter { $0.position.hasPrefix("top") }
         let topToKeep = Set(topCandidates.prefix(limit).map { $0.id })
@@ -324,7 +324,7 @@ struct ContentView: View {
             }
             .allowsHitTesting(false)
             
-            let limit = max(1, mediaKeyManager.maxSimultaneousNotifications)
+            let limit = (mediaKeyManager.overlayStyle == "system") ? 1 : max(1, mediaKeyManager.maxSimultaneousNotifications)
             let topOverlays = allActiveOverlays.filter { $0.position.hasPrefix("top") }
             let bottomOverlays = allActiveOverlays.filter { $0.position.hasPrefix("bottom") }
             let topPositions = computeLayerPositions(overlays: topOverlays, limit: limit, size: geoSize)

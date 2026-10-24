@@ -7,6 +7,9 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     static let shared = MenuBarManager()
     
     private var statusItem: NSStatusItem?
+    var statusItemButton: NSStatusBarButton? {
+        statusItem?.button
+    }
     private let menu = NSMenu()
     private var cancellables = Set<AnyCancellable>()
     var openDashboardAction: (() -> Void)?

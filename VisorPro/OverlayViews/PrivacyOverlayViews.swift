@@ -96,6 +96,7 @@ struct MicOverlayView: View {
         let displayedMicName = actualIsActive && !overlayState.activeMicName.isEmpty ? overlayState.activeMicName : overlayState.currentMicDeviceName
         let effectiveMicName = isPreview ? "System Microphone" : (displayedMicName.isEmpty ? "Microphone" : displayedMicName)
         let micPos = MediaKeyManager.shared.getOverlayPosition(for: "micOverlayPosition")
+        let appBundle = isPreview ? "/System/Applications/VoiceMemos.app" : mediaKeyManager.activeMicClientBundleID
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -106,7 +107,7 @@ struct MicOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: currentVolume == 0 || overlayState.isMicMuteReminder,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 208 : 260,
             customHeight: 56,
             supportDragGesture: false,
             onRightTap: nil,
@@ -115,6 +116,9 @@ struct MicOverlayView: View {
             keepAliveId: "mic",
             minimalText: effectiveMicName,
             minimalIcon: (overlayState.isMicMuteReminder || currentVolume == 0) ? "mic.slash.fill" : (actualIsActive ? "mic.fill" : "mic.slash.fill"),
+            systemTitle: effectiveMicName,
+            systemSubtitle: (currentVolume == 0 || overlayState.isMicMuteReminder) ? "Muted" : (actualIsActive ? "Active" : "Off"),
+            systemRightAppBundleId: actualIsActive && !overlayState.isMicMuteReminder ? appBundle : nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: (overlayState.isMicMuteReminder || currentVolume == 0) ? "mic.slash.fill" : (actualIsActive ? "mic.fill" : "mic.slash.fill"))
@@ -438,6 +442,8 @@ struct CameraOverlayView: View {
     
     var body: some View {
         let camPos = MediaKeyManager.shared.getOverlayPosition(for: "cameraOverlayPosition")
+        let effectiveCamName = isPreview ? "FaceTime HD Camera" : (overlayState.activeCameraName.isEmpty ? "Camera" : overlayState.activeCameraName)
+        let appBundle = isPreview ? "/System/Applications/FaceTime.app" : mediaKeyManager.activeCameraClientBundleID
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -448,7 +454,7 @@ struct CameraOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: false,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 208 : 260,
             customHeight: 56,
             supportDragGesture: false,
             isExpandable: actualIsActive && cameraAllowExpansion,
@@ -456,6 +462,9 @@ struct CameraOverlayView: View {
             keepAliveId: "camera",
             minimalText: actionTitle,
             minimalIcon: actualIsActive ? "video.fill" : "video.slash.fill",
+            systemTitle: effectiveCamName,
+            systemSubtitle: actualIsActive ? "Active" : "Off",
+            systemRightAppBundleId: actualIsActive ? appBundle : nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsActive ? "video.fill" : "video.slash.fill")

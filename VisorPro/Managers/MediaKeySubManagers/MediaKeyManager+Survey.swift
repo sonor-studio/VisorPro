@@ -52,7 +52,7 @@ extension MediaKeyManager {
         }
         
         // 4. Ensure there is room for the survey based on its configured position and the overlay slot limit
-        let limit = max(1, MediaKeyManager.shared.maxSimultaneousNotifications)
+        let limit = (MediaKeyManager.shared.overlayStyle == "system") ? 1 : max(1, MediaKeyManager.shared.maxSimultaneousNotifications)
         let activeOverlays = VisorProWindowManager.shared.allActiveOverlays
         let surveyPos = self.getOverlayPosition(for: "surveyOverlayPosition")
         

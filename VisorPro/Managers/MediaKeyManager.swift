@@ -307,6 +307,9 @@ class MediaKeyManager: ObservableObject {
         colorOnDisplayModeChange = "Default"
     }
     func getOverlayPosition(for key: String) -> String {
+        if overlayStyle == "system" {
+            return "top"
+        }
         let mode = UserDefaults.standard.string(forKey: "overlayPositionMode") ?? "custom"
         if mode == "fixed" {
             return UserDefaults.standard.string(forKey: "globalOverlayPosition") ?? "top"
@@ -390,6 +393,7 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("glowOnExpanded") var glowOnExpanded: Bool = false
     @AppStorage("glowIntensity") var glowIntensity: Double = 1.0
     @AppStorage("cornerRoundingMultiplier") var cornerRoundingMultiplier: Double = 0.85
+    @AppStorage("overlayStyle") var overlayStyle: String = "default"
     var globalHoveredTypes: Set<String> {
         get { OverlayStateRelay.shared.globalHoveredTypes }
         set { OverlayStateRelay.shared.globalHoveredTypes = newValue }
@@ -2149,9 +2153,7 @@ class MediaKeyManager: ObservableObject {
             }
         }
         
-        chargingTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            self?.hideBatteryOverlay()
-        }
+        self.scheduleOverlayHide(for: "battery")
     }
 
     
@@ -2537,23 +2539,24 @@ class MediaKeyManager: ObservableObject {
         let lastTrigger = self.overlayTriggerTimes["media"] ?? Date.distantPast
         let overlayIsActive = self.showMediaIndicator && Date().timeIntervalSince(lastTrigger) <= MediaKeyManager.notificationDuration
 
-        if finalTrigger || !overlayIsActive {
+        let actionChanged = (self.mediaAction != mediaAction)
+        if finalTrigger || !overlayIsActive || actionChanged {
             self.mediaAction = mediaAction
         }
         
-        if finalTrigger && enableMediaNotification {
-            // Show overlay
+        // Show overlay or reset hide timer when media notification is enabled
+        // If the overlay is already active and the action changes (e.g. video resumed then paused quickly),
+        // we update the action and reset the hide timer so the user has the full duration to see the new state.
+        if (finalTrigger || (overlayIsActive && actionChanged)) && enableMediaNotification {
             withAnimation {
-                self.showMediaIndicator = true; self.overlayTriggerTimes["media"] = Date()
+                self.showMediaIndicator = true
+                self.overlayTriggerTimes["media"] = Date()
+                self.mediaEventId = UUID()
                 self.notifyOverlayStateChanged()
-                self.mediaHideTimer?.invalidate()
-                if !self.globalHoveredTypes.contains("media") {
-                    self.mediaHideTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { _ in
-                        withAnimation {
-                            self.showMediaIndicator = false; self.notifyOverlayStateChanged()
-                        }
-                    }
-                }
+            }
+            self.cancelOverlayHide(for: "media")
+            if !self.globalHoveredTypes.contains("media") {
+                self.scheduleOverlayHide(for: "media")
             }
         }
     }
@@ -3064,7 +3067,7 @@ class MediaKeyManager: ObservableObject {
     
     func enforceNotificationLimit() {
         let allNotifs = activeBluetoothNotifications + activePeripheralNotifications + activeDisplayNotifications
-        let limit = max(1, maxSimultaneousNotifications)
+        let limit = (overlayStyle == "system") ? 1 : max(1, maxSimultaneousNotifications)
         if allNotifs.count <= limit { return }
         
         let allowed = Array(allNotifs.sorted { $0.timestamp > $1.timestamp }.prefix(limit))

@@ -283,7 +283,7 @@ struct BluetoothOverlayView: View {
             barColor: isAccessoryType && actualIsConnected ? accessoryBatteryColor : (actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo) : .offStateGray),
             fillCenter: false,
             isMuted: false,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 218 : 260,
             customHeight: 56,
             supportDragGesture: false,
             onSimpleTap: {
@@ -304,6 +304,11 @@ struct BluetoothOverlayView: View {
             disableTimeoutMode: isAccessoryType && actualIsConnected && averageBattery != nil,
             minimalText: actualDeviceName,
             minimalIcon: iconName,
+            systemTitle: actualDeviceName,
+            systemSubtitle: actualIsConnected ? "Connected" : "Disconnected",
+            systemRightRingValue: (isAccessoryType && actualIsConnected) ? averageBattery : nil,
+            systemRightRingProgress: (isAccessoryType && actualIsConnected && averageBattery != nil) ? Double(averageBattery!) / 100.0 : nil,
+            systemRightRingColor: (averageBattery ?? 100) <= 20 ? .red : ((averageBattery ?? 100) <= 50 ? .yellow : .green),
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)

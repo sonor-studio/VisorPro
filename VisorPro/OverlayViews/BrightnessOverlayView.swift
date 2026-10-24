@@ -62,6 +62,8 @@ struct BrightnessOverlayView: View {
             disableTimeoutMode: true,
             minimalText: "\(actualBrightness)%",
             minimalIcon: iconName,
+            systemTitle: "Display",
+            systemSubtitle: "\(actualBrightness)%",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

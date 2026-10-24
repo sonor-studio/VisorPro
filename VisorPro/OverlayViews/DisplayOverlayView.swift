@@ -83,7 +83,7 @@ struct DisplayOverlayView: View {
             barColor: !isConnected ? .offStateGray : (notification?.isModeChange == true ? OverlayColorManager.shared.getOverlayColor(for: "colorOnDisplayModeChange", defaultColor: actionColor) : OverlayColorManager.shared.getOverlayColor(for: "colorOnDisplayConnect", defaultColor: actionColor)),
             fillCenter: false,
             isMuted: false,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 212 : 260,
             supportDragGesture: false,
             onRightTap: isConnected ? {
                 manualToggle()
@@ -93,6 +93,13 @@ struct DisplayOverlayView: View {
             keepAliveId: "display_\(notification?.id ?? deviceName)",
             minimalText: deviceName,
             minimalIcon: iconName,
+            systemTitle: deviceName,
+            systemSubtitle: isConnected ? (isMirrored ? "Mirrored" : "Extended Display") : "Disconnected",
+            systemRightButtonIcon: isConnected ? "rectangle.2.swap" : nil,
+            systemRightButtonColor: Color(red: 0.0, green: 0.8, blue: 0.7),
+            systemOnRightButtonTap: isConnected ? {
+                manualToggle()
+            } : nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 0) {
                     Image(systemName: iconName)

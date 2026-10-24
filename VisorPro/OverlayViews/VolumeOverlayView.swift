@@ -144,7 +144,7 @@ struct VolumeOverlayView: View {
         return "headphones"
     }
     @State private var isExpanded: Bool = false
-    @State private var availableDevices: [(id: UInt32, name: String)] = []
+    @State private var availableDevices: [(id: UInt32, name: String)] = VolumeManager.shared.getAvailableOutputDevices()
 
     var body: some View {
         let currentDevices = isPreview ? [(id: UInt32(1), name: "MacBook Pro Speakers"), (id: UInt32(2), name: "AirPods Pro")] : availableDevices
@@ -184,6 +184,8 @@ struct VolumeOverlayView: View {
             fixedExpandedHeight: calcHeight,
             minimalText: actualIsMuted ? "Muted" : "\(actualVolume)%",
             minimalIcon: iconName,
+            systemTitle: actualDeviceName,
+            systemSubtitle: actualIsMuted ? "Muted" : "\(actualVolume)%",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

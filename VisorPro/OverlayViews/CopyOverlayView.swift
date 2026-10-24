@@ -80,10 +80,10 @@ struct CopyOverlayView: View {
     
     private var actionTitle: String {
         switch actualAction {
-        case "copy": return "Copied to Clipboard"
-        case "cut": return "Cut to Clipboard"
-        case "paste": return "Pasted from Clipboard"
-        default: return "Copied to Clipboard"
+        case "copy": return "Copied"
+        case "cut": return "Cut"
+        case "paste": return "Pasted"
+        default: return "Copied"
         }
     }
     
@@ -140,6 +140,7 @@ struct CopyOverlayView: View {
             barColor: OverlayColorManager.shared.getOverlayColor(for: actualAction == "copy" ? "colorOnCopy" : (actualAction == "cut" ? "colorOnCut" : "colorOnPaste"), defaultColor: actionColor),
             fillCenter: false, // The original uses strokeBorder
             isMuted: false,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 220 : 260,
             supportDragGesture: false,
             onSimpleTap: {
                 handleSimpleTap(canExpand: canExpand)
@@ -149,6 +150,8 @@ struct CopyOverlayView: View {
             keepAliveId: "copy",
             minimalText: cleanCopiedText.isEmpty ? actionFallbackText : cleanCopiedText,
             minimalIcon: actionIcon,
+            systemTitle: cleanCopiedText.isEmpty ? actionFallbackText : cleanCopiedText,
+            systemSubtitle: actionTitle,
             baseContent: {
                 HStack(alignment: .center, spacing: 0) {
                     Image(systemName: actionIcon)

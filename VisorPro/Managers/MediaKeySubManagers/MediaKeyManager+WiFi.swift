@@ -48,15 +48,7 @@ extension MediaKeyManager {
 
                 }
 
-                self.wiFiTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-
-                    withAnimation(.easeInOut(duration: 0.25)) {
-
-                        self?.showWiFiIndicator = false
-
-                    }
-
-                }
+                self.scheduleOverlayHide(for: "wifi")
 
             }
 

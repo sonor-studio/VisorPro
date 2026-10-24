@@ -66,6 +66,19 @@ struct SmartRoutingOverlayView: View {
             keepAliveId: "smartRouting",
             minimalText: displayTitle,
             minimalIcon: deviceIcon,
+            systemTitle: displayTitle,
+            systemSubtitle: displayMessage,
+            systemRightButtonIcon: "arrow.uturn.backward",
+            systemRightButtonColor: .blue,
+            systemOnRightButtonTap: {
+                if !isPreview {
+                    mediaKeyManager.returnAudioToMac()
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        overlayState.showSmartRoutingIndicator = false
+                    }
+                    mediaKeyManager.notifyOverlayStateChanged()
+                }
+            },
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: deviceIcon)

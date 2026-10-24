@@ -54,6 +54,11 @@ struct RamOverlayView: View {
             keepAliveId: "ram",
             minimalText: "\(Int(percent))% RAM",
             minimalIcon: "memorychip",
+            systemTitle: percent >= 80.0 ? "High RAM Usage" : "Memory Usage",
+            systemSubtitle: "\(Int(percent))% Used (\(String(format: "%.1f", used)) GB)",
+            systemRightRingValue: Int(round(percent)),
+            systemRightRingProgress: percent / 100.0,
+            systemRightRingColor: themeColor,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: "memorychip")

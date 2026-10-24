@@ -212,7 +212,7 @@ struct GeneralSettingsView: View {
                                         .cornerRadius(4)
                                     }
                                 }
-                                Text("Maximum number of tiles displayed at once.")
+                                Text(mediaKeyManager.overlayStyle == "system" ? "Locked to 1 in System style (HUD under menu bar)." : "Maximum number of tiles displayed at once.")
                                     .font(.system(size: 11))
                                     .foregroundColor(.secondary)
                             }
@@ -220,15 +220,16 @@ struct GeneralSettingsView: View {
                             Spacer()
                             
                             HStack {
+                                let isSystem = mediaKeyManager.overlayStyle == "system"
                                 Slider(value: Binding(
-                                    get: { Double(mediaKeyManager.maxSimultaneousNotifications) },
-                                    set: { if !savedLicenseKey.isEmpty { mediaKeyManager.maxSimultaneousNotifications = Int($0) } }
+                                    get: { Double(isSystem ? 1 : mediaKeyManager.maxSimultaneousNotifications) },
+                                    set: { if !savedLicenseKey.isEmpty && !isSystem { mediaKeyManager.maxSimultaneousNotifications = Int($0) } }
                                 ), in: 1...5, step: 1)
-                                .disabled(savedLicenseKey.isEmpty)
+                                .disabled(savedLicenseKey.isEmpty || isSystem)
                                 .labelsHidden()
                                 .frame(width: 220)
                                 
-                                Text("\(mediaKeyManager.maxSimultaneousNotifications)")
+                                Text(isSystem ? "1" : "\(mediaKeyManager.maxSimultaneousNotifications)")
                                     .frame(width: 30, alignment: .trailing)
                             }
                         }
@@ -367,17 +368,20 @@ struct GeneralSettingsView: View {
                                     Text("Overlay Position Mode")
                                         .font(.system(size: 13, weight: .medium))
                                         .foregroundColor(.primary)
-                                    Text("Use a single position for all modules or configure each individually.")
+                                    let isSystem = mediaKeyManager.overlayStyle == "system"
+                                    Text(isSystem ? "In System style, overlays are permanently anchored directly below the menu bar." : "Use a single position for all modules or configure each individually.")
                                         .font(.system(size: 11))
                                         .foregroundColor(.secondary)
                                 }
                                 Spacer()
+                                let isSystem = mediaKeyManager.overlayStyle == "system"
                                 Picker("", selection: $overlayPositionMode) {
                                     Text("Custom (Individual per module)").tag("custom")
                                     Text("Fixed (Same for all modules)").tag("fixed")
                                 }
                                 .labelsHidden()
                                 .pickerStyle(MenuPickerStyle())
+                                .disabled(isSystem)
                             }
                             
                             if overlayPositionMode == "fixed" {
@@ -387,6 +391,7 @@ struct GeneralSettingsView: View {
                                     .foregroundColor(.secondary)
                                 
                                 PositionPickerGroup(selection: $globalOverlayPosition)
+                                    .disabled(mediaKeyManager.overlayStyle == "system")
                             }
                             Divider().padding(.vertical, 8)
                             

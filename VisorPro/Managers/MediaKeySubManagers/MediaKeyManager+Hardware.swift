@@ -53,11 +53,7 @@ extension MediaKeyManager {
                 self.overlayTriggerTimes["copy"] = Date()
             }
             
-            self.copyTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.showCopyIndicator = false
-                }
-            }
+            self.scheduleOverlayHide(for: "copy")
         }
         
         if self.showCopyIndicator && self.clipboardAction != action && action != "paste" {

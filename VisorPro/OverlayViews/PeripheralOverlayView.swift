@@ -127,6 +127,24 @@ struct PeripheralOverlayView: View {
         
         let keepAliveId = actualNotification != nil ? "peripheral_\(actualNotification!.id)" : "peripheral"
         
+        let periRingVal: Int? = {
+            if hasBattery, let bat = batteryLevel {
+                return bat
+            }
+            if let rawTotal = rawDriveTotal, let rawFree = rawDriveFree, rawTotal > 0 {
+                let used = rawTotal - rawFree
+                return Int(round(Double(used) / Double(rawTotal) * 100.0))
+            }
+            return nil
+        }()
+        let periRingColor: Color? = {
+            guard let val = periRingVal else { return nil }
+            if hasBattery {
+                return val <= 20 ? .red : (val <= 50 ? .yellow : .green)
+            }
+            return val >= 90 ? .red : (val >= 75 ? .yellow : .blue)
+        }()
+        
         return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: $isExpanded,
@@ -136,13 +154,18 @@ struct PeripheralOverlayView: View {
             barColor: isConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: .blue) : .offStateGray,
             fillCenter: false, // uses strokeBorder
             isMuted: false,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 208 : 260,
             supportDragGesture: false,
             isExpandable: isExpandable && peripheralAllowExpansion,
             expandUpwards: periPos.hasPrefix("bottom"),
             keepAliveId: keepAliveId,
             minimalText: deviceName.isEmpty ? "Device" : deviceName,
             minimalIcon: iconName,
+            systemTitle: deviceName.isEmpty ? "Peripheral" : deviceName,
+            systemSubtitle: isConnected ? (isEjected ? "Ejected" : "Connected") : "Disconnected",
+            systemRightRingValue: periRingVal,
+            systemRightRingProgress: periRingVal.map { Double($0) / 100.0 },
+            systemRightRingColor: periRingColor,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)

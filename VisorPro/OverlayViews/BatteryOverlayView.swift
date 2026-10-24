@@ -73,6 +73,11 @@ struct BatteryOverlayView: View {
     var body: some View {
         let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
         let isFullyCharged = actualPercentage == 100 || (overlayState.isEffectivelyFullyCharged && !isPreview)
+        let systemSub: String = {
+            if isWarningMode { return "Low Battery" }
+            if isFullyCharged { return "Fully Charged" }
+            return actualIsPluggedIn ? "Charging" : "Unplugged"
+        }()
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -82,7 +87,7 @@ struct BatteryOverlayView: View {
             barColor: batteryColor,
             fillCenter: batteryFillCenter,
             isMuted: !actualIsPluggedIn && !isWarningMode,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 200 : 260,
             customHeight: isFullyCharged ? 56 : 72,
             supportDragGesture: false,
             isExpandable: batteryAllowExpansion,
@@ -91,6 +96,11 @@ struct BatteryOverlayView: View {
             disableTimeoutMode: true,
             minimalText: isFullyCharged ? "100%" : "\(actualPercentage)%",
             minimalIcon: iconName,
+            systemTitle: "Battery",
+            systemSubtitle: systemSub,
+            systemRightRingValue: actualPercentage,
+            systemRightRingProgress: Double(actualPercentage) / 100.0,
+            systemRightRingColor: batteryColor,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

@@ -45,6 +45,7 @@ struct FileDeletedOverlayView: View {
             barColor: themeColor,
             fillCenter: false,
             isMuted: false,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 216 : 260,
             supportDragGesture: false,
             onRightTap: {
                 if !isPreview {
@@ -62,6 +63,16 @@ struct FileDeletedOverlayView: View {
             keepAliveId: "fileDeleted",
             minimalText: fileName,
             minimalIcon: getFileIconInfo(fileName: fileName),
+            systemTitle: fileName,
+            systemSubtitle: "Deleted",
+            systemRightButtonIcon: "arrow.uturn.backward",
+            systemRightButtonColor: Color(white: 0.5, opacity: 0.25),
+            systemOnRightButtonTap: {
+                if !isPreview {
+                    restoreFile()
+                    mediaKeyManager.forceHide(overlayId: "fileDeleted")
+                }
+            },
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     if fileSizeMB < 0, let icon = fileIcon {

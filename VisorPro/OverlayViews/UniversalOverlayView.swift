@@ -224,6 +224,16 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var allowCloseButton: Bool = true
     var minimalText: String? = nil
     var minimalIcon: String? = nil
+    var systemTitle: String? = nil
+    var systemSubtitle: String? = nil
+    var systemRightButtonIcon: String? = nil
+    var systemRightButtonColor: Color? = nil
+    var systemOnRightButtonTap: (() -> Void)? = nil
+    var systemRightRingValue: Int? = nil
+    var systemRightRingProgress: Double? = nil
+    var systemRightRingColor: Color? = nil
+    var systemRightAppBundleId: String? = nil
+    var systemRightAirPodsTrio: (left: Int?, leftCharging: Bool, caseBat: Int?, caseCharging: Bool, right: Int?, rightCharging: Bool)? = nil
     
     @ViewBuilder var baseContent: () -> BaseContent
     @ViewBuilder var expandedContent: () -> ExpandedContent
@@ -236,7 +246,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var hasLanded: Bool = false
     @State private var lastTapTime: TimeInterval = 0
     @State private var isMinimalExpandedByClick: Bool = false
-    @AppStorage("enableCloseButton") private var enableCloseButton = false
+    @AppStorage("enableCloseButton") private var enableCloseButton = true
     @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = true
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
     @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
@@ -258,17 +268,133 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     var body: some View {
+        if mediaKeyManager.overlayStyle == "system" {
+            let defaultTitle: String? = {
+                if let st = systemTitle { return st }
+                if let min = minimalText {
+                    if min.hasPrefix("Caps") { return "Caps Lock" }
+                    if min.contains("Muted") { return "Microphone" }
+                    if min.hasSuffix("%") { return "Volume" }
+                    return min
+                }
+                return nil
+            }()
+            let defaultSubtitle: String? = {
+                if let ss = systemSubtitle { return ss }
+                if let min = minimalText {
+                    if min == "Caps ON" { return "On" }
+                    if min == "Caps OFF" { return "Off" }
+                    if min.hasSuffix("%") { return min }
+                    if min == "Muted" { return "Muted" }
+                }
+                if isMuted { return "Muted" }
+                if isTimeoutMode { return nil }
+                if showProgressBar { return "\(Int(progress * 100))%" }
+                return nil
+            }()
+            
+            let hasTrailingItem = (systemRightButtonIcon != nil && (systemOnRightButtonTap != nil || onRightTap != nil)) || (systemRightRingValue != nil) || (systemRightAppBundleId != nil)
+            let resolvedWidth: CGFloat = {
+                if systemRightAirPodsTrio != nil {
+                    return max(customWidth, 230)
+                } else if hasTrailingItem {
+                    return max(customWidth, 200)
+                } else {
+                    return min(customWidth, 220)
+                }
+            }()
+            let resolvedHeight: CGFloat = hasTrailingItem ? 52 : min(customHeight, 52)
+            
+            UniversalSystemOverlayView(
+                isPreview: isPreview,
+                icon: minimalIcon,
+                title: defaultTitle,
+                subtitle: defaultSubtitle,
+                progress: progress,
+                showProgressBar: showProgressBar,
+                isTimeoutMode: isTimeoutMode,
+                barColor: barColor,
+                isMuted: isMuted,
+                customWidth: resolvedWidth,
+                customHeight: resolvedHeight,
+                allowCloseButton: allowCloseButton,
+                keepAliveId: keepAliveId,
+                rightButtonIcon: systemRightButtonIcon,
+                rightButtonColor: systemRightButtonColor ?? barColor,
+                onRightButtonTap: systemOnRightButtonTap ?? onRightTap,
+                rightRingValue: systemRightRingValue,
+                rightRingProgress: systemRightRingProgress,
+                rightRingColor: systemRightRingColor ?? barColor,
+                rightAppBundleId: systemRightAppBundleId,
+                rightAirPodsTrio: systemRightAirPodsTrio,
+                onDrag: onDrag,
+                onLeftTap: onLeftTap
+            )
+            .id("system_overlay")
+        } else if mediaKeyManager.overlayStyle == "capsule" {
+            let isLarge = (customHeight > 60 || customWidth > 260)
+            
+            UniversalCapsuleOverlayView(
+                isExpanded: $isExpanded,
+                isPreview: isPreview,
+                isLarge: isLarge,
+                showProgressBar: showProgressBar,
+                isTimeoutMode: isTimeoutMode,
+                timeoutDuration: timeoutDuration,
+                timeoutEventId: timeoutEventId,
+                progress: progress,
+                barColor: barColor,
+                isMuted: isMuted,
+                forceGlow: forceGlow,
+                customGlowOpacity: customGlowOpacity,
+                customWidth: customWidth,
+                customHeight: customHeight,
+                customCornerRadius: customCornerRadius,
+                supportDragGesture: supportDragGesture,
+                onDrag: onDrag,
+                onLeftTap: onLeftTap,
+                onRightTap: onRightTap,
+                onSimpleTap: onSimpleTap,
+                isExpandable: isExpandable,
+                expandUpwards: expandUpwards,
+                keepAliveId: keepAliveId,
+                fixedExpandedHeight: fixedExpandedHeight,
+                allowCloseButton: allowCloseButton,
+                allowBaseHitTesting: allowBaseHitTesting,
+                minimalText: minimalText,
+                minimalIcon: minimalIcon,
+                baseContent: {
+                    baseContent()
+                },
+                expandedContent: {
+                    expandedContent()
+                }
+            )
+            .id("capsule_overlay")
+        } else {
+            defaultCapsuleBody
+                .id("default_overlay")
+        }
+    }
+    
+    @ViewBuilder
+    private var defaultCapsuleBody: some View {
         let isMinimal = isEffectivelyMinimal
         let targetWidth: CGFloat = isMinimal ? 140 : customWidth
         let targetHeight: CGFloat = isMinimal ? 38 : customHeight
         let width: CGFloat = targetWidth
         let baseHeight: CGFloat = targetHeight
-        let dynamicOffset: CGFloat = -2
-        let buttonCenter = CGPoint(x: closeButtonOnRight ? width - (dynamicOffset + 10) : dynamicOffset + 10, y: dynamicOffset + 10)
-        let cutoutCenterForShape = CGPoint(x: closeButtonOnRight ? width - buttonCenter.x : buttonCenter.x, y: buttonCenter.y)
         let outerRadius: CGFloat = isMinimal 
             ? ((baseHeight / 2) * CGFloat(mediaKeyManager.cornerRoundingMultiplier)) 
             : (customCornerRadius ?? ((baseHeight / 2) * CGFloat(mediaKeyManager.cornerRoundingMultiplier)))
+        let dynamicOffset: CGFloat = -2
+        // On larger overlays (height >= 56 pt, e.g. volume, brightness, media), inset slightly further into the curve so the button and cutout sit comfortably 50% on/off the rim
+        let edgeInset: CGFloat = min(outerRadius * 0.55, 17.0)
+        let buttonCenter = CGPoint(
+            x: closeButtonOnRight ? width - edgeInset : edgeInset,
+            y: dynamicOffset + 10
+        )
+        let cutoutCenterForShape = CGPoint(x: closeButtonOnRight ? width - buttonCenter.x : buttonCenter.x, y: buttonCenter.y)
         let trackPadding: CGFloat = 3
         let innerRadius: CGFloat = max(0, outerRadius - trackPadding)
         let innerPadding: CGFloat = 3
@@ -439,6 +565,11 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                                 } else {
                                     expandedHeight = height
                                 }
+                                if isExpanded && !isPreview, let id = keepAliveId {
+                                    let baseH = isEffectivelyMinimal ? 38 : customHeight
+                                    let totalPillHeight = baseH + height
+                                    VisorProWindowManager.shared.setOverlayExpandedHeight(overlayId: id, pillHeight: totalPillHeight)
+                                }
                             }
                         }
                     }
@@ -447,7 +578,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
 
         .background(
             ZStack(alignment: .leading) {
-                // WARSTWA 1: Baza
+                // WARSTWA 1: Baza (Around)
                 Group {
                     BendedCornerShape(radius: innerRadius, bendAmount: bendProgress, absoluteCutoutCenter: cutoutCenterForShape, cutoutRadius: cutoutSize + trackPadding, frameOffset: CGPoint(x: trackPadding, y: trackPadding), isRightSide: closeButtonOnRight)
                         .strokeBorder(Color.primary.opacity(0.3), style: StrokeStyle(lineWidth: trackBorderWidth, lineCap: .round, lineJoin: .round))
@@ -553,8 +684,6 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         .strokeBorder(Color.glassBorder, style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
                 }
                 .padding(trackPadding + innerPadding)
-
-                
             }
         )
         .contentShape(RoundedRectangle(cornerRadius: outerRadius))
@@ -662,9 +791,19 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             expandedKeepAliveTimer?.invalidate()
             expandedKeepAliveTimer = nil
             isMinimalExpandedByClick = false
+            if !isPreview, let id = keepAliveId {
+                let baseH = isEffectivelyMinimal ? 38 : customHeight
+                VisorProWindowManager.shared.setOverlayExpandedHeight(overlayId: id, pillHeight: baseH, animated: false)
+            }
         }
         .onChange(of: isExpanded) { _, expanded in
             updateBendProgress()
+            let baseH = isEffectivelyMinimal ? 38 : customHeight
+            let expandedH = expanded ? (fixedExpandedHeight ?? expandedHeight) : 0
+            let totalPillHeight = baseH + expandedH
+            if !isPreview, let id = keepAliveId {
+                VisorProWindowManager.shared.setOverlayExpandedHeight(overlayId: id, pillHeight: totalPillHeight)
+            }
             if expanded {
                 expandedKeepAliveTimer?.invalidate()
                 expandedKeepAliveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
@@ -685,6 +824,13 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 DispatchQueue.main.async {
                     triggerKeepAlive(expandedOverride: false)
                 }
+            }
+        }
+        .onChange(of: fixedExpandedHeight) { _, newH in
+            if isExpanded, let newH = newH, !isPreview, let id = keepAliveId {
+                let baseH = isEffectivelyMinimal ? 38 : customHeight
+                let total = baseH + newH
+                VisorProWindowManager.shared.setOverlayExpandedHeight(overlayId: id, pillHeight: total)
             }
         }
         .onChange(of: enableCloseButton) { _, _ in

@@ -25,6 +25,7 @@ struct TrashOverlayView: View {
             barColor: themeColor,
             fillCenter: false,
             isMuted: false,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 180 : 260,
             supportDragGesture: false,
             onRightTap: isPreview || !overlayState.trashAutoEmptied ? {
                 if !isPreview {
@@ -42,6 +43,16 @@ struct TrashOverlayView: View {
             keepAliveId: "trash",
             minimalText: (!isPreview && overlayState.trashAutoEmptied) ? "Trash Emptied" : "Trash Full",
             minimalIcon: (!isPreview && overlayState.trashAutoEmptied) ? "trash" : "tray.full.fill",
+            systemTitle: "Trash",
+            systemSubtitle: (!isPreview && overlayState.trashAutoEmptied) ? "Emptied" : "Full",
+            systemRightButtonIcon: (isPreview || !overlayState.trashAutoEmptied) ? "trash.slash" : nil,
+            systemRightButtonColor: Color(white: 0.5, opacity: 0.25),
+            systemOnRightButtonTap: (isPreview || !overlayState.trashAutoEmptied) ? {
+                if !isPreview {
+                    TrashObserver.shared.emptyTrash(isAutoEmpty: true, freedSize: overlayState.trashSizeGB)
+                }
+                isExpanded = false
+            } : nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: (!isPreview && overlayState.trashAutoEmptied) ? "trash" : "tray.full.fill")

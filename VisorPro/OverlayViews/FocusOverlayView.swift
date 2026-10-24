@@ -68,6 +68,7 @@ struct FocusOverlayView: View {
         let displayTitle: String
         let displayIcon: String
         let displayColor: Color
+        let isReminder = active && (isPreview ? false : overlayState.isFocusReminder)
         
         if active {
             if isPreview {
@@ -124,13 +125,15 @@ struct FocusOverlayView: View {
             barColor: displayColor,
             fillCenter: false,
             isMuted: false,
-            customWidth: 240,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 198 : 240,
             supportDragGesture: false,
             onSimpleTap: {},
             isExpandable: isExpandable && focusAllowExpansion,
             keepAliveId: "focus",
             minimalText: displayTitle,
             minimalIcon: displayIcon,
+            systemTitle: isReminder ? "Focus Reminder" : (modeName.isEmpty ? "Do Not Disturb" : modeName),
+            systemSubtitle: isReminder ? (modeName.isEmpty ? "Do Not Disturb" : modeName) : (active ? "On" : "Off"),
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: displayIcon)

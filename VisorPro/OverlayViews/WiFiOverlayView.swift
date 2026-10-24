@@ -134,7 +134,7 @@ struct WiFiOverlayView: View {
             barColor: actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnWiFiConnect", defaultColor: .blue) : .offStateGray,
             fillCenter: false,
             isMuted: false,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 208 : 260,
             customHeight: 56,
             supportDragGesture: false,
             onRightTap: actualIsConnected ? {
@@ -148,6 +148,16 @@ struct WiFiOverlayView: View {
             keepAliveId: "wifi",
             minimalText: actualIsConnected ? (actualSSID.isEmpty ? "Connected" : actualSSID) : "No Wi-Fi",
             minimalIcon: iconName,
+            systemTitle: actualSSID.isEmpty ? "Wi-Fi" : actualSSID,
+            systemSubtitle: actualIsConnected ? "Connected" : "Disconnected",
+            systemRightButtonIcon: actualIsConnected ? "wifi.slash" : nil,
+            systemRightButtonColor: Color(white: 0.5, opacity: 0.25),
+            systemOnRightButtonTap: actualIsConnected ? {
+                if !isPreview {
+                    mediaKeyManager.disconnectWiFi()
+                    mediaKeyManager.forceHide(overlayId: "wifi")
+                }
+            } : nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)

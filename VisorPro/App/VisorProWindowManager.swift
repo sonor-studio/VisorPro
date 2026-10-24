@@ -96,7 +96,45 @@ class VisorProWindowManager: ObservableObject {
                 return 140
             }
         }
-        if overlay.type == .capsLock || overlay.type == .theme {
+        let style = MediaKeyManager.shared.overlayStyle
+        if style == "system" {
+            if overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness {
+                return 308
+            } else if overlay.type == .date {
+                let fmt = UserDefaults.standard.string(forKey: "dateFormatOption") ?? "EEE, d MMMM yyyy"
+                let formatter = DateFormatter()
+                formatter.dateFormat = fmt.replacingOccurrences(of: "EEEE", with: "EEE")
+                let str = formatter.string(from: Date())
+                return max(180, CGFloat(str.count) * 9.2 + 64)
+            } else if overlay.type == .airpodsGroupBattery {
+                return 230
+            } else if overlay.type == .trash {
+                return 180
+            } else if overlay.type == .theme {
+                return 188
+            } else if overlay.type == .capsLock {
+                return 196
+            } else if overlay.type == .focus {
+                return 198
+            } else if overlay.type == .battery {
+                return 200
+            } else if overlay.type == .wifi || overlay.type == .peripheral || overlay.type == .mic || overlay.type == .camera {
+                return 208
+            } else if overlay.type == .display {
+                return 212
+            } else if overlay.type == .bluetooth || overlay.type == .fileDeleted {
+                return 218
+            } else if overlay.type == .copy {
+                return 220
+            } else if overlay.type == .language || overlay.type == .media || overlay.type == .smartRouting || overlay.type == .accessoryBattery || overlay.type == .cpu || overlay.type == .ram {
+                return 216
+            } else {
+                return 190
+            }
+        }
+        if overlay.type == .capsLock {
+            return 200
+        } else if overlay.type == .theme {
             return 230
         } else if overlay.type == .focus {
             return 240
@@ -369,7 +407,7 @@ class VisorProWindowManager: ObservableObject {
             active.append(ActiveOverlay(id: "airpodsMode", type: .airpodsMode, position: pos, notification: nil))
         }
         
-        let limit = max(1, MediaKeyManager.shared.maxSimultaneousNotifications)
+        let limit = (MediaKeyManager.shared.overlayStyle == "system") ? 1 : max(1, MediaKeyManager.shared.maxSimultaneousNotifications)
         
         let now = Date()
         for overlay in active {
@@ -578,7 +616,7 @@ class VisorProWindowManager: ObservableObject {
             }
         }
         
-        let limit = max(1, MediaKeyManager.shared.maxSimultaneousNotifications)
+        let limit = (MediaKeyManager.shared.overlayStyle == "system") ? 1 : max(1, MediaKeyManager.shared.maxSimultaneousNotifications)
         let topOverlays = active.filter { $0.position.hasPrefix("top") }
         let bottomOverlays = active.filter { $0.position.hasPrefix("bottom") }
         let centerOverlays = active.filter { !$0.position.hasPrefix("top") && !$0.position.hasPrefix("bottom") }
@@ -614,7 +652,16 @@ class VisorProWindowManager: ObservableObject {
                     panel.appearance = nil
                 }
                 
-                let x = (allPositions[overlay.id] ?? (screenSize.width / 2)) + screenOrigin.x
+                let isSystemStyle = MediaKeyManager.shared.overlayStyle == "system"
+                
+                let x: CGFloat
+                if isSystemStyle {
+                    let pillWidth = effectiveOverlayWidth(for: overlay)
+                    x = MenuBarIconTracker.shared.getIconCenter(for: overlay.type.rawValue, in: screen, pillWidth: pillWidth)
+                } else {
+                    x = (allPositions[overlay.id] ?? (screenSize.width / 2)) + screenOrigin.x
+                }
+                
                 let yCenter = yPos(for: overlay.position, in: screenSize) + screenOrigin.y
                 
                 let currentWidth = panel.frame.width
@@ -623,7 +670,14 @@ class VisorProWindowManager: ObservableObject {
                 let originX = x - (currentWidth / 2)
                 
                 let originY: CGFloat
-                if overlay.position.hasPrefix("top") {
+                if isSystemStyle {
+                    let menuBarH = max(24.0, screen.frame.maxY - screen.visibleFrame.maxY)
+                    let isSlider = (overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness)
+                    let isWideStatus = (overlay.type == .capsLock || overlay.type == .language || overlay.type == .media || overlay.type == .wifi || overlay.type == .theme || overlay.type == .display || overlay.type == .smartRouting || overlay.type == .battery || overlay.type == .bluetooth || overlay.type == .accessoryBattery || overlay.type == .peripheral || overlay.type == .trash || overlay.type == .cpu || overlay.type == .ram)
+                    let pillHeight: CGFloat = isSlider ? 64.0 : 52.0
+                    let pillTop = screen.frame.maxY - menuBarH - 11.0
+                    originY = pillTop - ((currentHeight + pillHeight) / 2.0)
+                } else if overlay.position.hasPrefix("top") {
                     originY = (yCenter + 44) - currentHeight
                 } else if overlay.position.hasPrefix("bottom") {
                     originY = yCenter - 44
@@ -710,29 +764,88 @@ class VisorProWindowManager: ObservableObject {
         let w: CGFloat
         let h: CGFloat
         
-        if overlay.type == .capsLock || overlay.type == .theme {
-            w = 230
-        } else if overlay.type == .focus {
-            w = 240
+        let style = MediaKeyManager.shared.overlayStyle
+        if style == "system" {
+            if overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness {
+                w = 308
+                h = 64
+            } else if overlay.type == .survey {
+                let relay = OverlayStateRelay.shared
+                let questionId = relay.activeSurveyQuestionId
+                let question = SurveyLibrary.shared.questions.first(where: { $0.id == questionId }) ?? SurveyLibrary.shared.questions.first
+                w = 260
+                h = question?.height ?? 180
+            } else if overlay.type == .date {
+                let fmt = UserDefaults.standard.string(forKey: "dateFormatOption") ?? "EEE, d MMMM yyyy"
+                let formatter = DateFormatter()
+                formatter.dateFormat = fmt.replacingOccurrences(of: "EEEE", with: "EEE")
+                let str = formatter.string(from: Date())
+                w = max(180, CGFloat(str.count) * 9.2 + 64)
+                h = 52
+            } else if overlay.type == .airpodsGroupBattery {
+                w = 230
+                h = 52
+            } else if overlay.type == .trash {
+                w = 180
+                h = 52
+            } else if overlay.type == .theme {
+                w = 188
+                h = 52
+            } else if overlay.type == .capsLock {
+                w = 196
+                h = 52
+            } else if overlay.type == .focus {
+                w = 198
+                h = 52
+            } else if overlay.type == .battery {
+                w = 200
+                h = 52
+            } else if overlay.type == .wifi || overlay.type == .peripheral || overlay.type == .mic || overlay.type == .camera {
+                w = 208
+                h = 52
+            } else if overlay.type == .display {
+                w = 212
+                h = 52
+            } else if overlay.type == .bluetooth || overlay.type == .fileDeleted {
+                w = 218
+                h = 52
+            } else if overlay.type == .copy {
+                w = 220
+                h = 52
+            } else if overlay.type == .language || overlay.type == .media || overlay.type == .smartRouting || overlay.type == .accessoryBattery || overlay.type == .cpu || overlay.type == .ram {
+                w = 216
+                h = 52
+            } else {
+                w = 190
+                h = 52
+            }
         } else {
-            w = 260
-        }
-        
-        if overlay.type == .battery {
-            let manager = MediaKeyManager.shared
-            let isFullyCharged = manager.currentBatteryPercentage == 100 || manager.isEffectivelyFullyCharged
-            h = isFullyCharged ? 56 : 72
-        } else if overlay.type == .airpodsGroupBattery {
-            h = 134
-        } else if overlay.type == .media {
-            h = 72
-        } else if overlay.type == .survey {
-            let relay = OverlayStateRelay.shared
-            let questionId = relay.activeSurveyQuestionId
-            let question = SurveyLibrary.shared.questions.first(where: { $0.id == questionId }) ?? SurveyLibrary.shared.questions.first
-            h = question?.height ?? 180
-        } else {
-            h = 56
+            if overlay.type == .capsLock {
+                w = 200
+            } else if overlay.type == .theme {
+                w = 230
+            } else if overlay.type == .focus {
+                w = 240
+            } else {
+                w = 260
+            }
+            
+            if overlay.type == .battery {
+                let manager = MediaKeyManager.shared
+                let isFullyCharged = manager.currentBatteryPercentage == 100 || manager.isEffectivelyFullyCharged
+                h = isFullyCharged ? 56 : 72
+            } else if overlay.type == .airpodsGroupBattery {
+                h = 134
+            } else if overlay.type == .media {
+                h = 72
+            } else if overlay.type == .survey {
+                let relay = OverlayStateRelay.shared
+                let questionId = relay.activeSurveyQuestionId
+                let question = SurveyLibrary.shared.questions.first(where: { $0.id == questionId }) ?? SurveyLibrary.shared.questions.first
+                h = question?.height ?? 180
+            } else {
+                h = 56
+            }
         }
         
         let panel = VisorProOverlayPanel(
@@ -758,6 +871,7 @@ class VisorProWindowManager: ObservableObject {
         let view = SingleOverlayContainer(overlay: overlay)
             .environmentObject(MediaKeyManager.shared)
             .environmentObject(OverlayStateRelay.shared)
+            .environment(\.controlActiveState, .key)
         let hostingView = TrackingHostingView(rootView: view)
         hostingView.overlayId = overlay.id
         panel.contentView = hostingView
@@ -775,18 +889,31 @@ class VisorProWindowManager: ObservableObject {
         let marginVal = UserDefaults.standard.object(forKey: "overlayMargin"); let margin = marginVal != nil ? CGFloat((marginVal as? NSNumber)?.doubleValue ?? 30.0) : 30.0
         let bottomPadding: CGFloat = margin
         let topPadding: CGFloat = margin
-        let pillHeight: CGFloat = 56
+        let isSystem = UserDefaults.standard.string(forKey: "overlayStyle") == "system"
+        let pillHeight: CGFloat = isSystem ? 52 : 56
         if position.hasPrefix("top") { return size.height - topPadding - (pillHeight / 2) } 
         if position == "center" { return size.height / 2 }
         return bottomPadding + (pillHeight / 2)
     }
 
     func pillBounds(for panel: NSPanel, overlayKey: String) -> NSRect {
-        let enableMinimal = UserDefaults.standard.bool(forKey: "enableMinimalMode")
+        let style = UserDefaults.standard.string(forKey: "overlayStyle") ?? "default"
+        let isDefault = style == "default" || style == "capsule" || style == "system"
+        let enableMinimal = isDefault && UserDefaults.standard.bool(forKey: "enableMinimalMode")
         let isMinimal = enableMinimal && !isOverlayHovered(id: overlayKey)
         
-        let pillWidth: CGFloat = isMinimal ? 140 : max(0, panel.frame.width - 32)
-        let pillHeight: CGFloat = isMinimal ? 38 : max(0, panel.frame.height - 32)
+        let pillWidth: CGFloat
+        let pillHeight: CGFloat
+        if isMinimal {
+            pillWidth = 140
+            pillHeight = 38
+        } else if style == "system" {
+            pillWidth = max(0, panel.frame.width - 32)
+            pillHeight = max(0, panel.frame.height - 32)
+        } else {
+            pillWidth = max(0, panel.frame.width - 32)
+            pillHeight = max(0, panel.frame.height - 32)
+        }
         
         let localX = (panel.frame.width - pillWidth) / 2
         let localY: CGFloat
@@ -803,7 +930,11 @@ class VisorProWindowManager: ObservableObject {
             localY = (panel.frame.height - pillHeight) / 2
         }
         
-        return NSRect(x: localX, y: localY, width: pillWidth, height: pillHeight)
+        var rect = NSRect(x: localX, y: localY, width: pillWidth, height: pillHeight)
+        if UserDefaults.standard.bool(forKey: "enableCloseButton") {
+            rect = rect.insetBy(dx: -4, dy: -4)
+        }
+        return rect
     }
 
     func pillScreenFrame(for panel: NSPanel, overlayKey: String) -> NSRect {
@@ -845,6 +976,65 @@ class VisorProWindowManager: ObservableObject {
         
         return isWindowUnderMouse(for: overlayId)
     }
+
+    private var pendingCollapseWorkItems: [String: DispatchWorkItem] = [:]
+
+    /// Dynamically resizes the overlay window panel when its SwiftUI content expands or collapses.
+    /// Resizes the transparent window canvas instantly on expansion so SwiftUI handles 100% of the
+    /// visual animation smoothly via BouncyHeightModifier without any window-frame animation conflicts or jitter.
+    func setOverlayExpandedHeight(overlayId: String, pillHeight: CGFloat, animated: Bool = true) {
+        let targetWindowHeight = pillHeight + 32
+        
+        for (key, panel) in windows {
+            guard key.hasPrefix(overlayId) else { continue }
+            let currentHeight = panel.frame.height
+            if abs(currentHeight - targetWindowHeight) < 1.0 { continue }
+            
+            let isExpanding = targetWindowHeight > currentHeight
+            
+            // Cancel any pending collapse for this window
+            pendingCollapseWorkItems[key]?.cancel()
+            pendingCollapseWorkItems.removeValue(forKey: key)
+            
+            let applyResize = { [weak self, weak panel] in
+                guard let self = self, let panel = panel else { return }
+                
+                let targetOrigin: NSPoint
+                if let overlayPanel = panel as? VisorProOverlayPanel {
+                    switch overlayPanel.anchorMode {
+                    case .top:
+                        let topY = overlayPanel.stableMaxY ?? panel.frame.maxY
+                        targetOrigin = NSPoint(x: panel.frame.origin.x, y: topY - targetWindowHeight)
+                    case .bottom:
+                        let bottomY = overlayPanel.stableMinY ?? panel.frame.origin.y
+                        targetOrigin = NSPoint(x: panel.frame.origin.x, y: bottomY)
+                    case .center:
+                        let midY = overlayPanel.stableMidY ?? panel.frame.midY
+                        targetOrigin = NSPoint(x: panel.frame.origin.x, y: midY - (targetWindowHeight / 2))
+                    }
+                } else {
+                    targetOrigin = panel.frame.origin
+                }
+                
+                self.targetOrigins[key] = targetOrigin
+                let newFrame = NSRect(origin: targetOrigin, size: CGSize(width: panel.frame.width, height: targetWindowHeight))
+                panel.setFrame(newFrame, display: true)
+            }
+            
+            if isExpanding || !animated {
+                // Expanding: resize the window immediately so SwiftUI can smoothly animate into the canvas
+                applyResize()
+            } else {
+                // Collapsing: let SwiftUI finish its collapse animation (0.2s) before shrinking window frame
+                let workItem = DispatchWorkItem { [weak self] in
+                    applyResize()
+                    self?.pendingCollapseWorkItems.removeValue(forKey: key)
+                }
+                pendingCollapseWorkItems[key] = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22, execute: workItem)
+            }
+        }
+    }
 }
 
 enum WindowAnchorMode {
@@ -856,12 +1046,14 @@ enum WindowAnchorMode {
 class VisorProOverlayPanel: NSPanel {
     var anchorMode: WindowAnchorMode = .center
     
-    private var stableMaxY: CGFloat?
-    private var stableMinY: CGFloat?
-    private var stableMidY: CGFloat?
+    var stableMaxY: CGFloat?
+    var stableMinY: CGFloat?
+    var stableMidY: CGFloat?
     
     override var canBecomeKey: Bool { return false }
     override var canBecomeMain: Bool { return false }
+    override var isKeyWindow: Bool { return true }
+    override var isMainWindow: Bool { return true }
     
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
         return frameRect
@@ -918,8 +1110,7 @@ class TrackingHostingView<Content: View>: NSHostingView<Content> {
                 return nil
             }
         }
-        let view = super.hitTest(point)
-        return view === self ? nil : view
+        return super.hitTest(point)
     }
     
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
@@ -974,7 +1165,11 @@ struct SingleOverlayContainer: View {
     }
     
     private var targetCornerRadius: CGFloat {
-        (52.0 / 2.0) * CGFloat(mediaKeyManager.cornerRoundingMultiplier)
+        if mediaKeyManager.overlayStyle == "system" {
+            return 32.0
+        }
+        let baseRadius: CGFloat = mediaKeyManager.overlayStyle == "capsule" ? (56.0 / 2.0) : (52.0 / 2.0)
+        return baseRadius * CGFloat(mediaKeyManager.cornerRoundingMultiplier)
     }
     
     init(overlay: VisorProWindowManager.ActiveOverlay) {

@@ -29,11 +29,7 @@ extension MediaKeyManager {
             self.notifyOverlayStateChanged()
         }
         
-        chargingTimer?.invalidate()
-        batteryTimer?.invalidate()
-        batteryTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            self?.hideBatteryOverlay()
-        }
+        self.scheduleOverlayHide(for: "battery")
     }
 
     func triggerChargingStatus() {
@@ -68,9 +64,7 @@ extension MediaKeyManager {
             }
         }
         
-        chargingTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            self?.hideBatteryOverlay()
-        }
+        self.scheduleOverlayHide(for: "battery")
     }
 
     func triggerAccessoryBatteryIndicator(deviceName: String, percentage: Int, isPluggedIn: Bool, isWarning: Bool, isIncreasing: Bool = false, customSound: String? = nil) {
@@ -151,9 +145,7 @@ extension MediaKeyManager {
             }
             
             let displayTime: TimeInterval = isWarning ? 4.5 : 3.5
-            self.notificationTimers["accessoryBattery"] = Timer.scheduledTimerInCommonModes(withTimeInterval: displayTime, repeats: false) { [weak self] _ in
-                self?.forceHide(overlayId: "accessoryBattery")
-            }
+            self.scheduleOverlayHide(for: "accessoryBattery", delay: displayTime)
         }
     }
 

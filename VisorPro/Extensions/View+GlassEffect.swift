@@ -2,17 +2,20 @@ import SwiftUI
 
 struct ActiveVisualEffectView: NSViewRepresentable {
     var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
+    var material: NSVisualEffectView.Material = .hudWindow
     
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.blendingMode = blendingMode
         view.state = .active
-        view.material = .popover
+        view.material = material
         return view
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.state = .active
+        nsView.material = material
+        nsView.blendingMode = blendingMode
     }
 }
 

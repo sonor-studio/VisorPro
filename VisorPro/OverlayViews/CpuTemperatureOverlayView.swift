@@ -42,6 +42,11 @@ struct CpuTemperatureOverlayView: View {
             keepAliveId: "cpu",
             minimalText: tempString,
             minimalIcon: "thermometer",
+            systemTitle: temp >= 75.0 ? "High Temperature" : "CPU Temperature",
+            systemSubtitle: tempString,
+            systemRightRingValue: Int(round(temp)),
+            systemRightRingProgress: temp / 100.0,
+            systemRightRingColor: barColor,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: "thermometer")

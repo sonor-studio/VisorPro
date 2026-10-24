@@ -45,6 +45,8 @@ struct KeyboardBrightnessOverlayView: View {
             disableTimeoutMode: true,
             minimalText: "\(actualBrightness)%",
             minimalIcon: iconName,
+            systemTitle: "Keyboard",
+            systemSubtitle: "\(actualBrightness)%",
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)

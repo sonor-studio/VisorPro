@@ -36,6 +36,9 @@ final class NativeOverlayDismisser {
     /// Starts the event-driven observer (zero CPU usage while idle)
     func start() {
         setupInstantObservers()
+        DispatchQueue.main.async {
+            MenuBarIconTracker.shared.scanMenuBarItemsAsync()
+        }
     }
     
     private var lastFocusEventTime: Date = Date.distantPast
@@ -174,6 +177,33 @@ final class NativeOverlayDismisser {
                 try? handle.close()
             } else {
                 try? logLine.write(to: logURL, atomically: true, encoding: .utf8)
+            }
+        }
+        
+        // Track menu bar icon screen position for System style HUDs
+        var posRef: CFTypeRef?
+        var elementPoint = CGPoint.zero
+        if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posRef) == .success,
+           let p = posRef {
+            AXValueGetValue(p as! AXValue, .cgPoint, &elementPoint)
+        }
+        var elementSize = CGSize.zero
+        if let sRef = sizeRef, AXValueGetValue(sRef as! AXValue, .cgSize, &elementSize) { }
+        if elementSize.width > 0 {
+            let midX = elementPoint.x + (elementSize.width / 2.0)
+            let combined = "\(identifier) \(allText) \(nestedIdentifiers.joined(separator: " "))".lowercased()
+            DispatchQueue.main.async {
+                if combined.contains("focus") || combined.contains("disturb") || combined.contains("moon") {
+                    MenuBarIconTracker.shared.recordIconCenter(for: "focus", x: midX)
+                } else if combined.contains("audio") || combined.contains("sound") || combined.contains("volume") {
+                    MenuBarIconTracker.shared.recordIconCenter(for: "volume", x: midX)
+                } else if combined.contains("battery") {
+                    MenuBarIconTracker.shared.recordIconCenter(for: "battery", x: midX)
+                } else if combined.contains("bluetooth") || combined.contains("accessory") || combined.contains("smart-routing") {
+                    MenuBarIconTracker.shared.recordIconCenter(for: "bluetooth", x: midX)
+                } else if combined.contains("wifi") {
+                    MenuBarIconTracker.shared.recordIconCenter(for: "wifi", x: midX)
+                }
             }
         }
         let isControlCenter = bundleID.contains("controlcenter") || appName.contains("control center")

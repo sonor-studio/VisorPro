@@ -100,9 +100,17 @@ struct AppearanceEditorView: View {
                 
                 Spacer()
                 
-                // Above overlay: Corner radius
-                cornerRadiusControl
-                    .padding(.bottom, 16)
+                // Above overlay: Style switcher and Corners control
+                VStack(spacing: 12) {
+                    styleButtons
+                    
+                    cornerRadiusControl
+                        .opacity(mediaKeyManager.overlayStyle != "system" ? 1.0 : 0.0)
+                        .frame(height: mediaKeyManager.overlayStyle != "system" ? nil : 0)
+                        .clipped()
+                        .allowsHitTesting(mediaKeyManager.overlayStyle != "system")
+                }
+                .padding(.bottom, 16)
                 
                 // Center: Overlay preview with arrows
                 ZStack {
@@ -116,6 +124,7 @@ struct AppearanceEditorView: View {
                     ) {
                         currentOverlayView
                             .applyTheme(mediaKeyManager.overlayTheme)
+                            .id("\(currentPreviewOverlay.rawValue)_\(mediaKeyManager.overlayStyle)")
                             .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }
                     .offset(y: previewSwipeOffset)
@@ -174,11 +183,15 @@ struct AppearanceEditorView: View {
                     .zIndex(10)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 140)
+                .frame(height: 164)
 
-                // Directly below preview: Mode switcher (Full / Mini)
+                // Directly below preview: Mode switcher (Full / Mini) - only for default!
                 overlayModeControl
                     .padding(.top, 14)
+                    .opacity(mediaKeyManager.overlayStyle == "default" ? 1.0 : 0.0)
+                    .frame(height: mediaKeyManager.overlayStyle == "default" ? nil : 0)
+                    .clipped()
+                    .allowsHitTesting(mediaKeyManager.overlayStyle == "default")
                 
                 Spacer()
                 
@@ -254,6 +267,30 @@ struct AppearanceEditorView: View {
         let isSelected = mediaKeyManager.overlayTheme == value
         return Button {
             mediaKeyManager.overlayTheme = value
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+        }
+        .buttonStyle(InteractiveGlassButtonStyle(isActive: isSelected))
+    }
+    
+    // MARK: - Style Buttons
+    private var styleButtons: some View {
+        HStack(spacing: 8) {
+            styleButton(title: "Default", icon: "rectangle.roundedtop", value: "default")
+            styleButton(title: "Liquid Glass", icon: "drop.fill", value: "capsule")
+            styleButton(title: "System", icon: "apple.logo", value: "system")
+        }
+    }
+    
+    private func styleButton(title: String, icon: String, value: String) -> some View {
+        let isSelected = mediaKeyManager.overlayStyle == value
+        return Button {
+            mediaKeyManager.overlayStyle = value
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
@@ -375,8 +412,9 @@ struct AppearanceEditorView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .nativeGlassBackground()
-        
     }
+    
+
     
     // MARK: - Animation inline control
     private var animationControl: some View {
@@ -647,30 +685,31 @@ struct AppearanceEditorView: View {
             
             // Maximum tiles
             HStack {
+                let isSystem = mediaKeyManager.overlayStyle == "system"
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text("Maximum overlays")
                             .font(.system(size: 13, weight: .medium))
-                        if savedLicenseKey.isEmpty {
+                        if savedLicenseKey.isEmpty && !isSystem {
                             premiumBadge
                         }
                     }
-                    Text("Maximum number of tiles shown at once.")
+                    Text(isSystem ? "Locked to 1 in System style." : "Maximum number of tiles shown at once.")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                 }
                 Spacer(minLength: 20)
                 HStack(spacing: 8) {
                     Slider(value: Binding(
-                        get: { Double(mediaKeyManager.maxSimultaneousNotifications) },
-                        set: { if !savedLicenseKey.isEmpty { mediaKeyManager.maxSimultaneousNotifications = Int($0) } }
+                        get: { Double(isSystem ? 1 : mediaKeyManager.maxSimultaneousNotifications) },
+                        set: { if !savedLicenseKey.isEmpty && !isSystem { mediaKeyManager.maxSimultaneousNotifications = Int($0) } }
                     ), in: 1...5, step: 1)
-                    .disabled(savedLicenseKey.isEmpty)
+                    .disabled(savedLicenseKey.isEmpty || isSystem)
                     .frame(width: 80)
                     
-                    Text("\(mediaKeyManager.maxSimultaneousNotifications)")
+                    Text(isSystem ? "1" : "\(mediaKeyManager.maxSimultaneousNotifications)")
                         .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.secondary)
+                        .foregroundColor(isSystem ? .secondary.opacity(0.7) : .secondary)
                         .frame(width: 24, alignment: .trailing)
                 }
             }
@@ -855,7 +894,11 @@ struct PreviewAnimationWrapper<Content: View>: View {
     @ViewBuilder var content: Content
     
     private var targetCornerRadius: CGFloat {
-        (52.0 / 2.0) * CGFloat(mediaKeyManager.cornerRoundingMultiplier)
+        if mediaKeyManager.overlayStyle == "system" {
+            return 32.0
+        }
+        let baseRadius: CGFloat = mediaKeyManager.overlayStyle == "capsule" ? (56.0 / 2.0) : (52.0 / 2.0)
+        return baseRadius * CGFloat(mediaKeyManager.cornerRoundingMultiplier)
     }
     
     @State private var appearScaleX: CGFloat = 1.0
@@ -888,6 +931,11 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 runExitAnimation(thenEnter: true)
             }
             .onChange(of: mediaKeyManager.cornerRoundingMultiplier) { _, _ in
+                if !isPlaying {
+                    appearCornerRadius = targetCornerRadius
+                }
+            }
+            .onChange(of: mediaKeyManager.overlayStyle) { _, _ in
                 if !isPlaying {
                     appearCornerRadius = targetCornerRadius
                 }

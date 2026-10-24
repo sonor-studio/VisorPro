@@ -32,7 +32,7 @@ struct CapsLockOverlayView: View {
             barColor: actualIsOn ? OverlayColorManager.shared.getOverlayColor(for: "colorOnCapsLock", defaultColor: .green) : .offStateGray,
             fillCenter: false,
             isMuted: false,
-            customWidth: 260,
+            customWidth: 200,
             supportDragGesture: false,
             onSimpleTap: {
                 if capsLockAllowInteractivity {
@@ -47,6 +47,19 @@ struct CapsLockOverlayView: View {
             keepAliveId: "capsLock",
             minimalText: actualIsOn ? "Caps ON" : "Caps OFF",
             minimalIcon: actualIsOn ? "capslock.fill" : "capslock",
+            systemTitle: "Caps Lock",
+            systemSubtitle: actualIsOn ? "On" : "Off",
+            systemRightButtonIcon: "power",
+            systemRightButtonColor: actualIsOn ? .green : .gray,
+            systemOnRightButtonTap: {
+                if capsLockAllowInteractivity {
+                    if isPreview {
+                        withAnimation { localPreviewIsOn.toggle() }
+                    } else {
+                        mediaKeyManager.toggleCapsLock()
+                    }
+                }
+            },
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsOn ? "capslock.fill" : "capslock")

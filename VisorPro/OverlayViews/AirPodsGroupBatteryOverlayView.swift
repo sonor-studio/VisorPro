@@ -33,6 +33,15 @@ struct AirPodsGroupBatteryOverlayView: View {
     var body: some View {
         let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
         
+        let airPodsTrio: (left: Int?, leftCharging: Bool, caseBat: Int?, caseCharging: Bool, right: Int?, rightCharging: Bool) = (
+            left: leftBattery,
+            leftCharging: leftCharging,
+            caseBat: caseBattery,
+            caseCharging: caseCharging,
+            right: rightBattery,
+            rightCharging: rightCharging
+        )
+        
         return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: .constant(false),
@@ -43,8 +52,8 @@ struct AirPodsGroupBatteryOverlayView: View {
             timeoutEventId: overlayState.airpodsGroupBatteryTimerId.uuidString,
             barColor: overlayColor,
             fillCenter: false,
-            customWidth: 260,
-            customHeight: 134,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 230 : 260,
+            customHeight: (MediaKeyManager.shared.overlayStyle == "system") ? 52 : 134,
             customCornerRadius: 28,
             supportDragGesture: false,
             isExpandable: false,
@@ -53,6 +62,9 @@ struct AirPodsGroupBatteryOverlayView: View {
             disableTimeoutMode: true,
             minimalText: isPreview ? "AirPods" : overlayState.airpodsDeviceName,
             minimalIcon: "airpodspro",
+            systemTitle: isPreview ? "AirPods" : overlayState.airpodsDeviceName,
+            systemSubtitle: (leftCharging || rightCharging || caseCharging) ? "Charging" : "Connected",
+            systemRightAirPodsTrio: airPodsTrio,
             baseContent: {
                 VStack(spacing: 8) {
                     Text(overlayState.airpodsDeviceName)

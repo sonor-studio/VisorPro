@@ -17,13 +17,17 @@ struct MarqueeText: View {
     @State private var timer: Timer? = nil
     @State private var animationId: UUID = UUID()
     
+    private var effectiveAlignment: Alignment {
+        (textWidth > containerWidth && containerWidth > 0) ? .leading : alignment
+    }
+    
     var body: some View {
         Text(" ")
             .font(font)
             .lineLimit(1)
             .hidden()
             .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: alignment)
+            .frame(maxWidth: .infinity, alignment: effectiveAlignment)
             .background(
                 GeometryReader { geo -> Color in
                     DispatchQueue.main.async {
@@ -56,7 +60,7 @@ struct MarqueeText: View {
                         .offset(x: marqueeState == .scrolling ? -(textWidth - containerWidth) : 0)
                         .animation(marqueeState == .scrolling ? .linear(duration: Double(max(0, textWidth - containerWidth)) / 20.0) : .none, value: marqueeState)
                 },
-                alignment: alignment
+                alignment: effectiveAlignment
             )
             .id(text)
             .clipped()

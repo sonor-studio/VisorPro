@@ -148,6 +148,19 @@ struct MediaOverlayView: View {
                     mediaKeyManager.openMediaApp()
                 }
             },
+            onSimpleTap: {
+                if isPreview {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        if actualAction == "resume" {
+                            internalPreviewAction = "pause"
+                        } else {
+                            internalPreviewAction = "resume"
+                        }
+                    }
+                } else {
+                    mediaKeyManager.simulatePlayPause()
+                }
+            },
             isExpandable: mediaAllowExpansion,
             expandUpwards: mediaPos.hasPrefix("bottom"),
             keepAliveId: "media",
@@ -155,6 +168,19 @@ struct MediaOverlayView: View {
             fixedExpandedHeight: 50,
             minimalText: actualTitle,
             minimalIcon: actionIcon,
+            systemTitle: actualTitle,
+            systemSubtitle: actualArtist.isEmpty ? (actualBundleId.lowercased().contains("safari") ? "YouTube • Vito Iacopelli" : "Media") : actualArtist,
+            systemRightButtonIcon: actualIsPlaying ? "pause.fill" : "play.fill",
+            systemRightButtonColor: actualIsPlaying ? Color.blue : Color.green,
+            systemOnRightButtonTap: {
+                if isPreview {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        internalPreviewAction = (actualAction == "resume" ? "pause" : "resume")
+                    }
+                } else {
+                    mediaKeyManager.simulatePlayPause()
+                }
+            },
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actionIcon)

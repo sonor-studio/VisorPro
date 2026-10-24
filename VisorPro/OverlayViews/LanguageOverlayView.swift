@@ -16,10 +16,10 @@ struct LanguageOverlayView: View {
     }
     
     var body: some View {
-        
         let displayLanguage = isPreview ? (previewLanguage ?? "English (US)") : overlayState.currentKeyboardLanguage
         let langPos = MediaKeyManager.shared.getOverlayPosition(for: "languageOverlayPosition")
         let actionColor = OverlayColorManager.shared.getOverlayColor(for: "colorOnLanguageChange", defaultColor: .blue)
+        let hasUndo = overlayState.previousKeyboardLayoutId != nil || isPreview
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -29,9 +29,9 @@ struct LanguageOverlayView: View {
             timeoutEventId: overlayState.languageEventId,
             barColor: actionColor,
             fillCenter: false,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 210 : 260,
             customHeight: 56,
-            onRightTap: overlayState.previousKeyboardLayoutId != nil || isPreview ? {
+            onRightTap: hasUndo ? {
                 if let prevId = overlayState.previousKeyboardLayoutId {
                     mediaKeyManager.selectLanguage(idToSelect: prevId)
                 }
@@ -44,6 +44,15 @@ struct LanguageOverlayView: View {
             keepAliveId: "language",
             minimalText: displayLanguage,
             minimalIcon: "globe",
+            systemTitle: displayLanguage,
+            systemSubtitle: "Language",
+            systemRightButtonIcon: hasUndo ? "arrow.uturn.backward" : nil,
+            systemRightButtonColor: actionColor,
+            systemOnRightButtonTap: hasUndo ? {
+                if let prevId = overlayState.previousKeyboardLayoutId {
+                    mediaKeyManager.selectLanguage(idToSelect: prevId)
+                }
+            } : nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: "globe")

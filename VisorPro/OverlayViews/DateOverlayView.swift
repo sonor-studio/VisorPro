@@ -126,6 +126,13 @@ struct DateOverlayView: View {
     var body: some View {
         let datePos = MediaKeyManager.shared.getOverlayPosition(for: "dateOverlayPosition")
         
+        let systemW: CGFloat = {
+            let textLen = formattedDate.count
+            // Precise width scaling based on the date text length + 56 pt padding for icon and rim
+            let estW = CGFloat(textLen) * 9.2 + 64
+            return max(180, estW)
+        }()
+        
         return UniversalOverlayView(
             isPreview: isPreview,
             isExpanded: $isExpanded,
@@ -135,7 +142,7 @@ struct DateOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: false,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? systemW : 260,
             customHeight: 56,
             supportDragGesture: false,
             isExpandable: dateAllowExpansion,
@@ -143,6 +150,8 @@ struct DateOverlayView: View {
             keepAliveId: "date",
             minimalText: shortFormattedDate,
             minimalIcon: "calendar",
+            systemTitle: formattedDate,
+            systemSubtitle: nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 0) {
                     Image(systemName: "calendar")

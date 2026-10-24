@@ -106,12 +106,7 @@ extension MediaKeyManager {
             }
             
             let timerKey = "bluetooth_\(uniqueId)"
-            self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
-            self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.activeBluetoothNotifications.removeAll(where: { $0.id == uniqueId })
-                }
-            }
+            self.scheduleOverlayHide(for: timerKey)
         }
     }
     
@@ -169,13 +164,7 @@ extension MediaKeyManager {
             }
             
             let timerKey = "bluetooth_\(uniqueId)"
-            self.notificationTimers[timerKey]?.invalidate()
-            self.overlayTriggerTimes[timerKey] = Date()
-            self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self?.activeBluetoothNotifications.removeAll(where: { $0.id == uniqueId })
-                }
-            }
+            self.scheduleOverlayHide(for: timerKey)
         }
     }
     
@@ -194,13 +183,7 @@ extension MediaKeyManager {
             self.overlayTriggerTimes[timerKey] = now // Continually push back the suppression window
             // Update the timer so it stays on screen if it was already showing, but don't re-trigger the animation if it just faded out
             if overlayState.showSmartRoutingIndicator {
-                self.notificationTimers[timerKey]?.invalidate()
-                self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        overlayState.showSmartRoutingIndicator = false
-                    }
-                    self?.notifyOverlayStateChanged()
-                }
+                self.scheduleOverlayHide(for: timerKey)
             }
             return
         }
@@ -214,13 +197,7 @@ extension MediaKeyManager {
         }
         self.notifyOverlayStateChanged()
         
-        self.notificationTimers[timerKey]?.invalidate()
-        self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                overlayState.showSmartRoutingIndicator = false
-            }
-            self?.notifyOverlayStateChanged()
-        }
+        self.scheduleOverlayHide(for: timerKey)
     }
     
     func returnAudioToMac() {

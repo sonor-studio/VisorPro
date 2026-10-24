@@ -8,32 +8,25 @@ struct ThemeOverlayView: View {
     
     var isPreview: Bool = false
     var previewIsDark: Bool = false
+    @State private var localPreviewIsDark: Bool = false
+    
+    private var actualIsDark: Bool {
+        isPreview ? localPreviewIsDark : overlayState.isDarkMode
+    }
     
     var body: some View {
         let titleText: String
         let iconName: String
         let iconColor: Color
         
-        if isPreview {
-            if previewIsDark {
-                titleText = "Dark Theme"
-                iconName = "moon.fill"
-                iconColor = Color(red: 0.45, green: 0.5, blue: 0.9)
-            } else {
-                titleText = "Light Theme"
-                iconName = "sun.max.fill"
-                iconColor = Color(red: 1.0, green: 0.72, blue: 0.0)
-            }
+        if actualIsDark {
+            titleText = "Dark Theme"
+            iconName = "moon.fill"
+            iconColor = Color(red: 0.45, green: 0.5, blue: 0.9)
         } else {
-            if overlayState.isDarkMode {
-                titleText = "Dark Mode"
-                iconName = "moon.fill"
-                iconColor = Color(red: 0.45, green: 0.5, blue: 0.9)
-            } else {
-                titleText = "Light Mode"
-                iconName = "sun.max.fill"
-                iconColor = Color(red: 1.0, green: 0.72, blue: 0.0)
-            }
+            titleText = "Light Theme"
+            iconName = "sun.max.fill"
+            iconColor = Color(red: 1.0, green: 0.72, blue: 0.0)
         }
         
 
@@ -46,7 +39,7 @@ struct ThemeOverlayView: View {
             barColor: OverlayColorManager.shared.getOverlayColor(for: (isPreview ? previewIsDark : overlayState.isDarkMode) ? "colorOnThemeDark" : "colorOnThemeLight", defaultColor: iconColor),
             fillCenter: false, // It was using strokeBorder
             isMuted: false,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 188 : 260,
             supportDragGesture: false,
             onSimpleTap: {
                 if !isPreview && themeAllowInteractivity {
@@ -57,6 +50,17 @@ struct ThemeOverlayView: View {
             keepAliveId: "theme",
             minimalText: titleText,
             minimalIcon: iconName,
+            systemTitle: "Theme",
+            systemSubtitle: actualIsDark ? "Dark Mode" : "Light Mode",
+            systemRightButtonIcon: actualIsDark ? "sun.max.fill" : "moon.fill",
+            systemRightButtonColor: Color(white: 0.5, opacity: 0.25),
+            systemOnRightButtonTap: {
+                if isPreview {
+                    localPreviewIsDark.toggle()
+                } else if themeAllowInteractivity {
+                    toggleSystemTheme()
+                }
+            },
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: iconName)
@@ -79,6 +83,9 @@ struct ThemeOverlayView: View {
                 EmptyView()
             }
         )
+        .onAppear {
+            localPreviewIsDark = previewIsDark
+        }
     }
     
     private func toggleSystemTheme() {

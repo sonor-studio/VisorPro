@@ -44,13 +44,7 @@ extension MediaKeyManager {
                         self.notifyOverlayStateChanged()
                         self.overlayTriggerTimes["focus"] = Date()
                     }
-                    self.focusTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                        guard let self = self else { return }
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            self.showFocusIndicator = false
-                            self.isFocusReminder = false
-                        }
-                    }
+                    self.scheduleOverlayHide(for: "focus")
                     // Schedule the next reminder instead of using repeats: true
                     // This prevents runaway repeating timers from spamming right after Mac wakes up
                     self.updateFocusReminderTimer()
@@ -294,15 +288,7 @@ extension MediaKeyManager {
                     self.notifyOverlayStateChanged()
                     self.overlayTriggerTimes["focus"] = Date()
                 }
-                if !self.isOverlayHoveredOrExpanded("focus") {
-                    self.focusTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                        guard let self = self, !self.isOverlayHoveredOrExpanded("focus") else { return }
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            self.showFocusIndicator = false
-                            self.isFocusReminder = false
-                        }
-                    }
-                }
+                self.scheduleOverlayHide(for: "focus")
             }
             
             if self.showFocusIndicator {
