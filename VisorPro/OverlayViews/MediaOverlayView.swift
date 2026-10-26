@@ -194,12 +194,12 @@ struct MediaOverlayView: View {
                                 HStack(spacing: 4) {
                                     Text(actionTitle)
                                         .font(.system(size: 10, weight: .bold, design: .rounded))
-                                        .foregroundColor(.offStateGray)
+                                        .foregroundColor(.secondary)
                                         .textCase(.uppercase)
                                     
                                     Text("•")
                                         .font(.system(size: 10, weight: .bold, design: .rounded))
-                                        .foregroundColor(.offStateGray)
+                                        .foregroundColor(.secondary)
                                         .baselineOffset(1.0)
                                     
                                     MediaTimeText(elapsed: localElapsed, duration: actualDuration)
@@ -219,7 +219,7 @@ struct MediaOverlayView: View {
                             } else {
                                 Text(actionTitle)
                                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundColor(.offStateGray)
+                                    .foregroundColor(.secondary)
                                     .textCase(.uppercase)
                             }
                         }
@@ -230,7 +230,7 @@ struct MediaOverlayView: View {
                             
                         Group {
                             if !actualArtist.isEmpty {
-                                MarqueeText(text: actualArtist, font: .system(size: 11, weight: .medium, design: .rounded), foregroundColor: .offStateGray)
+                                MarqueeText(text: actualArtist, font: .system(size: 11, weight: .medium, design: .rounded), foregroundColor: .secondary)
                             } else {
                                 Color.clear
                             }
@@ -383,7 +383,7 @@ struct MediaTimeText: View {
     var body: some View {
         Text("\(formatTime(elapsed)) / \(formatTime(duration))")
             .font(.system(size: 10, weight: .bold, design: .monospaced))
-            .foregroundColor(.offStateGray)
+            .foregroundColor(.secondary)
     }
     
     private func formatTime(_ time: Double) -> String {

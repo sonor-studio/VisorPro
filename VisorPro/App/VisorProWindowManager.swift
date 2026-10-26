@@ -868,11 +868,17 @@ class VisorProWindowManager: ObservableObject {
         panel.isOpaque = false
         panel.hasShadow = false
         
-        let view = SingleOverlayContainer(overlay: overlay)
+        let baseView = SingleOverlayContainer(overlay: overlay)
             .environmentObject(MediaKeyManager.shared)
             .environmentObject(OverlayStateRelay.shared)
             .environment(\.controlActiveState, .key)
-        let hostingView = TrackingHostingView(rootView: view)
+        
+        let hostingView: TrackingHostingView<AnyView>
+        if #available(macOS 15.0, *) {
+            hostingView = TrackingHostingView(rootView: AnyView(baseView.materialActiveAppearance(.active)))
+        } else {
+            hostingView = TrackingHostingView(rootView: AnyView(baseView))
+        }
         hostingView.overlayId = overlay.id
         panel.contentView = hostingView
         
@@ -1050,7 +1056,9 @@ class VisorProOverlayPanel: NSPanel {
     var stableMinY: CGFloat?
     var stableMidY: CGFloat?
     
-    override var canBecomeKey: Bool { return false }
+    // Setting canBecomeKey to true allows WindowServer to grant the full GPU Liquid Glass
+    // lensing rendering budget, while the .nonactivatingPanel styleMask ensures we never steal focus.
+    override var canBecomeKey: Bool { return true }
     override var canBecomeMain: Bool { return false }
     override var isKeyWindow: Bool { return true }
     override var isMainWindow: Bool { return true }

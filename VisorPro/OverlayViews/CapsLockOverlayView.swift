@@ -70,7 +70,7 @@ struct CapsLockOverlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Keyboard")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.offStateGray)
+                            .foregroundColor(.secondary)
                             
                         MarqueeText(text: actionTitle, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }

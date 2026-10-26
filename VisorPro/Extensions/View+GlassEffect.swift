@@ -19,6 +19,24 @@ struct ActiveVisualEffectView: NSViewRepresentable {
     }
 }
 
+// MARK: - Universal Glass Container
+/// Wraps content in Apple's native GlassEffectContainer on macOS 26+.
+/// This forces WindowServer and SwiftUI to create a dedicated composition layer (CALayer)
+/// that keeps Liquid Glass rendering active and dynamic even in floating HUD panels (NSPanel).
+struct UniversalGlassContainer<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer {
+                content()
+            }
+        } else {
+            content()
+        }
+    }
+}
+
 extension View {
     @ViewBuilder
     func visorGlassEffect<S: InsettableShape>(_ material: Material = .regularMaterial, in shape: S, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {

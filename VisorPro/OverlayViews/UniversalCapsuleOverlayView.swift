@@ -103,8 +103,8 @@ struct LiquidGlassRimOverlay: View {
             .strokeBorder(
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(colorScheme == .dark ? 0.30 : 0.45),
-                        Color.white.opacity(colorScheme == .dark ? 0.12 : 0.20)
+                        Color.white.opacity(colorScheme == .dark ? 0.22 : 0.45),
+                        Color.white.opacity(colorScheme == .dark ? 0.08 : 0.20)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -112,22 +112,6 @@ struct LiquidGlassRimOverlay: View {
                 lineWidth: 1.0
             )
             .modifier(ConditionalRimMask(isAround: isAround))
-            .mask(
-                Group {
-                    if bendProgress > 0.03 {
-                        Rectangle()
-                            .overlay(
-                                Circle()
-                                    .frame(width: (cutoutSize + 8) * 2, height: (cutoutSize + 8) * 2)
-                                    .position(buttonCenter)
-                                    .blendMode(.destinationOut)
-                            )
-                            .compositingGroup()
-                    } else {
-                        Rectangle()
-                    }
-                }
-            )
             .allowsHitTesting(false)
     }
 }
@@ -163,24 +147,19 @@ struct LiquidGlassBackgroundModifier: ViewModifier {
     var shape: BendedCornerShape
     var isPreview: Bool = false
     @Environment(\.colorScheme) var colorScheme
+    @State private var renderNonce = UUID()
     
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
             content
-                .background(
-                    Group {
-                        if isPreview {
-                            ActiveVisualEffectView(
-                                blendingMode: .withinWindow,
-                                material: .hudWindow
-                            )
-                            .opacity(colorScheme == .dark ? 0.45 : 0.38)
-                            .clipShape(shape)
-                        }
-                    }
-                )
                 .glassEffect(.regular, in: shape)
+                .materialActiveAppearance(.active)
                 .environment(\.controlActiveState, .key)
+                .id(renderNonce)
+                .task {
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    renderNonce = UUID()
+                }
         } else {
             content
                 .background(.regularMaterial, in: shape)
@@ -193,24 +172,19 @@ struct LiquidGlassBackgroundModifier: ViewModifier {
 struct LiquidGlassCircleModifier: ViewModifier {
     var isPreview: Bool = false
     @Environment(\.colorScheme) var colorScheme
+    @State private var renderNonce = UUID()
     
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
             content
-                .background(
-                    Group {
-                        if isPreview {
-                            ActiveVisualEffectView(
-                                blendingMode: .withinWindow,
-                                material: .hudWindow
-                            )
-                            .opacity(colorScheme == .dark ? 0.45 : 0.38)
-                            .clipShape(Circle())
-                        }
-                    }
-                )
                 .glassEffect(.regular, in: Circle())
+                .materialActiveAppearance(.active)
                 .environment(\.controlActiveState, .key)
+                .id(renderNonce)
+                .task {
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    renderNonce = UUID()
+                }
                 .overlay(
                     Circle()
                         .strokeBorder(
@@ -385,9 +359,10 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
             isRightSide: closeButtonOnRight
         )
         
-        VStack(spacing: 0) {
-            // MARK: Top Section (Base Content + Interactive Tap/Drag Zones)
-            ZStack(alignment: .center) {
+        UniversalGlassContainer {
+            VStack(spacing: 0) {
+                // MARK: Top Section (Base Content + Interactive Tap/Drag Zones)
+                ZStack(alignment: .center) {
                 if enableMinimalMode {
                     // Minimal mode content
                     HStack(spacing: 7) {
@@ -683,6 +658,7 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
                     .opacity(shouldShowCloseButton ? 1 : 0)
                     .animation(shouldShowCloseButton ? .spring(response: 0.3, dampingFraction: 0.7) : .easeOut(duration: 0.2), value: shouldShowCloseButton)
             }
+        }
         }
         .onHoverExact { hovering in
             let anim: Animation = enableBouncyExpansion ? .spring(response: 0.38, dampingFraction: 0.65) : .easeInOut(duration: 0.22)

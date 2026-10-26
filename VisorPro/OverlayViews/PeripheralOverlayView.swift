@@ -137,12 +137,13 @@ struct PeripheralOverlayView: View {
             }
             return nil
         }()
+        let periThemeColor = isConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: .blue) : .offStateGray
         let periRingColor: Color? = {
             guard let val = periRingVal else { return nil }
             if hasBattery {
-                return val <= 20 ? .red : (val <= 50 ? .yellow : .green)
+                return val <= 20 ? .red : (val <= 50 ? .yellow : periThemeColor)
             }
-            return val >= 90 ? .red : (val >= 75 ? .yellow : .blue)
+            return val >= 95 ? .red : periThemeColor
         }()
         
         return UniversalOverlayView(

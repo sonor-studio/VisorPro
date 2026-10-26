@@ -6,24 +6,19 @@ import SwiftUI
 struct SystemGlassBackgroundModifier: ViewModifier {
     var isPreview: Bool = false
     @Environment(\.colorScheme) var colorScheme
+    @State private var renderNonce = UUID()
     
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
             content
-                .background(
-                    Group {
-                        if isPreview {
-                            ActiveVisualEffectView(
-                                blendingMode: .withinWindow,
-                                material: .hudWindow
-                            )
-                            .opacity(colorScheme == .dark ? 0.45 : 0.38)
-                            .clipShape(Capsule())
-                        }
-                    }
-                )
                 .glassEffect(.regular, in: Capsule())
+                .materialActiveAppearance(.active)
                 .environment(\.controlActiveState, .key)
+                .id(renderNonce)
+                .task {
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    renderNonce = UUID()
+                }
         } else {
             content
                 .background(.regularMaterial, in: Capsule())
@@ -127,11 +122,11 @@ struct UniversalSystemOverlayView: View {
     }
     
     private var primaryColor: Color {
-        colorScheme == .dark ? Color(white: 0.94) : Color(white: 0.16)
+        colorScheme == .dark ? Color(white: 0.96) : Color(white: 0.12)
     }
     
     private var secondaryColor: Color {
-        colorScheme == .dark ? Color(white: 0.94).opacity(0.60) : Color(white: 0.16).opacity(0.55)
+        colorScheme == .dark ? Color(white: 0.94).opacity(0.72) : Color(white: 0.16).opacity(0.68)
     }
     
     private var activeSliderColor: Color {
@@ -146,18 +141,8 @@ struct UniversalSystemOverlayView: View {
         if isMuted {
             return colorScheme == .dark ? Color(white: 0.94).opacity(0.45) : Color(white: 0.16).opacity(0.45)
         }
-        if let icon = icon {
-            if icon.contains("moon") {
-                return Color(red: 0.48, green: 0.38, blue: 1.0) // Apple Focus vibrant purple
-            } else if icon.contains("mic.slash") || icon.contains("slash") {
-                return .red
-            } else if icon.contains("capslock") {
-                return (subtitle?.lowercased() == "on" || subtitle?.contains("ON") == true) ? .green : (colorScheme == .dark ? Color(white: 0.94).opacity(0.45) : Color(white: 0.16).opacity(0.45))
-            } else if icon.contains("wifi") || icon.contains("bluetooth") {
-                return .blue
-            } else if icon.contains("battery") {
-                return barColor
-            }
+        if keepAliveId == "focus" {
+            return Color(red: 0.48, green: 0.38, blue: 1.0) // Apple Focus vibrant purple
         }
         return primaryColor
     }
@@ -180,8 +165,9 @@ struct UniversalSystemOverlayView: View {
     }
     
     var body: some View {
-        Group {
-            if isSliderMode {
+        UniversalGlassContainer {
+            Group {
+                if isSliderMode {
                 // MARK: 16-Segmented Continuous Slider Bar (Native macOS Volume, Brightness & Keyboard HUD)
                 // When hovered, transforms smoothly into an interactive native Slider, matching native macOS behavior.
                 let trackWidth: CGFloat = 214.5
@@ -339,10 +325,12 @@ struct UniversalSystemOverlayView: View {
                                     .stroke(ringCol, style: StrokeStyle(lineWidth: 3.2, lineCap: .round))
                                     .rotationEffect(.degrees(-90))
                                 
-                                // Centered number
-                                Text("\(ringVal)")
-                                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                                // Centered number with %
+                                Text("\(ringVal)%")
+                                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
                                     .foregroundColor(primaryColor)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
                             }
                             .frame(width: 34, height: 34)
                             .padding(.trailing, 14)
@@ -414,14 +402,14 @@ struct UniversalSystemOverlayView: View {
             if enableCloseButton && allowCloseButton && isHovering {
                 Button {
                     if isPreview {
-                        NotificationCenter.default.post(name: NSNotification.Name("PreviewForceStop"), object: nil)
+                        NotificationCenter.default.post(name: NSNotification.Name("PreviewDismissTriggered"), object: nil)
                     } else if let id = keepAliveId {
                         MediaKeyManager.shared.forceHide(overlayId: id)
                     }
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 9.5, weight: .bold))
-                        .foregroundColor(Color(white: 0.18))
+                        .foregroundColor(colorScheme == .dark ? Color.white.opacity(0.85) : Color.black.opacity(0.70))
                         .frame(width: 20, height: 20)
                         .modifier(LiquidGlassCircleModifier(isPreview: isPreview))
                         .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.25 : 0.10), radius: 2.5, x: 0, y: 1)
@@ -435,6 +423,7 @@ struct UniversalSystemOverlayView: View {
                 .offset(x: buttonCenter.x - 10, y: dynamicOffset)
                 .transition(.scale.combined(with: .opacity))
             }
+        }
         }
         // MARK: Hover Tracking for Timeout Persistence & Gestures
         .onHoverExact { hovering in

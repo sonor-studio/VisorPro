@@ -111,7 +111,7 @@ struct DisplayOverlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(isConnected ? typeText : "Disconnected")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.offStateGray)
+                            .foregroundColor(.secondary)
                         
                         MarqueeText(text: deviceName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
