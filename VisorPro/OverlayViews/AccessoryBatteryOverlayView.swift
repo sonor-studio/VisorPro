@@ -50,9 +50,7 @@ struct AccessoryBatteryOverlayView: View {
         }
         
         // Don't force red for warning mode, rely on actual percentage
-        if percentage <= 20 { return .red }
-        if percentage <= 50 { return .yellow }
-        return .green
+        return Color.batteryLevelColor(for: percentage)
     }
     
     private var deviceIcon: String {
@@ -110,29 +108,34 @@ struct AccessoryBatteryOverlayView: View {
         return deviceName
     }
     
+    private var resolvedSystemSubtitle: String {
+        let isLowBattery = percentage <= 20
+        if isPluggedIn {
+            return componentLabel != nil ? "\(componentLabel!) • Charging" : "Charging"
+        }
+        if isLowBattery {
+            return componentLabel != nil ? "\(componentLabel!) • Low Battery" : "Low Battery"
+        }
+        if isFullyCharged {
+            return componentLabel != nil ? "\(componentLabel!) • Fully Charged" : "Fully Charged"
+        }
+        if let label = componentLabel {
+            if label == "Case" { return "Charging Case" }
+            if label == "Left & Right" { return "Both Earbuds" }
+            return "\(label) Earbud"
+        }
+        if overlayState.accessoryIsConnectionEvent && !isPreview {
+            return overlayState.accessoryConnectionIsConnected ? "Connected" : "Disconnected"
+        }
+        if isWarning {
+            return "Battery Alert"
+        }
+        return "Connected"
+    }
+    
     var body: some View {
         let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
         let settings = mediaKeyManager.accessorySettings[baseName] ?? AccessoryDeviceSettings()
-        
-        let isAirPodsDevice = deviceName.lowercased().contains("airpod") || (componentLabel != nil)
-        let airPodsTrio: (left: Int?, leftCharging: Bool, caseBat: Int?, caseCharging: Bool, right: Int?, rightCharging: Bool)? = {
-            if isAirPodsDevice {
-                let left = getComponentBattery(suffix: "Left")
-                let caseBat = getComponentBattery(suffix: "Case")
-                let right = getComponentBattery(suffix: "Right")
-                if left != nil || caseBat != nil || right != nil {
-                    return (
-                        left: left?.percentage,
-                        leftCharging: left?.isCharging ?? false,
-                        caseBat: caseBat?.percentage,
-                        caseCharging: caseBat?.isCharging ?? false,
-                        right: right?.percentage,
-                        rightCharging: right?.isCharging ?? false
-                    )
-                }
-            }
-            return nil
-        }()
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -142,7 +145,7 @@ struct AccessoryBatteryOverlayView: View {
             barColor: batteryColor,
             fillCenter: false,
             isMuted: !isWarning && !isPluggedIn && !isFullyCharged,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? (airPodsTrio != nil ? 230 : 216) : 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 216 : 260,
             customHeight: 56,
             supportDragGesture: false,
             isExpandable: settings.allowExpansion && (settings.showBattery || settings.showDetails),
@@ -152,11 +155,11 @@ struct AccessoryBatteryOverlayView: View {
             minimalText: isFullyCharged ? "100%" : "\(percentage)%",
             minimalIcon: deviceIcon,
             systemTitle: baseName,
-            systemSubtitle: isPluggedIn ? "Charging" : (isWarning ? "Low Battery" : (componentLabel ?? "Connected")),
-            systemRightRingValue: airPodsTrio == nil ? percentage : nil,
-            systemRightRingProgress: airPodsTrio == nil ? (Double(percentage) / 100.0) : nil,
+            systemSubtitle: resolvedSystemSubtitle,
+            systemRightRingValue: percentage,
+            systemRightRingProgress: Double(percentage) / 100.0,
             systemRightRingColor: batteryColor,
-            systemRightAirPodsTrio: airPodsTrio,
+            systemRightAirPodsTrio: nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: deviceIcon)

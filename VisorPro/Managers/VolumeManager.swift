@@ -1112,59 +1112,59 @@ class DisplaySettingsManager: NSObject, ObservableObject {
     }
     
     func fetchStatuses() {
-        let interfaceStyle = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") ?? "Light"
-        let dark = (interfaceStyle == "Dark")
-        
-        // 1. Fetch Night Shift Status using Apple's built-in diag tool!
-        // This is 100% safe from EXC_BAD_ACCESS memory crashes in the runtime.
-        var nsEnabled = false
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/libexec/corebrightnessdiag")
-        process.arguments = ["nightshift"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        do {
-            try process.run()
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8) {
-                let lines = output.components(separatedBy: .newlines)
-                for line in lines {
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    if trimmed == "BlueReductionEnabled = 1;" {
-                        nsEnabled = true
-                        break
-                    } else if trimmed == "BlueReductionEnabled = 0;" {
-                        nsEnabled = false
-                        break
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            let interfaceStyle = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") ?? "Light"
+            let dark = (interfaceStyle == "Dark")
+            
+            // 1. Fetch Night Shift Status using Apple's built-in diag tool on background queue
+            var nsEnabled = false
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/libexec/corebrightnessdiag")
+            process.arguments = ["nightshift"]
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            do {
+                try process.run()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                if let output = String(data: data, encoding: .utf8) {
+                    let lines = output.components(separatedBy: .newlines)
+                    for line in lines {
+                        let trimmed = line.trimmingCharacters(in: .whitespaces)
+                        if trimmed == "BlueReductionEnabled = 1;" {
+                            nsEnabled = true
+                            break
+                        } else if trimmed == "BlueReductionEnabled = 0;" {
+                            nsEnabled = false
+                            break
+                        }
                     }
                 }
+            } catch {
+                print("Failed to run corebrightnessdiag")
             }
-        } catch {
-            print("Failed to run corebrightnessdiag")
-        }
-        
-        // 2. Fetch True Tone Status
-        var ttEnabled = false
-        var ttSupported = true
-        if let client = ttClientObj {
-            let suppSel = NSSelectorFromString("supported")
-            if client.responds(to: suppSel) {
-                ttSupported = (client.perform(suppSel) != nil)
+            
+            // 2. Fetch True Tone Status via safe KVC (avoids perform(Selector) returning primitive BOOL as Unmanaged object)
+            var ttEnabled = false
+            var ttSupported = false
+            if let client = self.ttClientObj {
+                if let suppNum = client.value(forKey: "supported") as? NSNumber {
+                    ttSupported = suppNum.boolValue
+                } else {
+                    ttSupported = true
+                }
+                if let enNum = client.value(forKey: "enabled") as? NSNumber {
+                    ttEnabled = enNum.boolValue
+                }
             }
-            let enSel = NSSelectorFromString("enabled")
-            if client.responds(to: enSel) {
-                ttEnabled = (client.perform(enSel) != nil)
+            
+            DispatchQueue.main.async {
+                self.isDarkMode = dark
+                self.isNightShiftEnabled = nsEnabled
+                self.isTrueToneEnabled = ttEnabled
+                self.isTrueToneSupported = ttSupported
             }
-            ttSupported = true
-        } else {
-            ttSupported = false
-        }
-        
-        DispatchQueue.main.async {
-            self.isDarkMode = dark
-            self.isNightShiftEnabled = nsEnabled
-            self.isTrueToneEnabled = ttEnabled
-            self.isTrueToneSupported = ttSupported
         }
     }
     

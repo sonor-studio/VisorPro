@@ -169,7 +169,7 @@ struct MediaOverlayView: View {
             minimalText: actualTitle,
             minimalIcon: actionIcon,
             systemTitle: actualTitle,
-            systemSubtitle: actualArtist.isEmpty ? (actualBundleId.lowercased().contains("safari") ? "YouTube • Vito Iacopelli" : "Media") : actualArtist,
+            systemSubtitle: actualArtist.isEmpty ? (isPreview ? "YouTube • Vito Iacopelli" : "Media") : actualArtist,
             systemRightButtonIcon: actualIsPlaying ? "pause.fill" : "play.fill",
             systemRightButtonColor: actualIsPlaying ? Color.blue : Color.green,
             systemOnRightButtonTap: {
@@ -194,12 +194,12 @@ struct MediaOverlayView: View {
                                 HStack(spacing: 4) {
                                     Text(actionTitle)
                                         .font(.system(size: 10, weight: .bold, design: .rounded))
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Color.primary.opacity(0.65))
                                         .textCase(.uppercase)
                                     
                                     Text("•")
                                         .font(.system(size: 10, weight: .bold, design: .rounded))
-                                        .foregroundColor(.secondary)
+                                        .foregroundColor(Color.primary.opacity(0.65))
                                         .baselineOffset(1.0)
                                     
                                     MediaTimeText(elapsed: localElapsed, duration: actualDuration)
@@ -219,7 +219,7 @@ struct MediaOverlayView: View {
                             } else {
                                 Text(actionTitle)
                                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(Color.primary.opacity(0.65))
                                     .textCase(.uppercase)
                             }
                         }
@@ -230,7 +230,7 @@ struct MediaOverlayView: View {
                             
                         Group {
                             if !actualArtist.isEmpty {
-                                MarqueeText(text: actualArtist, font: .system(size: 11, weight: .medium, design: .rounded), foregroundColor: .secondary)
+                                MarqueeText(text: actualArtist, font: .system(size: 11, weight: .regular, design: .rounded), foregroundColor: Color.primary.opacity(0.70))
                             } else {
                                 Color.clear
                             }

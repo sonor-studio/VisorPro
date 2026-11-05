@@ -8,3 +8,4 @@ scripts/
 *.xcuserstate
 SMCKit/.swiftpm/
 xcuserdata/
+build/

@@ -104,7 +104,14 @@ struct ContentView: View {
             active.append(ActiveOverlay(id: "accessoryBattery", type: .accessoryBattery, position: batteryOverlayPosition, notification: nil))
         }
         if mediaKeyManager.showAirpodsGroupBatteryIndicator {
-            active.append(ActiveOverlay(id: "airpodsGroupBattery", type: .airpodsGroupBattery, position: batteryOverlayPosition, notification: nil))
+            let isAirPodsIOSCard: Bool = {
+                let isSys = (mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system")
+                guard isSys else { return false }
+                let settings = mediaKeyManager.airPodsSettings()
+                return settings.caseOpenStyle == "iosCard"
+            }()
+            let pos = isAirPodsIOSCard ? "bottom_center" : batteryOverlayPosition
+            active.append(ActiveOverlay(id: "airpodsGroupBattery", type: .airpodsGroupBattery, position: pos, notification: nil))
         }
         
         if mediaKeyManager.showAirPodsModeIndicator {
@@ -252,7 +259,7 @@ struct ContentView: View {
     
     private func yPos(for overlay: ActiveOverlay, in size: CGSize) -> CGFloat {
         let padding: CGFloat = 40
-        let pillHeight: CGFloat = 56
+        let pillHeight: CGFloat = (overlay.type == .airpodsGroupBattery) ? 134 : 56
         
         if overlay.position.hasPrefix("top") { return padding + (pillHeight / 2) } 
         if overlay.position == "center" { return size.height / 2 }

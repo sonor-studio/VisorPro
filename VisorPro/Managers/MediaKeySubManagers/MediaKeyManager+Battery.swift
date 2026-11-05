@@ -177,6 +177,7 @@ extension MediaKeyManager {
             if self.showAirpodsGroupBatteryIndicator {
                 self.cancelOverlayHide(for: "airpodsGroupBattery")
                 self.showAirpodsGroupBatteryIndicator = false
+                AirPodsBatteryManager.shared.stopValidationTimer()
                 self.notifyOverlayStateChanged()
             }
         }
@@ -188,7 +189,7 @@ extension MediaKeyManager {
         if premiumKey.isEmpty { return }
         if !self.enableBluetooth { return }
         
-        let settings = accessorySettings[deviceName] ?? AccessoryDeviceSettings()
+        let settings = airPodsSettings(for: deviceName)
         if !settings.enableOverlay || !settings.notifyOnCaseOpen { return }
         
         DispatchQueue.main.async { [weak self] in
@@ -213,6 +214,11 @@ extension MediaKeyManager {
             let pos = self.getOverlayPosition(for: "batteryOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "airpodsGroupBattery")
             
+            // Prevent dual overlay collision: dismiss single-item accessory battery or duplicate Bluetooth notifications for AirPods
+            self.showAccessoryBatteryIndicator = false
+            self.activeBluetoothNotifications.removeAll { $0.deviceName.lowercased().contains("airpod") || $0.id.contains("AIRPODS") }
+            self.activePeripheralNotifications.removeAll { $0.deviceName.lowercased().contains("airpod") }
+            
             withAnimation(.easeInOut(duration: 0.15)) {
                 if !wasVisible {
                     self.airpodsGroupBatteryEventId = UUID()
@@ -223,6 +229,13 @@ extension MediaKeyManager {
                 if !wasVisible {
                     self.overlayTriggerTimes["airpodsGroupBattery"] = Date()
                 }
+            }
+            
+            // Schedule auto-hide timer if behavior is set to auto-hide
+            if settings.caseOpenBehavior != "persistent" {
+                self.scheduleOverlayHide(for: "airpodsGroupBattery")
+            } else {
+                self.cancelOverlayHide(for: "airpodsGroupBattery")
             }
         }
     }

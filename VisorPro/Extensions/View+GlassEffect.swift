@@ -1,39 +1,34 @@
 import SwiftUI
 
-struct ActiveVisualEffectView: NSViewRepresentable {
+struct AlwaysActiveVisualEffectView: NSViewRepresentable {
+    // Default material set to .popover which is designed for floating transient UI
+    // and is completely immune to Window Server background desaturation/dimming.
+    var material: NSVisualEffectView.Material = .popover
     var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
-    var material: NSVisualEffectView.Material = .hudWindow
     
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
+        view.material = material
         view.blendingMode = blendingMode
         view.state = .active
-        view.material = material
+        
+        // Enforce CoreAnimation layer backing to lock in full rendering budget
+        view.wantsLayer = true
+        view.layerContentsRedrawPolicy = .onSetNeedsDisplay
+        
         return view
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.state = .active
         nsView.material = material
         nsView.blendingMode = blendingMode
+        nsView.state = .active
     }
 }
 
-// MARK: - Universal Glass Container
-/// Wraps content in Apple's native GlassEffectContainer on macOS 26+.
-/// This forces WindowServer and SwiftUI to create a dedicated composition layer (CALayer)
-/// that keeps Liquid Glass rendering active and dynamic even in floating HUD panels (NSPanel).
-struct UniversalGlassContainer<Content: View>: View {
-    @ViewBuilder var content: () -> Content
-    
-    var body: some View {
-        if #available(macOS 26.0, *) {
-            GlassEffectContainer {
-                content()
-            }
-        } else {
-            content()
-        }
+extension View {
+    func customAlwaysActiveGlass() -> some View {
+        self.background(AlwaysActiveVisualEffectView())
     }
 }
 
@@ -44,7 +39,7 @@ extension View {
             self.glassEffect(.regular, in: shape)
         } else {
             self.background(shape.fill(material))
-                .background(ActiveVisualEffectView(blendingMode: blendingMode).clipShape(shape))
+                .background(AlwaysActiveVisualEffectView(blendingMode: blendingMode).clipShape(shape))
                 .overlay(
                     shape.strokeBorder(Color.glassBorder, lineWidth: 1)
                 )
@@ -58,7 +53,17 @@ extension View {
             self.glassEffect(.regular)
         } else {
             self.background(material)
-                .background(ActiveVisualEffectView(blendingMode: blendingMode))
+                .background(AlwaysActiveVisualEffectView(blendingMode: blendingMode))
+        }
+    }
+
+    @ViewBuilder
+    func activeMaterialAppearanceIfAvailable() -> some View {
+        if #available(macOS 15.0, *) {
+            self.materialActiveAppearance(.active)
+                .environment(\.controlActiveState, .key)
+        } else {
+            self.environment(\.controlActiveState, .key)
         }
     }
 }

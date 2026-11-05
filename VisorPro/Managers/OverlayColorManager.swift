@@ -216,9 +216,9 @@ class OverlayColorManager: ObservableObject {
     func parseColor(_ name: String, defaultColor: Color = .blue) -> Color {
         switch name {
         case "Blue": return .blue
-        case "Red": return .red
-        case "Green": return .green
-        case "Yellow": return .yellow
+        case "Red": return Color(nsColor: .systemRed)
+        case "Green": return Color(nsColor: .systemGreen)
+        case "Yellow": return Color(nsColor: .systemYellow)
         case "Orange": return .orange
         case "Purple": return .purple
         case "Pink": return Color(red: 0.85, green: 0.15, blue: 0.55) // a more vibrant pink
@@ -284,6 +284,21 @@ class OverlayColorManager: ObservableObject {
 }
 
 extension Color {
+    /// Canonical Apple battery status color matching macOS System battery indicators
+    static func batteryLevelColor(for percentage: Int) -> Color {
+        if percentage <= 20 {
+            return Color(nsColor: .systemRed)
+        } else if percentage <= 50 {
+            return Color(nsColor: .systemYellow)
+        } else {
+            return Color(nsColor: .systemGreen)
+        }
+    }
+    
+    static func batteryLevelColor(forProgress progress: Double) -> Color {
+        batteryLevelColor(for: Int(progress * 100.0))
+    }
+    
     static var offStateGray: Color {
         return Color(NSColor(name: nil, dynamicProvider: { appearance in
             if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {

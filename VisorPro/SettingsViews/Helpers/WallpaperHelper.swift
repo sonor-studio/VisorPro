@@ -11,6 +11,48 @@ struct WallpaperHelper {
         cachedColor = nil
     }
 
+    static func calculateLuminanceAndSaturation(from image: NSImage) -> (luminance: Double, saturation: Double) {
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return (0.5, 0.0) }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+        
+        guard let context = CGContext(
+            data: &pixel,
+            width: 1,
+            height: 1,
+            bitsPerComponent: 8,
+            bytesPerRow: 4,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ) else { return (0.5, 0.0) }
+        
+        // Sample specifically the top-center 40% width and top 20% height where the HUD sits on screen,
+        // falling back to full image if cropping fails.
+        let w = CGFloat(cgImage.width)
+        let h = CGFloat(cgImage.height)
+        let hudRect = CGRect(x: w * 0.30, y: h * 0.75, width: w * 0.40, height: h * 0.25)
+        let sampledImage = cgImage.cropping(to: hudRect) ?? cgImage
+        
+        context.interpolationQuality = .medium
+        context.draw(sampledImage, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        
+        let r = Double(pixel[0]) / 255.0
+        let g = Double(pixel[1]) / 255.0
+        let b = Double(pixel[2]) / 255.0
+        let lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        
+        let maxC = max(r, max(g, b))
+        let minC = min(r, min(g, b))
+        let sat = maxC > 0 ? (maxC - minC) / maxC : 0.0
+        
+        return (lum, sat)
+    }
+
+    static func calculateLuminance(from image: NSImage) -> Double {
+        return calculateLuminanceAndSaturation(from: image).luminance
+    }
+
     static func getActiveDynamicWallpaperURL() async -> URL? {
         return await Task.detached(priority: .userInitiated) {
             let fileManager = FileManager.default

@@ -6,6 +6,7 @@ struct AirPodsModeOverlayView: View {
     @Environment(\.colorScheme) var colorScheme
     @State private var isExpanded: Bool = false
     @State private var isHoveringRow: Int? = nil
+    var isPreview: Bool = false
     
     private var settings: AccessoryDeviceSettings {
         mediaKeyManager.accessorySettings[overlayState.airpodsDeviceName] ?? AccessoryDeviceSettings()
@@ -24,8 +25,40 @@ struct AirPodsModeOverlayView: View {
         }
     }
     
+    private var airPodsBatteryPercentage: Int? {
+        if overlayState.airpodsCurrentBattery > 0 {
+            return overlayState.airpodsCurrentBattery
+        }
+        let devName = overlayState.airpodsDeviceName
+        if let direct = overlayState.accessoryBatteryLevels[devName], direct > 0 {
+            return direct
+        }
+        let left = overlayState.airpodsLeftBattery
+        let right = overlayState.airpodsRightBattery
+        if left > 0 && right > 0 {
+            return (left + right) / 2
+        } else if left > 0 {
+            return left
+        } else if right > 0 {
+            return right
+        }
+        if let match = overlayState.accessoryBatteryLevels.first(where: { $0.key.lowercased().contains("airpod") && !$0.key.lowercased().contains("case") && $0.value > 0 }) {
+            return match.value
+        }
+        if overlayState.accessoryBatteryPercentage > 0 {
+            return overlayState.accessoryBatteryPercentage
+        }
+        return isPreview ? 91 : nil
+    }
+    
     var body: some View {
-        UniversalOverlayView(
+        let deviceName = overlayState.airpodsDeviceName.isEmpty ? "AirPods" : overlayState.airpodsDeviceName
+        let modeText = textForMode(overlayState.airPodsModeValue)
+        let modeIcon = iconForMode(overlayState.airPodsModeValue)
+        let isSystem = MediaKeyManager.shared.overlayStyle == "system"
+        let batPct = airPodsBatteryPercentage
+        
+        return UniversalOverlayView(
             isPreview: false,
             isExpanded: $isExpanded,
             showProgressBar: true,
@@ -34,7 +67,7 @@ struct AirPodsModeOverlayView: View {
             barColor: customBarColor,
             fillCenter: false,
             isMuted: false,
-            customWidth: 260,
+            customWidth: isSystem ? 216 : 260,
             onRightTap: overlayState.previousAirPodsModeValue != nil ? {
                 guard !overlayState.isChangingAirPodsMode else { return }
                 if let prevMode = overlayState.previousAirPodsModeValue {
@@ -43,19 +76,28 @@ struct AirPodsModeOverlayView: View {
             } : nil,
             isExpandable: settings.allowExpansion,
             keepAliveId: "airpodsMode",
-            minimalText: textForMode(overlayState.airPodsModeValue),
-            minimalIcon: iconForMode(overlayState.airPodsModeValue),
+            minimalText: modeText,
+            minimalIcon: modeIcon,
+            systemTitle: deviceName,
+            systemSubtitle: modeText,
+            systemRightRingValue: batPct,
+            systemRightRingProgress: batPct != nil ? (Double(batPct!) / 100.0) : nil,
+            systemRightRingColor: batPct != nil ? Color.batteryLevelColor(for: batPct!) : nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     iconViewForMode(overlayState.airPodsModeValue, size: 18, color: .primary)
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Listening Mode")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                        MarqueeText(
+                            text: deviceName,
+                            font: .system(size: 13, weight: .semibold, design: .rounded),
+                            foregroundColor: .primary
+                        )
+                        
+                        Text(modeText)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(.secondary)
-                            
-                        MarqueeText(text: textForMode(overlayState.airPodsModeValue), font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                     }
                     
                     Spacer(minLength: 0)
@@ -160,6 +202,7 @@ struct AirPodsModeOverlayView: View {
         case 1: return "airpods" // Off
         case 2: return "person.wave.2.fill" // ANC
         case 3: return "person.and.background.dotted" // Transparency
+        case 4: return "sparkles" // Adaptive Audio
         default: return "airpods"
         }
     }

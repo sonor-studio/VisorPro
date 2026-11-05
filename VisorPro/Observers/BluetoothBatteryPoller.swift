@@ -231,18 +231,23 @@ class BluetoothBatteryPoller {
                 }
                 
                 if shouldTrigger {
-                    let now = Date()
-                    let deviceTriggers = self.lastTriggeredTimes[name] ?? [:]
-                    if let lastTime = deviceTriggers[triggeredThresholdPercentage], now.timeIntervalSince(lastTime) < 600 {
-                        // Skip if triggered within the last 10 minutes to avoid fluctuation spam
+                    // Suppress redundant individual accessory overlay if AirPods group battery HUD is active
+                    if name.lowercased().contains("airpod") && OverlayStateRelay.shared.showAirpodsGroupBatteryIndicator {
+                        // Suppress
                     } else {
-                        self.lastTriggeredTimes[name, default: [:]][triggeredThresholdPercentage] = now
-                        
-                        let isWarn = triggeredThresholdPercentage < 100 // Treat all custom thresholds as warnings so the text is "Battery Alert", except 100% which is "Fully Charged"
-                        let isIncreasing = (battery > lastBat)
-                        
-                        // Pass the triggered sound to the manager so it plays the right one
-                        self.manager?.triggerAccessoryBatteryIndicator(deviceName: name, percentage: triggeredThresholdPercentage, isPluggedIn: isPluggedIn, isWarning: isWarn, isIncreasing: isIncreasing, customSound: triggeredSound)
+                        let now = Date()
+                        let deviceTriggers = self.lastTriggeredTimes[name] ?? [:]
+                        if let lastTime = deviceTriggers[triggeredThresholdPercentage], now.timeIntervalSince(lastTime) < 600 {
+                            // Skip if triggered within the last 10 minutes to avoid fluctuation spam
+                        } else {
+                            self.lastTriggeredTimes[name, default: [:]][triggeredThresholdPercentage] = now
+                            
+                            let isWarn = triggeredThresholdPercentage < 100 // Treat all custom thresholds as warnings so the text is "Battery Alert", except 100% which is "Fully Charged"
+                            let isIncreasing = (battery > lastBat)
+                            
+                            // Pass the triggered sound to the manager so it plays the right one
+                            self.manager?.triggerAccessoryBatteryIndicator(deviceName: name, percentage: triggeredThresholdPercentage, isPluggedIn: isPluggedIn, isWarning: isWarn, isIncreasing: isIncreasing, customSound: triggeredSound)
+                        }
                     }
                 }
             }

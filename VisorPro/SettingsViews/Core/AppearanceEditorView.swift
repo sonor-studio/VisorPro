@@ -71,6 +71,10 @@ struct AppearanceEditorView: View {
     }
 
     
+    private var isCurrentPreviewSlider: Bool {
+        currentPreviewOverlay == .volume || currentPreviewOverlay == .brightness || currentPreviewOverlay == .keyboard
+    }
+    
     private func triggerPreviewAnimation() {
         animationTrigger.toggle()
     }
@@ -105,10 +109,10 @@ struct AppearanceEditorView: View {
                     styleButtons
                     
                     cornerRadiusControl
-                        .opacity(mediaKeyManager.overlayStyle != "system" ? 1.0 : 0.0)
-                        .frame(height: mediaKeyManager.overlayStyle != "system" ? nil : 0)
+                        .opacity((mediaKeyManager.overlayStyle != "system" && mediaKeyManager.overlayStyle != "classic") ? 1.0 : 0.0)
+                        .frame(height: (mediaKeyManager.overlayStyle != "system" && mediaKeyManager.overlayStyle != "classic") ? nil : 0)
                         .clipped()
-                        .allowsHitTesting(mediaKeyManager.overlayStyle != "system")
+                        .allowsHitTesting(mediaKeyManager.overlayStyle != "system" && mediaKeyManager.overlayStyle != "classic")
                 }
                 .padding(.bottom, 16)
                 
@@ -123,7 +127,7 @@ struct AppearanceEditorView: View {
                         forceStopTrigger: $previewForceStopTrigger
                     ) {
                         currentOverlayView
-                            .applyTheme(mediaKeyManager.overlayTheme)
+                            .applyTheme(isCurrentPreviewSlider ? "dark" : mediaKeyManager.overlayTheme)
                             .id("\(currentPreviewOverlay.rawValue)_\(mediaKeyManager.overlayStyle)")
                             .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }
@@ -183,7 +187,7 @@ struct AppearanceEditorView: View {
                     .zIndex(10)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 164)
+                .frame(height: mediaKeyManager.overlayStyle == "classic" ? 250 : 164)
 
                 // Directly below preview: Mode switcher (Full / Mini) - only for default!
                 overlayModeControl
@@ -226,6 +230,9 @@ struct AppearanceEditorView: View {
             let hasThree = UserDefaults.standard.object(forKey: "enableThreeFingerClickToDismiss") != nil
             if !hasThree, let oldTwo = UserDefaults.standard.object(forKey: "enableTwoFingerClickToDismiss") as? Bool {
                 enableThreeFingerClickToDismiss = oldTwo
+            }
+            if overlayAnimationType == "slide" {
+                overlayAnimationType = "fade"
             }
             if UserDefaults.standard.object(forKey: "hasMigratedOverlayAnimationToFluid") == nil {
                 if UserDefaults.standard.string(forKey: "overlayAnimationType") == nil || UserDefaults.standard.string(forKey: "overlayAnimationType") == "default" {
@@ -284,6 +291,9 @@ struct AppearanceEditorView: View {
             styleButton(title: "Default", icon: "rectangle.roundedtop", value: "default")
             styleButton(title: "Liquid Glass", icon: "drop.fill", value: "capsule")
             styleButton(title: "System", icon: "apple.logo", value: "system")
+            if #available(macOS 26.0, *) {
+                styleButton(title: "Classic", icon: "square.fill", value: "classic")
+            }
         }
     }
     
@@ -431,8 +441,9 @@ struct AppearanceEditorView: View {
                     .fixedSize(horizontal: true, vertical: false)
                 
                 Picker("", selection: $overlayAnimationType) {
-                    Text("Slide").tag("slide")
+                    Text("Fade").tag("fade")
                     Text("Scale").tag("scale")
+                    Text("System").tag("system")
                     Text("Fluid").tag("fluid_bounce")
                     Text("Droplet").tag("fluid_drop")
                     Text("Ripple").tag("ripple")
@@ -896,6 +907,8 @@ struct PreviewAnimationWrapper<Content: View>: View {
     private var targetCornerRadius: CGFloat {
         if mediaKeyManager.overlayStyle == "system" {
             return 32.0
+        } else if mediaKeyManager.overlayStyle == "classic" {
+            return 18.0
         }
         let baseRadius: CGFloat = mediaKeyManager.overlayStyle == "capsule" ? (56.0 / 2.0) : (52.0 / 2.0)
         return baseRadius * CGFloat(mediaKeyManager.cornerRoundingMultiplier)
@@ -995,6 +1008,14 @@ struct PreviewAnimationWrapper<Content: View>: View {
         }
         
         switch animType {
+        case "system":
+            withAnimation(.easeIn(duration: 0.16)) {
+                appearScaleX = 0.92
+                appearScaleY = 0.92
+                appearBlur = 0.0
+                appearOffset = 0.0
+                appearOpacity = 0.0
+            }
         case "scale":
             withAnimation(.easeIn(duration: 0.20)) {
                 appearScaleX = 0.6
@@ -1060,19 +1081,21 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 appearBlur = 4.0
                 appearOpacity = 0.0
             }
-        default: // Slide
-            withAnimation(.easeIn(duration: 0.20)) {
-                appearOffset = -50
+        default: // Fade (Slide in from top with fade in & out)
+            withAnimation(.easeIn(duration: 0.18)) {
+                appearOffset = -32.0
                 appearOpacity = 0.0
             }
         }
         
         let exitDelay: Double
         switch animType {
+        case "fade", "slide": exitDelay = 0.22
+        case "system": exitDelay = 0.22
         case "fluid_drop": exitDelay = 0.38
         case "ripple", "flip": exitDelay = 0.30
         case "unfold", "pop": exitDelay = 0.28
-        default: exitDelay = 0.45
+        default: exitDelay = 0.30
         }
         
         if thenEnter {
@@ -1098,7 +1121,14 @@ struct PreviewAnimationWrapper<Content: View>: View {
             appearOpacity = 0.0
             isDropletClipping = false
             
-            if animType == "scale" {
+            if animType == "system" {
+                appearScaleX = 0.90
+                appearScaleY = 0.90
+                appearBlur = 0.0
+                appearOffset = 0.0
+                appearAngle = 0.0
+                appearOpacity = 0.0
+            } else if animType == "scale" {
                 appearScaleX = 0.6
                 appearScaleY = 0.6
                 appearBlur = 15.0
@@ -1137,8 +1167,8 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 appearBlur = 4.0
                 appearOffset = -35.0
             } else {
-                // Default slide
-                appearOffset = -40
+                // Default Fade (Slide in from top with fade)
+                appearOffset = -32.0
             }
         }
         
@@ -1146,6 +1176,19 @@ struct PreviewAnimationWrapper<Content: View>: View {
             guard stateRef.tokenId == currentToken else { return }
             
             switch animType {
+            case "system":
+                withAnimation(.easeOut(duration: 0.22)) {
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
+                    appearOpacity = 1.0
+                    appearBlur = 0.0
+                    appearOffset = 0.0
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
+                    guard stateRef.tokenId == currentToken else { return }
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
+                }
+                
             case "fluid_drop":
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
                     appearOffset = 0.0
@@ -1240,12 +1283,12 @@ struct PreviewAnimationWrapper<Content: View>: View {
                     NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
                 }
                 
-            default: // Slide
-                withAnimation(.easeOut(duration: 0.15)) {
+            default: // Fade
+                withAnimation(.easeOut(duration: 0.20)) {
                     appearOffset = 0.0
                     appearOpacity = 1.0
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
                     guard stateRef.tokenId == currentToken else { return }
                     NotificationCenter.default.post(name: NSNotification.Name("PreviewDidEnter"), object: nil)
                 }

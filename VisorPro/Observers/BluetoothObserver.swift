@@ -110,7 +110,10 @@ class BluetoothObserver: NSObject {
                 if name.lowercased().contains("airpods") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         let timeSinceLidOpen = Date().timeIntervalSince(AirPodsBatteryManager.shared.lastLidOpenTime)
-                        if timeSinceLidOpen > 15.0 {
+                        let timeSinceModeChange = Date().timeIntervalSince(self.manager?.overlayTriggerTimes["airpodsMode"] ?? .distantPast)
+                        let isModeActive = OverlayStateRelay.shared.showAirPodsModeIndicator || OverlayStateRelay.shared.isChangingAirPodsMode || timeSinceModeChange < 3.0
+                        let isCaseActive = OverlayStateRelay.shared.showAirpodsGroupBatteryIndicator || timeSinceLidOpen < 15.0
+                        if !isCaseActive && !isModeActive {
                             self.manager?.triggerBluetoothIndicator(deviceName: name, deviceAddress: "AIRPODS_CONNECTION", isConnected: true, showOverlay: showOverlay)
                             self.manager?.lastAction = "Bluetooth Connected (AirPods): \(name)"
                         }
@@ -152,7 +155,8 @@ class BluetoothObserver: NSObject {
             if self.manager?.useSystemOSD == false {
                 if name.lowercased().contains("airpods") {
                     let timeSinceLidClose = Date().timeIntervalSince(AirPodsBatteryManager.shared.lastLidCloseTime)
-                    if timeSinceLidClose > 15.0 {
+                    let isCaseActive = OverlayStateRelay.shared.showAirpodsGroupBatteryIndicator
+                    if timeSinceLidClose > 15.0 && !isCaseActive {
                         self.manager?.triggerBluetoothIndicator(deviceName: name, deviceAddress: "AIRPODS_CONNECTION", isConnected: false, showOverlay: showOverlay)
                         self.manager?.lastAction = "Bluetooth Disconnected (AirPods): \(name)"
                     }

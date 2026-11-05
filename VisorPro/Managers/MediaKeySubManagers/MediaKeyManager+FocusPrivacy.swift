@@ -245,11 +245,19 @@ extension MediaKeyManager {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
+            let now = Date()
+            let timeSinceLastTrigger = now.timeIntervalSince(self.lastFocusTriggerTime)
+            self.lastFocusTriggerTime = now
+            
             // Always update internal runtime state so timers and flags stay 100% in sync
             self.isFocusModeActive = isActive
             self.focusModeName = modeName ?? "Focus"
             self.focusColorName = colorName
             self.focusSymbol = symbol
+            if isActive {
+                OverlayStateRelay.shared.lastActiveFocusModeName = self.focusModeName
+                OverlayStateRelay.shared.lastActiveFocusSymbol = symbol
+            }
             self.isFocusReminder = false
             self.isFocusSwitched = isSwitched
             if isActive {
@@ -292,11 +300,19 @@ extension MediaKeyManager {
             }
             
             if self.showFocusIndicator {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showFocusIndicator = false
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    executeShow()
+                // If it was already visible and triggered recently (e.g. within 1.5s), update seamlessly in-place
+                if timeSinceLastTrigger < 1.5 {
+                    self.focusEventId = UUID()
+                    self.notifyOverlayStateChanged()
+                    self.overlayTriggerTimes["focus"] = Date()
+                    self.scheduleOverlayHide(for: "focus")
+                } else {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self.showFocusIndicator = false
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        executeShow()
+                    }
                 }
             } else {
                 executeShow()
@@ -318,17 +334,91 @@ extension MediaKeyManager {
         
         guard let active = isActive else { return }
         
-        var modeName = "Focus"
-        let parts = allText.components(separatedBy: " | ").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        if let first = parts.first, first.lowercased() != "focus" {
-            modeName = first
+        let parts = allText.components(separatedBy: " | ")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        
+        // Find candidate names excluding known status keywords
+        let candidateNames = parts.filter { part in
+            let pLower = part.lowercased()
+            return pLower != "focus" &&
+                   pLower != "on" &&
+                   pLower != "off" &&
+                   pLower != "wł." &&
+                   pLower != "wył." &&
+                   pLower != "włączone" &&
+                   pLower != "wyłączone"
         }
         
-        let symbol = nestedIds.first(where: { 
-            $0.contains(".fill") || $0.contains("moon") || $0.contains("bed") || $0.contains("person") || $0.contains("briefcase") || $0.contains("book") 
-        }) ?? (active ? "moon.fill" : "moon.zzz")
+        var modeName = self.focusModeName
+        if let bestName = candidateNames.first(where: {
+            let l = $0.lowercased()
+            return l != "itunes u" && l != "itunes" && l != "bedtime" && l != "running" && l != "_gm"
+        }) {
+            modeName = bestName
+        } else if let fallbackCandidate = candidateNames.first {
+            let l = fallbackCandidate.lowercased()
+            if l == "_gm" {
+                modeName = "Reduce Interruptions"
+            } else if l == "itunes u" || l == "itunes" {
+                modeName = "Szkoła"
+            } else if l == "bedtime" {
+                modeName = "Sleep"
+            } else if l == "running" {
+                modeName = "Fitness"
+            } else {
+                modeName = fallbackCandidate
+            }
+        }
         
-        let colorName = focusObserver?.getColorName(for: modeName) ?? "systemIndigoColor"
+        let isReduce = lower.contains("reduce interruptions") || lower.contains("redukuj") || lower.contains("zakłócenia") || nestedIds.contains("_gm") || modeName.lowercased() == "_gm" || modeName.lowercased() == "reduce interruptions"
+        if isReduce {
+            modeName = "Reduce Interruptions"
+        } else if lower.contains("bedtime") || lower.contains("sleep") || lower.contains("sen") {
+            modeName = "Sleep"
+        } else if lower.contains("do not disturb") || lower.contains("nie przeszkadzać") {
+            modeName = "Do Not Disturb"
+        }
+        
+        // When turning OFF, ALWAYS preserve the previously active focus mode name if candidate name is generic or missing
+        if !active {
+            if modeName.isEmpty || modeName.lowercased() == "focus" || modeName.lowercased() == "_gm" {
+                let existingName = OverlayStateRelay.shared.lastActiveFocusModeName
+                let currentName = OverlayStateRelay.shared.focusModeName
+                if !existingName.isEmpty && existingName.lowercased() != "focus" && existingName.lowercased() != "_gm" {
+                    modeName = existingName
+                } else if !currentName.isEmpty && currentName.lowercased() != "focus" && currentName.lowercased() != "_gm" {
+                    modeName = currentName
+                } else {
+                    modeName = "Do Not Disturb"
+                }
+            }
+        }
+        
+        // Fix symbol detection:
+        var symbol: String
+        if isReduce {
+            symbol = "apple.intelligence"
+        } else if let specificSymbol = nestedIds.first(where: { id in
+            id.contains(".fill") || id.contains("moon") || id.contains("bed") || id.contains("person") ||
+            id.contains("briefcase") || id.contains("book") || id.contains("figure.") || id.contains("graduationcap") || id.contains("apple.intelligence")
+        }) {
+            symbol = specificSymbol
+        } else {
+            let existingSymbol = OverlayStateRelay.shared.lastActiveFocusSymbol.isEmpty ? OverlayStateRelay.shared.focusSymbol : OverlayStateRelay.shared.lastActiveFocusSymbol
+            if !active && !existingSymbol.isEmpty && existingSymbol != "moon.zzz" && existingSymbol != "moon.fill" && existingSymbol != "_gm" {
+                symbol = existingSymbol
+            } else {
+                symbol = focusObserver?.getSymbol(for: modeName) ?? (active ? "moon.fill" : "moon.zzz")
+            }
+        }
+        
+        let colorName = isReduce ? "reduceInterruptionsColor" : (focusObserver?.getColorName(for: modeName) ?? "systemIndigoColor")
+        
+        if active {
+            OverlayStateRelay.shared.lastActiveFocusModeName = modeName
+            OverlayStateRelay.shared.lastActiveFocusSymbol = symbol
+        }
         
         focusObserver?.syncStateFromNativeBanner(isActive: active, modeName: modeName, colorName: colorName, symbol: symbol)
         triggerFocusIndicator(isActive: active, modeName: modeName, colorName: colorName, symbol: symbol)

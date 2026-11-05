@@ -291,7 +291,7 @@ struct MicOverlayView: View {
                             ), in: 0...100)
                             .tint(actionColor)
                             .accentColor(actionColor)
-                            .environment(\.controlActiveState, .active)
+                            .environment(\.controlActiveState, .key)
                             .pointingHandCursor()
                         }
                         .padding(.horizontal, 8)
@@ -616,7 +616,7 @@ struct LocationOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: false,
-            customWidth: 260,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 208 : 260,
             customHeight: 56,
             supportDragGesture: false,
             isExpandable: false,

@@ -328,6 +328,26 @@ struct AccessorySettingsView: View {
                                     
                                     CustomSettingsRow(icon: "airpodspro.chargingcase.wireless.fill", iconColor: .blue, title: "On Case Opened", subtitle: "Show battery overlay when case lid is opened") {
                                         HStack(spacing: 8) {
+                                            if settings.notifyOnCaseOpen {
+                                                Button {
+                                                    AirPodsBatteryManager.shared.prepareForTestTrigger()
+                                                    mediaKeyManager.triggerAirpodsGroupBatteryIndicator(
+                                                        deviceName: deviceName,
+                                                        leftBattery: 75,
+                                                        leftCharging: true,
+                                                        rightBattery: 75,
+                                                        rightCharging: true,
+                                                        caseBattery: 49,
+                                                        caseCharging: false
+                                                    )
+                                                } label: {
+                                                    Image(systemName: "play.circle.fill")
+                                                        .font(.system(size: 15))
+                                                        .foregroundColor(.secondary)
+                                                }
+                                                .buttonStyle(.plain)
+                                                .help("Test case open overlay")
+                                            }
                                             if mediaKeyManager.overlayColorMode == "custom" {
                                                 ColorPickerControl(selectedColor: $settings.colorOnCaseOpen)
                                                     .onChange(of: settings.colorOnCaseOpen) { _, _ in saveSettings() }
@@ -339,6 +359,41 @@ struct AccessorySettingsView: View {
                                             Toggle("", isOn: $settings.notifyOnCaseOpen)
                                                 .labelsHidden()
                                                 .onChange(of: settings.notifyOnCaseOpen) { _, _ in saveSettings() }
+                                        }
+                                    }
+                                    
+                                    if settings.notifyOnCaseOpen {
+                                        Divider().padding(.leading, 40)
+                                        
+                                        CustomSettingsRow(icon: "timer", iconColor: .blue, title: "Case Overlay Duration", subtitle: "Auto-dismiss after delay or remain visible while case is open") {
+                                            Picker("", selection: $settings.caseOpenBehavior) {
+                                                Text("Auto-hide after delay").tag("autoHide")
+                                                Text("Keep visible while open").tag("persistent")
+                                            }
+                                            .pickerStyle(.menu)
+                                            .frame(width: 190)
+                                            .onChange(of: settings.caseOpenBehavior) { _, newBehavior in
+                                                saveSettings()
+                                                if newBehavior == "persistent" {
+                                                    mediaKeyManager.cancelOverlayHide(for: "airpodsGroupBattery")
+                                                } else {
+                                                    mediaKeyManager.scheduleOverlayHide(for: "airpodsGroupBattery")
+                                                }
+                                            }
+                                        }
+                                        
+                                        if mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system" {
+                                            Divider().padding(.leading, 40)
+                                            
+                                            CustomSettingsRow(icon: "iphone.gen3", iconColor: .indigo, title: "Case Overlay Style", subtitle: "Choose between standard glass pill or iOS-style bottom card") {
+                                                Picker("", selection: $settings.caseOpenStyle) {
+                                                    Text("Glass Pill").tag("glass")
+                                                    Text("iOS Card").tag("iosCard")
+                                                }
+                                                .pickerStyle(.segmented)
+                                                .frame(width: 200)
+                                                .onChange(of: settings.caseOpenStyle) { _, _ in saveSettings() }
+                                            }
                                         }
                                     }
                                 }
@@ -642,16 +697,20 @@ struct AccessorySettingsView: View {
             Text("Are you sure you want to forget this device? All custom settings and battery history for this device will be removed.")
         }
         .onAppear {
-            self.settings = mediaKeyManager.accessorySettings[deviceName] ?? AccessoryDeviceSettings()
+            self.settings = mediaKeyManager.airPodsSettings(for: deviceName)
         }
         .onChange(of: deviceName) { _, newDevice in
-            self.settings = mediaKeyManager.accessorySettings[newDevice] ?? AccessoryDeviceSettings()
+            self.settings = mediaKeyManager.airPodsSettings(for: newDevice)
         }
     }
     
     private func saveSettings() {
         var dict = mediaKeyManager.accessorySettings
         dict[deviceName] = settings
+        if deviceName.lowercased().contains("airpod") {
+            OverlayStateRelay.shared.airpodsDeviceName = deviceName
+            UserDefaults.standard.set(deviceName, forKey: "airpodsDeviceName")
+        }
         mediaKeyManager.accessorySettings = dict
     }
     

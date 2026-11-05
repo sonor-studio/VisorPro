@@ -180,35 +180,57 @@ final class NativeOverlayDismisser {
             }
         }
         
+        let isControlCenter = bundleID.contains("controlcenter") || appName.contains("control center")
+        let isOSDUIHelper = bundleID.contains("osduihelper") || appName.contains("osduihelper")
+        
         // Track menu bar icon screen position for System style HUDs
-        var posRef: CFTypeRef?
-        var elementPoint = CGPoint.zero
-        if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posRef) == .success,
-           let p = posRef {
-            AXValueGetValue(p as! AXValue, .cgPoint, &elementPoint)
-        }
-        var elementSize = CGSize.zero
-        if let sRef = sizeRef, AXValueGetValue(sRef as! AXValue, .cgSize, &elementSize) { }
-        if elementSize.width > 0 {
-            let midX = elementPoint.x + (elementSize.width / 2.0)
-            let combined = "\(identifier) \(allText) \(nestedIdentifiers.joined(separator: " "))".lowercased()
-            DispatchQueue.main.async {
-                if combined.contains("focus") || combined.contains("disturb") || combined.contains("moon") {
-                    MenuBarIconTracker.shared.recordIconCenter(for: "focus", x: midX)
-                } else if combined.contains("audio") || combined.contains("sound") || combined.contains("volume") {
-                    MenuBarIconTracker.shared.recordIconCenter(for: "volume", x: midX)
-                } else if combined.contains("battery") {
-                    MenuBarIconTracker.shared.recordIconCenter(for: "battery", x: midX)
-                } else if combined.contains("bluetooth") || combined.contains("accessory") || combined.contains("smart-routing") {
-                    MenuBarIconTracker.shared.recordIconCenter(for: "bluetooth", x: midX)
-                } else if combined.contains("wifi") {
-                    MenuBarIconTracker.shared.recordIconCenter(for: "wifi", x: midX)
+        // Strictly track authentic menu bar items from Control Center (NEVER from OSDUIHelper or large notification/slider windows)
+        if isControlCenter && !isOSDUIHelper {
+            var posRef: CFTypeRef?
+            var elementPoint = CGPoint.zero
+            if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posRef) == .success,
+               let p = posRef {
+                AXValueGetValue(p as! AXValue, .cgPoint, &elementPoint)
+            }
+            var elementSize = CGSize.zero
+            if let sRef = sizeRef, AXValueGetValue(sRef as! AXValue, .cgSize, &elementSize) { }
+            
+            let mainWidth = NSScreen.main?.frame.width ?? 1512.0
+            let isRealMenuExtra = nestedIdentifiers.contains(where: { $0.contains("menuextra") }) || identifier.contains("menuextra")
+            
+            // Strict geometry check: must be a real menu bar item (in menu bar at y <= 30, height 12-32pt, width 10-160pt, right side x >= 300, not in clock <= mainWidth - 75)
+            if isRealMenuExtra && elementPoint.y <= 30 && elementSize.height >= 12 && elementSize.height <= 32 &&
+               elementSize.width >= 10 && elementSize.width <= 160 && elementPoint.x >= 300 {
+                let midX = elementPoint.x + (elementSize.width / 2.0)
+                if midX <= (mainWidth - 75.0) {
+                    let combined = "\(identifier) \(allText) \(nestedIdentifiers.joined(separator: " "))".lowercased()
+                    DispatchQueue.main.async {
+                        if combined.contains("focus") || combined.contains("disturb") || combined.contains("moon") {
+                            MenuBarIconTracker.shared.recordIconCenter(for: "focus", x: midX)
+                        } else if combined.contains("audio") || combined.contains("sound") || combined.contains("volume") {
+                            MenuBarIconTracker.shared.recordIconCenter(for: "volume", x: midX)
+                        } else if combined.contains("battery") {
+                            MenuBarIconTracker.shared.recordIconCenter(for: "battery", x: midX)
+                        } else if combined.contains("bluetooth") {
+                            MenuBarIconTracker.shared.recordIconCenter(for: "bluetooth", x: midX)
+                        } else if combined.contains("wifi") || combined.contains("wi-fi") || combined.contains("wi‑fi") {
+                            MenuBarIconTracker.shared.recordIconCenter(for: "wifi", x: midX)
+                        }
+                    }
                 }
             }
         }
-        let isControlCenter = bundleID.contains("controlcenter") || appName.contains("control center")
-        let isOSDUIHelper = bundleID.contains("osduihelper") || appName.contains("osduihelper")
         // ---------------------
+        
+        let isRealMenuExtraItem = nestedIdentifiers.contains(where: { $0.contains("menuextra") }) || identifier.contains("menuextra")
+        if isRealMenuExtraItem {
+            return
+        }
+        
+        // Exclude full Control Center main panel and slider controls (not banners)
+        if allText.hasPrefix("Control Center |") || nestedIdentifiers.contains("module-focusmodes") || nestedIdentifiers.contains("controlcenter-focus-modes-compact-2") {
+            return
+        }
         
         var shouldIntercept = false
         
@@ -219,7 +241,7 @@ final class NativeOverlayDismisser {
         
         let hasBannerPID = allText.contains("Banner PID")
         let isStructurallyBluetooth = hasBatteryIndicator || hasBannerPID || nestedIdentifiers.contains("smart-routing-system-banner") || nestedIdentifiers.contains(where: { $0.contains("accessory") })
-        let isStructurallyFocus = nestedIdentifiers.contains("focus-system-banner") || identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb" || nestedIdentifiers.contains(where: { $0.contains("focusmode") })
+        let isStructurallyFocus = nestedIdentifiers.contains("focus-system-banner") || identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb" || nestedIdentifiers.contains(where: { $0.contains("focusmode") }) || nestedIdentifiers.contains("_gm") || lowerAllText.contains("reduce interruptions") || lowerAllText.contains("redukuj") || lowerAllText.contains("do not disturb") || lowerAllText.contains("nie przeszkadzać")
         
         // If it comes from Control Center and lacks structural Bluetooth identifiers, it's very likely a Focus banner
         let isAmbiguousControlCenterBanner = isShapeMatch && identifier == "" && isControlCenter
@@ -264,10 +286,21 @@ final class NativeOverlayDismisser {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty && !$0.lowercased().contains("banner pid") && !$0.lowercased().contains("window") && seen.insert($0).inserted }
         
+        let isListeningModeByText = lowerAllText.contains("noise cancellation") ||
+            lowerAllText.contains("transparency") ||
+            lowerAllText.contains("adaptive audio") ||
+            lowerAllText.contains("redukcja hałasu") ||
+            lowerAllText.contains("tryb kontaktu") ||
+            lowerAllText.contains("adaptacyjny") ||
+            (lowerAllText.contains("kontakt") && (lowerAllText.contains("airpod") || lowerAllText.contains("banner pid"))) ||
+            (lowerAllText.contains("szum") && !lowerAllText.contains("szumów")) ||
+            lowerAllText.contains("listening mode")
+        
         let isListeningMode = identifier == "listening-mode-system-banner" ||
             identifier.contains("listening-mode") ||
             nestedIdentifiers.contains("listening-mode-system-banner") ||
-            nestedIdentifiers.contains(where: { $0.contains("listening-mode") })
+            nestedIdentifiers.contains(where: { $0.contains("listening-mode") }) ||
+            isListeningModeByText
         
         let isSmartRouting = nestedIdentifiers.contains("smart-routing-system-banner") || identifier == "smart-routing-system-banner"
         let isBluetooth = !isListeningMode && (isSmartRouting || nestedIdentifiers.contains(where: { $0.contains("accessory") }) || identifier.contains("accessory-system-banner") || isShapeMatchEmptyBluetooth)
@@ -320,6 +353,21 @@ final class NativeOverlayDismisser {
         
         if isListeningMode {
             // macOS natively popped up a Listening Mode banner. We intercept and dismiss it.
+            let devName = texts.first(where: { !$0.isEmpty && Int($0.replacingOccurrences(of: "%", with: "")) == nil })
+            let battery = detectedBatteryLevel
+            
+            DispatchQueue.main.async {
+                if let name = devName, !name.isEmpty {
+                    OverlayStateRelay.shared.airpodsDeviceName = name
+                    if let bat = battery {
+                        OverlayStateRelay.shared.accessoryBatteryLevels[name] = bat
+                        OverlayStateRelay.shared.airpodsCurrentBattery = bat
+                    }
+                } else if let bat = battery {
+                    OverlayStateRelay.shared.airpodsCurrentBattery = bat
+                }
+            }
+            
             // Fetch the exact mode from CoreAudio lstm (language-independent integer: 1=Off, 2=ANC, 3=Transparency, 4=Adaptive).
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 let mode = MediaKeyManager.shared.airPodsModeObserver?.getCurrentMode() ?? OverlayStateRelay.shared.airPodsModeValue

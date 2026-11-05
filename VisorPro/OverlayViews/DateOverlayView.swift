@@ -123,15 +123,35 @@ struct DateOverlayView: View {
         return formatter.string(from: baseDate)
     }
     
+    static func effectiveWidth(for dateString: String? = nil, style: String = MediaKeyManager.shared.effectiveOverlayStyle) -> CGFloat {
+        let dateStr: String
+        if let s = dateString {
+            dateStr = s
+        } else {
+            let fmt = UserDefaults.standard.string(forKey: "dateFormatOption") ?? "EEE, d MMMM yyyy"
+            let formatter = DateFormatter()
+            formatter.dateFormat = fmt.replacingOccurrences(of: "EEEE", with: "EEE")
+            dateStr = formatter.string(from: Date())
+        }
+        
+        let font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        let textWidth = ceil((dateStr as NSString).size(withAttributes: [.font: font]).width)
+        
+        if style == "system" {
+            // Symmetrical margins: left margin (~24pt) + icon (22pt) + gap (9pt) + textWidth + right margin (~24pt) = textWidth + 79pt.
+            // Minimum width 160pt, maximum width 235pt.
+            return max(160, min(235, textWidth + 78))
+        } else {
+            // Non-system styles (Default, Capsule, Liquid Glass):
+            // Symmetrical margins: left margin (~26pt) + icon (24pt) + gap (14pt) + contentTextW + right margin (~26pt) = contentTextW + 90pt.
+            let contentTextW = max(textWidth, 55)
+            return max(175, min(240, contentTextW + 90))
+        }
+    }
+    
     var body: some View {
         let datePos = MediaKeyManager.shared.getOverlayPosition(for: "dateOverlayPosition")
-        
-        let systemW: CGFloat = {
-            let textLen = formattedDate.count
-            // Precise width scaling based on the date text length + 56 pt padding for icon and rim
-            let estW = CGFloat(textLen) * 9.2 + 64
-            return max(180, estW)
-        }()
+        let effectiveW = DateOverlayView.effectiveWidth(for: formattedDate, style: MediaKeyManager.shared.effectiveOverlayStyle)
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -142,7 +162,7 @@ struct DateOverlayView: View {
             barColor: actionColor,
             fillCenter: false,
             isMuted: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? systemW : 260,
+            customWidth: effectiveW,
             customHeight: 56,
             supportDragGesture: false,
             isExpandable: dateAllowExpansion,
@@ -153,12 +173,11 @@ struct DateOverlayView: View {
             systemTitle: formattedDate,
             systemSubtitle: nil,
             baseContent: {
-                HStack(alignment: .center, spacing: 0) {
+                HStack(alignment: .center, spacing: 14) {
                     Image(systemName: "calendar")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: 20, weight: .medium))
                         .foregroundColor(.primary)
-                        .frame(width: 26, height: 24)
-                        .padding(.leading, 23)
+                        .frame(width: 24, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
                         Text("New Day")
@@ -172,11 +191,8 @@ struct DateOverlayView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                     }
-                    .padding(.leading, 14)
-                    
-                    Spacer()
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             },
             expandedContent: {
                 VStack(spacing: 8) {

@@ -1,28 +1,56 @@
 import SwiftUI
 
-// MARK: - System Glass Background Modifier
-/// Applies Apple's native glassEffect(.regular) to the system capsule, exactly matching Liquid Glass.
-/// In Design Studio preview, provides a gentle native blur backing to match live appearance without HUD heaviness.
+// MARK: - System Glass Background Modifier (macOS < 26 fallback)
+/// Fallback material for macOS < 26 where GlassEffectContainer is not available.
+/// On macOS 26+, the System overlay is wrapped directly in GlassEffectContainer
+/// and the child uses .glassEffect(.clear) — this modifier is not applied there.
 struct SystemGlassBackgroundModifier: ViewModifier {
     var isPreview: Bool = false
     @Environment(\.colorScheme) var colorScheme
-    @State private var renderNonce = UUID()
-    
+
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content
-                .glassEffect(.regular, in: Capsule())
-                .materialActiveAppearance(.active)
-                .environment(\.controlActiveState, .key)
-                .id(renderNonce)
-                .task {
-                    try? await Task.sleep(nanoseconds: 50_000_000)
-                    renderNonce = UUID()
-                }
-        } else {
-            content
-                .background(.regularMaterial, in: Capsule())
+        content
+            .background(AlwaysActiveVisualEffectView(material: .popover, blendingMode: .behindWindow).clipShape(Capsule()))
+    }
+}
+
+// MARK: - System Segmented Slider Bar
+/// Continuous active bar masked by 16 discrete segments, allowing perfectly smooth sub-pixel sliding animations (e.g. smoothly sliding to 0 upon mute).
+struct SystemSegmentedSliderBar: View, Animatable {
+    var progress: CGFloat
+    var activeColor: Color
+    var inactiveColor: Color
+    
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+    
+    var body: some View {
+        let totalSteps = 16
+        let trackWidth: CGFloat = 214.5
+        let trackHeight: CGFloat = 4.0
+        let activeWidth = max(0, min(trackWidth, trackWidth * progress))
+        
+        ZStack(alignment: .leading) {
+            Rectangle()
+                .fill(Color.black.opacity(0.35))
+            Rectangle()
+                .fill(inactiveColor)
+            Rectangle()
+                .fill(activeColor)
+                .frame(width: activeWidth)
         }
+        .frame(width: trackWidth, height: trackHeight)
+        .mask(
+            HStack(spacing: 1.5) {
+                ForEach(0..<totalSteps, id: \.self) { _ in
+                    Rectangle()
+                        .frame(width: 12.0, height: trackHeight)
+                }
+            }
+        )
+        .clipShape(Capsule())
     }
 }
 
@@ -34,6 +62,7 @@ struct SystemGlassBackgroundModifier: ViewModifier {
 struct UniversalSystemOverlayView: View {
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @ObservedObject private var overlayState = OverlayStateRelay.shared
     
     var isPreview: Bool = false
     var icon: String? = nil
@@ -73,6 +102,7 @@ struct UniversalSystemOverlayView: View {
     @State private var hasLanded: Bool = false
     @State private var isCloseButtonHovered: Bool = false
     @State private var isRightButtonHovered: Bool = false
+    @State private var systemSliderAnimatedProgress: CGFloat = 0.0
     
     @AppStorage("enableCloseButton") private var enableCloseButton: Bool = true
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight: Bool = false
@@ -92,7 +122,7 @@ struct UniversalSystemOverlayView: View {
             }
         }
         if let icon = icon {
-            if icon.contains("speaker") || icon.contains("sun") || icon.contains("keyboard") || icon.contains("display") {
+            if icon.contains("speaker") || icon.contains("sun.max") || icon.contains("keyboard") {
                 return true
             }
         }
@@ -121,34 +151,68 @@ struct UniversalSystemOverlayView: View {
         return "speaker.wave.3"
     }
     
+    // Theme resolution:
+    // Slider overlays ALWAYS behave as dark (white text, dark clear glass) regardless of theme.
+    // Regular status overlays follow the chosen theme (dark vs light), or the system appearance when set to "system".
+    private var effectiveIsDark: Bool {
+        if isSliderMode { return true }
+        if mediaKeyManager.overlayTheme == "dark" { return true }
+        if mediaKeyManager.overlayTheme == "light" { return false }
+        return colorScheme == .dark
+    }
+    
+    // Only sliders dynamically adapt their backing to wallpaper luminance:
+    private var sliderBackingOpacity: Double {
+        let lum = max(0.0, min(1.0, overlayState.backgroundLuminance))
+        let sat = max(0.0, min(1.0, overlayState.backgroundSaturation))
+        // Protect colorful backgrounds (sat >= 0.34) keeping them clean and translucent at 0.08.
+        // For neutral bright backgrounds (sat <= 0.12), scale opacity aggressively up to 0.96 for deep black contrast.
+        let satFactor = max(0.0, min(1.0, 1.0 - (sat - 0.12) / 0.22))
+        let whiteness = max(0.0, min(1.0, (lum - 0.10) / 0.70)) * satFactor
+        return 0.08 + (0.88 * pow(whiteness, 0.75))
+    }
+    
     private var primaryColor: Color {
-        colorScheme == .dark ? Color(white: 0.96) : Color(white: 0.12)
+        if isSliderMode {
+            return Color.white
+        }
+        return effectiveIsDark ? Color.white : Color(white: 0.10)
     }
     
     private var secondaryColor: Color {
-        colorScheme == .dark ? Color(white: 0.94).opacity(0.72) : Color(white: 0.16).opacity(0.68)
+        if isSliderMode {
+            return Color.white.opacity(0.80)
+        }
+        return effectiveIsDark ? Color.white.opacity(0.75) : Color(white: 0.18)
     }
     
     private var activeSliderColor: Color {
-        colorScheme == .dark ? Color(white: 0.94) : Color(white: 0.18)
+        Color.white
     }
     
     private var inactiveTrackColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.08)
+        if isSliderMode {
+            return Color.white.opacity(0.25)
+        }
+        return effectiveIsDark ? Color.white.opacity(0.20) : Color.black.opacity(0.15)
     }
     
     private var effectiveIconColor: Color {
         if isMuted {
-            return colorScheme == .dark ? Color(white: 0.94).opacity(0.45) : Color(white: 0.16).opacity(0.45)
+            return isSliderMode ? Color.white.opacity(0.45) : (effectiveIsDark ? Color.white.opacity(0.45) : Color(white: 0.12).opacity(0.45))
         }
         if keepAliveId == "focus" {
-            return Color(red: 0.48, green: 0.38, blue: 1.0) // Apple Focus vibrant purple
+            return barColor
         }
         return primaryColor
     }
     
     private var clampedProgress: CGFloat {
         CGFloat(max(0.0, min(1.0, progress)))
+    }
+    
+    private var effectiveSliderProgress: CGFloat {
+        systemSliderAnimatedProgress
     }
     
     private func triggerKeepAlive(hoveringOverride: Bool? = nil) {
@@ -165,9 +229,64 @@ struct UniversalSystemOverlayView: View {
     }
     
     var body: some View {
-        UniversalGlassContainer {
-            Group {
-                if isSliderMode {
+        if #available(macOS 26.0, *) {
+            GlassEffectContainer {
+                overlayContent
+                    .background(
+                        Capsule()
+                            .fill(
+                                isSliderMode
+                                    ? Color.black.opacity(sliderBackingOpacity)
+                                    : (effectiveIsDark ? Color.black.opacity(0.05) : Color.white.opacity(0.04))
+                            )
+                    )
+                    .background(
+                        Group {
+                            if isSliderMode {
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .opacity(0.06)
+                            }
+                        }
+                    )
+                    .glassEffect(isSliderMode ? .clear : .regular, in: Capsule())
+                    .overlay(capsuleRimOverlay)
+                    .activeMaterialAppearanceIfAvailable()
+                    .environment(\.controlActiveState, .key)
+            }
+            .activeMaterialAppearanceIfAvailable()
+            .environment(\.controlActiveState, .key)
+            .overlay(alignment: .topLeading) { closeButtonOverlay }
+            .onHoverExact { hovering in
+                let anim = enableBouncyExpansion ? Animation.spring(response: 0.38, dampingFraction: 0.65) : Animation.easeInOut(duration: 0.22)
+                withAnimation(anim) { isHovering = hovering }
+                triggerKeepAlive(hoveringOverride: hovering)
+            }
+            .onAppear { handleOnAppear() }
+            .onChange(of: isMuted) { _, newMuted in handleMutedChange(newMuted) }
+            .onChange(of: progress) { _, newProgress in handleProgressChange(newProgress) }
+        } else {
+            overlayContent
+                .modifier(SystemGlassBackgroundModifier(isPreview: isPreview))
+                .overlay(capsuleRimOverlay)
+                .overlay(alignment: .topLeading) { closeButtonOverlay }
+                .onHoverExact { hovering in
+                    let anim = enableBouncyExpansion ? Animation.spring(response: 0.38, dampingFraction: 0.65) : Animation.easeInOut(duration: 0.22)
+                    withAnimation(anim) { isHovering = hovering }
+                    triggerKeepAlive(hoveringOverride: hovering)
+                }
+                .onAppear { handleOnAppear() }
+                .onChange(of: isMuted) { _, newMuted in handleMutedChange(newMuted) }
+                .onChange(of: progress) { _, newProgress in handleProgressChange(newProgress) }
+        }
+    }
+
+    // MARK: - Shared sub-view helpers
+
+    @ViewBuilder
+    private var overlayContent: some View {
+        Group {
+            if isSliderMode {
                 // MARK: 16-Segmented Continuous Slider Bar (Native macOS Volume, Brightness & Keyboard HUD)
                 // When hovered, transforms smoothly into an interactive native Slider, matching native macOS behavior.
                 let trackWidth: CGFloat = 214.5
@@ -191,7 +310,7 @@ struct UniversalSystemOverlayView: View {
                             // Native macOS SwiftUI Slider (same as used in microphone & corner settings)
                             Slider(
                                 value: Binding(
-                                    get: { Double(clampedProgress) },
+                                    get: { Double(effectiveSliderProgress) },
                                     set: { newVal in
                                         let cgVal = CGFloat(newVal)
                                         onDrag?(cgVal)
@@ -202,29 +321,16 @@ struct UniversalSystemOverlayView: View {
                             )
                             .tint(primaryColor)
                             .accentColor(primaryColor)
-                            .environment(\.controlActiveState, .active)
+                            .environment(\.controlActiveState, .key)
                             .conditionalPointingHandCursor(isEnabled: !isPreview)
                             .frame(width: trackWidth)
                         } else {
-                            // One continuous bar interrupted by vertical slits (16 discrete segments)
-                            HStack(spacing: 1.5) {
-                                let totalSteps = 16
-                                let activeSteps: Int = {
-                                    if isMuted || clampedProgress < 0.001 { return 0 }
-                                    let steps = Int(round(clampedProgress * Double(totalSteps)))
-                                    return max(1, min(totalSteps, steps))
-                                }()
-                                let activeColor = activeSliderColor
-                                let inactiveColor = inactiveTrackColor
-                                
-                                ForEach(0..<totalSteps, id: \.self) { step in
-                                    Rectangle()
-                                        .fill(step < activeSteps ? activeColor : inactiveColor)
-                                        .frame(width: 12.0, height: 4.0)
-                                }
-                            }
-                            .frame(width: trackWidth, height: trackHeight)
-                            .clipShape(Capsule())
+                            // 16 discrete segments filled continuously with fluid animation down to 0
+                            SystemSegmentedSliderBar(
+                                progress: effectiveSliderProgress,
+                                activeColor: activeSliderColor,
+                                inactiveColor: inactiveTrackColor
+                            )
                         }
                     }
                     .frame(width: trackWidth, height: trackHeight)
@@ -233,57 +339,89 @@ struct UniversalSystemOverlayView: View {
                 .frame(width: 308, height: 64)
             } else {
                 // MARK: Status Pill Mode (Focus, Caps Lock, Mic, Battery, Wi-Fi, Bluetooth, Accessories, Media, Theme)
-                ZStack {
-                    // Centered Title & Subtitle OR AirPods Battery Trio
-                    VStack(alignment: .center, spacing: 2) {
-                        if let title = title, !title.isEmpty {
-                            MarqueeText(
-                                text: title,
-                                font: .system(size: 13, weight: .bold, design: .default),
-                                foregroundColor: primaryColor,
-                                alignment: .center
-                            )
-                            .lineLimit(1)
-                        }
-                        
-                        if let trio = rightAirPodsTrio {
-                            HStack(spacing: 8) {
-                                if let lb = trio.left, lb > 0 {
-                                    airpodsMiniBadge(icon: "airpodpro.left", pct: lb, isCharging: trio.leftCharging)
-                                }
-                                if let cb = trio.caseBat, cb > 0 {
-                                    airpodsMiniBadge(icon: "airpodspro.chargingcase.wireless.fill", pct: cb, isCharging: trio.caseCharging)
-                                }
-                                if let rb = trio.right, rb > 0 {
-                                    airpodsMiniBadge(icon: "airpodpro.right", pct: rb, isCharging: trio.rightCharging)
-                                }
-                            }
-                            .padding(.top, 1)
-                        } else if let subtitle = subtitle, !subtitle.isEmpty {
-                            MarqueeText(
-                                text: subtitle,
-                                font: .system(size: 11, weight: .medium, design: .default),
-                                foregroundColor: secondaryColor,
-                                alignment: .center
-                            )
-                            .lineLimit(1)
-                        }
-                    }
-                    .multilineTextAlignment(.center)
-                    .padding(.leading, (rightAirPodsTrio != nil) ? 44 : 50)
-                    .padding(.trailing, (rightAirPodsTrio != nil) ? 20 : ((rightButtonIcon != nil || rightRingValue != nil || rightAppBundleId != nil) ? 52 : 36))
-                    
-                    // Left-pinned icon
-                    HStack {
+                let hasTrailing = ((rightButtonIcon != nil && onRightButtonTap != nil) || rightRingValue != nil || rightAppBundleId != nil || rightAirPodsTrio != nil)
+                let isSingleTitleOnly = (subtitle == nil || subtitle!.isEmpty) && !hasTrailing && rightAirPodsTrio == nil
+                
+                if isSingleTitleOnly {
+                    // Cleanly centered unified badge [Icon + Title] for single-title pills (e.g. Date overlay)
+                    HStack(alignment: .center, spacing: 9) {
                         if let icon = icon, !icon.isEmpty {
                             Image(systemName: icon)
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.system(size: 20, weight: .regular))
                                 .foregroundColor(effectiveIconColor)
-                                .frame(width: 24, height: 24, alignment: .center)
-                                .padding(.leading, 16)
+                                .frame(width: 22, height: 22, alignment: .center)
                         }
-                        Spacer()
+                        
+                        if let title = title, !title.isEmpty {
+                            Text(title)
+                                .font(.system(size: 13, weight: .semibold, design: .default))
+                                .foregroundColor(primaryColor)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .frame(
+                        width: customWidth,
+                        height: customHeight
+                    )
+                } else {
+                    ZStack {
+                        let contentMargin: CGFloat = 48.0
+                        let contentLeading: CGFloat = (icon != nil && !icon!.isEmpty) ? contentMargin : 20.0
+                        let contentTrailing: CGFloat = (hasTrailing || (icon != nil && !icon!.isEmpty)) ? contentMargin : 20.0
+                        
+                        // Centered Title & Subtitle OR AirPods Battery Trio
+                        VStack(alignment: .center, spacing: 1.5) {
+                            if let title = title, !title.isEmpty {
+                                MarqueeText(
+                                    text: title,
+                                    font: .system(size: 12.5, weight: .semibold, design: .default),
+                                    foregroundColor: primaryColor,
+                                    alignment: .center
+                                )
+                                .lineLimit(1)
+                            }
+                            
+                            if let trio = rightAirPodsTrio {
+                                HStack(spacing: 8) {
+                                    if let lb = trio.left, lb > 0 {
+                                        airpodsMiniBadge(icon: "airpodpro.left", pct: lb, isCharging: trio.leftCharging)
+                                    }
+                                    if let cb = trio.caseBat, cb > 0 {
+                                        airpodsMiniBadge(icon: "airpodspro.chargingcase.wireless.fill", pct: cb, isCharging: trio.caseCharging)
+                                    }
+                                    if let rb = trio.right, rb > 0 {
+                                        airpodsMiniBadge(icon: "airpodpro.right", pct: rb, isCharging: trio.rightCharging)
+                                    }
+                                }
+                                .padding(.top, 1)
+                            } else if let subtitle = subtitle, !subtitle.isEmpty {
+                                MarqueeText(
+                                    text: subtitle,
+                                    font: .system(size: 11.5, weight: .regular, design: .default),
+                                    foregroundColor: secondaryColor,
+                                    alignment: .center
+                                )
+                                .lineLimit(1)
+                            }
+                        }
+                        .multilineTextAlignment(.center)
+                        .padding(.leading, contentLeading)
+                        .padding(.trailing, contentTrailing)
+                        
+                        // Left-pinned icon
+                        HStack {
+                            if let icon = icon, !icon.isEmpty {
+                                Image(systemName: icon)
+                                    .font(.system(size: 24, weight: .regular))
+                                    .foregroundColor(effectiveIconColor)
+                                    .frame(width: 28, height: 28, alignment: .center)
+                                    .padding(.leading, 15)
+                            }
+                            Spacer()
+                        }
                     
                     // Right-pinned Action Button OR Status Ring OR App Icon
                     HStack {
@@ -312,22 +450,22 @@ struct UniversalSystemOverlayView: View {
                             .padding(.trailing, 14)
                         } else if let ringVal = rightRingValue {
                             let prog = rightRingProgress ?? (Double(ringVal) / 100.0)
-                            let ringCol = rightRingColor ?? (prog <= 0.20 ? .red : (prog <= 0.50 ? .yellow : .green))
+                            let ringCol = rightRingColor ?? Color.batteryLevelColor(forProgress: prog)
                             
                             ZStack {
                                 // Background track ring matching the volume & brightness inactive bar
                                 Circle()
-                                    .stroke(inactiveTrackColor, lineWidth: 3.2)
+                                    .stroke(inactiveTrackColor, lineWidth: 4.2)
                                 
                                 // Progress arc
                                 Circle()
                                     .trim(from: 0, to: CGFloat(min(max(prog, 0.0), 1.0)))
-                                    .stroke(ringCol, style: StrokeStyle(lineWidth: 3.2, lineCap: .round))
+                                    .stroke(ringCol, style: StrokeStyle(lineWidth: 4.2, lineCap: .round))
                                     .rotationEffect(.degrees(-90))
                                 
-                                // Centered number with %
-                                Text("\(ringVal)%")
-                                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                                // Centered number (percentage symbol omitted for clean spacing)
+                                Text("\(ringVal)")
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
                                     .foregroundColor(primaryColor)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.8)
@@ -352,92 +490,107 @@ struct UniversalSystemOverlayView: View {
                 )
             }
         }
-        // MARK: Native Liquid Glass Material
-        .modifier(SystemGlassBackgroundModifier(isPreview: isPreview))
-        // MARK: Glass Specular Rim (Top-to-Bottom Highlight)
-        .overlay(
-            Capsule()
-                .strokeBorder(
-                    LinearGradient(
-                        colors: colorScheme == .dark ? [
-                            Color.white.opacity(0.18),
-                            Color.white.opacity(0.05)
-                        ] : [
-                            Color.white.opacity(0.40),
-                            Color.black.opacity(0.04)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1.0
-                )
-                .allowsHitTesting(false)
-        )
-        // MARK: Drop Shadow
-        .background(
-            ZStack {
-                Capsule()
-                    .fill(Color.black)
-                    .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.35 : 0.15), radius: 10, y: 4)
-                
-                Capsule()
-                    .fill(Color.black)
-                    .blendMode(.destinationOut)
-            }
-            .compositingGroup()
-        )
-        // MARK: Close Button (Appears on Hover when enabled in settings)
-        .overlay(alignment: .topLeading) {
-            let width = isSliderMode ? 308 : customWidth
-            let baseHeight: CGFloat = isSliderMode ? 64 : customHeight
-            let dynamicOffset: CGFloat = -2
-            // On larger overlays (height >= 56 pt, like volume / brightness / keyboard 64 pt),
-            // inset slightly further into the curve so the button sits nicely balanced 50% on/off the rim.
-            let edgeInset: CGFloat = (baseHeight >= 56 || width > 260) ? 14.0 : 8.0
-            let buttonCenter = CGPoint(
-                x: closeButtonOnRight ? width - edgeInset : edgeInset,
-                y: dynamicOffset + 10
+    }
+}
+
+    // MARK: - Capsule rim specular highlight overlay
+    @ViewBuilder
+    private var capsuleRimOverlay: some View {
+        Capsule()
+            .strokeBorder(
+                LinearGradient(
+                    colors: (isSliderMode || effectiveIsDark) ? [
+                        Color.white.opacity(0.30),
+                        Color.white.opacity(0.08)
+                    ] : [
+                        Color.white.opacity(0.45),
+                        Color.black.opacity(0.06)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                lineWidth: 1.0
             )
-            
-            if enableCloseButton && allowCloseButton && isHovering {
-                Button {
-                    if isPreview {
-                        NotificationCenter.default.post(name: NSNotification.Name("PreviewDismissTriggered"), object: nil)
-                    } else if let id = keepAliveId {
-                        MediaKeyManager.shared.forceHide(overlayId: id)
-                    }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9.5, weight: .bold))
-                        .foregroundColor(colorScheme == .dark ? Color.white.opacity(0.85) : Color.black.opacity(0.70))
-                        .frame(width: 20, height: 20)
-                        .modifier(LiquidGlassCircleModifier(isPreview: isPreview))
-                        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.25 : 0.10), radius: 2.5, x: 0, y: 1)
-                        .scaleEffect(isCloseButtonHovered ? 1.08 : 1.0)
+            .allowsHitTesting(false)
+    }
+
+    // MARK: - Close button overlay (appears on hover when enabled in settings)
+    @ViewBuilder
+    private var closeButtonOverlay: some View {
+        let width = isSliderMode ? 308 : customWidth
+        let baseHeight: CGFloat = isSliderMode ? 64 : customHeight
+        let dynamicOffset: CGFloat = -2
+        // On larger overlays (height >= 56 pt, like volume / brightness / keyboard 64 pt),
+        // inset slightly further into the curve so the button sits nicely balanced 50% on/off the rim.
+        let edgeInset: CGFloat = (baseHeight >= 56 || width > 260) ? 14.0 : 8.0
+        let buttonCenter = CGPoint(
+            x: closeButtonOnRight ? width - edgeInset : edgeInset,
+            y: dynamicOffset + 10
+        )
+
+        if enableCloseButton && allowCloseButton && isHovering {
+            Button {
+                if isPreview {
+                    NotificationCenter.default.post(name: NSNotification.Name("PreviewDismissTriggered"), object: nil)
+                } else if let id = keepAliveId {
+                    MediaKeyManager.shared.forceHide(overlayId: id)
                 }
-                .buttonStyle(.plain)
-                .onHover { h in
-                    isCloseButtonHovered = h
-                    if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                }
-                .offset(x: buttonCenter.x - 10, y: dynamicOffset)
-                .transition(.scale.combined(with: .opacity))
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9.5, weight: .bold))
+                    .foregroundColor((isSliderMode || effectiveIsDark) ? Color.white.opacity(0.85) : Color.black.opacity(0.70))
+                    .frame(width: 20, height: 20)
+                    .modifier(LiquidGlassCircleModifier(isPreview: isPreview, isClear: isSliderMode, isDark: effectiveIsDark))
+                    .scaleEffect(isCloseButtonHovered ? 1.08 : 1.0)
             }
-        }
-        }
-        // MARK: Hover Tracking for Timeout Persistence & Gestures
-        .onHoverExact { hovering in
-            let anim = enableBouncyExpansion ? Animation.spring(response: 0.38, dampingFraction: 0.65) : Animation.easeInOut(duration: 0.22)
-            withAnimation(anim) {
-                isHovering = hovering
+            .buttonStyle(.plain)
+            .onHover { h in
+                isCloseButtonHovered = h
+                if h { NSCursor.pointingHand.push() } else { NSCursor.pop() }
             }
-            triggerKeepAlive(hoveringOverride: hovering)
-        }
-        .onAppear {
-            hasLanded = true
+            .offset(x: buttonCenter.x - 10, y: dynamicOffset)
+            .transition(.scale.combined(with: .opacity))
         }
     }
-    
+
+    // MARK: - Lifecycle helpers (shared between macOS 26 and fallback paths)
+
+    private func handleOnAppear() {
+        hasLanded = true
+        if isMuted {
+            // If opening while muted, start at non-zero and slide down to 0
+            systemSliderAnimatedProgress = clampedProgress > 0 ? clampedProgress : 0.5
+            withAnimation(.easeOut(duration: 0.18)) {
+                systemSliderAnimatedProgress = 0.0
+            }
+        } else {
+            systemSliderAnimatedProgress = clampedProgress
+        }
+    }
+
+    private func handleMutedChange(_ newMuted: Bool) {
+        if newMuted {
+            // Smoothly slide down to 0
+            withAnimation(.easeOut(duration: 0.18)) {
+                systemSliderAnimatedProgress = 0.0
+            }
+        } else {
+            // Smoothly slide back up from 0 to current unmuted volume level
+            systemSliderAnimatedProgress = 0.0
+            withAnimation(.easeOut(duration: 0.18)) {
+                systemSliderAnimatedProgress = clampedProgress
+            }
+        }
+    }
+
+    private func handleProgressChange(_ newProgress: Double) {
+        if !isMuted {
+            withAnimation(.easeOut(duration: 0.12)) {
+                systemSliderAnimatedProgress = CGFloat(max(0.0, min(1.0, newProgress)))
+            }
+        }
+    }
+
     @ViewBuilder
     private func airpodsMiniBadge(icon: String, pct: Int, isCharging: Bool) -> some View {
         HStack(spacing: 2) {

@@ -29,6 +29,7 @@ class FocusObserver {
     private var isInitialLoad: Bool = true
     private var isSleeping: Bool = false
     private var isWakeGracePeriod: Bool = false
+    private var lastNativeBannerSyncTime: Date = Date.distantPast
     
     private let dbPath = NSString(string: "~/Library/DoNotDisturb/DB").expandingTildeInPath
     private var assertionsPath: String { return dbPath + "/Assertions.json" }
@@ -89,9 +90,9 @@ class FocusObserver {
             if self.canReadAssertionsFile() {
                 let (isActive, modeName, colorName, symbol, details) = self.getDetailedFocusStatus()
                 let isDetailed = UserDefaults.standard.bool(forKey: "focusDetailMode")
-                let finalName = isDetailed ? modeName : (isActive ? "Focus" : self.lastModeName)
-                let finalColor = isDetailed ? colorName : "systemIndigoColor"
-                let finalSymbol = isDetailed ? symbol : (isActive ? "moon.fill" : "moon.zzz")
+                let finalName = isDetailed ? modeName : (isActive ? modeName : self.lastModeName)
+                let finalColor = colorName
+                let finalSymbol = symbol
                 
                 self.lastFocusActive = isActive
                 self.lastModeName = finalName
@@ -144,12 +145,38 @@ class FocusObserver {
         for (identifier, configData) in configs {
             if let configDict = configData as? [String: Any],
                let mode = configDict["mode"] as? [String: Any],
-               let name = mode["name"] as? String {
-                let colorName = mode["tintColorName"] as? String ?? "systemIndigoColor"
-                let symbol = mode["symbolImageName"] as? String ?? "moon.fill"
+               let rawName = mode["name"] as? String {
+                let lowerRaw = rawName.lowercased()
+                let lowerId = identifier.lowercased()
+                let isReduceInterruptions = lowerRaw == "_gm" || lowerRaw.contains("reduce") || lowerRaw.contains("interrupt") || lowerRaw.contains("redukuj") || lowerId.contains("reduce") || lowerId.contains("interrupt") || lowerId.contains("_gm")
+                
+                let name: String
+                let symbol: String
+                let colorName: String
+                
+                if isReduceInterruptions {
+                    name = "Reduce Interruptions"
+                    symbol = "apple.intelligence"
+                    colorName = "reduceInterruptionsColor"
+                } else if lowerRaw == "itunes u" || lowerRaw == "itunes" {
+                    name = "Szkoła"
+                    symbol = "graduationcap.fill"
+                    colorName = "systemYellowColor"
+                } else {
+                    name = rawName
+                    let rawSymbol = mode["symbolImageName"] as? String ?? ""
+                    symbol = (rawSymbol.isEmpty || rawSymbol == "_gm" || rawSymbol.contains("gm")) ? (rawSymbol == "_gm" ? "apple.intelligence" : "moon.fill") : rawSymbol
+                    colorName = mode["tintColorName"] as? String ?? "systemIndigoColor"
+                }
+                
                 let config = ModeConfig(name: name, colorName: colorName, symbol: symbol)
                 byId[identifier] = config
                 byName[name.lowercased()] = config
+                if isReduceInterruptions {
+                    byId["com.apple.focus.reduce-interruptions"] = config
+                    byName["_gm"] = config
+                    byName["reduce interruptions"] = config
+                }
             }
         }
         
@@ -158,16 +185,67 @@ class FocusObserver {
     }
     
     func getColorName(for modeName: String) -> String {
-        return modeConfigsByName[modeName.lowercased()]?.colorName ?? "systemIndigoColor"
+        let lower = modeName.lowercased()
+        if let configColor = modeConfigsByName[lower]?.colorName {
+            return configColor
+        }
+        if lower.contains("reduce") || lower.contains("interrupt") || lower.contains("redukuj") || lower.contains("zakłócenia") || lower == "_gm" {
+            return "reduceInterruptionsColor" // Apple Intelligence authentic neon magenta-purple (#CB30E0)
+        } else if lower.contains("disturb") || lower.contains("nie przeszkadzać") || lower == "focus" {
+            return "systemIndigoColor"
+        } else if lower.contains("work") || lower.contains("praca") {
+            return "systemTealColor"
+        } else if lower.contains("sleep") || lower.contains("sen") || lower.contains("bedtime") {
+            return "systemMintColor"
+        } else if lower.contains("personal") || lower.contains("osobisty") {
+            return "systemPurpleColor"
+        } else if lower.contains("fitness") || lower.contains("trening") || lower.contains("running") {
+            return "systemOrangeColor"
+        } else if lower.contains("szkoła") || lower.contains("school") || lower.contains("study") || lower.contains("nauka") || lower.contains("itunes") {
+            return "systemYellowColor"
+        } else if lower.contains("reading") || lower.contains("czytanie") {
+            return "systemYellowColor"
+        } else if lower.contains("gaming") || lower.contains("gry") {
+            return "systemPurpleColor"
+        } else if lower.contains("driving") || lower.contains("kierowanie") || lower.contains("samochód") {
+            return "systemIndigoColor"
+        }
+        return "systemIndigoColor"
     }
     
     func getSymbol(for modeName: String) -> String {
-        return modeConfigsByName[modeName.lowercased()]?.symbol ?? "moon.fill"
+        let lower = modeName.lowercased()
+        if let configSymbol = modeConfigsByName[lower]?.symbol {
+            return configSymbol
+        }
+        if lower.contains("reduce") || lower.contains("interrupt") || lower.contains("redukuj") || lower.contains("zakłócenia") || lower == "_gm" {
+            return "apple.intelligence"
+        } else if lower.contains("disturb") || lower.contains("nie przeszkadzać") || lower == "focus" {
+            return "moon.fill"
+        } else if lower.contains("work") || lower.contains("praca") {
+            return "briefcase.fill"
+        } else if lower.contains("sleep") || lower.contains("sen") || lower.contains("bedtime") {
+            return "bed.double.fill"
+        } else if lower.contains("personal") || lower.contains("osobisty") {
+            return "person.fill"
+        } else if lower.contains("fitness") || lower.contains("trening") || lower.contains("running") {
+            return "figure.run"
+        } else if lower.contains("szkoła") || lower.contains("school") || lower.contains("study") || lower.contains("nauka") || lower.contains("itunes") {
+            return "graduationcap.fill"
+        } else if lower.contains("reading") || lower.contains("czytanie") {
+            return "book.closed.fill"
+        } else if lower.contains("gaming") || lower.contains("gry") {
+            return "gamecontroller.fill"
+        } else if lower.contains("driving") || lower.contains("kierowanie") || lower.contains("samochód") {
+            return "car.fill"
+        }
+        return "moon.fill"
     }
     
     func syncStateFromNativeBanner(isActive: Bool, modeName: String, colorName: String = "systemIndigoColor", symbol: String = "moon.fill") {
         pollQueue.async { [weak self] in
             guard let self = self else { return }
+            self.lastNativeBannerSyncTime = Date()
             self.lastFocusActive = isActive
             self.lastModeName = modeName
             self.lastFocusColorName = colorName
@@ -192,9 +270,10 @@ class FocusObserver {
             // Initial state check
             let (isActive, modeName, colorName, symbol, details) = self.getDetailedFocusStatus()
             let isDetailed = UserDefaults.standard.bool(forKey: "focusDetailMode")
-            let finalName = isDetailed ? modeName : (isActive ? "Focus" : "Focus")
-            let finalColor = isDetailed ? colorName : "systemIndigoColor"
-            let finalSymbol = isDetailed ? symbol : (isActive ? "moon.fill" : "moon.zzz")
+            let initialDefaultName = (modeName.isEmpty || modeName.lowercased() == "focus") ? "Do Not Disturb" : modeName
+            let finalName = isDetailed ? initialDefaultName : (isActive ? initialDefaultName : "Do Not Disturb")
+            let finalColor = colorName
+            let finalSymbol = symbol
             
             self.lastFocusActive = isActive
             self.lastModeName = finalName
@@ -264,9 +343,20 @@ class FocusObserver {
         // 1. Primary: If Assertions.json is readable (Full Disk Access present), always use exact JSON database state
         if canReadAssertionsFile() {
             let (isActive, modeName, colorName, symbol, details) = getDetailedFocusStatus()
-            let finalName = isDetailedMode ? modeName : (isActive ? "Focus" : self.lastModeName)
-            let finalColor = isDetailedMode ? colorName : "systemIndigoColor"
-            let finalSymbol = isDetailedMode ? symbol : (isActive ? "moon.fill" : "moon.zzz")
+            let finalName: String
+            let finalColor: String
+            let finalSymbol: String
+            
+            if isActive {
+                finalName = modeName
+                finalColor = colorName
+                finalSymbol = symbol
+            } else {
+                // When turning OFF, ALWAYS preserve the last active mode's name, color, and symbol!
+                finalName = (self.lastModeName.isEmpty || self.lastModeName.lowercased() == "focus") ? modeName : self.lastModeName
+                finalColor = self.lastFocusColorName
+                finalSymbol = self.lastFocusSymbol
+            }
             
             if isActive == lastFocusActive && finalName == lastModeName {
                 if details != lastFocusDetails {
@@ -291,58 +381,21 @@ class FocusObserver {
         }
         
         // 2. Fallback: Size-based inference when Full Disk Access is not granted
+        // When native banner tracking is active (NativeOverlayDismisser handles AX banners),
+        // size heuristics on Assertions.json must NEVER synthesize a generic "Focus"/"moon.fill" trigger.
+        // Doing so causes a double-pop or displays a moon icon before the native banner delivers the exact mode.
+        // NativeOverlayDismisser is the authoritative source for user-initiated Focus toggles.
         guard let currentSize = getAssertionsSize() else {
-            // File might be in the middle of being atomically replaced. Retry in 100ms.
-            pollQueue.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                guard let self = self, !self.isSleeping else { return }
-                if let newSize = self.getAssertionsSize() {
-                    self.lastSeenSize = newSize
-                    self.pollFocusStatus()
-                }
-            }
             return
-        }
-        
-        if isInitialLoad || isWakeGracePeriod {
-            self.lastSeenSize = currentSize
-            if !lastFocusActive {
-                self.baselineOffSize = currentSize
-            }
-            return
-        }
-        
-        let lastSize = self.lastSeenSize ?? currentSize
-        var inferredActive = self.lastFocusActive
-        
-        if !self.lastFocusActive {
-            // Currently OFF
-            if let base = self.baselineOffSize {
-                if currentSize > base + 85 {
-                    inferredActive = true
-                    self.baselineOnSize = currentSize
-                } else {
-                    // Gradual drift while OFF - adjust baseline down
-                    self.baselineOffSize = min(base, currentSize)
-                }
-            } else if currentSize > lastSize + 85 {
-                inferredActive = true
-                self.baselineOnSize = currentSize
-            }
-        } else {
-            // Currently ON
-            if currentSize + 85 < lastSize {
-                inferredActive = false
-                self.baselineOffSize = currentSize
-            } else if let base = self.baselineOffSize, currentSize <= base + 45 {
-                // Absolute size returned near the recorded OFF baseline
-                inferredActive = false
-                self.baselineOffSize = currentSize
-            }
         }
         
         self.lastSeenSize = currentSize
-        let fallbackName = inferredActive ? "Focus" : self.lastModeName
-        triggerChangeIfNeeded(active: inferredActive, name: fallbackName, silentUpdate: silentUpdate)
+        if !lastFocusActive {
+            self.baselineOffSize = currentSize
+        } else {
+            self.baselineOnSize = currentSize
+        }
+        return
     }
     
     private func triggerChangeIfNeeded(active: Bool, name: String, colorName: String = "systemIndigoColor", symbol: String = "moon.fill", details: MediaKeyManager.ActiveFocusDetails? = nil, silentUpdate: Bool = false) {
@@ -385,7 +438,8 @@ class FocusObserver {
               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
               let dataArray = json["data"] as? [[String: Any]],
               let firstData = dataArray.first else {
-            return (false, "Focus", "systemIndigoColor", "moon.fill", nil)
+            let fallbackOffName = (self.lastModeName.isEmpty || self.lastModeName.lowercased() == "focus") ? "Do Not Disturb" : self.lastModeName
+            return (false, fallbackOffName, self.lastFocusColorName, self.lastFocusSymbol, nil)
         }
         
         if let assertions = firstData["storeAssertionRecords"] as? [[String: Any]], !assertions.isEmpty {
@@ -446,20 +500,33 @@ class FocusObserver {
                     }
                 }
                 
+                let lowerId = modeIdentifier.lowercased()
+                if lowerId.contains("reduce") || lowerId.contains("interrupt") || lowerId.contains("_gm") {
+                    return (true, "Reduce Interruptions", "reduceInterruptionsColor", "apple.intelligence", focusDetails)
+                }
+                
                 if let config = modeConfigsCache[modeIdentifier] {
-                    return (true, config.name, config.colorName, config.symbol, focusDetails)
+                    let cName = (config.name.lowercased() == "_gm" || config.name.lowercased().contains("reduce") || config.name.lowercased().contains("interrupt")) ? "Reduce Interruptions" : config.name
+                    let cSymbol = (config.symbol == "_gm" || cName == "Reduce Interruptions") ? "apple.intelligence" : config.symbol
+                    return (true, cName, config.colorName, cSymbol, focusDetails)
                 }
                 
                 // If not cached, reload cache once to see if user recently added this mode
                 loadModeConfigurations()
                 if let config = modeConfigsCache[modeIdentifier] {
-                    return (true, config.name, config.colorName, config.symbol, focusDetails)
+                    let cName = (config.name.lowercased() == "_gm" || config.name.lowercased().contains("reduce") || config.name.lowercased().contains("interrupt")) ? "Reduce Interruptions" : config.name
+                    let cSymbol = (config.symbol == "_gm" || cName == "Reduce Interruptions") ? "apple.intelligence" : config.symbol
+                    return (true, cName, config.colorName, cSymbol, focusDetails)
                 }
                 
-                return (true, "Focus", "systemIndigoColor", "moon.fill", focusDetails)
+                let fallbackName = (self.lastModeName.isEmpty || self.lastModeName.lowercased() == "focus") ? "Do Not Disturb" : self.lastModeName
+                let fallbackColor = self.getColorName(for: fallbackName)
+                let fallbackSymbol = self.getSymbol(for: fallbackName)
+                return (true, fallbackName, fallbackColor, fallbackSymbol, focusDetails)
             }
         }
         
-        return (false, "Focus", "systemIndigoColor", "moon.fill", nil)
+        let fallbackOffName = (self.lastModeName.isEmpty || self.lastModeName.lowercased() == "focus") ? "Do Not Disturb" : self.lastModeName
+        return (false, fallbackOffName, self.lastFocusColorName, self.lastFocusSymbol, nil)
     }
 }

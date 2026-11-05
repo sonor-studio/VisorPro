@@ -14,17 +14,19 @@ struct FocusOverlayView: View {
             return OverlayColorManager.shared.parseColor("White/Black")
         }
         switch name {
-        case "systemMintColor": return .mint
-        case "systemGreenColor": return .green
-        case "systemIndigoColor": return .indigo
-        case "systemTealColor": return .teal
-        case "systemPurpleColor": return .purple
-        case "systemBlueColor": return .blue
-        case "systemOrangeColor": return .orange
-        case "systemRedColor": return .red
-        case "systemYellowColor": return .yellow
-        case "systemPinkColor": return .pink
-        default: return Color(red: 0.45, green: 0.5, blue: 0.9) // Default Indigo-ish
+        case "appleIntelligenceColor", "reduceInterruptionsColor":
+            return Color(red: 203.0 / 255.0, green: 48.0 / 255.0, blue: 224.0 / 255.0) // Apple Intelligence neon magenta-purple (#CB30E0)
+        case "systemMintColor": return Color(red: 0.0, green: 0.78, blue: 0.74)
+        case "systemGreenColor": return Color(red: 0.20, green: 0.78, blue: 0.35)
+        case "systemIndigoColor": return Color(nsColor: .systemIndigo) // Apple Focus authentic Indigo / Violet
+        case "systemTealColor": return Color(red: 0.18, green: 0.67, blue: 0.82)
+        case "systemPurpleColor": return Color(red: 0.68, green: 0.32, blue: 0.87)
+        case "systemBlueColor": return Color(red: 0.04, green: 0.52, blue: 1.0)
+        case "systemOrangeColor": return Color(red: 1.0, green: 0.58, blue: 0.0)
+        case "systemRedColor": return Color(red: 1.0, green: 0.27, blue: 0.23)
+        case "systemYellowColor": return Color(red: 1.0, green: 0.80, blue: 0.0)
+        case "systemPinkColor": return Color(red: 1.0, green: 0.18, blue: 0.45)
+        default: return Color(nsColor: .systemIndigo)
         }
     }
     
@@ -51,7 +53,6 @@ struct FocusOverlayView: View {
         let iconColor: Color
         let active: Bool
         let modeName: String
-        let isDetailed = UserDefaults.standard.bool(forKey: "focusDetailMode")
         
         if isPreview {
             active = previewIsActive
@@ -62,7 +63,12 @@ struct FocusOverlayView: View {
             active = overlayState.isFocusModeActive
             modeName = overlayState.focusModeName
             iconName = overlayState.focusSymbol
-            iconColor = getColor(from: overlayState.focusColorName)
+            let rawColor = getColor(from: overlayState.focusColorName)
+            if modeName.lowercased().contains("reduce") || modeName.lowercased() == "_gm" || iconName == "apple.intelligence" {
+                iconColor = Color(red: 203.0 / 255.0, green: 48.0 / 255.0, blue: 224.0 / 255.0)
+            } else {
+                iconColor = rawColor
+            }
         }
         
         let displayTitle: String
@@ -70,17 +76,44 @@ struct FocusOverlayView: View {
         let displayColor: Color
         let isReminder = active && (isPreview ? false : overlayState.isFocusReminder)
         
+        let resolvedModeName: String = {
+            let raw = modeName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if raw.isEmpty || raw.lowercased() == "focus" {
+                if !overlayState.lastActiveFocusModeName.isEmpty && overlayState.lastActiveFocusModeName.lowercased() != "focus" && overlayState.lastActiveFocusModeName.lowercased() != "_gm" {
+                    return overlayState.lastActiveFocusModeName
+                }
+                return "Do Not Disturb"
+            }
+            if raw.lowercased() == "_gm" {
+                return "Reduce Interruptions"
+            }
+            return raw
+        }()
+        
+        let resolvedIcon: String = {
+            if iconName.isEmpty || iconName == "moon.zzz" || iconName == "_gm" {
+                if !overlayState.lastActiveFocusSymbol.isEmpty && overlayState.lastActiveFocusSymbol != "moon.zzz" && overlayState.lastActiveFocusSymbol != "_gm" {
+                    return overlayState.lastActiveFocusSymbol
+                }
+                if resolvedModeName.lowercased().contains("reduce") {
+                    return "apple.intelligence"
+                }
+                return "moon.fill"
+            }
+            return iconName
+        }()
+        
         if active {
             if isPreview {
                 displayTitle = "Focus On"
             } else {
                 displayTitle = overlayState.isFocusSwitched ? "Focus Switched" : (overlayState.isFocusReminder ? "Focus Reminder" : "Focus On")
             }
-            displayIcon = iconName
+            displayIcon = resolvedIcon
             displayColor = iconColor
         } else {
             displayTitle = "Focus Off"
-            displayIcon = "moon.zzz" 
+            displayIcon = resolvedIcon // Always show the focus mode's actual icon, matching native macOS
             displayColor = .offStateGray
         }
         
@@ -130,10 +163,11 @@ struct FocusOverlayView: View {
             onSimpleTap: {},
             isExpandable: isExpandable && focusAllowExpansion,
             keepAliveId: "focus",
-            minimalText: displayTitle,
+            fixedExpandedHeight: 50,
+            minimalText: isReminder ? "Focus Reminder" : "\(resolvedModeName) \(active ? "On" : "Off")",
             minimalIcon: displayIcon,
-            systemTitle: isReminder ? "Focus Reminder" : (modeName.isEmpty ? "Do Not Disturb" : modeName),
-            systemSubtitle: isReminder ? (modeName.isEmpty ? "Do Not Disturb" : modeName) : (active ? "On" : "Off"),
+            systemTitle: isReminder ? "Focus Reminder" : resolvedModeName,
+            systemSubtitle: isReminder ? resolvedModeName : (active ? "On" : "Off"),
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: displayIcon)
@@ -163,7 +197,7 @@ struct FocusOverlayView: View {
                                         .foregroundColor(.secondary)
                                 }
                             }
-                            MarqueeText(text: isDetailed ? modeName : "Focus", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                            MarqueeText(text: resolvedModeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                         } else if active && details != nil && !overlayState.isFocusReminder && !overlayState.isFocusSwitched {
                             if let endDate = details?.endDate, let timeStr = getEndDateString(date: endDate) {
                                 HStack(spacing: 4) {
@@ -178,7 +212,7 @@ struct FocusOverlayView: View {
                                         .foregroundColor(.secondary)
                                         .lineLimit(1)
                                 }
-                                MarqueeText(text: isDetailed ? modeName : "Focus", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                                MarqueeText(text: resolvedModeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             } else if details?.untilLocationLeft == true {
                                 HStack(spacing: 4) {
                                     Text(displayTitle)
@@ -192,18 +226,18 @@ struct FocusOverlayView: View {
                                         .foregroundColor(.secondary)
                                         .lineLimit(1)
                                 }
-                                MarqueeText(text: isDetailed ? modeName : "Focus", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                                MarqueeText(text: resolvedModeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             } else {
                                 Text(displayTitle)
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
                                     .foregroundColor(.secondary)
-                                MarqueeText(text: isDetailed ? modeName : "Focus", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                                MarqueeText(text: resolvedModeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             }
                         } else {
                             Text(displayTitle)
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
-                            MarqueeText(text: isDetailed ? modeName : "Focus", font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
+                            MarqueeText(text: resolvedModeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                         }
                     }
                     Spacer(minLength: 8)

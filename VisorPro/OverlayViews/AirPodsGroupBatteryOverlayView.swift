@@ -22,49 +22,64 @@ struct AirPodsGroupBatteryOverlayView: View {
     
     private var overlayColor: Color {
         if mediaKeyManager.overlayColorMode == "custom" {
-            let settings = mediaKeyManager.accessorySettings[overlayState.airpodsDeviceName] ?? AccessoryDeviceSettings()
-            return OverlayColorManager.shared.parseColor(settings.colorOnCaseOpen, defaultColor: .green)
+            let settings = mediaKeyManager.airPodsSettings(for: overlayState.airpodsDeviceName)
+            return OverlayColorManager.shared.parseColor(settings.colorOnCaseOpen, defaultColor: Color(nsColor: .systemGreen))
         } else if mediaKeyManager.overlayColorMode == "monochrome" {
             return .primary
         }
-        return .green
+        return Color(nsColor: .systemGreen)
     }
 
     var body: some View {
-        let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
+        let isSystemStyle = mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system"
+        let settings = mediaKeyManager.airPodsSettings(for: overlayState.airpodsDeviceName)
+        let isAutoHide = (settings.caseOpenBehavior != "persistent")
         
-        let airPodsTrio: (left: Int?, leftCharging: Bool, caseBat: Int?, caseCharging: Bool, right: Int?, rightCharging: Bool) = (
-            left: leftBattery,
-            leftCharging: leftCharging,
-            caseBat: caseBattery,
-            caseCharging: caseCharging,
-            right: rightBattery,
-            rightCharging: rightCharging
-        )
-        
-        return UniversalOverlayView(
-            isPreview: isPreview,
-            isExpanded: .constant(false),
-            showProgressBar: true,
-            progress: 1.0,
-            hasTimeoutProgress: false,
-            timeoutDuration: 6.0,
-            timeoutEventId: overlayState.airpodsGroupBatteryTimerId.uuidString,
-            barColor: overlayColor,
-            fillCenter: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 230 : 260,
-            customHeight: (MediaKeyManager.shared.overlayStyle == "system") ? 52 : 134,
-            customCornerRadius: 28,
-            supportDragGesture: false,
-            isExpandable: false,
-            expandUpwards: batPos.hasPrefix("bottom"),
-            keepAliveId: "airpodsGroupBattery",
-            disableTimeoutMode: true,
-            minimalText: isPreview ? "AirPods" : overlayState.airpodsDeviceName,
-            minimalIcon: "airpodspro",
-            systemTitle: isPreview ? "AirPods" : overlayState.airpodsDeviceName,
-            systemSubtitle: (leftCharging || rightCharging || caseCharging) ? "Charging" : "Connected",
-            systemRightAirPodsTrio: airPodsTrio,
+        if isSystemStyle && settings.caseOpenStyle == "iosCard" {
+            AirPodsIOSCardOverlayView(
+                isPreview: isPreview,
+                previewLeftBattery: previewLeftBattery,
+                previewLeftCharging: previewLeftCharging,
+                previewRightBattery: previewRightBattery,
+                previewRightCharging: previewRightCharging,
+                previewCaseBattery: previewCaseBattery,
+                previewCaseCharging: previewCaseCharging
+            )
+        } else {
+            let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
+            
+            let airPodsTrio: (left: Int?, leftCharging: Bool, caseBat: Int?, caseCharging: Bool, right: Int?, rightCharging: Bool) = (
+                left: leftBattery,
+                leftCharging: leftCharging,
+                caseBat: caseBattery,
+                caseCharging: caseCharging,
+                right: rightBattery,
+                rightCharging: rightCharging
+            )
+            
+            UniversalOverlayView(
+                isPreview: isPreview,
+                isExpanded: .constant(false),
+                showProgressBar: isAutoHide,
+                progress: 1.0,
+                hasTimeoutProgress: isAutoHide,
+                timeoutDuration: MediaKeyManager.notificationDuration,
+                timeoutEventId: overlayState.airpodsGroupBatteryTimerId.uuidString,
+                barColor: overlayColor,
+                fillCenter: false,
+                customWidth: 260,
+                customHeight: isSystemStyle ? 52 : 134,
+                customCornerRadius: 28,
+                supportDragGesture: false,
+                isExpandable: false,
+                expandUpwards: batPos.hasPrefix("bottom"),
+                keepAliveId: "airpodsGroupBattery",
+                disableTimeoutMode: !isAutoHide,
+                minimalText: isPreview ? "AirPods" : overlayState.airpodsDeviceName,
+                minimalIcon: "airpodspro",
+                systemTitle: isPreview ? "AirPods" : overlayState.airpodsDeviceName,
+                systemSubtitle: (leftCharging || rightCharging || caseCharging) ? "Charging" : "Connected",
+                systemRightAirPodsTrio: airPodsTrio,
             baseContent: {
                 VStack(spacing: 8) {
                     Text(overlayState.airpodsDeviceName)
@@ -84,7 +99,7 @@ struct AirPodsGroupBatteryOverlayView: View {
             },
             expandedContent: { EmptyView() }
         )
-        
+        }
     }
     
     @ViewBuilder

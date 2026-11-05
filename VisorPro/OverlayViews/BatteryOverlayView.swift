@@ -40,14 +40,7 @@ struct BatteryOverlayView: View {
         if mediaKeyManager.overlayColorMode == "preset_monochrome" {
             return OverlayColorManager.shared.parseColor("White/Black")
         }
-        // Don't force red for warning mode, rely on actual percentage
-        if actualPercentage <= 20 {
-            return .red
-        } else if actualPercentage <= 50 {
-            return .yellow
-        } else {
-            return .green
-        }
+        return Color.batteryLevelColor(for: actualPercentage)
     }
     
     private var iconName: String {

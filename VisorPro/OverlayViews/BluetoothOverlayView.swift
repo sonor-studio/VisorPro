@@ -308,7 +308,7 @@ struct BluetoothOverlayView: View {
             systemSubtitle: actualIsConnected ? "Connected" : "Disconnected",
             systemRightRingValue: (isAccessoryType && actualIsConnected) ? averageBattery : nil,
             systemRightRingProgress: (isAccessoryType && actualIsConnected && averageBattery != nil) ? Double(averageBattery!) / 100.0 : nil,
-            systemRightRingColor: (averageBattery ?? 100) <= 20 ? .red : ((averageBattery ?? 100) <= 50 ? .yellow : .green),
+            systemRightRingColor: averageBattery != nil ? Color.batteryLevelColor(for: averageBattery!) : Color.batteryLevelColor(for: 100),
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
                     Image(systemName: iconName)

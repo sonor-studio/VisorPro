@@ -248,6 +248,13 @@ struct PremiumSettingsView: View {
                                     customCornerRadius: 28,
                                     forceGlow: false,
                                     isExpandable: false,
+                                    minimalText: "Macintosh HD",
+                                    minimalIcon: "internaldrive.fill",
+                                    systemTitle: "Macintosh HD",
+                                    systemSubtitle: "142 GB free",
+                                    systemRightRingValue: 85,
+                                    systemRightRingProgress: 0.85,
+                                    systemRightRingColor: .purple,
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
                                             Image(systemName: "internaldrive.fill")
@@ -290,6 +297,13 @@ struct PremiumSettingsView: View {
                                     isExpandable: false,
                                     fixedExpandedHeight: 46,
                                     allowCloseButton: false,
+                                    minimalText: "AirPods Max",
+                                    minimalIcon: "airpodsmax",
+                                    systemTitle: "AirPods Max",
+                                    systemSubtitle: "Connected",
+                                    systemRightRingValue: 80,
+                                    systemRightRingProgress: 0.8,
+                                    systemRightRingColor: .indigo,
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
                                             Image(systemName: "airpodsmax")
@@ -347,6 +361,10 @@ struct PremiumSettingsView: View {
                                     customCornerRadius: 28,
                                     forceGlow: false,
                                     isExpandable: false,
+                                    minimalText: "Privacy",
+                                    minimalIcon: "video.fill",
+                                    systemTitle: "Camera & Mic",
+                                    systemSubtitle: "Active in FaceTime",
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 16) {
                                             Image(systemName: "video.fill").font(.system(size: 18, weight: .medium)).foregroundColor(.primary)
@@ -376,6 +394,10 @@ struct PremiumSettingsView: View {
                                     customCornerRadius: 28,
                                     forceGlow: false,
                                     isExpandable: false,
+                                    minimalText: "System",
+                                    minimalIcon: "cpu",
+                                    systemTitle: "Apple M-Series",
+                                    systemSubtitle: "45% Load • 8 GB RAM",
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
                                             Image(systemName: "cpu")
@@ -426,6 +448,10 @@ struct PremiumSettingsView: View {
                                     customCornerRadius: 28,
                                     forceGlow: false,
                                     isExpandable: false,
+                                    minimalText: "Wi-Fi",
+                                    minimalIcon: "wifi",
+                                    systemTitle: "Home Wi-Fi 5G",
+                                    systemSubtitle: "Connected • 350 Mbps",
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
                                             Image(systemName: "wifi")
@@ -468,6 +494,10 @@ struct PremiumSettingsView: View {
                                     customCornerRadius: 28,
                                     forceGlow: false,
                                     isExpandable: false,
+                                    minimalText: "Display",
+                                    minimalIcon: "display",
+                                    systemTitle: "LG Ultra HD 4K",
+                                    systemSubtitle: "Extended Display",
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
                                             Image(systemName: "display")
@@ -510,6 +540,11 @@ struct PremiumSettingsView: View {
                                     customCornerRadius: 28,
                                     forceGlow: false,
                                     isExpandable: false,
+                                    minimalText: "Trash",
+                                    minimalIcon: "trash.fill",
+                                    systemTitle: "Trash",
+                                    systemSubtitle: "12.5 GB",
+                                    systemRightButtonIcon: "trash.slash",
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
                                             Image(systemName: "trash.fill")
@@ -561,6 +596,10 @@ struct PremiumSettingsView: View {
                                     customCornerRadius: 28,
                                     forceGlow: false,
                                     isExpandable: false,
+                                    minimalText: "Focus",
+                                    minimalIcon: "moon.fill",
+                                    systemTitle: "Do Not Disturb",
+                                    systemSubtitle: "On",
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
                                             Image(systemName: "moon.fill")
@@ -589,31 +628,82 @@ struct PremiumSettingsView: View {
                                 RoundedRectangle(cornerRadius: 12).fill(Color.pink.opacity(0.05))
                                 
                                 VStack(spacing: -18) {
-                                    UniversalOverlayView(isPreview: true, isExpanded: .constant(false), showProgressBar: true, progress: 1.0, barColor: .pink, customWidth: 140, customHeight: 40, customCornerRadius: 20, forceGlow: false, isExpandable: false, baseContent: {
-                                        HStack(spacing: 10) {
-                                            Image(systemName: "bell.fill").foregroundColor(.primary).font(.system(size: 18, weight: .medium))
-                                            RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 45, height: 5)
-                                            Spacer()
-                                        }.padding(.horizontal, 16)
-                                    }, expandedContent: { EmptyView() })
+                                    UniversalOverlayView(
+                                        isPreview: true,
+                                        isExpanded: .constant(false),
+                                        showProgressBar: true,
+                                        progress: 1.0,
+                                        barColor: .pink,
+                                        customWidth: 140,
+                                        customHeight: 40,
+                                        customCornerRadius: 20,
+                                        forceGlow: false,
+                                        isExpandable: false,
+                                        minimalText: "Notification",
+                                        minimalIcon: "bell.fill",
+                                        systemTitle: "Notification",
+                                        systemSubtitle: "VisorPro",
+                                        baseContent: {
+                                            HStack(spacing: 10) {
+                                                Image(systemName: "bell.fill").foregroundColor(.primary).font(.system(size: 18, weight: .medium))
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 45, height: 5)
+                                                Spacer()
+                                            }.padding(.horizontal, 16)
+                                        },
+                                        expandedContent: { EmptyView() }
+                                    )
                                     .scaleEffect(0.85).opacity(0.5).zIndex(1)
                                     
-                                    UniversalOverlayView(isPreview: true, isExpanded: .constant(false), showProgressBar: true, progress: 1.0, barColor: .teal, customWidth: 140, customHeight: 40, customCornerRadius: 20, forceGlow: false, isExpandable: false, baseContent: {
-                                        HStack(spacing: 10) {
-                                            Image(systemName: "message.fill").foregroundColor(.primary).font(.system(size: 18, weight: .medium))
-                                            RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 55, height: 5)
-                                            Spacer()
-                                        }.padding(.horizontal, 16)
-                                    }, expandedContent: { EmptyView() })
+                                    UniversalOverlayView(
+                                        isPreview: true,
+                                        isExpanded: .constant(false),
+                                        showProgressBar: true,
+                                        progress: 1.0,
+                                        barColor: .teal,
+                                        customWidth: 140,
+                                        customHeight: 40,
+                                        customCornerRadius: 20,
+                                        forceGlow: false,
+                                        isExpandable: false,
+                                        minimalText: "Messages",
+                                        minimalIcon: "message.fill",
+                                        systemTitle: "Messages",
+                                        systemSubtitle: "New Message",
+                                        baseContent: {
+                                            HStack(spacing: 10) {
+                                                Image(systemName: "message.fill").foregroundColor(.primary).font(.system(size: 18, weight: .medium))
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 55, height: 5)
+                                                Spacer()
+                                            }.padding(.horizontal, 16)
+                                        },
+                                        expandedContent: { EmptyView() }
+                                    )
                                     .scaleEffect(0.95).opacity(0.8).zIndex(2)
                                     
-                                    UniversalOverlayView(isPreview: true, isExpanded: .constant(false), showProgressBar: true, progress: 1.0, barColor: .indigo, customWidth: 140, customHeight: 40, customCornerRadius: 20, forceGlow: false, isExpandable: false, baseContent: {
-                                        HStack(spacing: 10) {
-                                            Image(systemName: "square.3.layers.3d").foregroundColor(.primary).font(.system(size: 18, weight: .medium))
-                                            RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 40, height: 5)
-                                            Spacer()
-                                        }.padding(.horizontal, 16)
-                                    }, expandedContent: { EmptyView() })
+                                    UniversalOverlayView(
+                                        isPreview: true,
+                                        isExpanded: .constant(false),
+                                        showProgressBar: true,
+                                        progress: 1.0,
+                                        barColor: .indigo,
+                                        customWidth: 140,
+                                        customHeight: 40,
+                                        customCornerRadius: 20,
+                                        forceGlow: false,
+                                        isExpandable: false,
+                                        minimalText: "Overlays",
+                                        minimalIcon: "square.3.layers.3d",
+                                        systemTitle: "Multi-Stack",
+                                        systemSubtitle: "3 Overlays Active",
+                                        baseContent: {
+                                            HStack(spacing: 10) {
+                                                Image(systemName: "square.3.layers.3d").foregroundColor(.primary).font(.system(size: 18, weight: .medium))
+                                                RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 40, height: 5)
+                                                Spacer()
+                                            }.padding(.horizontal, 16)
+                                        },
+                                        expandedContent: { EmptyView() }
+                                    )
                                     .zIndex(3)
                                 }
                                 .offset(y: 4)
@@ -657,6 +747,10 @@ struct PremiumSettingsView: View {
                                     forceGlow: true,
                                     customGlowOpacity: 0.15,
                                     isExpandable: false,
+                                    minimalText: "Brightness",
+                                    minimalIcon: "sun.max.fill",
+                                    systemTitle: "Brightness",
+                                    systemSubtitle: "50%",
                                     baseContent: {
                                         HStack(alignment: .center, spacing: 14) {
                                             Image(systemName: "sun.max.fill")
@@ -844,20 +938,26 @@ struct FeatureBadge: View {
 
 
 struct WidgetPreviewCard<Preview: View>: View {
+    @EnvironmentObject var mediaKeyManager: MediaKeyManager
     let title: String
     let description: String
     let preview: Preview
     
 
     var body: some View {
+        let isClassic = mediaKeyManager.effectiveOverlayStyle == "classic"
+        let cardPreviewHeight: CGFloat = isClassic ? 160 : 140
+        let scale: CGFloat = isClassic ? 0.65 : 1.0
+
         VStack(alignment: .leading, spacing: 12) {
             // Preview Area
             ZStack {
                 Color(NSColor.controlBackgroundColor).opacity(0.4)
                 
                 preview
+                    .scaleEffect(scale)
             }
-            .frame(height: 140)
+            .frame(height: cardPreviewHeight)
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)

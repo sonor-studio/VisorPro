@@ -135,6 +135,8 @@ struct AccessoryDeviceSettings: Codable, Equatable {
     var soundOnAirPodsOff: String = "None"
     var notifyOnCaseOpen: Bool = true
     var soundOnCaseOpen: String = "None"
+    var caseOpenBehavior: String = "autoHide" // "autoHide" or "persistent"
+    var caseOpenStyle: String = "glass"       // "glass" or "iosCard"
     
     var colorOnConnect: String = "Default"
     var colorOnDisconnect: String = "Default"
@@ -183,6 +185,10 @@ struct AccessoryDeviceSettings: Codable, Equatable {
         colorOnDisconnect = try container.decodeIfPresent(String.self, forKey: .colorOnDisconnect) ?? "Default"
         notifyOnSmartRouting = try container.decodeIfPresent(Bool.self, forKey: .notifyOnSmartRouting) ?? true
         colorOnSmartRouting = try container.decodeIfPresent(String.self, forKey: .colorOnSmartRouting) ?? "Default"
+        notifyOnCaseOpen = try container.decodeIfPresent(Bool.self, forKey: .notifyOnCaseOpen) ?? true
+        soundOnCaseOpen = try container.decodeIfPresent(String.self, forKey: .soundOnCaseOpen) ?? "None"
+        caseOpenBehavior = try container.decodeIfPresent(String.self, forKey: .caseOpenBehavior) ?? "autoHide"
+        caseOpenStyle = try container.decodeIfPresent(String.self, forKey: .caseOpenStyle) ?? "glass"
         colorOnCaseOpen = try container.decodeIfPresent(String.self, forKey: .colorOnCaseOpen) ?? "Default"
         colorOn100Percent = try container.decodeIfPresent(String.self, forKey: .colorOn100Percent) ?? "Default"
         colorOnAirPodsANC = try container.decodeIfPresent(String.self, forKey: .colorOnAirPodsANC) ?? "Default"
@@ -394,6 +400,12 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("glowIntensity") var glowIntensity: Double = 1.0
     @AppStorage("cornerRoundingMultiplier") var cornerRoundingMultiplier: Double = 0.85
     @AppStorage("overlayStyle") var overlayStyle: String = "default"
+    
+    /// Returns the effective runtime style accounting for macOS version capabilities.
+    /// On macOS < 26.0, "system" resolves to "classic" since .glassEffect() requires macOS 26+.
+    var effectiveOverlayStyle: String {
+        OverlayStyle.effectiveStyle(for: overlayStyle)
+    }
     var globalHoveredTypes: Set<String> {
         get { OverlayStateRelay.shared.globalHoveredTypes }
         set { OverlayStateRelay.shared.globalHoveredTypes = newValue }
@@ -1307,7 +1319,7 @@ class MediaKeyManager: ObservableObject {
     }
     private var mediaTimer: Timer?
     private var mediaHideTimer: Timer?
-    private var mediaObserver: MediaObserver?
+    var mediaObserver: MediaObserver?
     
     // Theme
     @Published var enableTheme: Bool = UserDefaults.standard.object(forKey: "enableTheme") as? Bool ?? false {
@@ -1589,6 +1601,7 @@ class MediaKeyManager: ObservableObject {
     var lastSmartRoutingActionTime: Date = Date.distantPast
     private var eventMonitor: Any?
     var lastMicEventTime: Date = Date.distantPast
+    var lastFocusTriggerTime: Date = Date.distantPast
     
     var showCameraIndicator: Bool {
         get { OverlayStateRelay.shared.showCameraIndicator }
@@ -1726,6 +1739,27 @@ class MediaKeyManager: ObservableObject {
             details.removeValue(forKey: name)
             self.bluetoothDetails = details
         }
+    }
+
+    func airPodsSettings(for deviceName: String? = nil) -> AccessoryDeviceSettings {
+        let name = deviceName ?? OverlayStateRelay.shared.airpodsDeviceName
+        if !name.isEmpty, let exact = accessorySettings[name] {
+            return exact
+        }
+        if !name.isEmpty, let match = accessorySettings.first(where: { $0.key.compare(name, options: .caseInsensitive) == .orderedSame }) {
+            return match.value
+        }
+        if !name.isEmpty, let match = accessorySettings.first(where: { 
+            let k = $0.key.lowercased()
+            let n = name.lowercased()
+            return (k.contains(n) || n.contains(k)) && (k.contains("airpod") || k.contains("beats") || n.contains("airpod") || n.contains("beats"))
+        }) {
+            return match.value
+        }
+        if let match = accessorySettings.first(where: { $0.key.lowercased().contains("airpod") }) {
+            return match.value
+        }
+        return AccessoryDeviceSettings()
     }
 
     
@@ -2061,7 +2095,10 @@ class MediaKeyManager: ObservableObject {
             else if overlayId == "fileDeleted" { showFileDeletedIndicator = false }
 
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
-            else if overlayId.hasPrefix("airpodsGroupBattery") { showAirpodsGroupBatteryIndicator = false }
+            else if overlayId.hasPrefix("airpodsGroupBattery") { 
+                showAirpodsGroupBatteryIndicator = false
+                AirPodsBatteryManager.shared.stopValidationTimer()
+            }
             else if overlayId == "smartRouting" { OverlayStateRelay.shared.showSmartRoutingIndicator = false }
             else if overlayId == "survey" {
                 OverlayStateRelay.shared.showSurveyIndicator = false
@@ -2101,7 +2138,10 @@ class MediaKeyManager: ObservableObject {
         else if overlayId.hasPrefix("trash") { showTrashIndicator = false }
         else if overlayId == "fileDeleted" { showFileDeletedIndicator = false }
         else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
-        else if overlayId.hasPrefix("airpodsGroupBattery") { showAirpodsGroupBatteryIndicator = false }
+        else if overlayId.hasPrefix("airpodsGroupBattery") { 
+            showAirpodsGroupBatteryIndicator = false
+            AirPodsBatteryManager.shared.stopValidationTimer()
+        }
         else if overlayId == "smartRouting" { OverlayStateRelay.shared.showSmartRoutingIndicator = false }
         notifyOverlayStateChanged()
     }
@@ -2521,13 +2561,6 @@ class MediaKeyManager: ObservableObject {
             if mediaAction == "end" && !notifyMediaEnd { finalTrigger = false }
         }
         
-        if finalTrigger {
-            if let frontmostId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier, !frontmostId.isEmpty, frontmostId == bundleId {
-                finalTrigger = false
-            } else if isAnyAppInFullScreen() {
-                finalTrigger = false
-            }
-        }
         
         if finalTrigger {
             if mediaAction == "start" { playNotificationSound(named: soundMediaStart) }
@@ -2646,7 +2679,12 @@ class MediaKeyManager: ObservableObject {
         
         var defaultDelay: TimeInterval = MediaKeyManager.notificationDuration
         if type == "airpodsGroupBattery" {
-            defaultDelay = 4.0
+            let settings = airPodsSettings(for: OverlayStateRelay.shared.airpodsDeviceName)
+            if settings.caseOpenBehavior == "persistent" {
+                // In persistent mode, keep open while case lid is open; do not auto-hide on hover exit
+                return
+            }
+            defaultDelay = MediaKeyManager.notificationDuration
         } else if type == "survey" {
             defaultDelay = 15.0
         }
@@ -2655,7 +2693,7 @@ class MediaKeyManager: ObservableObject {
         cancelOverlayHide(for: type)
         
         // 2. If finished hovering, schedule auto-hide after defaultDelay
-        if !isHovering && type != "airpodsGroupBattery" && type != "survey" {
+        if !isHovering && type != "survey" {
             scheduleOverlayHide(for: type, delay: defaultDelay)
         } else if !isHovering && type == "survey" {
             // Use 3s in thank-you mode, 15s for the full question overlay
@@ -2676,49 +2714,7 @@ class MediaKeyManager: ObservableObject {
         }
     }
     
-    private var cachedFullScreenResult: Bool = false
-    private var cachedFullScreenTime: Date = .distantPast
-    
-    private func isAnyAppInFullScreen() -> Bool {
-        // Return cached result if fresh (within 2 seconds)
-        let now = Date()
-        if now.timeIntervalSince(cachedFullScreenTime) < 2.0 {
-            return cachedFullScreenResult
-        }
-        
-        guard let windowInfoList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
-            cachedFullScreenResult = false
-            cachedFullScreenTime = now
-            return false
-        }
-        
-        let screens = VisorProWindowManager.shared.cachedScreens
-        for info in windowInfoList {
-            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
-            guard let boundsDict = info[kCGWindowBounds as String] as? [String: CGFloat],
-                  let x = boundsDict["X"], let y = boundsDict["Y"],
-                  let w = boundsDict["Width"], let h = boundsDict["Height"] else { continue }
-            
-            let windowRect = NSRect(x: x, y: y, width: w, height: h)
-            
-            for screen in screens {
-                let screenFrame = screen.frame
-                if windowRect.size.width >= screenFrame.width && windowRect.size.height >= screenFrame.height {
-                    if let ownerName = info[kCGWindowOwnerName as String] as? String {
-                        if ownerName == "Dock" || ownerName == "Finder" || ownerName == "Window Server" {
-                            continue
-                        }
-                        cachedFullScreenResult = true
-                        cachedFullScreenTime = now
-                        return true
-                    }
-                }
-            }
-        }
-        cachedFullScreenResult = false
-        cachedFullScreenTime = now
-        return false
-    }
+
     var initialPercentageWhenPluggedIn: Int? = nil
     var hasChargedSincePluggedIn: Bool = false
     
@@ -3175,19 +3171,15 @@ class MediaKeyManager: ObservableObject {
                     }
                 }
                 
+                // --- Passthrough: Media keys (Play, Next, Previous) ---
+                // Allow macOS to natively dispatch media keys to Google Chrome, Safari, VLC, QuickTime, Spotify, Music
                 if keyCode == NX_KEYTYPE_PLAY || keyCode == NX_KEYTYPE_NEXT || keyCode == NX_KEYTYPE_PREVIOUS {
-                    if !isKeyDown {
-                        DispatchQueue.main.async {
-                            if keyCode == NX_KEYTYPE_PLAY {
-                                manager.simulatePlayPause()
-                            } else if keyCode == NX_KEYTYPE_NEXT {
-                                manager.simulateNext()
-                            } else if keyCode == NX_KEYTYPE_PREVIOUS {
-                                manager.simulatePrevious()
-                            }
+                    if isKeyDown && manager.enableMediaNotification {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak manager] in
+                            manager?.mediaObserver?.fetchCurrentState(triggerNotification: true)
                         }
                     }
-                    return nil
+                    return Unmanaged.passRetained(event)
                 }
                 
                 if keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE || keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN {

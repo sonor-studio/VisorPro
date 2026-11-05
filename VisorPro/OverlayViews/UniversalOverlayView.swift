@@ -268,7 +268,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     var body: some View {
-        if mediaKeyManager.overlayStyle == "system" {
+        let activeStyle = mediaKeyManager.effectiveOverlayStyle
+        if activeStyle == "system" {
             let defaultTitle: String? = {
                 if let st = systemTitle { return st }
                 if let min = minimalText {
@@ -296,11 +297,11 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             let hasTrailingItem = (systemRightButtonIcon != nil && (systemOnRightButtonTap != nil || onRightTap != nil)) || (systemRightRingValue != nil) || (systemRightAppBundleId != nil)
             let resolvedWidth: CGFloat = {
                 if systemRightAirPodsTrio != nil {
-                    return max(customWidth, 230)
+                    return max(customWidth, 260)
                 } else if hasTrailingItem {
                     return max(customWidth, 200)
                 } else {
-                    return min(customWidth, 220)
+                    return customWidth
                 }
             }()
             let resolvedHeight: CGFloat = hasTrailingItem ? 52 : min(customHeight, 52)
@@ -331,7 +332,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 onLeftTap: onLeftTap
             )
             .id("system_overlay")
-        } else if mediaKeyManager.overlayStyle == "capsule" {
+        } else if activeStyle == "capsule" {
             let isLarge = (customHeight > 60 || customWidth > 260)
             
             UniversalCapsuleOverlayView(
@@ -371,6 +372,55 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 }
             )
             .id("capsule_overlay")
+        } else if activeStyle == "classic" {
+            let defaultTitle: String? = {
+                if let st = systemTitle { return st }
+                if let min = minimalText {
+                    if min.hasPrefix("Caps") { return "Caps Lock" }
+                    if min.contains("Muted") { return "Microphone" }
+                    if min.hasSuffix("%") { return "Volume" }
+                    return min
+                }
+                return nil
+            }()
+            let defaultSubtitle: String? = {
+                if let ss = systemSubtitle { return ss }
+                if let min = minimalText {
+                    if min == "Caps ON" { return "On" }
+                    if min == "Caps OFF" { return "Off" }
+                    if min.hasSuffix("%") { return min }
+                    if min == "Muted" { return "Muted" }
+                }
+                if isMuted { return "Muted" }
+                if isTimeoutMode { return nil }
+                if showProgressBar { return "\(Int(progress * 100))%" }
+                return nil
+            }()
+            
+            UniversalClassicOverlayView(
+                isPreview: isPreview,
+                icon: minimalIcon,
+                title: defaultTitle,
+                subtitle: defaultSubtitle,
+                progress: progress,
+                showProgressBar: showProgressBar,
+                isTimeoutMode: isTimeoutMode,
+                barColor: barColor,
+                isMuted: isMuted,
+                customWidth: customWidth,
+                customHeight: customHeight,
+                customCornerRadius: customCornerRadius,
+                allowCloseButton: allowCloseButton,
+                keepAliveId: keepAliveId,
+                supportDragGesture: supportDragGesture,
+                onDrag: onDrag,
+                onLeftTap: onLeftTap,
+                onSimpleTap: onSimpleTap,
+                baseContent: {
+                    AnyView(baseContent())
+                }
+            )
+            .id("classic_overlay")
         } else {
             defaultCapsuleBody
                 .id("default_overlay")
@@ -540,7 +590,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .background(
                         Group {
-                            if fixedExpandedHeight == nil {
+                            if fixedExpandedHeight == nil && isExpanded {
                                 GeometryReader { proxy in
                                     Color.clear.preference(key: ExpandedHeightPreferenceKey.self, value: proxy.size.height)
                                 }
@@ -555,6 +605,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .animation(enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25), value: expandedHeight)
                     .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
+                        guard isExpanded else { return }
                         DispatchQueue.main.async {
                             if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 2.0 {
                                 if isExpanded && expandedHeight > 0 {
