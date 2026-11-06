@@ -202,6 +202,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var barColor: Color = .blue
     var fillCenter: Bool = true
     var isMuted: Bool = false
+    var isWarningMode: Bool = false
     
     var customWidth: CGFloat = 260
     var customHeight: CGFloat = 56
@@ -226,6 +227,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     var minimalIcon: String? = nil
     var systemTitle: String? = nil
     var systemSubtitle: String? = nil
+    var systemTertiaryText: String? = nil
     var systemRightButtonIcon: String? = nil
     var systemRightButtonColor: Color? = nil
     var systemOnRightButtonTap: (() -> Void)? = nil
@@ -311,6 +313,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 icon: minimalIcon,
                 title: defaultTitle,
                 subtitle: defaultSubtitle,
+                tertiaryText: systemTertiaryText,
                 progress: progress,
                 showProgressBar: showProgressBar,
                 isTimeoutMode: isTimeoutMode,
@@ -402,11 +405,13 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 icon: minimalIcon,
                 title: defaultTitle,
                 subtitle: defaultSubtitle,
+                tertiaryText: systemTertiaryText,
                 progress: progress,
                 showProgressBar: showProgressBar,
                 isTimeoutMode: isTimeoutMode,
                 barColor: barColor,
                 isMuted: isMuted,
+                isWarning: isWarningMode,
                 customWidth: customWidth,
                 customHeight: customHeight,
                 customCornerRadius: customCornerRadius,
@@ -889,31 +894,36 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         }
         .overlay(alignment: .topLeading) {
             if enableCloseButton && allowCloseButton {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.secondary)
-                    .frame(width: 20, height: 20)
-                    .background(
-                        Circle()
-                            .fill(colorScheme == .dark ? Color(white: 0.3) : Color(white: 0.96))
-                    )
-                    .overlay(
-                        Circle()
-                            .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.05) : Color.white.opacity(0.9), style: StrokeStyle(lineWidth: 1, lineCap: .round, lineJoin: .round))
-                    )
-                    .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
-                    .contentShape(Circle())
-                    .onTapGesture {
-                        if isPreview {
-                            NotificationCenter.default.post(name: NSNotification.Name("PreviewDismissTriggered"), object: nil)
-                        } else if let id = keepAliveId {
-                            mediaKeyManager.forceHide(overlayId: id)
-                        }
+                Button {
+                    if isPreview {
+                        NotificationCenter.default.post(name: NSNotification.Name("PreviewDismissTriggered"), object: nil)
+                    } else if let id = keepAliveId {
+                        mediaKeyManager.forceHide(overlayId: id)
                     }
-                    .conditionalPointingHandCursor(isEnabled: !isPreview)
-                    .offset(x: buttonCenter.x - 10, y: dynamicOffset)
-                    .opacity(shouldShowCloseButton ? 1 : 0)
-                    .animation(shouldShowCloseButton ? .spring(response: 0.3, dampingFraction: 0.7) : .easeOut(duration: 0.2), value: shouldShowCloseButton)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 20, height: 20)
+                        .background(
+                            Circle()
+                                .fill(colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
+                        )
+                        .background(
+                            Circle()
+                                .fill(.ultraThinMaterial)
+                        )
+                        .overlay(
+                            Circle()
+                                .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.12) : Color.white.opacity(0.8), lineWidth: 1)
+                        )
+                        .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
+                }
+                .buttonStyle(.plain)
+                .conditionalPointingHandCursor(isEnabled: !isPreview)
+                .offset(x: buttonCenter.x - 10, y: dynamicOffset)
+                .opacity(shouldShowCloseButton ? 1 : 0)
+                .animation(shouldShowCloseButton ? .spring(response: 0.3, dampingFraction: 0.7) : .easeOut(duration: 0.2), value: shouldShowCloseButton)
             }
         }
         .frame(width: width, alignment: .center)

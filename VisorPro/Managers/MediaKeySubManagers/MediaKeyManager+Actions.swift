@@ -23,38 +23,16 @@ extension MediaKeyManager {
         KeyboardBrightnessManager.shared.setBrightness(to: level) { _ in }
     }
 
-    private func postSystemMediaKey(_ keyCode: Int32) {
-        func postKey(down: Bool) {
-            let flags = down ? NSEvent.ModifierFlags(rawValue: 0xa00) : NSEvent.ModifierFlags(rawValue: 0xb00)
-            let data1 = Int((keyCode << 16) | ((down ? 0xa : 0xb) << 8))
-            if let event = NSEvent.otherEvent(
-                with: .systemDefined,
-                location: .zero,
-                modifierFlags: flags,
-                timestamp: 0,
-                windowNumber: 0,
-                context: nil,
-                subtype: 8,
-                data1: data1,
-                data2: -1
-            ) {
-                event.cgEvent?.post(tap: .cghidEventTap)
-            }
-        }
-        postKey(down: true)
-        postKey(down: false)
-    }
-
     func simulatePlayPause() {
-        postSystemMediaKey(16) // NX_KEYTYPE_PLAY
+        sendMediaRemoteCommand(2) // togglePlayPause
     }
 
     func simulateNext() {
-        postSystemMediaKey(17) // NX_KEYTYPE_NEXT
+        sendMediaRemoteCommand(4) // nextTrack
     }
 
     func simulatePrevious() {
-        postSystemMediaKey(18) // NX_KEYTYPE_PREVIOUS
+        sendMediaRemoteCommand(5) // previousTrack
     }
 
     func setAirPodsMode(_ mode: Int) {

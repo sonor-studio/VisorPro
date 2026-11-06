@@ -56,10 +56,6 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         rebuildMenu()
     }
     
-    func menuWillOpen(_ menu: NSMenu) {
-        rebuildMenu()
-    }
-    
     private func rebuildMenu() {
         menu.removeAllItems()
         

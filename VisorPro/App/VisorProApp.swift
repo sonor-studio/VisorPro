@@ -40,12 +40,10 @@ struct VisorProApp: App {
     @AppStorage("showTrashModule") private var showTrashModule = true
     
     var body: some Scene {
-        let _ = { appDelegate.openSettingsAction = { openWindow(id: "dashboard") } }()
+        let _ = { appDelegate.openSettingsAction = { appDelegate.openDashboard(force: true) } }()
         
-        Window("VisorPro", id: "dashboard") {
-            RootView()
-                .environmentObject(MediaKeyManager.shared)
-                .environmentObject(OverlayStateRelay.settingsProxy)
+        Settings {
+            EmptyView()
         }
     }
 }
@@ -56,7 +54,6 @@ struct RootView: View {
     @AppStorage("_forceDashboard") private var forceDashboardFlag = false
     @State private var isTrusted = checkAXIsProcessTrustedReliably()
     @State private var dashboardForced = false
-    @Environment(\.dismissWindow) private var dismissWindow
     
     var showWelcome: Bool {
         if !trustedAtLaunchGlobal { return true }
@@ -74,14 +71,7 @@ struct RootView: View {
             }
         }
         .onAppear {
-            let wasForced = forceDashboardFlag || dashboardForced
             consumeForceDashboardFlag()
-            
-            if !wasForced && hasCompletedWelcome && isTrusted {
-                DispatchQueue.main.async {
-                    dismissWindow(id: "dashboard")
-                }
-            }
         }
         .onChange(of: forceDashboardFlag) { _, newValue in
             if newValue {
@@ -123,48 +113,15 @@ struct RootView: View {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var openSettingsAction: (() -> Void)?
+    var customDashboardWindow: NSWindow?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
 
         
-        let configuration = TelemetryManagerConfiguration(appID: "F983579F-8CAB-4235-B6FE-B6CE1CE3119A")
-        TelemetryDeck.initialize(config: configuration)
-        let defaults = UserDefaults.standard
-        
-        let isPremium = !(defaults.string(forKey: "PremiumLicenseKey") ?? "").isEmpty ? "true" : "false"
-        let displayTarget = defaults.string(forKey: "overlayDisplayTarget") ?? "all"
-        let overlayPosition = defaults.string(forKey: "globalOverlayPosition") ?? "top"
-        let overlayTheme = defaults.string(forKey: "overlayTheme") ?? "system"
-        let launchAtLogin = defaults.bool(forKey: "launchAtLogin") ? "true" : "false"
-        
-        let enableInnerGlow = defaults.bool(forKey: "enableGlowEffect") ? "true" : "false"
-        let cornerRoundingMultiplier = defaults.object(forKey: "cornerRoundingMultiplier") as? Double ?? 0.85
-        let notificationDuration = defaults.object(forKey: "notificationDuration") as? Double ?? 3.0
-        let maxSimultaneousNotifications = defaults.object(forKey: "maxSimultaneousNotifications") as? Int ?? 5
-        let overlayColorMode = defaults.string(forKey: "overlayColorMode") ?? "preset_default"
-        
-        let enableFocus = defaults.object(forKey: "enableFocus") as? Bool ?? true
-        let focusDetailMode = defaults.bool(forKey: "focusDetailMode")
-        let focusModeStyle = enableFocus ? (focusDetailMode ? "detailed" : "standard") : "disabled"
-        
-        TelemetryDeck.signal("appLaunched", parameters: [
-            "is_premium": isPremium,
-            "display_target": displayTarget,
-            "overlay_position": overlayPosition,
-            "overlay_theme": overlayTheme,
-            "launch_at_login": launchAtLogin,
-            "enable_inner_glow": enableInnerGlow,
-            "rounding_radius": String(format: "%.2f", cornerRoundingMultiplier),
-            "display_duration": String(format: "%.1f", notificationDuration),
-            "overlay_limit": String(maxSimultaneousNotifications),
-            "overlay_color_mode": overlayColorMode,
-            "focus_enabled": enableFocus ? "true" : "false",
-            "focus_detailed_mode": enableFocus ? (focusDetailMode ? "true" : "false") : "disabled",
-            "focus_mode_style": focusModeStyle
-        ])
+        TelemetryHelper.setup()
         
         
         let mainMenu = NSMenu()
@@ -253,32 +210,75 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if let existing = NSApp.windows.first(where: { ($0.isVisible || $0.isMiniaturized) && $0.styleMask.contains(.titled) }) {
-            if existing.isMiniaturized {
-                existing.deminiaturize(nil)
-            }
-        }
         return self.handleReopen(forceDashboard: true)
     }
     
     func handleReopen(forceDashboard: Bool) -> Bool {
-        if forceDashboard {
-            UserDefaults.standard.set(true, forKey: "_forceDashboard")
-        }
-        
-        NSApp.activate(ignoringOtherApps: true)
-        openSettingsAction?()
-        
+        openDashboard(force: forceDashboard)
         return true
     }
     
     @objc func showSettingsWindowAction() {
-        openDashboard()
+        openDashboard(force: true)
     }
     
-    // Helper to call from SwiftUI
-    func openDashboard() {
-        let _ = handleReopen(forceDashboard: true)
+    // Helper to call from SwiftUI and menus
+    func openDashboard(force: Bool = true) {
+        if force {
+            UserDefaults.standard.set(true, forKey: "_forceDashboard")
+        }
+        
+        if NSApp.activationPolicy() != .regular {
+            NSApp.setActivationPolicy(.regular)
+        }
+        
+        if let existing = customDashboardWindow {
+            if existing.isMiniaturized {
+                existing.deminiaturize(nil)
+            }
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        
+        let initialWidth: CGFloat = 850
+        let initialHeight: CGFloat = 620
+        
+        let settingsWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: initialWidth, height: initialHeight),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        settingsWindow.title = "VisorPro"
+        settingsWindow.titlebarAppearsTransparent = true
+        settingsWindow.isOpaque = false
+        settingsWindow.backgroundColor = .clear
+        settingsWindow.minSize = NSSize(width: initialWidth, height: initialHeight)
+        
+        let rootView = RootView()
+            .environmentObject(MediaKeyManager.shared)
+            .environmentObject(OverlayStateRelay.settingsProxy)
+        
+        settingsWindow.contentView = NSHostingView(rootView: rootView)
+        settingsWindow.setFrameAutosaveName("VisorProDashboardWindow_v8")
+        if !settingsWindow.setFrameUsingName("VisorProDashboardWindow_v8") {
+            settingsWindow.center()
+        }
+        settingsWindow.isReleasedWhenClosed = false
+        settingsWindow.delegate = self
+        self.customDashboardWindow = settingsWindow
+        
+        settingsWindow.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    func windowWillClose(_ notification: Notification) {
+        if let closingWindow = notification.object as? NSWindow, closingWindow == customDashboardWindow {
+            if NSApp.activationPolicy() != .accessory {
+                NSApp.setActivationPolicy(.accessory)
+            }
+        }
     }
 }
 

@@ -34,7 +34,7 @@ struct SettingsView: View {
     }
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @State private var selection: SidebarItem? = .general
+    @State private var selection: SidebarItem = .general
     @State private var window: NSWindow?
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
@@ -281,11 +281,6 @@ struct SettingsView: View {
                     TrashSettingsView()
                 case .accessory(let name):
                     AccessorySettingsView(deviceName: name)
-                    
-                case .none:
-                    Text("Select an item")
-                        .font(.title)
-                        .foregroundColor(.secondary)
                 }
             }
             .frame(minWidth: 400, maxWidth: .infinity, maxHeight: .infinity)
@@ -329,12 +324,9 @@ struct SettingsView: View {
                     w.center()
                 }
                 
-                if selection == .none {
-                    selection = .general
+                if NSApp.activationPolicy() != .regular {
+                    NSApp.setActivationPolicy(.regular)
                 }
-                
-                NSApp.setActivationPolicy(.regular)
-                
                 NSApp.activate(ignoringOtherApps: true)
                 w.makeKeyAndOrderFront(nil)
                 w.level = .normal
@@ -342,22 +334,19 @@ struct SettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             if let openedWindow = notification.object as? NSWindow, openedWindow == window {
-                if selection == .none {
-                    selection = .general
-                }
-                
                 if NSApp.activationPolicy() != .regular {
                     NSApp.setActivationPolicy(.regular)
-                    NSApp.activate(ignoringOtherApps: true)
-                    window?.level = .normal
                 }
+                NSApp.activate(ignoringOtherApps: true)
+                window?.level = .normal
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notification in
             if let closedWindow = notification.object as? NSWindow, closedWindow == window {
-                NSApp.setActivationPolicy(.accessory)
-                
-                selection = .none
+                if NSApp.activationPolicy() != .accessory {
+                    NSApp.setActivationPolicy(.accessory)
+                }
+                selection = .general
                 WallpaperHelper.clearCache()
             }
         }

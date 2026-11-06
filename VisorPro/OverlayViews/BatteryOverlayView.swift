@@ -66,10 +66,11 @@ struct BatteryOverlayView: View {
     var body: some View {
         let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
         let isFullyCharged = actualPercentage == 100 || (overlayState.isEffectivelyFullyCharged && !isPreview)
+        let systemTitle: String = isWarningMode ? "Battery Alert" : "Battery"
         let systemSub: String = {
-            if isWarningMode { return "Low Battery" }
+            if isWarningMode { return "\(actualPercentage)% Remaining" }
             if isFullyCharged { return "Fully Charged" }
-            return actualIsPluggedIn ? "Charging" : "Unplugged"
+            return actualIsPluggedIn ? "\(actualPercentage)% • Charging" : "\(actualPercentage)% • Unplugged"
         }()
         
         return UniversalOverlayView(
@@ -80,6 +81,7 @@ struct BatteryOverlayView: View {
             barColor: batteryColor,
             fillCenter: batteryFillCenter,
             isMuted: !actualIsPluggedIn && !isWarningMode,
+            isWarningMode: isWarningMode,
             customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 200 : 260,
             customHeight: isFullyCharged ? 56 : 72,
             supportDragGesture: false,
@@ -89,7 +91,7 @@ struct BatteryOverlayView: View {
             disableTimeoutMode: true,
             minimalText: isFullyCharged ? "100%" : "\(actualPercentage)%",
             minimalIcon: iconName,
-            systemTitle: "Battery",
+            systemTitle: systemTitle,
             systemSubtitle: systemSub,
             systemRightRingValue: actualPercentage,
             systemRightRingProgress: Double(actualPercentage) / 100.0,
@@ -109,17 +111,20 @@ struct BatteryOverlayView: View {
                             if hasFinishedChargeAnimation {
                                 MarqueeText(text: actualPercentage == 100 ? "You can unplug now" : "Charge limit \(overlayState.chargeLimit)%", font: .system(size: 13, weight: .bold, design: .rounded), foregroundColor: .primary)
                             } else {
-                                AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: true)
+                                Text("100% charged")
+                                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                                    .foregroundColor(.primary)
                             }
                         } else {
                             Text(isWarningMode ? "Battery Alert" : (actualIsPluggedIn ? "Charging" : "Unplugged"))
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
-                            AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)
-                            MarqueeText(text: mockedTimeRemaining(for: actualPercentage), font: .system(size: 11, weight: .medium, design: .rounded), foregroundColor: .secondary)
+                            MarqueeText(text: mockedTimeRemaining(for: actualPercentage), font: .system(size: 13, weight: .bold, design: .rounded), foregroundColor: .primary)
                         }
                     }
                     Spacer(minLength: 8)
+                    
+                    AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: actualIsPluggedIn, customText: "%d%")
                 }
                 .padding(.leading, 23)
                 .padding(.trailing, 23)

@@ -4,7 +4,7 @@ import SwiftUI
 
 extension MediaKeyManager {
     
-    func triggerClipboardIndicator(text: String, action: String = "copy", app: String = "", folder: String? = nil, size: String = "") {
+    func triggerClipboardIndicator(text: String, action: String = "copy", app: String = "", folder: String? = nil, size: String = "", isMasked: Bool = false) {
         if !enableClipboard { return }
         
         let premiumKey = UserDefaults.standard.string(forKey: "PremiumLicenseKey") ?? ""
@@ -36,14 +36,19 @@ extension MediaKeyManager {
             self.clipboardSourceApp = app
             self.clipboardSourceFolder = folder
             self.clipboardMetadataSize = size
+            self.isClipboardMasked = isMasked
             self.clipboardEventId = UUID()
             
             if self.clipboardEnableHistory {
                 // Add element to history (if it differs from the previous one)
-                if !trimmedText.isEmpty && self.clipboardHistory.first?.text != trimmedText {
-                    let newItem = ClipboardItem(text: trimmedText, app: app, folder: folder, size: size, timestamp: Date())
-                    self.clipboardHistory.insert(newItem, at: 0)
-                    self.cleanupClipboardHistory()
+                if !trimmedText.isEmpty {
+                    if self.clipboardHistory.first?.text != trimmedText {
+                        let newItem = ClipboardItem(text: trimmedText, app: app, folder: folder, size: size, timestamp: Date(), isMasked: isMasked)
+                        self.clipboardHistory.insert(newItem, at: 0)
+                        self.cleanupClipboardHistory()
+                    } else if !self.clipboardHistory.isEmpty {
+                        self.clipboardHistory[0].isMasked = isMasked
+                    }
                 }
             }
             
@@ -93,11 +98,62 @@ extension MediaKeyManager {
         return nil
     }
 
-    func processClipboardData(for action: String) -> (text: String, app: String, folder: String?, size: String) {
+    internal func isURLOrDomain(_ string: String) -> Bool {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        
+        let lower = trimmed.lowercased()
+        if lower.hasPrefix("http://") || 
+           lower.hasPrefix("https://") || 
+           lower.hasPrefix("ftp://") || 
+           lower.hasPrefix("file://") || 
+           lower.hasPrefix("www.") {
+            return true
+        }
+        
+        // Cannot be a URL/domain if it contains whitespace, newlines, or '@' (emails handled separately)
+        if lower.contains(" ") || lower.contains("\n") || lower.contains("\r") || lower.contains("\t") || lower.contains("@") {
+            return false
+        }
+        
+        // Extract host portion (before '/', '?', '#', ':')
+        let hostPort = lower.components(separatedBy: CharacterSet(charactersIn: "/?#")).first ?? lower
+        let host = hostPort.components(separatedBy: ":").first ?? hostPort
+        
+        if host == "localhost" {
+            return true
+        }
+        
+        let parts = host.split(separator: ".")
+        // Check IPv4 address format (e.g. 192.168.1.1)
+        if parts.count == 4 && parts.allSatisfy({ if let n = Int($0), n >= 0 && n <= 255 { return true }; return false }) {
+            return true
+        }
+        
+        // Check Domain / Hostname format (e.g. auth.services.adobe.com or apple.com)
+        if parts.count >= 2 {
+            guard let tld = parts.last else { return false }
+            // Valid TLDs consist solely of letters and are 2 to 24 characters long
+            if tld.count >= 2 && tld.count <= 24 && tld.allSatisfy({ $0.isLetter }) {
+                let validLabels = parts.allSatisfy { label in
+                    guard !label.isEmpty, !label.hasPrefix("-"), !label.hasSuffix("-") else { return false }
+                    return label.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" }
+                }
+                if validLabels {
+                    return true
+                }
+            }
+        }
+        
+        return false
+    }
+
+    func processClipboardData(for action: String) -> (text: String, app: String, folder: String?, size: String, isMasked: Bool) {
         let board = NSPasteboard.general
         var text = "File / Image"
         var sizeStr = ""
         var folder: String? = nil
+        var isMasked = false
         
         let types = board.types ?? []
         let hasFileURL = types.contains(.fileURL) || types.contains(NSPasteboard.PasteboardType("public.file-url")) || types.contains(NSPasteboard.PasteboardType("NSFilenamesPboardType"))
@@ -146,11 +202,102 @@ extension MediaKeyManager {
         } else if let copiedText = board.string(forType: .string) {
             text = copiedText
             sizeStr = "\(copiedText.count)"
+            
+            let showPasswordToggle = UserDefaults.standard.object(forKey: "clipboardShowPasswordToggle") as? Bool ?? true
+            if showPasswordToggle && !copiedText.isEmpty {
+                let lower = copiedText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // Exclude URLs and domain names (e.g. auth.services.adobe.com, https://...) from password masking
+                let isURL = self.isURLOrDomain(copiedText)
+                
+                // Exclude valid email addresses from password masking
+                let isEmail: Bool = {
+                    if lower.contains(" ") || lower.contains("\n") || lower.contains("\r") || !lower.contains("@") {
+                        return false
+                    }
+                    let parts = lower.split(separator: "@")
+                    if parts.count == 2 {
+                        let domain = parts[1]
+                        if domain.contains(".") && !domain.hasPrefix(".") && !domain.hasSuffix(".") {
+                            let tld = domain.split(separator: ".").last ?? ""
+                            return tld.count >= 2 && tld.allSatisfy { $0.isLetter }
+                        }
+                    }
+                    return false
+                }()
+                
+                // Exclude long notes or multiline text (passwords do not contain linebreaks or long sentences with spaces)
+                let isMultilineOrNote = copiedText.contains("\n") || copiedText.contains("\r") || (copiedText.contains(" ") && copiedText.count > 30)
+                
+                if !isURL && !isEmail && !isMultilineOrNote {
+                    let sensitivePasteboardTypes: Set<String> = [
+                        "org.nspasteboard.ConcealedType",
+                        "com.agilebits.onepassword",
+                        "com.apple.is-sensitive",
+                        "org.nspasteboard.AutoGeneratedType",
+                        "de.petermaurer.TransientPasteboardType",
+                        "ConcealedType",
+                        "com.apple.security.pboard.concealed"
+                    ]
+                    let hasConcealedMarker = types.contains { sensitivePasteboardTypes.contains($0.rawValue) }
+                    
+                    let frontAppBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier?.lowercased() ?? ""
+                    let frontAppName = (NSWorkspace.shared.frontmostApplication?.localizedName ?? "").lowercased()
+                    
+                    let isPasswordManagerApp = frontAppBundleId.contains("passwords") ||
+                                               frontAppBundleId.contains("keychain") ||
+                                               frontAppBundleId.contains("1password") ||
+                                               frontAppBundleId.contains("bitwarden") ||
+                                               frontAppBundleId.contains("keepass") ||
+                                               frontAppBundleId.contains("dashlane") ||
+                                               frontAppBundleId.contains("enpass") ||
+                                               frontAppBundleId.contains("proton.pass") ||
+                                               frontAppBundleId.contains("protonmail.pass") ||
+                                               frontAppBundleId.contains("lastpass") ||
+                                               frontAppBundleId.contains("nordpass") ||
+                                               frontAppBundleId.contains("keeper") ||
+                                               frontAppBundleId.contains("roboform") ||
+                                               frontAppBundleId.contains("strongbox") ||
+                                               frontAppName == "passwords" ||
+                                               frontAppName == "hasła" ||
+                                               frontAppName == "passwörter" ||
+                                               frontAppName == "mots de passe" ||
+                                               frontAppName == "keychain access" ||
+                                               frontAppName == "dostęp do pęku kluczy" ||
+                                               frontAppName.contains("1password") ||
+                                               frontAppName.contains("bitwarden") ||
+                                               frontAppName.contains("keepass") ||
+                                               frontAppName.contains("dashlane") ||
+                                               frontAppName.contains("enpass") ||
+                                               frontAppName.contains("proton pass") ||
+                                               frontAppName.contains("lastpass") ||
+                                               frontAppName.contains("nordpass")
+                    
+                    let hasSpecialPasswordSymbol = copiedText.contains { "!@#$%^&*()+=[]{}|;:'\",?`~\\".contains($0) }
+                    let hasUppercase = copiedText.contains { $0.isUppercase }
+                    let hasLowercase = copiedText.contains { $0.isLowercase }
+                    let hasDigit = copiedText.contains { $0.isNumber }
+                    let hasLetter = hasUppercase || hasLowercase
+                    
+                    let isTOTP = copiedText.count >= 6 && copiedText.count <= 8 && copiedText.allSatisfy { $0.isNumber }
+                    let isComplexPassword = copiedText.count >= 6 && (hasSpecialPasswordSymbol || (hasUppercase && hasLowercase && hasDigit) || (hasLetter && hasDigit))
+                    
+                    if hasConcealedMarker {
+                        isMasked = true
+                    } else if isPasswordManagerApp {
+                        if isTOTP || isComplexPassword {
+                            isMasked = true
+                        }
+                    } else if copiedText.count >= 8 && hasSpecialPasswordSymbol && hasDigit && hasLetter {
+                        isMasked = true
+                    }
+                }
+            }
         } else {
             sizeStr = "Unknown"
         }
         
-        return (text: text, app: frontApp, folder: folder, size: sizeStr)
+        return (text: text, app: frontApp, folder: folder, size: sizeStr, isMasked: isMasked)
     }
     
     internal func startHardwareKeyPolling() {
@@ -187,7 +334,7 @@ extension MediaKeyManager {
                 self.lastPasteTrigger = Date()
                 DispatchQueue.main.async {
                     let data = self.processClipboardData(for: "paste")
-                    self.triggerClipboardIndicator(text: data.text, action: "paste", app: data.app, folder: data.folder, size: data.size)
+                    self.triggerClipboardIndicator(text: data.text, action: "paste", app: data.app, folder: data.folder, size: data.size, isMasked: data.isMasked)
                 }
             }
         }

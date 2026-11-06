@@ -84,7 +84,7 @@ struct FocusSettingsView: View {
                                                 showFDAAlert = true
                                             } else {
                                                 focusDetailMode = newValue
-                                                TelemetryDeck.signal("FocusDetailModeToggled", parameters: [
+                                                TelemetryHelper.signal("FocusDetailModeToggled", parameters: [
                                                     "enabled": newValue ? "true" : "false",
                                                     "focus_enabled": mediaKeyManager.enableFocus ? "true" : "false"
                                                 ])

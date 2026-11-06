@@ -110,27 +110,34 @@ struct AccessoryBatteryOverlayView: View {
     
     private var resolvedSystemSubtitle: String {
         let isLowBattery = percentage <= 20
-        if isPluggedIn {
-            return componentLabel != nil ? "\(componentLabel!) • Charging" : "Charging"
-        }
-        if isLowBattery {
-            return componentLabel != nil ? "\(componentLabel!) • Low Battery" : "Low Battery"
+        if isWarning || isLowBattery {
+            if let label = componentLabel {
+                return "\(label) • \(percentage)% Remaining"
+            }
+            return "\(percentage)% Remaining"
         }
         if isFullyCharged {
             return componentLabel != nil ? "\(componentLabel!) • Fully Charged" : "Fully Charged"
         }
-        if let label = componentLabel {
-            if label == "Case" { return "Charging Case" }
-            if label == "Left & Right" { return "Both Earbuds" }
-            return "\(label) Earbud"
+        if isPluggedIn {
+            if let label = componentLabel {
+                return "\(label) • \(percentage)% • Charging"
+            }
+            return "\(percentage)% • Charging"
         }
         if overlayState.accessoryIsConnectionEvent && !isPreview {
-            return overlayState.accessoryConnectionIsConnected ? "Connected" : "Disconnected"
+            let conn = overlayState.accessoryConnectionIsConnected ? "Connected" : "Disconnected"
+            if let label = componentLabel {
+                return "\(label) • \(percentage)% • \(conn)"
+            }
+            return "\(percentage)% • \(conn)"
         }
-        if isWarning {
-            return "Battery Alert"
+        if let label = componentLabel {
+            if label == "Case" { return "Charging Case • \(percentage)%" }
+            if label == "Left & Right" { return "Both Earbuds • \(percentage)%" }
+            return "\(label) Earbud • \(percentage)%"
         }
-        return "Connected"
+        return "\(percentage)% • Connected"
     }
     
     var body: some View {

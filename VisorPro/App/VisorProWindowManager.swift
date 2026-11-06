@@ -560,7 +560,7 @@ class VisorProWindowManager: ObservableObject {
         let active = allActiveOverlays
         
         for overlay in active {
-            if let triggerTime = self.overlayTimestamps[overlay.id] {
+            if !TelemetryHelper.isDevelopmentEnvironment, let triggerTime = self.overlayTimestamps[overlay.id] {
                 if self.reportedTelemetryTimestamps[overlay.id] != triggerTime {
                     self.reportedTelemetryTimestamps[overlay.id] = triggerTime
                     if let cleanCategoryName = getCategoryForTelemetry(type: overlay.type) {
@@ -570,7 +570,7 @@ class VisorProWindowManager: ObservableObject {
                             params["focus_detailed_mode"] = isDetailed ? "true" : "false"
                             params["focus_mode_style"] = isDetailed ? "detailed" : "standard"
                         }
-                        TelemetryDeck.signal("OverlayDisplayed", parameters: params)
+                        TelemetryHelper.signal("OverlayDisplayed", parameters: params)
                     }
                 }
             }
@@ -741,8 +741,10 @@ class VisorProWindowManager: ObservableObject {
                 }
                 
                 let isSlider = (overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness)
+                let isSystemStyle = currentStyle == "system"
+                let isClassicStyle = currentStyle == "classic"
                 let theme = MediaKeyManager.shared.overlayTheme
-                if isSlider {
+                if isSystemStyle && isSlider {
                     panel.appearance = NSAppearance(named: .vibrantDark)
                 } else if theme == "light" {
                     panel.appearance = NSAppearance(named: .vibrantLight)
@@ -751,9 +753,6 @@ class VisorProWindowManager: ObservableObject {
                 } else {
                     panel.appearance = nil
                 }
-                
-                let isSystemStyle = currentStyle == "system"
-                let isClassicStyle = currentStyle == "classic"
                 
                 let isAirPodsIOSCard: Bool = {
                     guard overlay.type == .airpodsGroupBattery else { return false }
@@ -870,7 +869,6 @@ class VisorProWindowManager: ObservableObject {
                         panel.setFrame(NSRect(origin: startOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
                         panel.makeKey()
-                        BackgroundLuminanceDetector.shared.detectLuminance(behind: panel)
                         
                         DispatchQueue.main.async {
                             NSAnimationContext.runAnimationGroup({ ctx in
@@ -889,7 +887,6 @@ class VisorProWindowManager: ObservableObject {
                         panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
                         panel.makeKey()
-                        BackgroundLuminanceDetector.shared.detectLuminance(behind: panel)
                         
                         DispatchQueue.main.async {
                             NSAnimationContext.runAnimationGroup({ ctx in
@@ -1010,8 +1007,9 @@ class VisorProWindowManager: ObservableObject {
         panel.hasShadow = false
         
         let isSlider = (overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness)
+        let isSystemStyle = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
         let theme = MediaKeyManager.shared.overlayTheme
-        if isSlider || theme == "dark" {
+        if (isSystemStyle && isSlider) || theme == "dark" {
             panel.appearance = NSAppearance(named: .darkAqua)
         } else if theme == "light" {
             panel.appearance = NSAppearance(named: .aqua)
@@ -1570,10 +1568,11 @@ struct SingleOverlayContainer: View {
         let anchor: UnitPoint = isTop ? .top : (isBottom ? .bottom : .center)
         
         let isSlider = (overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness)
+        let isSystemStyle = (mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system")
         
         ZStack(alignment: isTop ? .top : (isBottom ? .bottom : .center)) {
             overlayView(for: overlay)
-                .applyTheme(isSlider ? "dark" : mediaKeyManager.overlayTheme)
+                .applyTheme((isSystemStyle && isSlider) ? "dark" : mediaKeyManager.overlayTheme)
                 .swipeToDismiss(overlayId: overlay.id, isTopPosition: isTop)
                 .threeFingerClickToDismiss(overlayId: overlay.id)
                 .activeMaterialAppearanceIfAvailable()

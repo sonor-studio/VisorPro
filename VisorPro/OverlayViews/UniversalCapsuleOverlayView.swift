@@ -342,7 +342,6 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
     }
     
     private var effectiveIsDark: Bool {
-        if isSliderMode { return true }
         if mediaKeyManager.overlayTheme == "dark" { return true }
         if mediaKeyManager.overlayTheme == "light" { return false }
         return colorScheme == .dark

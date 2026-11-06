@@ -68,6 +68,7 @@ struct UniversalSystemOverlayView: View {
     var icon: String? = nil
     var title: String? = nil
     var subtitle: String? = nil
+    var tertiaryText: String? = nil
     var progress: Double = 0.0
     var showProgressBar: Bool = false
     var isTimeoutMode: Bool = false
@@ -398,8 +399,17 @@ struct UniversalSystemOverlayView: View {
                                 }
                                 .padding(.top, 1)
                             } else if let subtitle = subtitle, !subtitle.isEmpty {
+                                let displaySubtitle = (tertiaryText != nil && !tertiaryText!.isEmpty) ? "\(tertiaryText!) • \(subtitle)" : subtitle
                                 MarqueeText(
-                                    text: subtitle,
+                                    text: displaySubtitle,
+                                    font: .system(size: 11.5, weight: .regular, design: .default),
+                                    foregroundColor: secondaryColor,
+                                    alignment: .center
+                                )
+                                .lineLimit(1)
+                            } else if let tertiaryText = tertiaryText, !tertiaryText.isEmpty {
+                                MarqueeText(
+                                    text: tertiaryText,
                                     font: .system(size: 11.5, weight: .regular, design: .default),
                                     foregroundColor: secondaryColor,
                                     alignment: .center

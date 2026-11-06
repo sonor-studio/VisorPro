@@ -119,6 +119,7 @@ class OverlayStateRelay: ObservableObject {
     @Published var clipboardSourceApp: String = ""
     @Published var clipboardSourceFolder: String? = nil
     @Published var clipboardMetadataSize: String = ""
+    @Published var isClipboardMasked: Bool = false
     
     // MARK: - Caps Lock runtime
     
@@ -379,115 +380,4 @@ class SystemMetricsRelay: ObservableObject {
     @Published var usedRamGB: Double = 0.0
     @Published var ramUsageHistory: [Double] = []
     @Published var ramTopProcesses: [(name: String, ramGB: Double, icon: NSImage?)] = []
-}
-
-// MARK: - Background Luminance Detector
-/// Asynchronously samples pixels beneath the overlay window using CoreGraphics
-/// and computes the perceived relative luminance (ITU-R BT.709).
-/// Dispatches adapted backing opacities to OverlayStateRelay without blocking the main UI thread.
-final class BackgroundLuminanceDetector: @unchecked Sendable {
-    static let shared = BackgroundLuminanceDetector()
-    
-    private let detectionQueue = DispatchQueue(label: "com.visorpro.luminanceDetection", qos: .userInitiated)
-    private var lastDetectionTimestamp: TimeInterval = 0
-    private let minimumInterval: TimeInterval = 0.20 // Throttle to max 5 queries/sec to respect CPU budget
-    
-    private init() {}
-    
-    /// Samples the screen area immediately behind the specified window and updates `OverlayStateRelay`.
-    func detectLuminance(behind window: NSWindow) {
-        let now = CACurrentMediaTime()
-        guard now - lastDetectionTimestamp >= minimumInterval else { return }
-        lastDetectionTimestamp = now
-        
-        let windowNumber = window.windowNumber
-        let frame = window.frame
-        
-        detectionQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.performDetection(frame: frame, windowNumber: windowNumber)
-        }
-    }
-    
-    /// Core detection logic running on the background queue.
-    private func performDetection(frame: NSRect, windowNumber: Int) {
-        // AppKit screen coordinates (bottom-left origin) to Quartz (top-left origin)
-        guard let primaryScreen = NSScreen.screens.first else { return }
-        let primaryHeight = primaryScreen.frame.height
-        
-        let safeY = max(0, min(primaryHeight - frame.size.height, primaryHeight - frame.origin.y - frame.size.height))
-        let cgRect = CGRect(
-            x: max(0, frame.origin.x),
-            y: safeY,
-            width: max(frame.size.width, 10),
-            height: max(frame.size.height, 10)
-        )
-        
-        // WindowServer screen capture behind the HUD
-        if let image = CGWindowListCreateImage(
-            cgRect,
-            .optionOnScreenBelowWindow,
-            CGWindowID(windowNumber),
-            .nominalResolution
-        ) {
-            // Draw image into a 1x1 bitmap to average the entire sampled region in hardware
-            var pixel = [UInt8](repeating: 0, count: 4)
-            let colorSpace = CGColorSpaceCreateDeviceRGB()
-            let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
-            
-            if let context = CGContext(
-                data: &pixel,
-                width: 1,
-                height: 1,
-                bitsPerComponent: 8,
-                bytesPerRow: 4,
-                space: colorSpace,
-                bitmapInfo: bitmapInfo
-            ) {
-                context.interpolationQuality = .medium
-                context.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
-                
-                // If the capture returned valid data with sufficient alpha
-                if pixel[3] > 10 {
-                    let r = Double(pixel[0]) / 255.0
-                    let g = Double(pixel[1]) / 255.0
-                    let b = Double(pixel[2]) / 255.0
-                    
-                    // ITU-R BT.709 perceived luminance
-                    let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-                    
-                    let maxC = max(r, max(g, b))
-                    let minC = min(r, min(g, b))
-                    let saturation = maxC > 0 ? (maxC - minC) / maxC : 0.0
-                    
-                    Task { @MainActor in
-                        OverlayStateRelay.shared.updateLuminance(luminance, saturation: saturation)
-                    }
-                    return
-                }
-            }
-        }
-        
-        // Fallback: If screen capture is restricted or unavailable, use cached desktop wallpaper
-        Task { @MainActor in
-            if let img = WallpaperHelper.cachedWallpaper {
-                let stats = WallpaperHelper.calculateLuminanceAndSaturation(from: img)
-                OverlayStateRelay.shared.updateLuminance(stats.luminance, saturation: stats.saturation)
-            } else if let color = WallpaperHelper.cachedColor?.usingColorSpace(.deviceRGB) {
-                let r = Double(color.redComponent)
-                let g = Double(color.greenComponent)
-                let b = Double(color.blueComponent)
-                let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-                let maxC = max(r, max(g, b))
-                let minC = min(r, min(g, b))
-                let saturation = maxC > 0 ? (maxC - minC) / maxC : 0.0
-                OverlayStateRelay.shared.updateLuminance(luminance, saturation: saturation)
-            } else if let screen = NSScreen.screens.first, let url = NSWorkspace.shared.desktopImageURL(for: screen),
-                      let img = NSImage(contentsOf: url) {
-                WallpaperHelper.cachedWallpaper = img
-                let stats = WallpaperHelper.calculateLuminanceAndSaturation(from: img)
-                OverlayStateRelay.shared.updateLuminance(stats.luminance, saturation: stats.saturation)
-            }
-        }
-    }
 }

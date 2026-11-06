@@ -3,17 +3,8 @@ import Foundation
 
 class MediaObserver {
     private weak var manager: MediaKeyManager?
-    
-    // Function pointers dynamically loaded from MediaRemote.framework
-    private typealias MRGetInfoFunc = @convention(c) (DispatchQueue, @escaping @convention(block) (NSDictionary?) -> Void) -> Void
-    private typealias MRIsPlayingFunc = @convention(c) (DispatchQueue, @escaping @convention(block) (Bool) -> Void) -> Void
-    private typealias MRGetClientFunc = @convention(c) (DispatchQueue, @escaping @convention(block) (AnyObject?) -> Void) -> Void
-    private typealias MRRegisterFunc = @convention(c) (DispatchQueue) -> Void
-    
-    private var getInfoFunc: MRGetInfoFunc?
-    private var isPlayingFunc: MRIsPlayingFunc?
-    private var getClientFunc: MRGetClientFunc?
-    private var registerFunc: MRRegisterFunc?
+    private var helperProcess: Process?
+    private var outputPipe: Pipe?
     
     // State
     private var lastTitle = ""
@@ -26,345 +17,141 @@ class MediaObserver {
     
     init(manager: MediaKeyManager) {
         self.manager = manager
-        setupMediaRemote()
-    }
-    
-    private func setupMediaRemote() {
-        let bundleURL = NSURL(fileURLWithPath: "/System/Library/PrivateFrameworks/MediaRemote.framework")
-        guard let bundle = CFBundleCreate(kCFAllocatorDefault, bundleURL) else { return }
-        
-        if let infoPtr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingInfo" as CFString) {
-            getInfoFunc = unsafeBitCast(infoPtr, to: MRGetInfoFunc.self)
-        }
-        if let isPlayingPtr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingApplicationIsPlaying" as CFString) {
-            isPlayingFunc = unsafeBitCast(isPlayingPtr, to: MRIsPlayingFunc.self)
-        }
-        if let registerPtr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteRegisterForNowPlayingNotifications" as CFString) {
-            registerFunc = unsafeBitCast(registerPtr, to: MRRegisterFunc.self)
-        }
-        if let clientPtr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingClient" as CFString) {
-            getClientFunc = unsafeBitCast(clientPtr, to: MRGetClientFunc.self)
-        }
     }
     
     func startObserving() {
-        // 1. MediaRemote notifications (if permitted by system)
-        if let register = registerFunc {
-            register(DispatchQueue.main)
-            NotificationCenter.default.addObserver(self, selector: #selector(mediaRemoteStateChanged), name: NSNotification.Name("kMRMediaRemoteNowPlayingInfoDidChangeNotification"), object: nil)
-            NotificationCenter.default.addObserver(self, selector: #selector(mediaRemoteStateChanged), name: NSNotification.Name("kMRMediaRemoteNowPlayingApplicationIsPlayingDidChangeNotification"), object: nil)
-            NotificationCenter.default.addObserver(self, selector: #selector(mediaRemoteStateChanged), name: NSNotification.Name("kMRMediaRemoteNowPlayingApplicationPlaybackStateDidChangeNotification"), object: nil)
-        }
-        
-        // 2. Distributed Notifications for Apple Music & Spotify (public, reliable, zero private entitlements)
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(handleAppleMusicNotification(_:)),
-            name: NSNotification.Name("com.apple.Music.playerInfo"),
-            object: nil
-        )
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(handleSpotifyNotification(_:)),
-            name: NSNotification.Name("com.spotify.client.PlaybackStateChanged"),
-            object: nil
-        )
-        
-        // 3. Frontmost app activation notification to keep media app context fresh
-        NSWorkspace.shared.notificationCenter.addObserver(
-            self,
-            selector: #selector(appDidActivate(_:)),
-            name: NSWorkspace.didActivateApplicationNotification,
-            object: nil
-        )
-        
-        fetchCurrentState()
+        startHelperScript()
     }
     
-    @objc private func mediaRemoteStateChanged() {
-        fetchCurrentState()
-    }
-    
-    @objc private func appDidActivate(_ notification: Notification) {
-        // When user switches to a browser or player, update state if appropriate
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.inspectFrontmostOrRunningMediaApp(triggerNotification: false)
-        }
-    }
-    
-    @objc private func handleAppleMusicNotification(_ notification: Notification) {
-        guard let userInfo = notification.userInfo else { return }
-        let state = userInfo["Player State"] as? String ?? ""
-        let isPlaying = (state.lowercased() == "playing")
-        let title = userInfo["Name"] as? String ?? ""
-        let artist = userInfo["Artist"] as? String ?? ""
-        let album = userInfo["Album"] as? String ?? ""
-        let durationMs = (userInfo["Total Time"] as? NSNumber)?.doubleValue ?? 0.0
-        let duration = durationMs > 0 ? durationMs / 1000.0 : 0.0
-        let elapsed = (userInfo["Player Position"] as? NSNumber)?.doubleValue ?? 0.0
-        
-        processMediaState(
-            title: title,
-            artistRaw: artist,
-            album: album,
-            duration: duration,
-            elapsedTime: elapsed,
-            isPlaying: isPlaying,
-            appName: "Music",
-            bundleId: "com.apple.Music",
-            triggerNotification: true
-        )
-    }
-    
-    @objc private func handleSpotifyNotification(_ notification: Notification) {
-        guard let userInfo = notification.userInfo else { return }
-        let state = userInfo["Player State"] as? String ?? ""
-        let isPlaying = (state.lowercased() == "playing")
-        let title = userInfo["Name"] as? String ?? ""
-        let artist = userInfo["Artist"] as? String ?? ""
-        let album = userInfo["Album"] as? String ?? ""
-        let durationVal = (userInfo["Duration"] as? NSNumber)?.doubleValue ?? 0.0
-        let duration = durationVal > 1000 ? durationVal / 1000.0 : durationVal
-        let elapsed = (userInfo["Playback Position"] as? NSNumber)?.doubleValue ?? 0.0
-        
-        processMediaState(
-            title: title,
-            artistRaw: artist,
-            album: album,
-            duration: duration,
-            elapsedTime: elapsed,
-            isPlaying: isPlaying,
-            appName: "Spotify",
-            bundleId: "com.spotify.client",
-            triggerNotification: true
-        )
-    }
-    
-    func fetchCurrentState(triggerNotification: Bool = false) {
-        guard let getClient = getClientFunc,
-              let getIsPlaying = isPlayingFunc,
-              let getInfo = getInfoFunc else {
-            inspectFrontmostOrRunningMediaApp(triggerNotification: triggerNotification)
-            return
-        }
-        
-        var completed = false
-        let timeoutWork = DispatchWorkItem { [weak self] in
-            guard let self = self, !completed else { return }
-            completed = true
-            self.inspectFrontmostOrRunningMediaApp(triggerNotification: triggerNotification)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: timeoutWork)
-        
-        getClient(DispatchQueue.main) { [weak self] client in
-            guard let self = self, !completed else { return }
-            let clientObj = client as? NSObject
-            let appName = (clientObj?.value(forKey: "displayName") as? String) ?? ""
-            let bundleId = (clientObj?.value(forKey: "parentApplicationBundleIdentifier") as? String) ?? (clientObj?.value(forKey: "bundleIdentifier") as? String) ?? ""
-            
-            getIsPlaying(DispatchQueue.main) { [weak self] isPlaying in
-                guard let self = self, !completed else { return }
-                getInfo(DispatchQueue.main) { [weak self] info in
-                    guard let self = self, !completed else { return }
-                    completed = true
-                    timeoutWork.cancel()
-                    
-                    let infoDict = (info as? [String: Any]) ?? [:]
-                    let title = infoDict["kMRMediaRemoteNowPlayingInfoTitle"] as? String ?? ""
-                    let artist = infoDict["kMRMediaRemoteNowPlayingInfoArtist"] as? String ?? ""
-                    let album = infoDict["kMRMediaRemoteNowPlayingInfoAlbum"] as? String ?? ""
-                    let durVal = infoDict["kMRMediaRemoteNowPlayingInfoDuration"]
-                    let duration = (durVal as? Double) ?? (durVal as? NSNumber)?.doubleValue ?? (durVal as? String).flatMap { Double($0) } ?? 0.0
-                    let elapsedVal = infoDict["kMRMediaRemoteNowPlayingInfoElapsedTime"]
-                    let elapsedTime = (elapsedVal as? Double) ?? (elapsedVal as? NSNumber)?.doubleValue ?? (elapsedVal as? String).flatMap { Double($0) } ?? 0.0
-                    
-                    if title.isEmpty {
-                        // MediaRemote returned no title (daemon rejected read or no session active); fallback to active app inspection
-                        self.inspectFrontmostOrRunningMediaApp(triggerNotification: triggerNotification)
-                    } else {
-                        self.processMediaState(
-                            title: title,
-                            artistRaw: artist,
-                            album: album,
-                            duration: duration,
-                            elapsedTime: elapsedTime,
-                            isPlaying: isPlaying,
-                            appName: appName,
-                            bundleId: bundleId,
-                            triggerNotification: triggerNotification
-                        )
+    private func startHelperScript() {
+        let scriptPath = FileManager.default.temporaryDirectory.appendingPathComponent("visor_media_helper.swift").path
+        let scriptContent = """
+        import Foundation
+        import Cocoa
+
+        let bundleURL = NSURL(fileURLWithPath: "/System/Library/PrivateFrameworks/MediaRemote.framework")
+        guard let bundle = CFBundleCreate(kCFAllocatorDefault, bundleURL) else { exit(1) }
+
+        let infoPtr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingInfo" as CFString)!
+        let isPlayingPtr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingApplicationIsPlaying" as CFString)!
+        let registerPtr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteRegisterForNowPlayingNotifications" as CFString)!
+        let clientPtr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingClient" as CFString)!
+
+        typealias InfoFunc = @convention(c) (DispatchQueue, @escaping @convention(block) (NSDictionary?) -> Void) -> Void
+        typealias IsPlayingFunc = @convention(c) (DispatchQueue, @escaping @convention(block) (Bool) -> Void) -> Void
+        typealias ClientFunc = @convention(c) (DispatchQueue, @escaping @convention(block) (AnyObject?) -> Void) -> Void
+        typealias RegisterFunc = @convention(c) (DispatchQueue) -> Void
+
+        let getInfo = unsafeBitCast(infoPtr, to: InfoFunc.self)
+        let getIsPlaying = unsafeBitCast(isPlayingPtr, to: IsPlayingFunc.self)
+        let getClient = unsafeBitCast(clientPtr, to: ClientFunc.self)
+        let register = unsafeBitCast(registerPtr, to: RegisterFunc.self)
+
+        func printState() {
+            getClient(DispatchQueue.main) { client in
+                let clientObj = client as? NSObject
+                let appName = (clientObj?.value(forKey: "displayName") as? String) ?? ""
+                let bundleId = (clientObj?.value(forKey: "parentApplicationBundleIdentifier") as? String) ?? (clientObj?.value(forKey: "bundleIdentifier") as? String) ?? ""
+                
+                getIsPlaying(DispatchQueue.main) { isPlaying in
+                    getInfo(DispatchQueue.main) { info in
+                        let infoDict = (info as? [String: Any]) ?? [:]
+                        let title = infoDict["kMRMediaRemoteNowPlayingInfoTitle"] as? String ?? ""
+                        let artist = infoDict["kMRMediaRemoteNowPlayingInfoArtist"] as? String ?? ""
+                        let album = infoDict["kMRMediaRemoteNowPlayingInfoAlbum"] as? String ?? ""
+                        let durVal = infoDict["kMRMediaRemoteNowPlayingInfoDuration"]
+                        let duration = (durVal as? Double) ?? (durVal as? NSNumber)?.doubleValue ?? (durVal as? String).flatMap { Double($0) } ?? 0.0
+                        let elapsedVal = infoDict["kMRMediaRemoteNowPlayingInfoElapsedTime"]
+                        let elapsedTime = (elapsedVal as? Double) ?? (elapsedVal as? NSNumber)?.doubleValue ?? (elapsedVal as? String).flatMap { Double($0) } ?? 0.0
+                        
+                        let dict: [String: Any] = [
+                            "title": title, "artist": artist, "album": album, "duration": duration, "elapsedTime": elapsedTime, "isPlaying": isPlaying, "appName": appName, "bundleId": bundleId
+                        ]
+                        if let data = try? JSONSerialization.data(withJSONObject: dict), let jsonStr = String(data: data, encoding: .utf8) {
+                            print(jsonStr)
+                            fflush(stdout)
+                        }
                     }
                 }
             }
         }
-    }
-    
-    func inspectFrontmostOrRunningMediaApp(triggerNotification: Bool = false) {
-        // Run on background queue to avoid blocking main thread with AX calls
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
+
+        class Observer {
+            @objc func changed() { printState() }
+        }
+        let obs = Observer()
+
+        register(DispatchQueue.main)
+        NotificationCenter.default.addObserver(obs, selector: #selector(Observer.changed), name: NSNotification.Name("kMRMediaRemoteNowPlayingInfoDidChangeNotification"), object: nil)
+        NotificationCenter.default.addObserver(obs, selector: #selector(Observer.changed), name: NSNotification.Name("kMRMediaRemoteNowPlayingApplicationIsPlayingDidChangeNotification"), object: nil)
+        NotificationCenter.default.addObserver(obs, selector: #selector(Observer.changed), name: NSNotification.Name("kMRMediaRemoteNowPlayingApplicationPlaybackStateDidChangeNotification"), object: nil)
+
+        printState()
+        RunLoop.main.run()
+        """
+        
+        do {
+            try scriptContent.write(toFile: scriptPath, atomically: true, encoding: .utf8)
+        } catch {
+            return
+        }
+        
+        helperProcess = Process()
+        helperProcess?.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
+        helperProcess?.arguments = [scriptPath]
+        
+        outputPipe = Pipe()
+        helperProcess?.standardOutput = outputPipe
+        
+        outputPipe?.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            guard !data.isEmpty, let self = self else { return }
             
-            // Check frontmost app first
-            if let frontApp = NSWorkspace.shared.frontmostApplication,
-               let bundleId = frontApp.bundleIdentifier {
-                if let details = self.inspectApp(frontApp, bundleId: bundleId) {
-                    self.processMediaState(
-                        title: details.title,
-                        artistRaw: details.artist,
-                        album: "",
-                        duration: 0,
-                        elapsedTime: 0,
-                        isPlaying: true,
-                        appName: frontApp.localizedName ?? "Media Player",
-                        bundleId: bundleId,
-                        triggerNotification: triggerNotification
-                    )
-                    return
-                }
-            }
-            
-            // Check running media players
-            let candidateBundles = [
-                "com.apple.quicktimeplayerx",
-                "org.videolan.vlc",
-                "com.colliderli.iina",
-                "io.mpv",
-                "com.google.chrome",
-                "com.apple.safari",
-                "com.brave.browser",
-                "company.thebrowser.browser",
-                "com.microsoft.edgemac"
-            ]
-            
-            for app in NSWorkspace.shared.runningApplications {
-                guard let bId = app.bundleIdentifier?.lowercased(),
-                      candidateBundles.contains(where: { bId.contains($0) }) else { continue }
-                
-                if let details = self.inspectApp(app, bundleId: bId) {
-                    self.processMediaState(
-                        title: details.title,
-                        artistRaw: details.artist,
-                        album: "",
-                        duration: 0,
-                        elapsedTime: 0,
-                        isPlaying: true,
-                        appName: app.localizedName ?? "Media Player",
-                        bundleId: bId,
-                        triggerNotification: triggerNotification
-                    )
-                    return
+            if let str = String(data: data, encoding: .utf8) {
+                let lines = str.components(separatedBy: .newlines).filter { !$0.isEmpty }
+                for line in lines {
+                    self.parseJSON(line, triggerNotification: false) // We handle explicit triggers via key
                 }
             }
         }
+        
+        do {
+            try helperProcess?.run()
+        } catch {
+        }
     }
     
-    private func inspectApp(_ app: NSRunningApplication, bundleId: String) -> (title: String, artist: String)? {
-        let winTitles = getActiveWindowTitles(pid: app.processIdentifier)
-        for winTitle in winTitles {
-            if let details = extractMediaDetails(from: winTitle, bundleId: bundleId, appName: app.localizedName ?? "") {
-                return details
-            }
-        }
-        return nil
-    }
-    
-    private func extractMediaDetails(from rawTitle: String, bundleId: String, appName: String) -> (title: String, artist: String)? {
-        var title = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty else { return nil }
+    private func parseJSON(_ jsonString: String, triggerNotification: Bool = false) {
+        guard let data = jsonString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
         
-        let ignoreList = ["New Tab", "Nowa karta", "Start Page", "Strona startowa", "Settings", "Ustawienia", "Downloads", "Pobrane", "History", "Historia"]
-        if ignoreList.contains(where: { title.caseInsensitiveCompare($0) == .orderedSame }) {
-            return nil
-        }
+        var title = json["title"] as? String ?? ""
+        let artistRaw = json["artist"] as? String ?? ""
+        let album = json["album"] as? String ?? ""
+        let appName = json["appName"] as? String ?? ""
+        let bundleId = json["bundleId"] as? String ?? ""
         
-        let lowerBundle = bundleId.lowercased()
-        
-        // QuickTime Player
-        if lowerBundle.contains("quicktime") {
-            title = title.replacingOccurrences(of: " — QuickTime Player", with: "")
-                         .replacingOccurrences(of: " - QuickTime Player", with: "")
-            return (title, "QuickTime Player")
-        }
-        
-        // VLC media player
-        if lowerBundle.contains("videolan.vlc") {
-            title = title.replacingOccurrences(of: " - VLC media player", with: "")
-                         .replacingOccurrences(of: " - VLC", with: "")
-            return (title, "VLC media player")
-        }
-        
-        // IINA
-        if lowerBundle.contains("iina") {
-            title = title.replacingOccurrences(of: " - IINA", with: "")
-            return (title, "IINA")
-        }
-        
-        // MPV
-        if lowerBundle.contains("mpv") {
-            title = title.replacingOccurrences(of: " - mpv", with: "")
-            return (title, "mpv")
-        }
-        
-        // Browsers: Chrome, Safari, Brave, Arc, Edge, Opera, Firefox
-        let browserBundles = ["com.google.chrome", "com.apple.safari", "com.brave.browser", "company.thebrowser.browser", "com.microsoft.edgemac", "org.mozilla.firefox", "com.operasoftware.opera"]
-        if browserBundles.contains(where: { lowerBundle.contains($0) }) {
-            let suffixesToStrip = [
-                " - Google Chrome",
-                " - Brave",
-                " - Microsoft Edge",
-                " - Arc",
-                " - Opera",
-                " — Safari"
-            ]
-            for suffix in suffixesToStrip {
-                if title.hasSuffix(suffix) {
-                    title = String(title.dropLast(suffix.count))
+        if title.isEmpty || title == "Unknown Media" {
+            let players = ["com.apple.quicktimeplayerx", "com.apple.iina", "org.videolan.vlc", "io.mpv"]
+            if players.contains(bundleId.lowercased()) {
+                if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier?.lowercased() == bundleId.lowercased() }) {
+                    let winTitles = getActiveWindowTitles(pid: app.processIdentifier)
+                    if let firstWin = winTitles.first(where: { !$0.isEmpty }) {
+                        title = firstWin.replacingOccurrences(of: " — QuickTime Player", with: "").replacingOccurrences(of: " - VLC media player", with: "")
+                    }
                 }
             }
-            
-            if title.contains(" - YouTube") {
-                title = title.replacingOccurrences(of: " - YouTube", with: "")
-                return (title, "YouTube")
-            } else if title.hasSuffix(" | YouTube") {
-                title = title.replacingOccurrences(of: " | YouTube", with: "")
-                return (title, "YouTube")
-            } else if title.contains(" - Netflix") {
-                title = title.replacingOccurrences(of: " - Netflix", with: "")
-                return (title, "Netflix")
-            } else if title.contains(" - SoundCloud") {
-                title = title.replacingOccurrences(of: " - SoundCloud", with: "")
-                return (title, "SoundCloud")
-            } else if title.contains(" - Twitch") {
-                title = title.replacingOccurrences(of: " - Twitch", with: "")
-                return (title, "Twitch")
-            }
-            return nil
         }
         
-        return (title, appName.isEmpty ? "Media Player" : appName)
-    }
-    
-    private func processMediaState(
-        title: String,
-        artistRaw: String,
-        album: String,
-        duration: Double,
-        elapsedTime: Double,
-        isPlaying: Bool,
-        appName: String,
-        bundleId: String,
-        triggerNotification: Bool
-    ) {
-        var finalTitle = title
-        
-        // QuickLook / Finder previews filter
         let qlBundle = bundleId.lowercased()
         let qlApp = appName.lowercased()
-        if qlBundle.contains("quicklook") || qlBundle.contains("finder") || qlApp.contains("quick look") || qlApp == "finder" {
+        if qlBundle.contains("quicklook") || qlBundle.contains("finder") || qlApp.contains("quick look") || qlApp.contains("quick look") || qlApp == "finder" {
             return
         }
         
         var finalArtist = ""
+        _ = ["Safari", "Google Chrome", "Chrome", "Brave Browser", "Arc", "Edge", "Firefox"]
+        
         if !artistRaw.isEmpty && !appName.isEmpty {
             if artistRaw.lowercased() == appName.lowercased() {
                 finalArtist = appName
@@ -379,6 +166,10 @@ class MediaObserver {
             finalArtist = "Unknown source"
         }
         
+        let duration = json["duration"] as? Double ?? 0.0
+        let elapsedTime = json["elapsedTime"] as? Double ?? 0.0
+        let isPlaying = json["isPlaying"] as? Bool ?? false
+        
         var shouldTrigger = triggerNotification
         var mediaAction = "pause"
         
@@ -386,7 +177,8 @@ class MediaObserver {
             self.isFirstRun = false
             mediaAction = isPlaying ? "resume" : "pause"
         } else {
-            if self.lastTitle != finalTitle && !finalTitle.isEmpty {
+            // Detect specific action
+            if self.lastTitle != title && !title.isEmpty {
                 mediaAction = "start"
                 shouldTrigger = true
             } else if self.lastIsPlaying != isPlaying {
@@ -405,16 +197,47 @@ class MediaObserver {
             }
         }
         
+        if shouldTrigger && !bundleId.isEmpty {
+            if let activeApp = NSWorkspace.shared.frontmostApplication {
+                if activeApp.bundleIdentifier == bundleId {
+                    let browserBundles = ["com.apple.Safari", "com.google.Chrome", "com.brave.Browser", "company.thebrowser.Browser", "com.microsoft.edgemac", "org.mozilla.firefox"]
+                    if browserBundles.contains(bundleId) {
+                        let winTitles = getActiveWindowTitles(pid: activeApp.processIdentifier)
+                        let cleanMediaTitle = title.lowercased().trimmingCharacters(in: .whitespaces)
+                        
+                        for winTitle in winTitles {
+                            let cleanWinTitle = winTitle.lowercased().trimmingCharacters(in: .whitespaces)
+                            
+                            if cleanWinTitle.contains("youtube") || cleanWinTitle.contains("tiktok") || cleanWinTitle.contains("instagram") || cleanWinTitle.contains("shorts") || cleanWinTitle.contains("reels") {
+                                shouldTrigger = false
+                                break
+                            }
+                            
+                            let cleanWinTitleStripped = cleanWinTitle.replacingOccurrences(of: " - youtube", with: "")
+                            
+                            if !cleanWinTitleStripped.isEmpty && !cleanMediaTitle.isEmpty && (cleanWinTitleStripped.contains(cleanMediaTitle) || cleanMediaTitle.contains(cleanWinTitleStripped)) {
+                                shouldTrigger = false
+                                break
+                            }
+                        }
+                    } else {
+                        shouldTrigger = false
+                    }
+                }
+            }
+        }
+        // --------------------------------------------------------------------------
+        
         self.lastIsPlaying = isPlaying
-        self.lastTitle = finalTitle
+        self.lastTitle = title
         self.lastArtist = finalArtist
         self.lastAlbum = album
         self.lastDuration = duration
         self.lastElapsedTime = elapsedTime
         
-        DispatchQueue.main.async { [weak self] in
-            self?.manager?.updateMediaInfo(
-                title: finalTitle,
+        DispatchQueue.main.async {
+            self.manager?.updateMediaInfo(
+                title: title,
                 artist: finalArtist,
                 album: album,
                 duration: duration,
@@ -457,8 +280,6 @@ class MediaObserver {
     }
     
     deinit {
-        NotificationCenter.default.removeObserver(self)
-        DistributedNotificationCenter.default().removeObserver(self)
-        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        helperProcess?.terminate()
     }
 }

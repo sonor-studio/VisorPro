@@ -16,11 +16,13 @@ struct UniversalClassicOverlayView: View {
     var icon: String? = nil
     var title: String? = nil
     var subtitle: String? = nil
+    var tertiaryText: String? = nil
     var progress: Double = 0.0
     var showProgressBar: Bool = false
     var isTimeoutMode: Bool = false
     var barColor: Color = .blue
     var isMuted: Bool = false
+    var isWarning: Bool = false
     var customWidth: CGFloat = 200
     var customHeight: CGFloat = 200
     var customCornerRadius: CGFloat? = nil
@@ -221,8 +223,8 @@ struct UniversalClassicOverlayView: View {
         
         let light = isLightMode
         let glyphColor = light ? Color(white: 0.22) : (isMuted ? Color.white.opacity(0.55) : Color.white.opacity(0.96))
-        let glyphShadowColor = light ? Color.white.opacity(0.50) : Color.black.opacity(0.30)
-        let glyphShadowY: CGFloat = light ? 0.5 : 1.0
+        let glyphShadowColor = light ? Color.clear : Color.black.opacity(0.30)
+        let glyphShadowY: CGFloat = 1.0
         
         ZStack {
             // Glyph: centred horizontally, glyph centre exactly 84 pt below bezel's top
@@ -232,10 +234,11 @@ struct UniversalClassicOverlayView: View {
                 Image(systemName: sliderIconName)
                     .font(.system(size: 68, weight: .regular))
                     .foregroundColor(glyphColor)
-                    .shadow(color: glyphShadowColor, radius: 1, x: 0, y: glyphShadowY)
+                    .shadow(color: glyphShadowColor, radius: light ? 0 : 1, x: 0, y: glyphShadowY)
                     .frame(width: 76, height: 76, alignment: .center)
             }
             .buttonStyle(.plain)
+            .focusable(false)
             .conditionalPointingHandCursor(isEnabled: onLeftTap != nil && !isPreview)
             .position(x: 100, y: 84)
             
@@ -293,7 +296,7 @@ struct UniversalClassicOverlayView: View {
     private var statusBezelBody: some View {
         let light = isLightMode
         let iconColor = light ? Color(white: 0.22) : Color.white.opacity(0.96)
-        let iconShadowColor = light ? Color.white.opacity(0.50) : Color.black.opacity(0.30)
+        let iconShadowColor = light ? Color.clear : Color.black.opacity(0.30)
         let titleColor = light ? Color(white: 0.12) : Color.white.opacity(0.96)
         let subtitleColor = light ? Color(white: 0.20) : Color.white.opacity(0.75)
         
@@ -307,10 +310,11 @@ struct UniversalClassicOverlayView: View {
                     Image(systemName: icon)
                         .font(.system(size: 72, weight: .regular))
                         .foregroundColor(iconColor)
-                        .shadow(color: iconShadowColor, radius: 1, x: 0, y: light ? 0.5 : 1)
+                        .shadow(color: iconShadowColor, radius: light ? 0 : 1, x: 0, y: light ? 0 : 1)
                         .frame(width: 86, height: 80, alignment: .center)
                 }
                 .buttonStyle(.plain)
+                .focusable(false)
                 .conditionalPointingHandCursor(isEnabled: (onLeftTap != nil || onSimpleTap != nil) && !isPreview)
             }
             
@@ -330,6 +334,16 @@ struct UniversalClassicOverlayView: View {
                         text: subtitle,
                         font: .system(size: 13, weight: .regular, design: .default),
                         foregroundColor: subtitleColor,
+                        alignment: .center
+                    )
+                    .lineLimit(1)
+                }
+                
+                if let tertiaryText = tertiaryText, !tertiaryText.isEmpty {
+                    MarqueeText(
+                        text: tertiaryText,
+                        font: .system(size: 11.5, weight: .semibold, design: .default),
+                        foregroundColor: subtitleColor.opacity(0.85),
                         alignment: .center
                     )
                     .lineLimit(1)
@@ -363,8 +377,22 @@ struct UniversalClassicOverlayView: View {
                 .font(.system(size: 9.5, weight: .bold))
                 .foregroundColor(light ? Color.black.opacity(0.65) : Color.white.opacity(0.85))
                 .frame(width: 20, height: 20)
-                .modifier(LiquidGlassCircleModifier(isPreview: isPreview))
-                .shadow(color: Color.black.opacity(light ? 0.15 : 0.3), radius: 2.5, x: 0, y: 1)
+                .background(
+                    Circle()
+                        .fill(light ? Color.white.opacity(0.15) : Color.black.opacity(0.25))
+                )
+                .background(
+                    Circle()
+                        .fill(.ultraThinMaterial)
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(
+                            light ? Color.black.opacity(0.12) : Color.white.opacity(0.18),
+                            lineWidth: 0.5
+                        )
+                )
+                .shadow(color: Color.black.opacity(light ? 0.15 : 0.35), radius: 2.0, x: 0, y: 1)
                 .scaleEffect(isCloseButtonHovered ? 1.08 : 1.0)
         }
         .buttonStyle(.plain)

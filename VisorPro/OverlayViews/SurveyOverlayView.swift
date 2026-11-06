@@ -92,7 +92,7 @@ struct SurveyOverlayView: View {
                                 VStack(spacing: 6) {
                                     ForEach(Array(question.options.enumerated()), id: \.offset) { index, optionText in
                                         Button(action: {
-                                            TelemetryDeck.signal("SurveyAnswer", parameters: [
+                                            TelemetryHelper.signal("SurveyAnswer", parameters: [
                                                 "survey_id": question.id,
                                                 "answer": optionText
                                             ])

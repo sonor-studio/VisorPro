@@ -23,15 +23,16 @@ struct CopyOverlayView: View {
     var isPreview: Bool = false
     var previewAction: String? = nil
     
-    private func masked(_ text: String) -> String {
-        guard clipboardShowPasswordToggle else { return text }
-        let isCurrentlyMasked: Bool
-        if let pid = activePreviewId, let item = currentHistory.first(where: { $0.id == pid }) {
-            isCurrentlyMasked = item.isMasked ?? false
-        } else {
-            isCurrentlyMasked = false
+    private var isCurrentItemMasked: Bool {
+        guard clipboardShowPasswordToggle else { return false }
+        if let pid = previewItemId, let item = currentHistory.first(where: { $0.id == pid }) {
+            return item.isMasked ?? false
         }
-        guard isCurrentlyMasked else { return text }
+        return overlayState.isClipboardMasked
+    }
+
+    private func masked(_ text: String) -> String {
+        guard isCurrentItemMasked else { return text }
         return "••••••••"
     }
     
@@ -70,6 +71,9 @@ struct CopyOverlayView: View {
     }
     
     private var actionIcon: String {
+        if isCurrentItemMasked {
+            return "lock.fill"
+        }
         switch actualAction {
         case "copy": return "doc.on.clipboard.fill"
         case "cut": return "scissors"
@@ -420,8 +424,12 @@ struct CopyOverlayView: View {
                                                     withAnimation {
                                                         if let idx = mediaKeyManager.clipboardHistory.firstIndex(where: { $0.id == item.id }) {
                                                             var updatedItem = mediaKeyManager.clipboardHistory[idx]
-                                                            updatedItem.isMasked = !(updatedItem.isMasked ?? false)
+                                                            let newMasked = !(updatedItem.isMasked ?? false)
+                                                            updatedItem.isMasked = newMasked
                                                             mediaKeyManager.clipboardHistory[idx] = updatedItem
+                                                            if item.id == activePreviewId {
+                                                                overlayState.isClipboardMasked = newMasked
+                                                            }
                                                         }
                                                     }
                                                 }

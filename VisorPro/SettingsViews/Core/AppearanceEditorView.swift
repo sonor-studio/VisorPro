@@ -126,8 +126,9 @@ struct AppearanceEditorView: View {
                         skipExitAnimation: $skipExitAnimation,
                         forceStopTrigger: $previewForceStopTrigger
                     ) {
+                        let isSystemStyle = mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system"
                         currentOverlayView
-                            .applyTheme(isCurrentPreviewSlider ? "dark" : mediaKeyManager.overlayTheme)
+                            .applyTheme((isSystemStyle && isCurrentPreviewSlider) ? "dark" : mediaKeyManager.overlayTheme)
                             .id("\(currentPreviewOverlay.rawValue)_\(mediaKeyManager.overlayStyle)")
                             .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }

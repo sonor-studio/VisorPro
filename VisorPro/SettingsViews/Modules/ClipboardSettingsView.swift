@@ -142,10 +142,11 @@ struct ClipboardSettingsView: View {
                                     
                                     Divider().padding(.leading, 40)
                                     
-                                    CustomSettingsRow(icon: "asterisk", iconColor: .blue, title: "Password Mask Toggle", subtitle: "Show a toggle in the overlay to mask copied text") {
+                                    CustomSettingsRow(icon: "asterisk", iconColor: .blue, title: "Auto-hide & Mask Passwords", subtitle: "Automatically mask passwords copied from password managers and show a reveal toggle") {
                                         Toggle("", isOn: $clipboardShowPasswordToggle).labelsHidden()
                                             .onChange(of: clipboardShowPasswordToggle) { _, newValue in
                                                 if !newValue {
+                                                    OverlayStateRelay.shared.isClipboardMasked = false
                                                     var modifiedHistory = mediaKeyManager.clipboardHistory
                                                     var changed = false
                                                     for i in 0..<modifiedHistory.count {

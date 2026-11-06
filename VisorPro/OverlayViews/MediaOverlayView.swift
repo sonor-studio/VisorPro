@@ -82,6 +82,16 @@ struct MediaOverlayView: View {
         }
     }
     
+    private var actionStatusText: String {
+        switch actualAction {
+        case "start": return "Started"
+        case "resume": return "Resumed"
+        case "pause": return "Paused"
+        case "end": return "Stopped"
+        default: return actualIsPlaying ? "Resumed" : "Paused"
+        }
+    }
+    
     private var actionTitle: String {
         switch actualAction {
         case "start": return "STARTED"
@@ -166,10 +176,11 @@ struct MediaOverlayView: View {
             keepAliveId: "media",
             disableTimeoutMode: true,
             fixedExpandedHeight: 50,
-            minimalText: actualTitle,
+            minimalText: "\(actionStatusText) • \(actualTitle)",
             minimalIcon: actionIcon,
             systemTitle: actualTitle,
-            systemSubtitle: actualArtist.isEmpty ? (isPreview ? "YouTube • Vito Iacopelli" : "Media") : actualArtist,
+            systemSubtitle: actualArtist,
+            systemTertiaryText: actionStatusText,
             systemRightButtonIcon: actualIsPlaying ? "pause.fill" : "play.fill",
             systemRightButtonColor: actualIsPlaying ? Color.blue : Color.green,
             systemOnRightButtonTap: {

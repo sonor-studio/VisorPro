@@ -1047,6 +1047,10 @@ class MediaKeyManager: ObservableObject {
     var clipboardMetadataSize: String {
         get { OverlayStateRelay.shared.clipboardMetadataSize }
         set { OverlayStateRelay.shared.clipboardMetadataSize = newValue }
+    }
+    var isClipboardMasked: Bool {
+        get { OverlayStateRelay.shared.isClipboardMasked }
+        set { OverlayStateRelay.shared.isClipboardMasked = newValue }
     }    
     @Published var clipboardHistory: [ClipboardItem] = {
         if let data = UserDefaults.standard.data(forKey: "clipboardHistoryData"),
@@ -1319,7 +1323,7 @@ class MediaKeyManager: ObservableObject {
     }
     private var mediaTimer: Timer?
     private var mediaHideTimer: Timer?
-    var mediaObserver: MediaObserver?
+    private var mediaObserver: MediaObserver?
     
     // Theme
     @Published var enableTheme: Bool = UserDefaults.standard.object(forKey: "enableTheme") as? Bool ?? false {
@@ -2561,6 +2565,13 @@ class MediaKeyManager: ObservableObject {
             if mediaAction == "end" && !notifyMediaEnd { finalTrigger = false }
         }
         
+        if finalTrigger {
+            if let frontmostId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier, !frontmostId.isEmpty, frontmostId == bundleId {
+                finalTrigger = false
+            } else if isAnyAppInFullScreen() {
+                finalTrigger = false
+            }
+        }
         
         if finalTrigger {
             if mediaAction == "start" { playNotificationSound(named: soundMediaStart) }
@@ -2715,6 +2726,49 @@ class MediaKeyManager: ObservableObject {
     }
     
 
+    private var cachedFullScreenResult: Bool = false
+    private var cachedFullScreenTime: Date = .distantPast
+    
+    private func isAnyAppInFullScreen() -> Bool {
+        // Return cached result if fresh (within 2 seconds)
+        let now = Date()
+        if now.timeIntervalSince(cachedFullScreenTime) < 2.0 {
+            return cachedFullScreenResult
+        }
+        
+        guard let windowInfoList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            cachedFullScreenResult = false
+            cachedFullScreenTime = now
+            return false
+        }
+        
+        let screens = VisorProWindowManager.shared.cachedScreens
+        for info in windowInfoList {
+            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
+            guard let boundsDict = info[kCGWindowBounds as String] as? [String: CGFloat],
+                  let x = boundsDict["X"], let y = boundsDict["Y"],
+                  let w = boundsDict["Width"], let h = boundsDict["Height"] else { continue }
+            
+            let windowRect = NSRect(x: x, y: y, width: w, height: h)
+            
+            for screen in screens {
+                let screenFrame = screen.frame
+                if windowRect.size.width >= screenFrame.width && windowRect.size.height >= screenFrame.height {
+                    if let ownerName = info[kCGWindowOwnerName as String] as? String {
+                        if ownerName == "Dock" || ownerName == "Finder" || ownerName == "Window Server" {
+                            continue
+                        }
+                        cachedFullScreenResult = true
+                        cachedFullScreenTime = now
+                        return true
+                    }
+                }
+            }
+        }
+        cachedFullScreenResult = false
+        cachedFullScreenTime = now
+        return false
+    }
     var initialPercentageWhenPluggedIn: Int? = nil
     var hasChargedSincePluggedIn: Bool = false
     
@@ -2982,7 +3036,7 @@ class MediaKeyManager: ObservableObject {
                         self.pendingClipboardAction = "paste"
                         self.pendingClipboardActionTimestamp = Date()
                         let data = self.processClipboardData(for: "paste")
-                        self.triggerClipboardIndicator(text: data.text, action: "paste", app: data.app, folder: data.folder, size: data.size)
+                        self.triggerClipboardIndicator(text: data.text, action: "paste", app: data.app, folder: data.folder, size: data.size, isMasked: data.isMasked)
                     } else if isCustomCut || isNativeCut {
                         self.pendingClipboardAction = "cut"
                         self.pendingClipboardActionTimestamp = Date()
@@ -3171,15 +3225,19 @@ class MediaKeyManager: ObservableObject {
                     }
                 }
                 
-                // --- Passthrough: Media keys (Play, Next, Previous) ---
-                // Allow macOS to natively dispatch media keys to Google Chrome, Safari, VLC, QuickTime, Spotify, Music
                 if keyCode == NX_KEYTYPE_PLAY || keyCode == NX_KEYTYPE_NEXT || keyCode == NX_KEYTYPE_PREVIOUS {
-                    if isKeyDown && manager.enableMediaNotification {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak manager] in
-                            manager?.mediaObserver?.fetchCurrentState(triggerNotification: true)
+                    if !isKeyDown {
+                        DispatchQueue.main.async {
+                            if keyCode == NX_KEYTYPE_PLAY {
+                                manager.simulatePlayPause()
+                            } else if keyCode == NX_KEYTYPE_NEXT {
+                                manager.simulateNext()
+                            } else if keyCode == NX_KEYTYPE_PREVIOUS {
+                                manager.simulatePrevious()
+                            }
                         }
                     }
-                    return Unmanaged.passRetained(event)
+                    return nil
                 }
                 
                 if keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE || keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN {

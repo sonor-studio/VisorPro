@@ -139,13 +139,13 @@ struct DateOverlayView: View {
         
         if style == "system" {
             // Symmetrical margins: left margin (~24pt) + icon (22pt) + gap (9pt) + textWidth + right margin (~24pt) = textWidth + 79pt.
-            // Minimum width 160pt, maximum width 235pt.
-            return max(160, min(235, textWidth + 78))
+            // Minimum width 160pt, maximum width 270pt to prevent date truncation with longer localized formats.
+            return max(160, min(270, textWidth + 78))
         } else {
             // Non-system styles (Default, Capsule, Liquid Glass):
             // Symmetrical margins: left margin (~26pt) + icon (24pt) + gap (14pt) + contentTextW + right margin (~26pt) = contentTextW + 90pt.
             let contentTextW = max(textWidth, 55)
-            return max(175, min(240, contentTextW + 90))
+            return max(175, min(280, contentTextW + 90))
         }
     }
     
@@ -170,8 +170,8 @@ struct DateOverlayView: View {
             keepAliveId: "date",
             minimalText: shortFormattedDate,
             minimalIcon: "calendar",
-            systemTitle: formattedDate,
-            systemSubtitle: nil,
+            systemTitle: "New Day",
+            systemSubtitle: formattedDate,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: "calendar")
