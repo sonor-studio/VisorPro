@@ -111,20 +111,17 @@ struct BatteryOverlayView: View {
                             if hasFinishedChargeAnimation {
                                 MarqueeText(text: actualPercentage == 100 ? "You can unplug now" : "Charge limit \(overlayState.chargeLimit)%", font: .system(size: 13, weight: .bold, design: .rounded), foregroundColor: .primary)
                             } else {
-                                Text("100% charged")
-                                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                                    .foregroundColor(.primary)
+                                AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: true)
                             }
                         } else {
                             Text(isWarningMode ? "Battery Alert" : (actualIsPluggedIn ? "Charging" : "Unplugged"))
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
-                            MarqueeText(text: mockedTimeRemaining(for: actualPercentage), font: .system(size: 13, weight: .bold, design: .rounded), foregroundColor: .primary)
+                            AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)
+                            MarqueeText(text: mockedTimeRemaining(for: actualPercentage), font: .system(size: 11, weight: .medium, design: .rounded), foregroundColor: .secondary)
                         }
                     }
                     Spacer(minLength: 8)
-                    
-                    AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: true, color: .primary, isPluggedIn: actualIsPluggedIn, customText: "%d%")
                 }
                 .padding(.leading, 23)
                 .padding(.trailing, 23)

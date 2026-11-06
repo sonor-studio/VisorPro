@@ -248,6 +248,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @State private var hasLanded: Bool = false
     @State private var lastTapTime: TimeInterval = 0
     @State private var isMinimalExpandedByClick: Bool = false
+    @State private var isCloseButtonHovered: Bool = false
     @AppStorage("enableCloseButton") private var enableCloseButton = true
     @AppStorage("keepCloseButtonWhenExpanded") private var keepCloseButtonWhenExpanded = true
     @AppStorage("closeButtonOnRight") private var closeButtonOnRight = false
@@ -902,24 +903,29 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     }
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundColor(colorScheme == .dark ? Color.white.opacity(isCloseButtonHovered ? 1.0 : 0.85) : Color.black.opacity(isCloseButtonHovered ? 0.95 : 0.70))
                         .frame(width: 20, height: 20)
                         .background(
                             Circle()
-                                .fill(colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
+                                .fill(colorScheme == .dark ? Color(white: 0.16, opacity: 0.98) : Color(white: 0.94, opacity: 0.98))
                         )
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
+                                .fill(colorScheme == .dark ? Color.white.opacity(isCloseButtonHovered ? 0.12 : 0.06) : Color.white.opacity(isCloseButtonHovered ? 0.35 : 0.20))
                         )
                         .overlay(
                             Circle()
-                                .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.12) : Color.white.opacity(0.8), lineWidth: 1)
+                                .strokeBorder(colorScheme == .dark ? Color.white.opacity(0.10) : Color.white.opacity(0.90), lineWidth: 1)
                         )
-                        .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
+                        .shadow(color: Color.black.opacity(colorScheme == .dark ? (isCloseButtonHovered ? 0.35 : 0.20) : (isCloseButtonHovered ? 0.25 : 0.15)), radius: isCloseButtonHovered ? 3.0 : 2.0, x: 0, y: 1)
+                        .scaleEffect(isCloseButtonHovered ? 1.08 : 1.0)
+                        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isCloseButtonHovered)
                 }
                 .buttonStyle(.plain)
+                .onHover { hovering in
+                    isCloseButtonHovered = hovering
+                }
                 .conditionalPointingHandCursor(isEnabled: !isPreview)
                 .offset(x: buttonCenter.x - 10, y: dynamicOffset)
                 .opacity(shouldShowCloseButton ? 1 : 0)

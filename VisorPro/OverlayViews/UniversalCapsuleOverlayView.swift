@@ -145,43 +145,26 @@ struct ConditionalRimMask: ViewModifier {
 struct LiquidGlassBackgroundModifier: ViewModifier {
     var shape: BendedCornerShape
     var isPreview: Bool = false
-    var isClear: Bool = false
     var isDark: Bool = true
     @Environment(\.colorScheme) var colorScheme
-    @ObservedObject private var overlayState = OverlayStateRelay.shared
-    
-    private var sliderBackingOpacity: Double {
-        let lum = max(0.0, min(1.0, overlayState.backgroundLuminance))
-        let sat = max(0.0, min(1.0, overlayState.backgroundSaturation))
-        // Protect colorful backgrounds (sat >= 0.34) keeping them clean and translucent at 0.08.
-        // For neutral bright backgrounds (sat <= 0.12), scale opacity aggressively up to 0.96 for deep black contrast.
-        let satFactor = max(0.0, min(1.0, 1.0 - (sat - 0.12) / 0.22))
-        let whiteness = max(0.0, min(1.0, (lum - 0.10) / 0.70)) * satFactor
-        return 0.08 + (0.88 * pow(whiteness, 0.75))
-    }
+    @State private var renderNonce = UUID()
     
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
             content
                 .background(
                     shape.fill(
-                        isClear
-                            ? Color.black.opacity(sliderBackingOpacity)
-                            : (isDark ? Color.black.opacity(0.05) : Color.white.opacity(0.04))
+                        isDark ? Color.black.opacity(0.05) : Color.white.opacity(0.04)
                     )
                 )
-                .background(
-                    Group {
-                        if isClear {
-                            shape
-                                .fill(.ultraThinMaterial)
-                                .opacity(0.06)
-                        }
-                    }
-                )
-                .glassEffect(isClear ? .clear : .regular, in: shape)
+                .glassEffect(.regular, in: shape)
                 .materialActiveAppearance(.active)
                 .environment(\.controlActiveState, .key)
+                .id(renderNonce)
+                .task {
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    renderNonce = UUID()
+                }
         } else {
             content
                 .background(.regularMaterial, in: shape)
@@ -193,20 +176,11 @@ struct LiquidGlassBackgroundModifier: ViewModifier {
 /// Applies Apple's native glassEffect to a circular shape, matching the main capsule overlay material.
 struct LiquidGlassCircleModifier: ViewModifier {
     var isPreview: Bool = false
-    var isClear: Bool = false
     var isDark: Bool = true
+    var isClear: Bool = false
+    var customBackingOpacity: Double? = nil
     @Environment(\.colorScheme) var colorScheme
-    @ObservedObject private var overlayState = OverlayStateRelay.shared
-    
-    private var sliderBackingOpacity: Double {
-        let lum = max(0.0, min(1.0, overlayState.backgroundLuminance))
-        let sat = max(0.0, min(1.0, overlayState.backgroundSaturation))
-        // Protect colorful backgrounds (sat >= 0.34) keeping them clean and translucent at 0.08.
-        // For neutral bright backgrounds (sat <= 0.12), scale opacity aggressively up to 0.96 for deep black contrast.
-        let satFactor = max(0.0, min(1.0, 1.0 - (sat - 0.12) / 0.22))
-        let whiteness = max(0.0, min(1.0, (lum - 0.10) / 0.70)) * satFactor
-        return 0.08 + (0.88 * pow(whiteness, 0.75))
-    }
+    @State private var renderNonce = UUID()
     
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
@@ -214,7 +188,7 @@ struct LiquidGlassCircleModifier: ViewModifier {
                 .background(
                     Circle().fill(
                         isClear
-                            ? Color.black.opacity(sliderBackingOpacity)
+                            ? Color.black.opacity(customBackingOpacity ?? (isDark ? 0.25 : 0.15))
                             : (isDark ? Color.black.opacity(0.05) : Color.white.opacity(0.04))
                     )
                 )
@@ -230,11 +204,16 @@ struct LiquidGlassCircleModifier: ViewModifier {
                 .glassEffect(isClear ? .clear : .regular, in: Circle())
                 .materialActiveAppearance(.active)
                 .environment(\.controlActiveState, .key)
+                .id(renderNonce)
+                .task {
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    renderNonce = UUID()
+                }
                 .overlay(
                     Circle()
                         .strokeBorder(
                             LinearGradient(
-                                colors: (isClear || isDark) ? [
+                                colors: isDark ? [
                                     Color.white.opacity(0.30),
                                     Color.white.opacity(0.08)
                                 ] : [
@@ -324,21 +303,6 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
     
     private var isEffectivelyMinimal: Bool {
         enableMinimalMode && !isMinimalExpandedByClick && !isHovering && !isExpanded
-    }
-    
-    private var isSliderMode: Bool {
-        if isTimeoutMode { return false }
-        if let id = keepAliveId {
-            if id.contains("volume") || id.contains("brightness") || id.contains("keyboard") {
-                return true
-            }
-        }
-        if let icon = minimalIcon {
-            if icon.contains("speaker") || icon.contains("sun.max") || icon.contains("keyboard") {
-                return true
-            }
-        }
-        return false
     }
     
     private var effectiveIsDark: Bool {
@@ -679,7 +643,7 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
             }
         )
         .contentShape(bendedShape)
-        .modifier(LiquidGlassBackgroundModifier(shape: bendedShape, isPreview: isPreview, isClear: isSliderMode, isDark: effectiveIsDark))
+        .modifier(LiquidGlassBackgroundModifier(shape: bendedShape, isPreview: isPreview, isDark: effectiveIsDark))
         .overlay(
             LiquidGlassRimOverlay(shape: bendedShape, bendProgress: bendProgress, buttonCenter: buttonCenter, cutoutSize: cutoutSize, isAround: false)
         )
@@ -707,9 +671,9 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
             if enableCloseButton && allowCloseButton {
                 Image(systemName: "xmark")
                     .font(.system(size: 9.5, weight: .bold))
-                    .foregroundColor((isSliderMode || effectiveIsDark) ? Color.white.opacity(0.85) : Color.black.opacity(0.70))
+                    .foregroundColor(effectiveIsDark ? Color.white.opacity(0.85) : Color.black.opacity(0.70))
                     .frame(width: 20, height: 20)
-                    .modifier(LiquidGlassCircleModifier(isPreview: isPreview, isClear: isSliderMode, isDark: effectiveIsDark))
+                    .modifier(LiquidGlassCircleModifier(isPreview: isPreview, isDark: effectiveIsDark))
                     .contentShape(Circle())
                     .scaleEffect(isCloseButtonHovered ? 1.08 : 1.0)
                     .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isCloseButtonHovered)

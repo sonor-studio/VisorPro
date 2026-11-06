@@ -62,7 +62,6 @@ struct SystemSegmentedSliderBar: View, Animatable {
 struct UniversalSystemOverlayView: View {
     @Environment(\.colorScheme) var colorScheme
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @ObservedObject private var overlayState = OverlayStateRelay.shared
     
     var isPreview: Bool = false
     var icon: String? = nil
@@ -162,15 +161,13 @@ struct UniversalSystemOverlayView: View {
         return colorScheme == .dark
     }
     
-    // Only sliders dynamically adapt their backing to wallpaper luminance:
+    // Darkened translucent backing for slider overlays (tuned between 0.18 and 0.32 so it stays clear and never turns into an opaque black block):
     private var sliderBackingOpacity: Double {
-        let lum = max(0.0, min(1.0, overlayState.backgroundLuminance))
-        let sat = max(0.0, min(1.0, overlayState.backgroundSaturation))
-        // Protect colorful backgrounds (sat >= 0.34) keeping them clean and translucent at 0.08.
-        // For neutral bright backgrounds (sat <= 0.12), scale opacity aggressively up to 0.96 for deep black contrast.
+        let lum = max(0.0, min(1.0, OverlayStateRelay.shared.backgroundLuminance))
+        let sat = max(0.0, min(1.0, OverlayStateRelay.shared.backgroundSaturation))
         let satFactor = max(0.0, min(1.0, 1.0 - (sat - 0.12) / 0.22))
         let whiteness = max(0.0, min(1.0, (lum - 0.10) / 0.70)) * satFactor
-        return 0.08 + (0.88 * pow(whiteness, 0.75))
+        return 0.18 + (0.14 * pow(whiteness, 0.75))
     }
     
     private var primaryColor: Color {
@@ -550,7 +547,14 @@ struct UniversalSystemOverlayView: View {
                     .font(.system(size: 9.5, weight: .bold))
                     .foregroundColor((isSliderMode || effectiveIsDark) ? Color.white.opacity(0.85) : Color.black.opacity(0.70))
                     .frame(width: 20, height: 20)
-                    .modifier(LiquidGlassCircleModifier(isPreview: isPreview, isClear: isSliderMode, isDark: effectiveIsDark))
+                    .modifier(
+                        LiquidGlassCircleModifier(
+                            isPreview: isPreview,
+                            isDark: (isSliderMode || effectiveIsDark),
+                            isClear: isSliderMode,
+                            customBackingOpacity: isSliderMode ? sliderBackingOpacity : nil
+                        )
+                    )
                     .scaleEffect(isCloseButtonHovered ? 1.08 : 1.0)
             }
             .buttonStyle(.plain)

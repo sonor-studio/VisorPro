@@ -265,6 +265,15 @@ class VisorProWindowManager: ObservableObject {
                 self?.ensureHeartbeatRunning()
             }
             .store(in: &cancellables)
+            
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .compactMap { _ in UserDefaults.standard.string(forKey: "overlayStyle") }
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateWindows()
+            }
+            .store(in: &cancellables)
         
         // Only observe swipe-related properties (the only high-frequency state
         // that VisorProWindowManager needs beyond show/hide notifications).
@@ -868,7 +877,10 @@ class VisorProWindowManager: ObservableObject {
                         panel.alphaValue = 0.0
                         panel.setFrame(NSRect(origin: startOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
-                        panel.makeKey()
+                        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+                        if isSys {
+                            panel.makeKey()
+                        }
                         
                         DispatchQueue.main.async {
                             NSAnimationContext.runAnimationGroup({ ctx in
@@ -886,7 +898,10 @@ class VisorProWindowManager: ObservableObject {
                         panel.alphaValue = 0.0
                         panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
-                        panel.makeKey()
+                        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+                        if isSys {
+                            panel.makeKey()
+                        }
                         
                         DispatchQueue.main.async {
                             NSAnimationContext.runAnimationGroup({ ctx in
@@ -923,6 +938,23 @@ class VisorProWindowManager: ObservableObject {
                                 ctx.timingFunction = CAMediaTimingFunction(controlPoints: 0.16, 1.0, 0.3, 1.0)
                                 panel.animator().setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: false)
                                 panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
+                            }
+                        }
+                    }
+                    
+                    if let overlayPanel = panel as? VisorProOverlayPanel {
+                        let isSys = overlayPanel.isSystemStyle
+                        if isSys {
+                            if NSApp.keyWindow !== overlayPanel {
+                                overlayPanel.makeKey()
+                            }
+                        } else {
+                            if NSApp.keyWindow === overlayPanel {
+                                if let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+                                    front.activate(options: [])
+                                } else {
+                                    NSApp.deactivate()
+                                }
                             }
                         }
                     }
@@ -1225,53 +1257,57 @@ class VisorProOverlayPanel: NSPanel {
         self.displaysWhenScreenProfileChanges = true
     }
     
-    override var canBecomeKey: Bool { return true }
+    var isSystemStyle: Bool {
+        return (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+    }
+    
+    override var canBecomeKey: Bool { return isSystemStyle }
     override var canBecomeMain: Bool { return false }
     
     override var isKeyWindow: Bool {
-        guard !isBeingClosed, isVisible, contentView != nil else {
+        guard isSystemStyle, !isBeingClosed, isVisible, contentView != nil else {
             return super.isKeyWindow
         }
         return true
     }
     
     override var isMainWindow: Bool {
-        guard !isBeingClosed, isVisible, contentView != nil else {
+        guard isSystemStyle, !isBeingClosed, isVisible, contentView != nil else {
             return super.isMainWindow
         }
         return true
     }
     
     override func resignKey() {
-        guard !isBeingClosed, isVisible, contentView != nil else {
+        guard isSystemStyle, !isBeingClosed, isVisible, contentView != nil else {
             super.resignKey()
             return
         }
-        // Seamlessly maintain active key HUD appearance without stealing focus from clicked apps
+        // Seamlessly maintain active key HUD appearance without stealing focus from clicked apps (system style only)
         DispatchQueue.main.async { [weak self] in
-            guard let self = self, !self.isBeingClosed, self.isVisible, self.contentView != nil else { return }
+            guard let self = self, self.isSystemStyle, !self.isBeingClosed, self.isVisible, self.contentView != nil else { return }
             self.makeKey()
         }
     }
     
     override func resignMain() {
         super.resignMain()
-        guard !isBeingClosed, isVisible else { return }
+        guard isSystemStyle, !isBeingClosed, isVisible else { return }
         NotificationCenter.default.post(name: NSWindow.didBecomeMainNotification, object: self)
     }
     
     override func keyDown(with event: NSEvent) {
-        if forwardKeyEvent(event) { return }
+        if isSystemStyle && forwardKeyEvent(event) { return }
         super.keyDown(with: event)
     }
     
     override func keyUp(with event: NSEvent) {
-        if forwardKeyEvent(event) { return }
+        if isSystemStyle && forwardKeyEvent(event) { return }
         super.keyUp(with: event)
     }
     
     override func flagsChanged(with event: NSEvent) {
-        if forwardKeyEvent(event) { return }
+        if isSystemStyle && forwardKeyEvent(event) { return }
         super.flagsChanged(with: event)
     }
     
@@ -1379,12 +1415,14 @@ class TrackingHostingView<Content: View>: NSHostingView<Content> {
     }
     
     override func mouseDown(with event: NSEvent) {
-        self.window?.makeKey()
+        if let panel = self.window as? VisorProOverlayPanel, panel.isSystemStyle {
+            self.window?.makeKey()
+        }
         super.mouseDown(with: event)
     }
     
     override func keyDown(with event: NSEvent) {
-        if let panel = self.window as? VisorProOverlayPanel {
+        if let panel = self.window as? VisorProOverlayPanel, panel.isSystemStyle {
             panel.keyDown(with: event)
             return
         }
@@ -1392,7 +1430,7 @@ class TrackingHostingView<Content: View>: NSHostingView<Content> {
     }
     
     override func keyUp(with event: NSEvent) {
-        if let panel = self.window as? VisorProOverlayPanel {
+        if let panel = self.window as? VisorProOverlayPanel, panel.isSystemStyle {
             panel.keyUp(with: event)
             return
         }
@@ -1400,7 +1438,7 @@ class TrackingHostingView<Content: View>: NSHostingView<Content> {
     }
     
     override func flagsChanged(with event: NSEvent) {
-        if let panel = self.window as? VisorProOverlayPanel {
+        if let panel = self.window as? VisorProOverlayPanel, panel.isSystemStyle {
             panel.flagsChanged(with: event)
             return
         }

@@ -302,6 +302,7 @@ struct AppearanceEditorView: View {
         let isSelected = mediaKeyManager.overlayStyle == value
         return Button {
             mediaKeyManager.overlayStyle = value
+            MediaKeyManager.shared.notifyOverlayStateChanged()
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
