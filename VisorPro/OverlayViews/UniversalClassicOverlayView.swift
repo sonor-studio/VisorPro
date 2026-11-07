@@ -228,19 +228,26 @@ struct UniversalClassicOverlayView: View {
         
         ZStack {
             // Glyph: centred horizontally, glyph centre exactly 84 pt below bezel's top
-            Button {
-                onLeftTap?()
-            } label: {
-                Image(systemName: sliderIconName)
-                    .font(.system(size: 68, weight: .regular))
-                    .foregroundColor(glyphColor)
-                    .shadow(color: glyphShadowColor, radius: light ? 0 : 1, x: 0, y: glyphShadowY)
-                    .frame(width: 76, height: 76, alignment: .center)
+            let glyphView = Image(systemName: sliderIconName)
+                .font(.system(size: 68, weight: .regular))
+                .foregroundColor(glyphColor)
+                .shadow(color: glyphShadowColor, radius: light ? 0 : 1, x: 0, y: glyphShadowY)
+                .frame(width: 76, height: 76, alignment: .center)
+            
+            if let onLeftTap = onLeftTap, !isPreview {
+                Button {
+                    onLeftTap()
+                } label: {
+                    glyphView
+                }
+                .buttonStyle(.plain)
+                .focusable(false)
+                .pointingHandCursor()
+                .position(x: 100, y: 84)
+            } else {
+                glyphView
+                    .position(x: 100, y: 84)
             }
-            .buttonStyle(.plain)
-            .focusable(false)
-            .conditionalPointingHandCursor(isEnabled: onLeftTap != nil && !isPreview)
-            .position(x: 100, y: 84)
             
             // 16-Segment Level Bar: centred horizontally, exactly 160 pt below bezel's top
             ZStack {
@@ -291,7 +298,7 @@ struct UniversalClassicOverlayView: View {
     
     // MARK: - Status Bezel Body (Caps Lock, Trash, WiFi, Bluetooth, Mic, etc.)
     /// Non-level overlays have NO bottom bar ("opaska na dole").
-    /// The icon and content are placed dead-center in the 200 × 200 bezel.
+    /// The icon and content are placed dead-center together in the 200 × 200 bezel.
     @ViewBuilder
     private var statusBezelBody: some View {
         let light = isLightMode
@@ -300,25 +307,31 @@ struct UniversalClassicOverlayView: View {
         let titleColor = light ? Color(white: 0.12) : Color.white.opacity(0.96)
         let subtitleColor = light ? Color(white: 0.20) : Color.white.opacity(0.75)
         
-        VStack(spacing: 10) {
-            Spacer(minLength: 0)
-            
+        let tapAction = onLeftTap ?? onSimpleTap
+        
+        VStack(spacing: 12) {
             if let icon = icon, !icon.isEmpty {
-                Button {
-                    onLeftTap?() ?? onSimpleTap?()
-                } label: {
-                    Image(systemName: icon)
-                        .font(.system(size: 72, weight: .regular))
-                        .foregroundColor(iconColor)
-                        .shadow(color: iconShadowColor, radius: light ? 0 : 1, x: 0, y: light ? 0 : 1)
-                        .frame(width: 86, height: 80, alignment: .center)
+                let iconImageView = Image(systemName: icon)
+                    .font(.system(size: 72, weight: .regular))
+                    .foregroundColor(iconColor)
+                    .shadow(color: iconShadowColor, radius: light ? 0 : 1, x: 0, y: light ? 0 : 1)
+                    .frame(width: 86, height: 76, alignment: .center)
+                
+                if let tapAction = tapAction, !isPreview {
+                    Button {
+                        tapAction()
+                    } label: {
+                        iconImageView
+                    }
+                    .buttonStyle(.plain)
+                    .focusable(false)
+                    .pointingHandCursor()
+                } else {
+                    iconImageView
                 }
-                .buttonStyle(.plain)
-                .focusable(false)
-                .conditionalPointingHandCursor(isEnabled: (onLeftTap != nil || onSimpleTap != nil) && !isPreview)
             }
             
-            VStack(spacing: 3) {
+            VStack(spacing: 4) {
                 if let title = title, !title.isEmpty {
                     MarqueeText(
                         text: title,
@@ -350,10 +363,8 @@ struct UniversalClassicOverlayView: View {
                 }
             }
             .padding(.horizontal, 18)
-            
-            Spacer(minLength: 0)
         }
-        .frame(width: 200, height: 200)
+        .frame(width: 200, height: 200, alignment: .center)
     }
     
     // MARK: - Close Button Overlay (Corner Protruding)

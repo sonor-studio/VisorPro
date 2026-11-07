@@ -123,7 +123,7 @@ struct MicOverlayView: View {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: (overlayState.isMicMuteReminder || currentVolume == 0) ? "mic.slash.fill" : (actualIsActive ? "mic.fill" : "mic.slash.fill"))
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor((actualIsActive && !overlayState.isMicMuteReminder) ? .primary : .offStateGray)
+                        .foregroundColor((actualIsActive && !overlayState.isMicMuteReminder) ? .primary : .secondary)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -396,7 +396,7 @@ struct CameraEffectButton: View {
                 
                 Text(title)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundColor(isOn ? .primary : .offStateGray)
+                    .foregroundColor(isOn ? .primary : .secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .frame(height: 26, alignment: .top)
@@ -469,7 +469,7 @@ struct CameraOverlayView: View {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsActive ? "video.fill" : "video.slash.fill")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsActive ? .primary : .offStateGray)
+                        .foregroundColor(actualIsActive ? .primary : .secondary)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -628,7 +628,7 @@ struct LocationOverlayView: View {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsActive ? "location.fill" : "location.slash.fill")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(actualIsActive ? .primary : .offStateGray)
+                        .foregroundColor(actualIsActive ? .primary : .secondary)
                         .frame(width: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {

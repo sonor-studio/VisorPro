@@ -185,11 +185,24 @@ struct BouncyHeightModifier: AnimatableModifier {
     }
 }
 
+private struct OverlayForcedStyleKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
+extension EnvironmentValues {
+    var overlayForcedStyle: String? {
+        get { self[OverlayForcedStyleKey.self] }
+        set { self[OverlayForcedStyleKey.self] = newValue }
+    }
+}
+
 struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.overlayForcedStyle) var overlayForcedStyle
     
     var isPreview: Bool = false
+    var forcedStyle: String? = nil
     @Binding var isExpanded: Bool    
 
 
@@ -267,11 +280,11 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     private var isEffectivelyMinimal: Bool {
-        enableMinimalMode && !isMinimalExpandedByClick && !isHovering && !isExpanded
+        !isPreview && enableMinimalMode && !isMinimalExpandedByClick && !isHovering && !isExpanded
     }
     
     var body: some View {
-        let activeStyle = mediaKeyManager.effectiveOverlayStyle
+        let activeStyle = forcedStyle ?? overlayForcedStyle ?? mediaKeyManager.effectiveOverlayStyle
         if activeStyle == "system" {
             let defaultTitle: String? = {
                 if let st = systemTitle { return st }
@@ -377,6 +390,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
             )
             .id("capsule_overlay")
         } else if activeStyle == "classic" {
+            let isBattery = (keepAliveId == "battery" || keepAliveId == "accessoryBattery")
             let defaultTitle: String? = {
                 if let st = systemTitle { return st }
                 if let min = minimalText {
@@ -388,6 +402,15 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 return nil
             }()
             let defaultSubtitle: String? = {
+                if isBattery, let min = minimalText, min.hasSuffix("%") {
+                    if let ss = systemSubtitle, !ss.isEmpty {
+                        if !ss.contains("%") {
+                            return "\(ss) • \(min)"
+                        }
+                        return ss
+                    }
+                    return min
+                }
                 if let ss = systemSubtitle { return ss }
                 if let min = minimalText {
                     if min == "Caps ON" { return "On" }
@@ -398,6 +421,31 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 if isMuted { return "Muted" }
                 if isTimeoutMode { return nil }
                 if showProgressBar { return "\(Int(progress * 100))%" }
+                return nil
+            }()
+            
+            let classicLeftTap: (() -> Void)? = {
+                if keepAliveId == "volume" {
+                    return onLeftTap
+                }
+                return nil
+            }()
+            
+            let classicSimpleTap: (() -> Void)? = {
+                if keepAliveId == "media" {
+                    return {
+                        MediaKeyManager.shared.simulatePlayPause()
+                    }
+                }
+                if keepAliveId == "capsLock" || keepAliveId == "theme" || keepAliveId == "language" {
+                    return onSimpleTap
+                }
+                if keepAliveId == "fileDeleted" {
+                    return {
+                        MediaKeyManager.shared.openTrash()
+                        MediaKeyManager.shared.forceHide(overlayId: "fileDeleted")
+                    }
+                }
                 return nil
             }()
             
@@ -420,8 +468,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 keepAliveId: keepAliveId,
                 supportDragGesture: supportDragGesture,
                 onDrag: onDrag,
-                onLeftTap: onLeftTap,
-                onSimpleTap: onSimpleTap,
+                onLeftTap: classicLeftTap,
+                onSimpleTap: classicSimpleTap,
                 baseContent: {
                     AnyView(baseContent())
                 }

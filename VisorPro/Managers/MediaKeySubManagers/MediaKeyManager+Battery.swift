@@ -8,28 +8,43 @@ extension MediaKeyManager {
         if !enableBattery { return }
         startFetchingTopBatteryConsumers()
         playNotificationSound(named: sound)
+        
+        chargingTimer?.invalidate()
+        batteryTimer?.invalidate()
+        batteryTransitionWorkItem?.cancel()
+        batteryTransitionWorkItem = nil
+        
         let battPos = self.getOverlayPosition(for: "batteryOverlayPosition")
         dismissCollidingIndicators(newPosition: battPos, source: "battery")
         
         let wasActive = showChargingStatus || showLowBatteryWarning || showUnpluggedStatus
-        if wasActive {
+        let executeShow = { [weak self] in
+            guard let self = self else { return }
+            self.batteryTransitionWorkItem = nil
+            OverlayStateRelay.shared.batteryOverlayMode = .warning
             withAnimation(.easeInOut(duration: 0.25)) {
-                showChargingStatus = false
-                showLowBatteryWarning = false
-                showUnpluggedStatus = false
+                self.showLowBatteryWarning = true
+                self.overlayTriggerTimes["battery_warning"] = Date()
+                self.notifyOverlayStateChanged()
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery_warning"] = Date()
-                    self.notifyOverlayStateChanged()
-                }
-            }
-        } else {
-            withAnimation(.easeInOut(duration: 0.25)) { self.showLowBatteryWarning = true; self.overlayTriggerTimes["battery_warning"] = Date() }
-            self.notifyOverlayStateChanged()
+            self.scheduleOverlayHide(for: "battery")
         }
         
-        self.scheduleOverlayHide(for: "battery")
+        if wasActive {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                self.showChargingStatus = false
+                self.showLowBatteryWarning = false
+                self.showUnpluggedStatus = false
+            }
+            self.notifyOverlayStateChanged()
+            let workItem = DispatchWorkItem {
+                executeShow()
+            }
+            self.batteryTransitionWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: workItem)
+        } else {
+            executeShow()
+        }
     }
 
     func triggerChargingStatus() {
@@ -41,30 +56,82 @@ extension MediaKeyManager {
         }
         chargingTimer?.invalidate()
         batteryTimer?.invalidate()
+        batteryTransitionWorkItem?.cancel()
+        batteryTransitionWorkItem = nil
+
         let battPos = self.getOverlayPosition(for: "batteryOverlayPosition")
         dismissCollidingIndicators(newPosition: battPos, source: "battery")
         
         let wasActive = showChargingStatus || showLowBatteryWarning || showUnpluggedStatus
-        if wasActive {
+        let executeShow = { [weak self] in
+            guard let self = self else { return }
+            self.batteryTransitionWorkItem = nil
+            OverlayStateRelay.shared.batteryOverlayMode = .charging
             withAnimation(.easeInOut(duration: 0.25)) {
-                showChargingStatus = false
-                showLowBatteryWarning = false
-                showUnpluggedStatus = false
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showChargingStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
-                    self.notifyOverlayStateChanged()
-                }
-            }
-        } else {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self.showChargingStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
+                self.showChargingStatus = true
+                self.overlayTriggerTimes["battery_charging"] = Date()
                 self.notifyOverlayStateChanged()
             }
+            self.scheduleOverlayHide(for: "battery")
         }
         
-        self.scheduleOverlayHide(for: "battery")
+        if wasActive {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                self.showChargingStatus = false
+                self.showLowBatteryWarning = false
+                self.showUnpluggedStatus = false
+            }
+            self.notifyOverlayStateChanged()
+            let workItem = DispatchWorkItem {
+                executeShow()
+            }
+            self.batteryTransitionWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: workItem)
+        } else {
+            executeShow()
+        }
+    }
+
+    func triggerUnplugStatus() {
+        if !enableBattery { return }
+        playNotificationSound(named: soundOnUnplug)
+        
+        chargingTimer?.invalidate()
+        batteryTimer?.invalidate()
+        batteryTransitionWorkItem?.cancel()
+        batteryTransitionWorkItem = nil
+
+        let battPos = self.getOverlayPosition(for: "batteryOverlayPosition")
+        dismissCollidingIndicators(newPosition: battPos, source: "battery")
+        
+        let wasActive = showChargingStatus || showLowBatteryWarning || showUnpluggedStatus
+        let executeShow = { [weak self] in
+            guard let self = self else { return }
+            self.batteryTransitionWorkItem = nil
+            OverlayStateRelay.shared.batteryOverlayMode = .unplugged
+            withAnimation(.easeInOut(duration: 0.25)) {
+                self.showUnpluggedStatus = true
+                self.overlayTriggerTimes["battery_unplugged"] = Date()
+                self.notifyOverlayStateChanged()
+            }
+            self.scheduleOverlayHide(for: "battery")
+        }
+        
+        if wasActive {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                self.showChargingStatus = false
+                self.showLowBatteryWarning = false
+                self.showUnpluggedStatus = false
+            }
+            self.notifyOverlayStateChanged()
+            let workItem = DispatchWorkItem {
+                executeShow()
+            }
+            self.batteryTransitionWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: workItem)
+        } else {
+            executeShow()
+        }
     }
 
     func triggerAccessoryBatteryIndicator(deviceName: String, percentage: Int, isPluggedIn: Bool, isWarning: Bool, isIncreasing: Bool = false, customSound: String? = nil) {

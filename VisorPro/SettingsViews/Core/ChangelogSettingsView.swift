@@ -47,13 +47,13 @@ struct ChangelogSettingsView: View {
                 Divider()
                     .padding(.bottom, 32)
                 
-                // Version 1.3.3 Area
+                // Version 2.0.0 Area
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("VisorPro 1.3.3")
+                    Text("VisorPro 2.0.0")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.primary)
                     
-                    Text("Overlay bug fixes and stability improvements, new Overlay Design Studio, three-finger dismiss gesture, customizable entrance & exit animations, and refined Speed Test engine.")
+                    Text("A major milestone update featuring new overlay appearance styles, interactive Cycle Paste history, the Overlay Design Studio, fluid animations, trackpad gestures, and stability refinements.")
                         .font(.system(size: 14))
                         .foregroundColor(.secondary)
                         .padding(.bottom, 8)
@@ -61,23 +61,17 @@ struct ChangelogSettingsView: View {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)], spacing: 32) {
                         
                         ChangelogCard(
-                            icon: "wrench.and.screwdriver.fill",
-                            title: "Overlay Logic & Bug Fixes",
-                            description: "Extensively resolved bugs and refined overlay behaviors. Fixed close button clipping, 100% battery indicators, full-screen menu bar interactions, and eliminated false triggers across system overlays.",
-                            preview: ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.teal.opacity(0.05))
-                                 
-                                ZStack {
-                                    Circle()
-                                        .stroke(Color.teal.opacity(0.25), lineWidth: 4)
-                                        .frame(width: 60, height: 60)
-                                    
-                                    Image(systemName: "checkmark.shield.fill")
-                                        .font(.system(size: 28))
-                                        .foregroundColor(.teal)
-                                }
-                            }
+                            icon: "paintpalette.fill",
+                            title: "Overlay Appearance Styles",
+                            description: "Choose from four distinct looks in Design Studio: modern Default pill, translucent Liquid Glass, authentic System HUD, and retro Classic styling.",
+                            preview: OverlayStylesChangelogPreview()
+                        )
+                        
+                        ChangelogCard(
+                            icon: "arrow.triangle.2.circlepath",
+                            title: "Cycle Paste History",
+                            description: "Hold Command and tap Paste (⌘V) to cycle through recent copies with a live index counter. Keep holding to preview, release to paste.",
+                            preview: CyclePasteChangelogPreview()
                         )
                         
                         ChangelogCard(
@@ -237,6 +231,26 @@ struct ChangelogSettingsView: View {
                                     Image(systemName: "speedometer")
                                         .font(.system(size: 28))
                                         .foregroundColor(.orange)
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "wrench.and.screwdriver.fill",
+                            title: "Overlay Logic & Bug Fixes",
+                            description: "Extensively resolved bugs and refined overlay behaviors. Fixed close button clipping, 100% battery indicators, full-screen menu bar interactions, and eliminated false triggers across system overlays.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.teal.opacity(0.05))
+                                 
+                                ZStack {
+                                    Circle()
+                                        .stroke(Color.teal.opacity(0.25), lineWidth: 4)
+                                        .frame(width: 60, height: 60)
+                                    
+                                    Image(systemName: "checkmark.shield.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(.teal)
                                 }
                             }
                         )
@@ -484,6 +498,7 @@ struct ChangelogSettingsView: View {
                                 
                                 UniversalOverlayView(
                                     isPreview: true,
+                                    forcedStyle: "default",
                                     isExpanded: .constant(false),
                                     showProgressBar: true,
                                     progress: 0.5,
@@ -762,6 +777,7 @@ struct ChangelogSettingsView: View {
                                 
                                 UniversalOverlayView(
                                     isPreview: true,
+                                    forcedStyle: "default",
                                     isExpanded: .constant(false),
                                     showProgressBar: false,
                                     barColor: .indigo,
@@ -1025,6 +1041,7 @@ struct ChangelogSettingsView: View {
                                 
                                 UniversalOverlayView(
                                     isPreview: true,
+                                    forcedStyle: "default",
                                     isExpanded: .constant(false),
                                     showProgressBar: false,
                                     barColor: .indigo,
@@ -1302,6 +1319,7 @@ struct ChangelogSettingsView: View {
             }
             .padding(32)
         }
+        .environment(\.overlayForcedStyle, "default")
         .navigationTitle("Changelog")
     }
 }
@@ -1436,5 +1454,96 @@ private struct TouchPointPreviewDot: View {
                 .offset(x: -2, y: -2)
         }
         .offset(y: offsetY)
+    }
+}
+
+// MARK: - Overlay Styles Preview Component
+
+struct OverlayStylesChangelogPreview: View {
+    @State private var previewSelectedStyle: String = "capsule"
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.indigo.opacity(0.05))
+            
+            VStack(spacing: 10) {
+                HStack(spacing: 10) {
+                    previewStyleButton(title: "Default", icon: "rectangle.roundedtop", value: "default")
+                    previewStyleButton(title: "Liquid Glass", icon: "drop.fill", value: "capsule")
+                }
+                HStack(spacing: 10) {
+                    previewStyleButton(title: "System", icon: "apple.logo", value: "system")
+                    previewStyleButton(title: "Classic", icon: "square.fill", value: "classic")
+                }
+            }
+        }
+    }
+    
+    private func previewStyleButton(title: String, icon: String, value: String) -> some View {
+        let isSelected = previewSelectedStyle == value
+        return Button {
+            previewSelectedStyle = value
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+        }
+        .buttonStyle(InteractiveGlassButtonStyle(isActive: isSelected))
+    }
+}
+
+// MARK: - Cycle Paste History Preview Component
+
+struct CyclePasteChangelogPreview: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.blue.opacity(0.05))
+            
+            VStack(spacing: 12) {
+                CopyOverlayView(
+                    isPreview: true,
+                    previewAction: "cyclePaste",
+                    previewCustomText: "https://apple.com/macos"
+                )
+                .scaleEffect(0.92)
+                
+                HStack(spacing: 6) {
+                    HStack(spacing: 3) {
+                        ChangelogKeyCap(text: "⌘")
+                        Text("+")
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .foregroundColor(.secondary)
+                        ChangelogKeyCap(text: "V")
+                    }
+                    
+                    Text("Hold ⌘ to cycle, release to paste")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+}
+
+private struct ChangelogKeyCap: View {
+    let text: String
+    
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .foregroundColor(.primary)
+            .frame(width: 18, height: 18)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
     }
 }

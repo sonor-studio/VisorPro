@@ -28,12 +28,23 @@ struct BatteryOverlayView: View {
             if previewType == "unplugged" || previewType.hasPrefix("low") { return false }
             return true
         }
+        if overlayState.batteryOverlayMode == .charging { return true }
+        if overlayState.batteryOverlayMode == .unplugged { return false }
         return overlayState.isPluggedIn
+    }
+    
+    private var effectiveWarningMode: Bool {
+        if isPreview { return isWarningMode }
+        return overlayState.batteryOverlayMode == .warning
+    }
+    
+    private var isLowBattery: Bool {
+        actualPercentage <= 20
     }
     
     private var isFullyCharged: Bool {
         if isPreview { return previewType == "full" }
-        return actualPercentage == 100 || overlayState.isEffectivelyFullyCharged
+        return actualPercentage == 100 || (actualIsPluggedIn && overlayState.isEffectivelyFullyCharged)
     }
     
     private var batteryColor: Color {
@@ -44,13 +55,23 @@ struct BatteryOverlayView: View {
     }
     
     private var iconName: String {
-        if isWarningMode {
-            return actualPercentage <= 10 ? "battery.0" : "battery.25"
-        }
         if isFullyCharged {
             return "battery.100"
         }
-        return actualIsPluggedIn ? "bolt.fill" : (actualPercentage > 50 ? "battery.75" : "battery.50")
+        if actualIsPluggedIn {
+            return "bolt.fill"
+        }
+        if actualPercentage <= 10 {
+            return "battery.0"
+        } else if actualPercentage <= 25 {
+            return "battery.25"
+        } else if actualPercentage <= 50 {
+            return "battery.50"
+        } else if actualPercentage <= 75 {
+            return "battery.75"
+        } else {
+            return "battery.100"
+        }
     }
 
     private func mockedTimeRemaining(for percentage: Int) -> String {
@@ -65,12 +86,11 @@ struct BatteryOverlayView: View {
 
     var body: some View {
         let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
-        let isFullyCharged = actualPercentage == 100 || (overlayState.isEffectivelyFullyCharged && !isPreview)
-        let systemTitle: String = isWarningMode ? "Battery Alert" : "Battery"
+        let isFullyCharged = actualPercentage == 100 || (actualIsPluggedIn && overlayState.isEffectivelyFullyCharged && !isPreview)
+        let systemTitle: String = isLowBattery ? "Low Battery" : "Battery"
         let systemSub: String = {
-            if isWarningMode { return "\(actualPercentage)% Remaining" }
             if isFullyCharged { return "Fully Charged" }
-            return actualIsPluggedIn ? "\(actualPercentage)% • Charging" : "\(actualPercentage)% • Unplugged"
+            return actualIsPluggedIn ? "Charging" : "Unplugged"
         }()
         
         return UniversalOverlayView(
@@ -80,8 +100,8 @@ struct BatteryOverlayView: View {
             progress: animatedBatteryProgress,
             barColor: batteryColor,
             fillCenter: batteryFillCenter,
-            isMuted: !actualIsPluggedIn && !isWarningMode,
-            isWarningMode: isWarningMode,
+            isMuted: !actualIsPluggedIn && !effectiveWarningMode,
+            isWarningMode: effectiveWarningMode,
             customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 200 : 260,
             customHeight: isFullyCharged ? 56 : 72,
             supportDragGesture: false,
@@ -114,7 +134,7 @@ struct BatteryOverlayView: View {
                                 AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: true)
                             }
                         } else {
-                            Text(isWarningMode ? "Battery Alert" : (actualIsPluggedIn ? "Charging" : "Unplugged"))
+                            Text(isLowBattery ? "Low Battery" : (actualIsPluggedIn ? "Charging" : "Unplugged"))
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
                             AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)
@@ -131,11 +151,11 @@ struct BatteryOverlayView: View {
                 VStack(spacing: 12) {
                     HStack(spacing: 8) {
                         VStack(alignment: .center, spacing: 4) {
-                            Text((isWarningMode || !actualIsPluggedIn) ? "Condition" : "Power")
+                            Text((effectiveWarningMode || !actualIsPluggedIn) ? "Condition" : "Power")
                                 .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
-                            Text((isWarningMode || !actualIsPluggedIn) ? overlayState.batteryCondition : overlayState.batteryPowerDraw)
+                            Text((effectiveWarningMode || !actualIsPluggedIn) ? overlayState.batteryCondition : overlayState.batteryPowerDraw)
                                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
@@ -185,7 +205,7 @@ struct BatteryOverlayView: View {
                         (name: "WindowServer", power: "18.1", icon: NSImage(systemSymbolName: "gearshape.fill", accessibilityDescription: nil))
                     ] : overlayState.topBatteryConsumers
 
-                    if (isWarningMode || isPreview) && !consumers.isEmpty {
+                    if (effectiveWarningMode || isPreview) && !consumers.isEmpty {
                         Divider()
                             .padding(.horizontal, 20)
                         
@@ -261,15 +281,15 @@ struct BatteryOverlayView: View {
     
     private func runAnimation() {
         let targetProgress = CGFloat(actualPercentage) / 100.0
-        animatedBatteryProgress = isWarningMode ? 1.0 : 0.0
+        animatedBatteryProgress = effectiveWarningMode ? 1.0 : 0.0
         hasFinishedChargeAnimation = false
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            let distance = isWarningMode ? (1.0 - targetProgress) : targetProgress
-            let actualDuration = isWarningMode ? 1.2 : (1.5 * Double(distance))
+            let distance = effectiveWarningMode ? (1.0 - targetProgress) : targetProgress
+            let actualDuration = effectiveWarningMode ? 1.2 : (1.5 * Double(distance))
             
             let animation: Animation
-            if isWarningMode {
+            if effectiveWarningMode {
                 animation = Animation.easeOut(duration: actualDuration)
             } else {
                 animation = Animation.timingCurve(0.4, 0.0, 0.2, 1.0, duration: actualDuration)

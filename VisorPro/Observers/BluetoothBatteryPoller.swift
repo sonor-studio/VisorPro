@@ -242,7 +242,7 @@ class BluetoothBatteryPoller {
                         } else {
                             self.lastTriggeredTimes[name, default: [:]][triggeredThresholdPercentage] = now
                             
-                            let isWarn = triggeredThresholdPercentage < 100 // Treat all custom thresholds as warnings so the text is "Battery Alert", except 100% which is "Fully Charged"
+                            let isWarn = triggeredThresholdPercentage < 100 // Trigger warning mode for custom thresholds below 100%
                             let isIncreasing = (battery > lastBat)
                             
                             // Pass the triggered sound to the manager so it plays the right one

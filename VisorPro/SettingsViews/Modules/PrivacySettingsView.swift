@@ -197,7 +197,7 @@ Toggle("", isOn: $mediaKeyManager.notifyOnMicOff).labelsHidden() }
                             )
                             
                             Group {
-                                if overlayPositionMode == "custom" {
+                                if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
                                 Text("Overlay Position")
                                     .font(.headline)
                                     .foregroundColor(.secondary)
@@ -327,7 +327,7 @@ Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
                             )
                             
                             Group {
-                                if overlayPositionMode == "custom" {
+                                if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
                                 Text("Overlay Position")
                                     .font(.headline)
                                     .foregroundColor(.secondary)
@@ -454,7 +454,7 @@ Toggle("", isOn: $mediaKeyManager.notifyOnCameraOff).labelsHidden() }
                             )
                             
                             Group {
-                                if overlayPositionMode == "custom" {
+                                if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
                                 Text("Overlay Position")
                                     .font(.headline)
                                     .foregroundColor(.secondary)

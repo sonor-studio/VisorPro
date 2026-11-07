@@ -64,7 +64,21 @@ final class MenuBarIconTracker {
             return screen.frame.maxX - offsetFromRight
         }
         
-        // 1. Direct match for this type (e.g. "focus", "volume", "battery")
+        // 1. VisorPro's own status item in the menu bar:
+        // When VisorPro's menu bar icon is active and visible, ALL VisorPro System overlays anchor directly under our icon.
+        let showMenuBarIcon = UserDefaults.standard.object(forKey: "showMenuBarIcon") as? Bool ?? true
+        if showMenuBarIcon,
+           let button = MenuBarManager.shared.statusItemButton,
+           let window = button.window {
+            let rectInWindow = button.convert(button.bounds, to: nil)
+            let screenRect = window.convertToScreen(rectInWindow)
+            let mapped = mapToScreen(screenRect.midX)
+            if mapped >= minAllowedX && mapped <= screenMaxX {
+                return clampX(mapped, pillWidth: pillWidth, in: screen)
+            }
+        }
+        
+        // 2. Direct match for this type (e.g. "focus", "volume", "battery")
         if let direct = iconCenters[type] {
             let mapped = mapToScreen(direct)
             if mapped >= minAllowedX && mapped <= screenMaxX {
@@ -72,7 +86,7 @@ final class MenuBarIconTracker {
             }
         }
         
-        // 2. Alias mapping for related overlay types
+        // 3. Alias mapping for related overlay types
         let alias: String? = {
             switch type {
             case "focus": return "focus"
@@ -92,20 +106,9 @@ final class MenuBarIconTracker {
             }
         }
         
-        // 3. Fallback to Control Center icon if available (standard anchor for unpinned modules)
+        // 4. Fallback to Control Center icon if available (standard anchor for unpinned modules)
         if let ccX = iconCenters["controlCenter"] {
             let mapped = mapToScreen(ccX)
-            if mapped >= minAllowedX && mapped <= screenMaxX {
-                return clampX(mapped, pillWidth: pillWidth, in: screen)
-            }
-        }
-        
-        // 4. Check VisorPro's own status item in the menu bar
-        if let button = MenuBarManager.shared.statusItemButton,
-           let window = button.window {
-            let rectInWindow = button.convert(button.bounds, to: nil)
-            let screenRect = window.convertToScreen(rectInWindow)
-            let mapped = mapToScreen(screenRect.midX)
             if mapped >= minAllowedX && mapped <= screenMaxX {
                 return clampX(mapped, pillWidth: pillWidth, in: screen)
             }

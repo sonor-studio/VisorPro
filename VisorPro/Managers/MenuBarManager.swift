@@ -3,7 +3,7 @@ import Combine
 import CoreLocation
 
 @MainActor
-final class MenuBarManager: NSObject, NSMenuDelegate {
+final class MenuBarManager: NSObject, NSMenuDelegate, NSMenuItemValidation {
     static let shared = MenuBarManager()
     
     private var statusItem: NSStatusItem?
@@ -79,7 +79,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         // Show Last Overlay
         let showLastItem = NSMenuItem(title: "Show Last Overlay", action: #selector(showLastOverlayAction), keyEquivalent: "")
         showLastItem.target = self
-        showLastItem.isEnabled = OverlayStateRelay.shared.canShowLastOverlay
+        showLastItem.isEnabled = MediaKeyManager.shared.canShowLastOverlay
         
         let shortcut = MediaKeyManager.shared.lastOverlayShortcutString
         let keyChar = shortcut.keyEquivalentCharacter
@@ -163,6 +163,15 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         item.target = self
         item.state = isOn ? .on : .off
         menu.addItem(item)
+    }
+    
+    // MARK: - NSMenuItemValidation
+    
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(showLastOverlayAction) {
+            return MediaKeyManager.shared.canShowLastOverlay
+        }
+        return true
     }
     
     // MARK: - Actions
@@ -265,6 +274,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     }
     
     @objc private func showLastOverlayAction() {
+        guard MediaKeyManager.shared.canShowLastOverlay else { return }
         MediaKeyManager.shared.showLastViewedOverlay()
     }
     

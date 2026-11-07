@@ -786,6 +786,7 @@ struct PremiumSettingsView: View {
             }
             .padding(24)
         }
+        .environment(\.overlayForcedStyle, "default")
         // Removed rigid white background so the view inherits transparency from SettingsView
         .background(Color.clear)
         .sheet(isPresented: $showingCheckout) {
@@ -939,13 +940,14 @@ struct FeatureBadge: View {
 
 struct WidgetPreviewCard<Preview: View>: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @Environment(\.overlayForcedStyle) var overlayForcedStyle
     let title: String
     let description: String
     let preview: Preview
     
 
     var body: some View {
-        let isClassic = mediaKeyManager.effectiveOverlayStyle == "classic"
+        let isClassic = (overlayForcedStyle ?? mediaKeyManager.effectiveOverlayStyle) == "classic"
         let cardPreviewHeight: CGFloat = isClassic ? 160 : 140
         let scale: CGFloat = isClassic ? 0.65 : 1.0
 

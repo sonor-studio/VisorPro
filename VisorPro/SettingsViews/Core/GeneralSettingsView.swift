@@ -183,120 +183,57 @@ struct GeneralSettingsView: View {
                 }
                 .padding(.horizontal)
                 
-                // MARK: - Overlays
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Overlays")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 4)
-                    
-                    VStack(spacing: 0) {
-                        // Overlays limit
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 8) {
-                                    Text("Overlays limit")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(.primary)
-                                    if savedLicenseKey.isEmpty {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "checkmark.seal.fill")
-                                            Text("Premium")
-                                                .fontWeight(.bold)
-                                        }
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(Color.green)
-                                        .cornerRadius(4)
-                                    }
-                                }
-                                Text(mediaKeyManager.overlayStyle == "system" ? "Locked to 1 in System style (HUD under menu bar)." : "Maximum number of tiles displayed at once.")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            HStack {
-                                let isSystem = mediaKeyManager.overlayStyle == "system"
-                                Slider(value: Binding(
-                                    get: { Double(isSystem ? 1 : mediaKeyManager.maxSimultaneousNotifications) },
-                                    set: { if !savedLicenseKey.isEmpty && !isSystem { mediaKeyManager.maxSimultaneousNotifications = Int($0) } }
-                                ), in: 1...5, step: 1)
-                                .disabled(savedLicenseKey.isEmpty || isSystem)
-                                .labelsHidden()
-                                .frame(width: 220)
-                                
-                                Text(isSystem ? "1" : "\(mediaKeyManager.maxSimultaneousNotifications)")
-                                    .frame(width: 30, alignment: .trailing)
-                            }
-                        }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
+                if mediaKeyManager.supportsOverlayColor {
+                    // MARK: - Overlay Color
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Overlay Color")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
                         
-                        .padding(.horizontal, 12)
-                    }
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
-                }
-                .padding(.horizontal)
-                
-                
-                // MARK: - Overlay Color
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Overlay Color")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 4)
-                    
-                    VStack(spacing: 0) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack(spacing: 8) {
-                                        Text("Overlay Color Mode")
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundColor(.primary)
-                                        if savedLicenseKey.isEmpty {
-                                            HStack(spacing: 4) {
-                                                Image(systemName: "checkmark.seal.fill")
-                                                Text("Premium")
-                                                    .fontWeight(.bold)
+                        VStack(spacing: 0) {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        HStack(spacing: 8) {
+                                            Text("Overlay Color Mode")
+                                                .font(.system(size: 13, weight: .medium))
+                                                .foregroundColor(.primary)
+                                            if savedLicenseKey.isEmpty {
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "checkmark.seal.fill")
+                                                    Text("Premium")
+                                                        .fontWeight(.bold)
+                                                }
+                                                .font(.system(size: 10))
+                                                .foregroundColor(.white)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color.green)
+                                                .cornerRadius(4)
                                             }
-                                            .font(.system(size: 10))
-                                            .foregroundColor(.white)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(Color.green)
-                                            .cornerRadius(4)
                                         }
+                                        Text("Customize the colors of the overlays.")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.secondary)
                                     }
-                                    Text("Customize the colors of the overlays.")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.secondary)
+                                    Spacer()
                                 }
-                                Spacer()
+                                OverlayColorModePicker(mediaKeyManager: mediaKeyManager)
+                                    .disabled(savedLicenseKey.isEmpty)
+                                    .opacity(savedLicenseKey.isEmpty ? 0.6 : 1.0)
                             }
-                            OverlayColorModePicker(mediaKeyManager: mediaKeyManager)
-                                .disabled(savedLicenseKey.isEmpty)
-                                .opacity(savedLicenseKey.isEmpty ? 0.6 : 1.0)
+                            .padding(16)
                         }
-                        .padding(16)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
                     }
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
+                    .padding(.horizontal)
                 }
-                .padding(.horizontal)
 
                 // MARK: - Shortcuts
                 VStack(alignment: .leading, spacing: 12) {
@@ -354,115 +291,117 @@ struct GeneralSettingsView: View {
                 }
                 .padding(.horizontal)
                 
-                // MARK: - Overlay Position
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Overlay Position")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 4)
-                    
-                    VStack(spacing: 0) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Overlay Position Mode")
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(.primary)
-                                    let isSystem = mediaKeyManager.overlayStyle == "system"
-                                    Text(isSystem ? "In System style, overlays are permanently anchored directly below the menu bar." : "Use a single position for all modules or configure each individually.")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                let isSystem = mediaKeyManager.overlayStyle == "system"
-                                Picker("", selection: $overlayPositionMode) {
-                                    Text("Custom (Individual per module)").tag("custom")
-                                    Text("Fixed (Same for all modules)").tag("fixed")
-                                }
-                                .labelsHidden()
-                                .pickerStyle(MenuPickerStyle())
-                                .disabled(isSystem)
-                            }
-                            
-                            if overlayPositionMode == "fixed" {
-                                Divider().padding(.vertical, 8)
-                                Text("Global Position")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                
-                                PositionPickerGroup(selection: $globalOverlayPosition)
-                                    .disabled(mediaKeyManager.overlayStyle == "system")
-                            }
-                            Divider().padding(.vertical, 8)
-                            
-                            VStack(alignment: .leading, spacing: 16) {
+                if mediaKeyManager.supportsOverlayPosition {
+                    // MARK: - Overlay Position
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Overlay Position")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            VStack(alignment: .leading, spacing: 10) {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("Screen Edge Margin")
+                                        Text("Overlay Position Mode")
                                             .font(.system(size: 13, weight: .medium))
                                             .foregroundColor(.primary)
-                                        Text("Distance from the edges of the screen")
+                                        let isSystem = mediaKeyManager.overlayStyle == "system"
+                                        Text(isSystem ? "In System style, overlays are permanently anchored directly below the menu bar." : "Use a single position for all modules or configure each individually.")
                                             .font(.system(size: 11))
                                             .foregroundColor(.secondary)
                                     }
-                                    
                                     Spacer()
+                                    let isSystem = mediaKeyManager.overlayStyle == "system"
+                                    Picker("", selection: $overlayPositionMode) {
+                                        Text("Custom (Individual per module)").tag("custom")
+                                        Text("Fixed (Same for all modules)").tag("fixed")
+                                    }
+                                    .labelsHidden()
+                                    .pickerStyle(MenuPickerStyle())
+                                    .disabled(isSystem)
+                                }
+                                
+                                if overlayPositionMode == "fixed" {
+                                    Divider().padding(.vertical, 8)
+                                    Text("Global Position")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(.secondary)
                                     
+                                    PositionPickerGroup(selection: $globalOverlayPosition)
+                                        .disabled(mediaKeyManager.overlayStyle == "system")
+                                }
+                                Divider().padding(.vertical, 8)
+                                
+                                VStack(alignment: .leading, spacing: 16) {
                                     HStack {
-                                        Slider(value: $overlayMargin, in: 0...150, step: 5)
-                                            .labelsHidden()
-                                            .frame(width: 320)
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Screen Edge Margin")
+                                                .font(.system(size: 13, weight: .medium))
+                                                .foregroundColor(.primary)
+                                            Text("Distance from the edges of the screen")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.secondary)
+                                        }
                                         
-                                        Text("\(Int(overlayMargin)) px")
-                                            .frame(width: 50, alignment: .trailing)
-                                    }
-                                }
-                                VStack {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                                            .frame(width: 180, height: 110)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                                            )
+                                        Spacer()
                                         
-                                        Capsule()
-                                            .fill(Color.accentColor.opacity(0.8))
-                                            .frame(width: 40, height: 10)
-                                            .offset(y: -55 + 5 + (overlayMargin * 0.1))
+                                        HStack {
+                                            Slider(value: $overlayMargin, in: 0...150, step: 5)
+                                                .labelsHidden()
+                                                .frame(width: 320)
                                             
-                                        Capsule()
-                                            .fill(Color.secondary.opacity(0.5))
-                                            .frame(width: 40, height: 10)
-                                            .offset(y: 55 - 5 - (overlayMargin * 0.1))
-                                            
-                                        Capsule()
-                                            .fill(Color.secondary.opacity(0.5))
-                                            .frame(width: 10, height: 40)
-                                            .offset(x: -90 + 5 + (overlayMargin * 0.1))
-                                            
-                                        Capsule()
-                                            .fill(Color.secondary.opacity(0.5))
-                                            .frame(width: 10, height: 40)
-                                            .offset(x: 90 - 5 - (overlayMargin * 0.1))
+                                            Text("\(Int(overlayMargin)) px")
+                                                .frame(width: 50, alignment: .trailing)
+                                        }
                                     }
+                                    VStack {
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                                                .frame(width: 180, height: 110)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                                                )
+                                            
+                                            Capsule()
+                                                .fill(Color.accentColor.opacity(0.8))
+                                                .frame(width: 40, height: 10)
+                                                .offset(y: -55 + 5 + (overlayMargin * 0.1))
+                                                
+                                            Capsule()
+                                                .fill(Color.secondary.opacity(0.5))
+                                                .frame(width: 40, height: 10)
+                                                .offset(y: 55 - 5 - (overlayMargin * 0.1))
+                                                
+                                            Capsule()
+                                                .fill(Color.secondary.opacity(0.5))
+                                                .frame(width: 10, height: 40)
+                                                .offset(x: -90 + 5 + (overlayMargin * 0.1))
+                                                
+                                            Capsule()
+                                                .fill(Color.secondary.opacity(0.5))
+                                                .frame(width: 10, height: 40)
+                                                .offset(x: 90 - 5 - (overlayMargin * 0.1))
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
                             }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
                         }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
                     }
-                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                    )
+                    .padding(.horizontal)
                 }
-                .padding(.horizontal)
                 
             }
             .padding(.vertical)

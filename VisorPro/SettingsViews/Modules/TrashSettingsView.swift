@@ -182,7 +182,7 @@ struct TrashSettingsView: View {
                             )
                         }
                         
-                        if overlayPositionMode == "custom" {
+                        if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Trash Full Overlay Position")
                                     .font(.headline)

@@ -131,16 +131,41 @@ class FocusObserver {
     }
     
     private func loadModeConfigurations() {
+        var byId: [String: ModeConfig] = [
+            "com.apple.donotdisturb.mode.default": ModeConfig(name: "Do Not Disturb", colorName: "systemIndigoColor", symbol: "moon.fill"),
+            "com.apple.donotdisturb.mode.sleep": ModeConfig(name: "Sleep", colorName: "systemMintColor", symbol: "bed.double.fill"),
+            "com.apple.focus.mode.sleep": ModeConfig(name: "Sleep", colorName: "systemMintColor", symbol: "bed.double.fill"),
+            "com.apple.donotdisturb.mode.work": ModeConfig(name: "Work", colorName: "systemTealColor", symbol: "briefcase.fill"),
+            "com.apple.donotdisturb.mode.personal": ModeConfig(name: "Personal", colorName: "systemPurpleColor", symbol: "person.fill"),
+            "com.apple.donotdisturb.mode.driving": ModeConfig(name: "Driving", colorName: "systemIndigoColor", symbol: "car.fill"),
+            "com.apple.donotdisturb.mode.fitness": ModeConfig(name: "Fitness", colorName: "systemOrangeColor", symbol: "figure.run"),
+            "com.apple.donotdisturb.mode.gaming": ModeConfig(name: "Gaming", colorName: "systemPurpleColor", symbol: "gamecontroller.fill"),
+            "com.apple.donotdisturb.mode.reading": ModeConfig(name: "Reading", colorName: "systemYellowColor", symbol: "book.closed.fill"),
+            "com.apple.focus.reduce-interruptions": ModeConfig(name: "Reduce Interruptions", colorName: "reduceInterruptionsColor", symbol: "apple.intelligence")
+        ]
+        var byName: [String: ModeConfig] = [
+            "do not disturb": ModeConfig(name: "Do Not Disturb", colorName: "systemIndigoColor", symbol: "moon.fill"),
+            "nie przeszkadzać": ModeConfig(name: "Do Not Disturb", colorName: "systemIndigoColor", symbol: "moon.fill"),
+            "sleep": ModeConfig(name: "Sleep", colorName: "systemMintColor", symbol: "bed.double.fill"),
+            "sen": ModeConfig(name: "Sleep", colorName: "systemMintColor", symbol: "bed.double.fill"),
+            "work": ModeConfig(name: "Work", colorName: "systemTealColor", symbol: "briefcase.fill"),
+            "praca": ModeConfig(name: "Work", colorName: "systemTealColor", symbol: "briefcase.fill"),
+            "personal": ModeConfig(name: "Personal", colorName: "systemPurpleColor", symbol: "person.fill"),
+            "osobisty": ModeConfig(name: "Personal", colorName: "systemPurpleColor", symbol: "person.fill"),
+            "fitness": ModeConfig(name: "Fitness", colorName: "systemOrangeColor", symbol: "figure.run"),
+            "trening": ModeConfig(name: "Fitness", colorName: "systemOrangeColor", symbol: "figure.run"),
+            "reduce interruptions": ModeConfig(name: "Reduce Interruptions", colorName: "reduceInterruptionsColor", symbol: "apple.intelligence")
+        ]
+        
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: configPath)),
               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
               let dataArray = json["data"] as? [[String: Any]],
               let firstData = dataArray.first,
               let configs = firstData["modeConfigurations"] as? [String: Any] else {
+            self.modeConfigsCache = byId
+            self.modeConfigsByName = byName
             return
         }
-        
-        var byId: [String: ModeConfig] = [:]
-        var byName: [String: ModeConfig] = [:]
         
         for (identifier, configData) in configs {
             if let configDict = configData as? [String: Any],
@@ -432,7 +457,7 @@ class FocusObserver {
         return FileManager.default.isReadableFile(atPath: assertionsPath)
     }
     
-    /// Parses Assertions.json to find if there is an active assertion, filtering out internal sleep assertions and expired records.
+    /// Parses Assertions.json to find if there is an active assertion, filtering out expired records.
     private func getDetailedFocusStatus() -> (isActive: Bool, modeName: String, colorName: String, symbol: String, details: MediaKeyManager.ActiveFocusDetails?) {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: assertionsPath)),
               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
@@ -443,16 +468,16 @@ class FocusObserver {
         }
         
         if let assertions = firstData["storeAssertionRecords"] as? [[String: Any]], !assertions.isEmpty {
-            for activeAssertion in assertions {
+            // Sort assertions by assertionStartDateTimestamp descending so that the latest activated Focus mode is evaluated first
+            let sortedAssertions = assertions.sorted { a, b in
+                let timeA = a["assertionStartDateTimestamp"] as? Double ?? 0
+                let timeB = b["assertionStartDateTimestamp"] as? Double ?? 0
+                return timeA > timeB
+            }
+            
+            for activeAssertion in sortedAssertions {
                 guard let details = activeAssertion["assertionDetails"] as? [String: Any],
                       let modeIdentifier = details["assertionDetailsModeIdentifier"] as? String else {
-                    continue
-                }
-                
-                // Do not count internal system sleep assertions
-                if let source = activeAssertion["assertionSource"] as? [String: Any],
-                   let client = source["assertionClientIdentifier"] as? String,
-                   client.contains("sleeping") {
                     continue
                 }
                 
@@ -486,11 +511,13 @@ class FocusObserver {
                 }
                 if let source = activeAssertion["assertionSource"] as? [String: Any] {
                     if let client = source["assertionClientIdentifier"] as? String {
-                        if client.contains("controlcenter") { focusDetails.source = "Control Center" }
-                        else if client.contains("schedule") { focusDetails.source = "Schedule" }
-                        else if client.contains("workout") { focusDetails.source = "Workout Trigger" }
-                        else if client.contains("activity-manager") { focusDetails.source = "System Activity" }
-                        else if client.contains("intents") { focusDetails.source = "Shortcuts App" }
+                        let clientLower = client.lowercased()
+                        if clientLower.contains("controlcenter") { focusDetails.source = "Control Center" }
+                        else if clientLower.contains("schedule") { focusDetails.source = "Schedule" }
+                        else if clientLower.contains("sleeping") || clientLower.contains("sleep") || clientLower.contains("bedtime") { focusDetails.source = "Sleep Schedule" }
+                        else if clientLower.contains("workout") || clientLower.contains("fitness") { focusDetails.source = "Workout Trigger" }
+                        else if clientLower.contains("activity-manager") { focusDetails.source = "System Activity" }
+                        else if clientLower.contains("intents") { focusDetails.source = "Shortcuts App" }
                         else { focusDetails.source = client }
                     }
                     if source["assertionSourceDeviceIdentifier"] as? String != nil {
@@ -503,6 +530,22 @@ class FocusObserver {
                 let lowerId = modeIdentifier.lowercased()
                 if lowerId.contains("reduce") || lowerId.contains("interrupt") || lowerId.contains("_gm") {
                     return (true, "Reduce Interruptions", "reduceInterruptionsColor", "apple.intelligence", focusDetails)
+                } else if lowerId.contains("sleep") || lowerId.contains("bedtime") {
+                    return (true, "Sleep", "systemMintColor", "bed.double.fill", focusDetails)
+                } else if lowerId.contains("default") || lowerId.contains("disturb") {
+                    return (true, "Do Not Disturb", "systemIndigoColor", "moon.fill", focusDetails)
+                } else if lowerId.contains("work") {
+                    return (true, "Work", "systemTealColor", "briefcase.fill", focusDetails)
+                } else if lowerId.contains("personal") {
+                    return (true, "Personal", "systemPurpleColor", "person.fill", focusDetails)
+                } else if lowerId.contains("fitness") || lowerId.contains("running") {
+                    return (true, "Fitness", "systemOrangeColor", "figure.run", focusDetails)
+                } else if lowerId.contains("driving") {
+                    return (true, "Driving", "systemIndigoColor", "car.fill", focusDetails)
+                } else if lowerId.contains("reading") {
+                    return (true, "Reading", "systemYellowColor", "book.closed.fill", focusDetails)
+                } else if lowerId.contains("gaming") {
+                    return (true, "Gaming", "systemPurpleColor", "gamecontroller.fill", focusDetails)
                 }
                 
                 if let config = modeConfigsCache[modeIdentifier] {

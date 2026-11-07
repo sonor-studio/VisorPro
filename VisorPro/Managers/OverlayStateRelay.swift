@@ -20,6 +20,12 @@ import Combine
 import IOKit
 
 @MainActor
+enum BatteryOverlayMode: String, Codable {
+    case charging
+    case unplugged
+    case warning
+}
+
 class OverlayStateRelay: ObservableObject {
     static let shared = OverlayStateRelay()
     
@@ -120,6 +126,9 @@ class OverlayStateRelay: ObservableObject {
     @Published var clipboardSourceFolder: String? = nil
     @Published var clipboardMetadataSize: String = ""
     @Published var isClipboardMasked: Bool = false
+    @Published var isClipboardCycling: Bool = false
+    @Published var clipboardCycleIndex: Int = 0
+    @Published var clipboardCycleTotal: Int = 0
     
     // MARK: - Caps Lock runtime
     
@@ -139,6 +148,7 @@ class OverlayStateRelay: ObservableObject {
     
     @Published var currentBatteryPercentage: Int = 15
     @Published var isPluggedIn: Bool = true
+    @Published var batteryOverlayMode: BatteryOverlayMode = .charging
     @Published var isBatteryInitialized: Bool = false
     @Published var isSimulated: Bool = false
     @Published var showLowBatteryWarning: Bool = false
@@ -211,6 +221,10 @@ class OverlayStateRelay: ObservableObject {
     @Published var focusModeName: String = "Focus"
     @Published var focusColorName: String = "systemIndigoColor"
     @Published var focusSymbol: String = "moon.fill"
+    @Published var displayedFocusModeActive: Bool = false
+    @Published var displayedFocusModeName: String = "Focus"
+    @Published var displayedFocusColorName: String = "systemIndigoColor"
+    @Published var displayedFocusSymbol: String = "moon.fill"
     @Published var lastActiveFocusModeName: String = ""
     @Published var lastActiveFocusSymbol: String = ""
     @Published var isFocusReminder: Bool = false

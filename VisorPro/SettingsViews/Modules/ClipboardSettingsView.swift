@@ -12,6 +12,7 @@ struct ClipboardSettingsView: View {
     @AppStorage("clipboardHistoryLimit") private var clipboardHistoryLimit: Int = 30
     @AppStorage("clipboardHistoryRetention") private var clipboardHistoryRetention: String = "24h"
     @AppStorage("clipboardShowPasswordToggle") private var clipboardShowPasswordToggle: Bool = true
+    @AppStorage("clipboardCyclePasteEnabled") private var clipboardCyclePasteEnabled: Bool = true
             
     var body: some View {
         ScrollView {
@@ -186,6 +187,12 @@ struct ClipboardSettingsView: View {
                                     if clipboardEnableHistory {
                                         Divider().padding(.leading, 40)
                                         
+                                        CustomSettingsRow(icon: "arrow.triangle.2.circlepath", iconColor: .blue, title: "Cycle Paste History", subtitle: "Hold Command and tap Paste to cycle through copied items, release to paste") {
+                                            Toggle("", isOn: $clipboardCyclePasteEnabled).labelsHidden()
+                                        }
+                                        
+                                        Divider().padding(.leading, 40)
+                                        
                                         CustomSettingsRow(icon: "timer", iconColor: .blue, title: "History Retention", subtitle: "How long to keep copied items") {
                                             Picker("", selection: $clipboardHistoryRetention) {
                                                 Text("Clear on Restart").tag("restart")
@@ -234,7 +241,7 @@ struct ClipboardSettingsView: View {
                                 )
                             
                                 Group {
-                                    if overlayPositionMode == "custom" {
+                                    if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
                                     Text("Overlay Position")
                                         .font(.headline)
                                         .foregroundColor(.secondary)

@@ -74,6 +74,12 @@ struct AirPodsModeOverlayView: View {
                     mediaKeyManager.setAirPodsMode(prevMode)
                 }
             } : nil,
+            onSimpleTap: overlayState.previousAirPodsModeValue != nil ? {
+                guard !overlayState.isChangingAirPodsMode else { return }
+                if let prevMode = overlayState.previousAirPodsModeValue {
+                    mediaKeyManager.setAirPodsMode(prevMode)
+                }
+            } : nil,
             isExpandable: settings.allowExpansion,
             keepAliveId: "airpodsMode",
             minimalText: modeText,
@@ -85,7 +91,7 @@ struct AirPodsModeOverlayView: View {
             systemRightRingColor: batPct != nil ? Color.batteryLevelColor(for: batPct!) : nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 12) {
-                    iconViewForMode(overlayState.airPodsModeValue, size: 18, color: .primary)
+                    iconViewForMode(overlayState.airPodsModeValue, size: 18, color: overlayState.airPodsModeValue == 1 ? .secondary : .primary)
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {

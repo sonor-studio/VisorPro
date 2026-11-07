@@ -316,6 +316,9 @@ extension MediaKeyManager {
                 self.detectedHardwareAction = "copy"
                 self.detectedHardwareActionTimestamp = Date()
             } else if CGEventSource.keyState(.hidSystemState, key: 9) { // V
+                if self.clipboardCyclePasteEnabled || self.isClipboardCycling {
+                    return
+                }
                 self.detectedHardwareAction = "paste"
                 self.detectedHardwareActionTimestamp = Date()
                 

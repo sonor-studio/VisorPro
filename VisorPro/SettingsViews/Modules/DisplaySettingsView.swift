@@ -121,7 +121,7 @@ struct DisplaySettingsView: View {
                             )
                         
                             Group {
-                                if overlayPositionMode == "custom" {
+                                if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
                                 Text("Overlay Position")
                                     .font(.headline)
                                     .foregroundColor(.secondary)

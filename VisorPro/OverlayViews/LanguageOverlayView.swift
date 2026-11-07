@@ -36,9 +36,11 @@ struct LanguageOverlayView: View {
                     mediaKeyManager.selectLanguage(idToSelect: prevId)
                 }
             } : nil,
-            onSimpleTap: {
-                // Languages are now pre-loaded to prevent animation stutter.
-            },
+            onSimpleTap: hasUndo ? {
+                if let prevId = overlayState.previousKeyboardLayoutId {
+                    mediaKeyManager.selectLanguage(idToSelect: prevId)
+                }
+            } : nil,
             isExpandable: languageAllowExpansion,
             expandUpwards: langPos.hasPrefix("bottom"),
             keepAliveId: "language",

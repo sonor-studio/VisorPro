@@ -81,9 +81,9 @@ struct AccessoryBatteryOverlayView: View {
         if overlayState.accessoryIsConnectionEvent && !isPreview {
             baseStatus = overlayState.accessoryConnectionIsConnected ? "Connected" : "Disconnected"
         } else {
-            if isWarning { baseStatus = "Battery Alert" }
-            else if isFullyCharged { baseStatus = "Fully Charged" }
+            if isFullyCharged { baseStatus = "Fully Charged" }
             else if isPluggedIn { baseStatus = "Charging" }
+            else if percentage <= 20 { baseStatus = "Low Battery" }
             else { baseStatus = "Unplugged" }
         }
         
@@ -110,34 +110,34 @@ struct AccessoryBatteryOverlayView: View {
     
     private var resolvedSystemSubtitle: String {
         let isLowBattery = percentage <= 20
-        if isWarning || isLowBattery {
+        if isLowBattery {
             if let label = componentLabel {
-                return "\(label) • \(percentage)% Remaining"
+                return "\(label) • Low Battery • \(percentage)%"
             }
-            return "\(percentage)% Remaining"
+            return "Low Battery • \(percentage)%"
         }
         if isFullyCharged {
             return componentLabel != nil ? "\(componentLabel!) • Fully Charged" : "Fully Charged"
         }
         if isPluggedIn {
             if let label = componentLabel {
-                return "\(label) • \(percentage)% • Charging"
+                return "\(label) • Charging • \(percentage)%"
             }
-            return "\(percentage)% • Charging"
+            return "Charging • \(percentage)%"
         }
         if overlayState.accessoryIsConnectionEvent && !isPreview {
             let conn = overlayState.accessoryConnectionIsConnected ? "Connected" : "Disconnected"
             if let label = componentLabel {
-                return "\(label) • \(percentage)% • \(conn)"
+                return "\(label) • \(conn) • \(percentage)%"
             }
-            return "\(percentage)% • \(conn)"
+            return "\(conn) • \(percentage)%"
         }
         if let label = componentLabel {
             if label == "Case" { return "Charging Case • \(percentage)%" }
             if label == "Left & Right" { return "Both Earbuds • \(percentage)%" }
             return "\(label) Earbud • \(percentage)%"
         }
-        return "\(percentage)% • Connected"
+        return "Connected • \(percentage)%"
     }
     
     var body: some View {

@@ -366,9 +366,9 @@ struct UniversalSystemOverlayView: View {
                     )
                 } else {
                     ZStack {
-                        let contentMargin: CGFloat = 48.0
-                        let contentLeading: CGFloat = (icon != nil && !icon!.isEmpty) ? contentMargin : 20.0
-                        let contentTrailing: CGFloat = (hasTrailing || (icon != nil && !icon!.isEmpty)) ? contentMargin : 20.0
+                        let contentMargin: CGFloat = 46.0
+                        let contentLeading: CGFloat = (icon != nil && !icon!.isEmpty) ? contentMargin : 16.0
+                        let contentTrailing: CGFloat = hasTrailing ? contentMargin : 16.0
                         
                         // Centered Title & Subtitle OR AirPods Battery Trio
                         VStack(alignment: .center, spacing: 1.5) {
@@ -414,6 +414,7 @@ struct UniversalSystemOverlayView: View {
                                 .lineLimit(1)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .center)
                         .multilineTextAlignment(.center)
                         .padding(.leading, contentLeading)
                         .padding(.trailing, contentTrailing)

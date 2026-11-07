@@ -20,8 +20,11 @@ struct CopyOverlayView: View {
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
+    @Environment(\.overlayForcedStyle) var overlayForcedStyle
     var isPreview: Bool = false
     var previewAction: String? = nil
+    var previewCustomText: String? = nil
+    var forcedStyle: String? = nil
     
     private var isCurrentItemMasked: Bool {
         guard clipboardShowPasswordToggle else { return false }
@@ -65,7 +68,7 @@ struct CopyOverlayView: View {
         switch actualAction {
         case "copy": return Color(red: 0.25, green: 0.5, blue: 0.95)
         case "cut": return .red
-        case "paste": return .green
+        case "paste", "cyclePaste": return .green
         default: return Color(red: 0.25, green: 0.5, blue: 0.95)
         }
     }
@@ -78,6 +81,7 @@ struct CopyOverlayView: View {
         case "copy": return "doc.on.clipboard.fill"
         case "cut": return "scissors"
         case "paste": return "list.clipboard.fill"
+        case "cyclePaste": return "arrow.triangle.swap"
         default: return "doc.on.clipboard.fill"
         }
     }
@@ -87,6 +91,14 @@ struct CopyOverlayView: View {
         case "copy": return "Copied"
         case "cut": return "Cut"
         case "paste": return "Pasted"
+        case "cyclePaste":
+            if overlayState.clipboardCycleTotal > 1 {
+                return "Ready to Paste (\(overlayState.clipboardCycleIndex + 1)/\(overlayState.clipboardCycleTotal))"
+            } else if isPreview {
+                return "Ready to Paste (2/5)"
+            } else {
+                return "Ready to Paste"
+            }
         default: return "Copied"
         }
     }
@@ -96,33 +108,61 @@ struct CopyOverlayView: View {
         case "copy": return "Item Copied"
         case "cut": return "Item Cut"
         case "paste": return "Item Pasted"
+        case "cyclePaste": return "Ready to Paste"
         default: return "Item Copied"
         }
     }
     
     private var displayedItemText: String {
-        if let id = activePreviewId, let item = currentHistory.first(where: { $0.id == id }) {
+        if isPreview {
+            if let custom = previewCustomText {
+                return custom
+            }
+            if let id = activePreviewId, let item = currentHistory.first(where: { $0.id == id }) {
+                return item.text
+            }
+            return "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg"
+        }
+        if isExpanded, let id = activePreviewId, let item = currentHistory.first(where: { $0.id == id }) {
             return item.text
         }
-        return isPreview ? "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg" : (overlayState.copiedText.isEmpty ? actionFallbackText : overlayState.copiedText)
+        return overlayState.copiedText.isEmpty ? actionFallbackText : overlayState.copiedText
     }
 
     private var displayedApp: String {
-        if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+        if isPreview {
+            if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+                return item.app
+            }
+            return "Safari"
+        }
+        if isExpanded, let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.app
         }
         return overlayState.clipboardSourceApp.isEmpty ? "Unknown" : overlayState.clipboardSourceApp
     }
     
     private var displayedFolder: String? {
-        if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+        if isPreview {
+            if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+                return item.folder
+            }
+            return nil
+        }
+        if isExpanded, let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.folder
         }
         return overlayState.clipboardSourceFolder
     }
 
     private var displayedSize: String {
-        if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+        if isPreview {
+            if let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+                return item.size
+            }
+            return "128 bytes"
+        }
+        if isExpanded, let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.size
         }
         return overlayState.clipboardMetadataSize.isEmpty ? "Unknown" : overlayState.clipboardMetadataSize
@@ -135,16 +175,20 @@ struct CopyOverlayView: View {
         let copyPos = MediaKeyManager.shared.getOverlayPosition(for: "copyOverlayPosition")
         let cleanCopiedText = masked(displayedItemText).replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
+        let effectiveStyle = forcedStyle ?? overlayForcedStyle ?? MediaKeyManager.shared.overlayStyle
+        let isCycleMode = (actualAction == "cyclePaste") || overlayState.isClipboardCycling
+
         return UniversalOverlayView(
             isPreview: isPreview,
+            forcedStyle: effectiveStyle,
             isExpanded: $isExpanded,
-            showProgressBar: true,
-            hasTimeoutProgress: true,
+            showProgressBar: !isCycleMode && !isPreview,
+            hasTimeoutProgress: !isCycleMode && !isPreview,
             timeoutEventId: overlayState.clipboardEventId,
             barColor: OverlayColorManager.shared.getOverlayColor(for: actualAction == "copy" ? "colorOnCopy" : (actualAction == "cut" ? "colorOnCut" : "colorOnPaste"), defaultColor: actionColor),
             fillCenter: false, // The original uses strokeBorder
             isMuted: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 220 : 260,
+            customWidth: (effectiveStyle == "system") ? 220 : 260,
             supportDragGesture: false,
             onSimpleTap: {
                 handleSimpleTap(canExpand: canExpand)
@@ -152,6 +196,7 @@ struct CopyOverlayView: View {
             isExpandable: canExpand && copyAllowExpansion,
             expandUpwards: copyPos.hasPrefix("bottom"),
             keepAliveId: "copy",
+            disableTimeoutMode: isCycleMode,
             minimalText: cleanCopiedText.isEmpty ? actionFallbackText : cleanCopiedText,
             minimalIcon: actionIcon,
             systemTitle: cleanCopiedText.isEmpty ? actionFallbackText : cleanCopiedText,
@@ -171,7 +216,8 @@ struct CopyOverlayView: View {
                         
                         MarqueeText(text: masked(displayedItemText), font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             .frame(height: 18)
-                            .id("marquee-\(isExpanded)")
+                            .id("marquee-\(isExpanded)-\(overlayState.clipboardCycleIndex)")
+                            .transition(.identity)
                             .opacity((isExpanded && textNeedsExpansion && clipboardEnablePreview) ? 0 : 1)
                     }
                     .padding(.leading, 12)

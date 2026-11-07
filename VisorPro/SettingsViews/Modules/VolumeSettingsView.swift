@@ -133,7 +133,7 @@ struct VolumeSettingsView: View {
                     }
                     .padding(.horizontal)
 
-                    if overlayPositionMode == "custom" {
+                    if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
                         Divider()
                     
                         VStack(alignment: .leading, spacing: 12) {

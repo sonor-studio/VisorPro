@@ -201,19 +201,46 @@ struct FileDeletedOverlayView: View {
     
     private func restoreFile() {
         guard let url = overlayState.lastDeletedFileURL else { return }
+        let path = url.path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
         DispatchQueue.global(qos: .userInitiated).async {
+            // 1. Tell Finder to reveal the file in Trash
             let scriptSource = """
             tell application "Finder"
                 activate
-                reveal (POSIX file "\(url.path)")
-            end tell
-            delay 0.1
-            tell application "System Events"
-                key code 51 using command down
+                reveal (POSIX file "\(path)")
             end tell
             """
             if let script = NSAppleScript(source: scriptSource) {
-                _ = script.executeAndReturnError(nil)
+                var errorInfo: NSDictionary?
+                script.executeAndReturnError(&errorInfo)
+                if let error = errorInfo {
+                    print("⚠️ [RestoreFile] Finder reveal warning/error: \(error)")
+                }
+            }
+            
+            // 2. Allow Finder window to appear and the item to be selected
+            usleep(350_000) // 350ms
+            
+            DispatchQueue.main.async {
+                guard let finder = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == "com.apple.finder" }) else { return }
+                finder.activate(options: [.activateIgnoringOtherApps])
+                
+                // 3. Post Command+Delete via CoreGraphics directly to Finder (triggers native Put Back without System Events assistive permission errors)
+                let source = CGEventSource(stateID: .hidSystemState)
+                let keyCode: CGKeyCode = 51 // Delete (Backspace)
+                let flags: CGEventFlags = .maskCommand
+                
+                if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
+                    keyDown.flags = flags
+                    keyDown.postToPid(finder.processIdentifier)
+                    keyDown.post(tap: .cghidEventTap)
+                }
+                
+                if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
+                    keyUp.flags = flags
+                    keyUp.postToPid(finder.processIdentifier)
+                    keyUp.post(tap: .cghidEventTap)
+                }
             }
         }
     }

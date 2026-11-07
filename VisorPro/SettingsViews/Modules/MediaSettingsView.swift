@@ -193,7 +193,7 @@ struct MediaSettingsView: View {
                 
                     VStack(alignment: .leading, spacing: 12) {
                         Group {
-                            if overlayPositionMode == "custom" {
+                            if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
                             Text("Overlay Position")
                                 .font(.headline)
                                 .foregroundColor(.secondary)

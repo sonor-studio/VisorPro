@@ -64,7 +64,7 @@ struct CapsLockOverlayView: View {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: actualIsOn ? "capslock.fill" : "capslock")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.primary)
+                        .foregroundColor(actualIsOn ? .primary : .secondary)
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {

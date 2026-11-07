@@ -280,16 +280,28 @@ extension MediaKeyManager {
             
             self.updateFocusReminderTimer()
             
-            guard shouldShowVisual else { return }
+            guard shouldShowVisual else {
+                OverlayStateRelay.shared.displayedFocusModeActive = isActive
+                OverlayStateRelay.shared.displayedFocusModeName = self.focusModeName
+                OverlayStateRelay.shared.displayedFocusColorName = colorName
+                OverlayStateRelay.shared.displayedFocusSymbol = symbol
+                return
+            }
             
             self.focusTimer?.invalidate()
+            self.focusTransitionWorkItem?.cancel()
+            self.focusTransitionWorkItem = nil
             
             let pos = self.getOverlayPosition(for: "focusOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "focus")
             
             let executeShow = { [weak self] in
                 guard let self = self else { return }
-                
+                self.focusTransitionWorkItem = nil
+                OverlayStateRelay.shared.displayedFocusModeActive = isActive
+                OverlayStateRelay.shared.displayedFocusModeName = self.focusModeName
+                OverlayStateRelay.shared.displayedFocusColorName = colorName
+                OverlayStateRelay.shared.displayedFocusSymbol = symbol
                 self.focusEventId = UUID()
                 withAnimation(.easeInOut(duration: 0.15)) {
                     self.showFocusIndicator = true
@@ -302,17 +314,17 @@ extension MediaKeyManager {
             if self.showFocusIndicator {
                 // If it was already visible and triggered recently (e.g. within 1.5s), update seamlessly in-place
                 if timeSinceLastTrigger < 1.5 {
-                    self.focusEventId = UUID()
-                    self.notifyOverlayStateChanged()
-                    self.overlayTriggerTimes["focus"] = Date()
-                    self.scheduleOverlayHide(for: "focus")
+                    executeShow()
                 } else {
                     withAnimation(.easeInOut(duration: 0.25)) {
                         self.showFocusIndicator = false
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.notifyOverlayStateChanged()
+                    let workItem = DispatchWorkItem {
                         executeShow()
                     }
+                    self.focusTransitionWorkItem = workItem
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: workItem)
                 }
             } else {
                 executeShow()
@@ -372,11 +384,17 @@ extension MediaKeyManager {
         }
         
         let isReduce = lower.contains("reduce interruptions") || lower.contains("redukuj") || lower.contains("zakłócenia") || nestedIds.contains("_gm") || modeName.lowercased() == "_gm" || modeName.lowercased() == "reduce interruptions"
+        let isSleep = candidateNames.contains(where: { $0.lowercased() == "sleep" || $0.lowercased() == "sen" || $0.lowercased() == "bedtime" }) ||
+                      lower.contains(" | sleep | ") || lower.contains(" | sen | ") || lower.contains(" | bedtime | ") ||
+                      nestedIds.contains(where: { $0.contains("bed.double") })
+        let isDND = candidateNames.contains(where: { $0.lowercased() == "do not disturb" || $0.lowercased() == "nie przeszkadzać" }) ||
+                    lower.contains("do not disturb") || lower.contains("nie przeszkadzać")
+        
         if isReduce {
             modeName = "Reduce Interruptions"
-        } else if lower.contains("bedtime") || lower.contains("sleep") || lower.contains("sen") {
+        } else if isSleep {
             modeName = "Sleep"
-        } else if lower.contains("do not disturb") || lower.contains("nie przeszkadzać") {
+        } else if isDND {
             modeName = "Do Not Disturb"
         }
         
@@ -399,6 +417,8 @@ extension MediaKeyManager {
         var symbol: String
         if isReduce {
             symbol = "apple.intelligence"
+        } else if isSleep {
+            symbol = "bed.double.fill"
         } else if let specificSymbol = nestedIds.first(where: { id in
             id.contains(".fill") || id.contains("moon") || id.contains("bed") || id.contains("person") ||
             id.contains("briefcase") || id.contains("book") || id.contains("figure.") || id.contains("graduationcap") || id.contains("apple.intelligence")
@@ -421,7 +441,8 @@ extension MediaKeyManager {
         }
         
         focusObserver?.syncStateFromNativeBanner(isActive: active, modeName: modeName, colorName: colorName, symbol: symbol)
-        triggerFocusIndicator(isActive: active, modeName: modeName, colorName: colorName, symbol: symbol)
+        let isSwitched = self.isFocusModeActive && active && modeName != self.focusModeName
+        triggerFocusIndicator(isActive: active, modeName: modeName, colorName: colorName, symbol: symbol, isSwitched: isSwitched)
     }
     
     func triggerMicIndicator(isActive: Bool, deviceName: String = "") {

@@ -190,13 +190,14 @@ struct AppearanceEditorView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: mediaKeyManager.overlayStyle == "classic" ? 250 : 164)
 
-                // Directly below preview: Mode switcher (Full / Mini) - only for default!
+                // Directly below preview: Mode switcher (Full / Mini) - available for Default and Liquid Glass
+                let supportsFullMini = mediaKeyManager.overlayStyle == "default" || mediaKeyManager.overlayStyle == "capsule"
                 overlayModeControl
                     .padding(.top, 14)
-                    .opacity(mediaKeyManager.overlayStyle == "default" ? 1.0 : 0.0)
-                    .frame(height: mediaKeyManager.overlayStyle == "default" ? nil : 0)
+                    .opacity(supportsFullMini ? 1.0 : 0.0)
+                    .frame(height: supportsFullMini ? nil : 0)
                     .clipped()
-                    .allowsHitTesting(mediaKeyManager.overlayStyle == "default")
+                    .allowsHitTesting(supportsFullMini)
                 
                 Spacer()
                 
@@ -352,16 +353,18 @@ struct AppearanceEditorView: View {
         HStack(alignment: .bottom) {
             // Left: Inner Glow + Animation
             VStack(alignment: .leading, spacing: 12) {
-                FloatingActionButton(
-                    icon: "sparkles",
-                    label: "Inner Glow",
-                    isActive: showGlowPopover
-                ) {
-                    showGlowPopover.toggle()
-                }
-                .popover(isPresented: $showGlowPopover, attachmentAnchor: .rect(.bounds), arrowEdge: .bottom) {
-                    glowPopoverContent
-                        .padding(14)
+                if mediaKeyManager.overlayStyle == "default" {
+                    FloatingActionButton(
+                        icon: "sparkles",
+                        label: "Inner Glow",
+                        isActive: showGlowPopover
+                    ) {
+                        showGlowPopover.toggle()
+                    }
+                    .popover(isPresented: $showGlowPopover, attachmentAnchor: .rect(.bounds), arrowEdge: .bottom) {
+                        glowPopoverContent
+                            .padding(14)
+                    }
                 }
                 
                 animationControl
@@ -694,55 +697,58 @@ struct AppearanceEditorView: View {
                 }
             }
             
-            Divider()
-            
-            // Maximum tiles
-            HStack {
-                let isSystem = mediaKeyManager.overlayStyle == "system"
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("Maximum overlays")
-                            .font(.system(size: 13, weight: .medium))
-                        if savedLicenseKey.isEmpty && !isSystem {
-                            premiumBadge
+            if mediaKeyManager.overlayStyle != "system" && mediaKeyManager.overlayStyle != "classic" {
+                Divider()
+                
+                // Maximum tiles
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text("Maximum overlays")
+                                .font(.system(size: 13, weight: .medium))
+                            if savedLicenseKey.isEmpty {
+                                premiumBadge
+                            }
                         }
+                        Text("Maximum number of tiles shown at once.")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
                     }
-                    Text(isSystem ? "Locked to 1 in System style." : "Maximum number of tiles shown at once.")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-                Spacer(minLength: 20)
-                HStack(spacing: 8) {
-                    Slider(value: Binding(
-                        get: { Double(isSystem ? 1 : mediaKeyManager.maxSimultaneousNotifications) },
-                        set: { if !savedLicenseKey.isEmpty && !isSystem { mediaKeyManager.maxSimultaneousNotifications = Int($0) } }
-                    ), in: 1...5, step: 1)
-                    .disabled(savedLicenseKey.isEmpty || isSystem)
-                    .frame(width: 80)
-                    
-                    Text(isSystem ? "1" : "\(mediaKeyManager.maxSimultaneousNotifications)")
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .foregroundColor(isSystem ? .secondary.opacity(0.7) : .secondary)
-                        .frame(width: 24, alignment: .trailing)
+                    Spacer(minLength: 20)
+                    HStack(spacing: 8) {
+                        Slider(value: Binding(
+                            get: { Double(mediaKeyManager.maxSimultaneousNotifications) },
+                            set: { if !savedLicenseKey.isEmpty { mediaKeyManager.maxSimultaneousNotifications = Int($0) } }
+                        ), in: 1...5, step: 1)
+                        .disabled(savedLicenseKey.isEmpty)
+                        .frame(width: 80)
+                        
+                        Text("\(mediaKeyManager.maxSimultaneousNotifications)")
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .frame(width: 24, alignment: .trailing)
+                    }
                 }
             }
             
-            Divider()
-            
-            // Bouncy expansion
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Bouncy expansion")
-                        .font(.system(size: 13, weight: .medium))
-                    Text("Spring effect when overlay expands.")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
+            if mediaKeyManager.overlayStyle != "system" && mediaKeyManager.overlayStyle != "classic" {
+                Divider()
+                
+                // Bouncy expansion
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Bouncy expansion")
+                            .font(.system(size: 13, weight: .medium))
+                        Text("Spring effect when overlay expands.")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer(minLength: 20)
+                    Toggle("", isOn: $enableBouncyExpansion)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
                 }
-                Spacer(minLength: 20)
-                Toggle("", isOn: $enableBouncyExpansion)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
             }
         }
         .frame(width: 320)

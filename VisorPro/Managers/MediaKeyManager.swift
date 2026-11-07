@@ -406,6 +406,14 @@ class MediaKeyManager: ObservableObject {
     var effectiveOverlayStyle: String {
         OverlayStyle.effectiveStyle(for: overlayStyle)
     }
+    
+    var supportsOverlayPosition: Bool {
+        overlayStyle != "system" && overlayStyle != "classic"
+    }
+    
+    var supportsOverlayColor: Bool {
+        overlayStyle != "system" && overlayStyle != "classic"
+    }
     var globalHoveredTypes: Set<String> {
         get { OverlayStateRelay.shared.globalHoveredTypes }
         set { OverlayStateRelay.shared.globalHoveredTypes = newValue }
@@ -759,6 +767,10 @@ class MediaKeyManager: ObservableObject {
         get { OverlayStateRelay.shared.showUnpluggedStatus }
         set { OverlayStateRelay.shared.showUnpluggedStatus = newValue }
     }
+    var batteryOverlayMode: BatteryOverlayMode {
+        get { OverlayStateRelay.shared.batteryOverlayMode }
+        set { OverlayStateRelay.shared.batteryOverlayMode = newValue }
+    }
     var batteryTimeRemaining: String {
         get { OverlayStateRelay.shared.batteryTimeRemaining }
         set { OverlayStateRelay.shared.batteryTimeRemaining = newValue }
@@ -1023,6 +1035,38 @@ class MediaKeyManager: ObservableObject {
     }
     var hideTrashIndicatorTask: DispatchWorkItem?
     var trashAlertTriggered: Bool = false
+    
+    func openTrash(selecting fileURL: URL? = nil) {
+        let targetURL = fileURL ?? lastDeletedFileURL
+        if let url = targetURL, FileManager.default.fileExists(atPath: url.path) {
+            let path = url.path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            DispatchQueue.global(qos: .userInitiated).async {
+                let scriptSource = """
+                tell application "Finder"
+                    activate
+                    reveal (POSIX file "\(path)")
+                end tell
+                """
+                if let script = NSAppleScript(source: scriptSource) {
+                    var errorInfo: NSDictionary?
+                    script.executeAndReturnError(&errorInfo)
+                    if errorInfo != nil {
+                        DispatchQueue.main.async {
+                            NSWorkspace.shared.activateFileViewerSelecting([url])
+                        }
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    }
+                }
+            }
+            return
+        }
+        
+        let trashURL = FileManager.default.urls(for: .trashDirectory, in: .userDomainMask).first ?? URL(fileURLWithPath: ("~/.Trash" as NSString).expandingTildeInPath)
+        NSWorkspace.shared.open(trashURL)
+    }
 
     var copiedText: String {
         get { OverlayStateRelay.shared.copiedText }
@@ -1051,6 +1095,18 @@ class MediaKeyManager: ObservableObject {
     var isClipboardMasked: Bool {
         get { OverlayStateRelay.shared.isClipboardMasked }
         set { OverlayStateRelay.shared.isClipboardMasked = newValue }
+    }    
+    var isClipboardCycling: Bool {
+        get { OverlayStateRelay.shared.isClipboardCycling }
+        set { OverlayStateRelay.shared.isClipboardCycling = newValue }
+    }
+    var clipboardCycleIndex: Int {
+        get { OverlayStateRelay.shared.clipboardCycleIndex }
+        set { OverlayStateRelay.shared.clipboardCycleIndex = newValue }
+    }
+    var clipboardCycleTotal: Int {
+        get { OverlayStateRelay.shared.clipboardCycleTotal }
+        set { OverlayStateRelay.shared.clipboardCycleTotal = newValue }
     }    
     @Published var clipboardHistory: [ClipboardItem] = {
         if let data = UserDefaults.standard.data(forKey: "clipboardHistoryData"),
@@ -1086,6 +1142,22 @@ class MediaKeyManager: ObservableObject {
         }
     }
     @AppStorage("clipboardHistoryLimit") var clipboardHistoryLimit: Int = 30
+    var clipboardCyclePasteEnabled: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "clipboardCyclePasteEnabled") == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: "clipboardCyclePasteEnabled")
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "clipboardCyclePasteEnabled")
+        }
+    }
+    
+    var clipboardCycleItems: [ClipboardItem] = []
+    var activeCycleModifier: NSEvent.ModifierFlags = .command
+    var activeCycleChar: String = "v"
+    var isSimulatingPaste: Bool = false
 
 
     
@@ -1323,7 +1395,7 @@ class MediaKeyManager: ObservableObject {
     }
     private var mediaTimer: Timer?
     private var mediaHideTimer: Timer?
-    private var mediaObserver: MediaObserver?
+    var mediaObserver: MediaObserver?
     
     // Theme
     @Published var enableTheme: Bool = UserDefaults.standard.object(forKey: "enableTheme") as? Bool ?? false {
@@ -2028,13 +2100,25 @@ class MediaKeyManager: ObservableObject {
 
     
     var batteryTimer: Timer?
+    var batteryTransitionWorkItem: DispatchWorkItem?
+    var focusTransitionWorkItem: DispatchWorkItem?
     var isTestingBattery = false
     private var testOriginalPercentage = 0
     private var testOriginalPluggedIn = false
     
     var canShowLastOverlay: Bool {
-        get { OverlayStateRelay.shared.canShowLastOverlay }
-        set { OverlayStateRelay.shared.canShowLastOverlay = newValue }
+        get {
+            if Thread.isMainThread {
+                let hasActive = VisorProWindowManager.shared.isAnyOverlayVisible
+                let hasHistory = !self.overlayTriggerTimes.isEmpty
+                return !hasActive && hasHistory
+            } else {
+                return OverlayStateRelay.shared.canShowLastOverlay
+            }
+        }
+        set {
+            OverlayStateRelay.shared.canShowLastOverlay = newValue
+        }
     }
     @Published var lastOverlayShortcutString: String = UserDefaults.standard.string(forKey: "lastOverlayShortcut") ?? "" { didSet { UserDefaults.standard.set(lastOverlayShortcutString, forKey: "lastOverlayShortcut") } }
     @Published var isRecordingLastOverlayShortcut: Bool = false
@@ -2042,13 +2126,22 @@ class MediaKeyManager: ObservableObject {
     
     
     func updateCanShowLastOverlay() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            let hasActive = !VisorProWindowManager.shared.allActiveOverlays.isEmpty
+        if Thread.isMainThread {
+            let hasActive = VisorProWindowManager.shared.isAnyOverlayVisible
             let hasHistory = !self.overlayTriggerTimes.isEmpty
             let newValue = !hasActive && hasHistory
-            if self.canShowLastOverlay != newValue {
-                self.canShowLastOverlay = newValue
+            if OverlayStateRelay.shared.canShowLastOverlay != newValue {
+                OverlayStateRelay.shared.canShowLastOverlay = newValue
+            }
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                let hasActive = VisorProWindowManager.shared.isAnyOverlayVisible
+                let hasHistory = !self.overlayTriggerTimes.isEmpty
+                let newValue = !hasActive && hasHistory
+                if OverlayStateRelay.shared.canShowLastOverlay != newValue {
+                    OverlayStateRelay.shared.canShowLastOverlay = newValue
+                }
             }
         }
     }
@@ -2057,14 +2150,21 @@ class MediaKeyManager: ObservableObject {
     /// This replaces the overly-broad objectWillChange.sink pattern.
     func notifyOverlayStateChanged() {
         NotificationCenter.default.post(name: .visorProOverlayStateChanged, object: nil)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.updateCanShowLastOverlay()
+        if Thread.isMainThread {
+            self.updateCanShowLastOverlay()
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.updateCanShowLastOverlay()
+            }
         }
     }
     
     
     @MainActor
     func forceHide(overlayId: String) {
+        if overlayId.hasPrefix("copy") && OverlayStateRelay.shared.isClipboardCycling {
+            return
+        }
         OverlayStateRelay.shared.actualHoveredTypes.remove(overlayId)
         OverlayStateRelay.shared.globalHoveredTypes.remove(overlayId)
         for type in OverlayStateRelay.shared.actualHoveredTypes where overlayId.hasPrefix(type) {
@@ -2085,7 +2185,14 @@ class MediaKeyManager: ObservableObject {
             else if overlayId == "language" { showLanguageIndicator = false }
             else if overlayId == "media" { showMediaIndicator = false }
             else if overlayId == "theme" { showThemeIndicator = false }
-            else if overlayId == "focus" { showFocusIndicator = false }
+            else if overlayId == "focus" {
+                showFocusIndicator = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                    guard let self = self, !self.showFocusIndicator else { return }
+                    self.isFocusReminder = false
+                    self.isFocusSwitched = false
+                }
+            }
             else if overlayId == "mic" { showMicIndicator = false; isMicExpanded = false }
             else if overlayId == "camera" { showCameraIndicator = false; isCameraExpanded = false }
             else if overlayId == "location" { showLocationIndicator = false; isLocationActive = false; isLocationExpanded = false }
@@ -2129,7 +2236,14 @@ class MediaKeyManager: ObservableObject {
         else if overlayId == "language" { showLanguageIndicator = false }
         else if overlayId == "media" { showMediaIndicator = false }
         else if overlayId == "theme" { showThemeIndicator = false }
-        else if overlayId == "focus" { showFocusIndicator = false }
+        else if overlayId == "focus" {
+            showFocusIndicator = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                guard let self = self, !self.showFocusIndicator else { return }
+                self.isFocusReminder = false
+                self.isFocusSwitched = false
+            }
+        }
         else if overlayId == "mic" { showMicIndicator = false; isMicExpanded = false }
         else if overlayId == "camera" { showCameraIndicator = false; isCameraExpanded = false }
         else if overlayId == "location" { showLocationIndicator = false; isLocationActive = false; isLocationExpanded = false }
@@ -2152,6 +2266,8 @@ class MediaKeyManager: ObservableObject {
     
     func hideBatteryOverlay() {
         DispatchQueue.main.async {
+            self.batteryTransitionWorkItem?.cancel()
+            self.batteryTransitionWorkItem = nil
             self.forceHide(overlayId: "battery")
             if self.isTestingBattery {
                 // Delay testing state reset until after the exit animation finishes
@@ -2164,40 +2280,6 @@ class MediaKeyManager: ObservableObject {
                 }
             }
         }
-    }
-
-
-    
-    func triggerUnplugStatus() {
-        if !enableBattery { return }
-        playNotificationSound(named: soundOnUnplug)
-        
-        chargingTimer?.invalidate()
-        batteryTimer?.invalidate()
-        let battPos = self.getOverlayPosition(for: "batteryOverlayPosition")
-        dismissCollidingIndicators(newPosition: battPos, source: "battery")
-        
-        let wasActive = showChargingStatus || showLowBatteryWarning || showUnpluggedStatus
-        if wasActive {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                showChargingStatus = false
-                showLowBatteryWarning = false
-                showUnpluggedStatus = false
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showUnpluggedStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
-                    self.notifyOverlayStateChanged()
-                }
-            }
-        } else {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self.showUnpluggedStatus = true; self.overlayTriggerTimes["battery_charging"] = Date()
-                self.notifyOverlayStateChanged()
-            }
-        }
-        
-        self.scheduleOverlayHide(for: "battery")
     }
 
     
@@ -2545,7 +2627,7 @@ class MediaKeyManager: ObservableObject {
             return
         }
 
-        if mediaTitle == title && mediaArtist == artist && mediaDuration == duration && mediaElapsedTime == elapsedTime && mediaIsPlaying == isPlaying && mediaAction == self.mediaAction {
+        if !triggerNotification && mediaTitle == title && mediaArtist == artist && mediaDuration == duration && mediaElapsedTime == elapsedTime && mediaIsPlaying == isPlaying && mediaAction == self.mediaAction {
             return
         }
         
@@ -2563,14 +2645,6 @@ class MediaKeyManager: ObservableObject {
             if mediaAction == "pause" && !notifyMediaPause { finalTrigger = false }
             if mediaAction == "resume" && !notifyMediaResume { finalTrigger = false }
             if mediaAction == "end" && !notifyMediaEnd { finalTrigger = false }
-        }
-        
-        if finalTrigger {
-            if let frontmostId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier, !frontmostId.isEmpty, frontmostId == bundleId {
-                finalTrigger = false
-            } else if isAnyAppInFullScreen() {
-                finalTrigger = false
-            }
         }
         
         if finalTrigger {
@@ -2609,6 +2683,9 @@ class MediaKeyManager: ObservableObject {
         if OverlayStateRelay.shared.globalHoveredTypes.contains(overlayId) || OverlayStateRelay.shared.actualHoveredTypes.contains(overlayId) {
             return true
         }
+        if overlayId.hasPrefix("copy") && OverlayStateRelay.shared.isClipboardCycling {
+            return true
+        }
         for type in OverlayStateRelay.shared.globalHoveredTypes where overlayId.hasPrefix(type) {
             return true
         }
@@ -2619,12 +2696,17 @@ class MediaKeyManager: ObservableObject {
         case "mic": return isMicExpanded
         case "camera": return isCameraExpanded
         case "location": return isLocationExpanded
+        case "copy": return OverlayStateRelay.shared.isClipboardCycling
         default: return false
         }
     }
     
     func scheduleOverlayHide(for overlayId: String, delay: TimeInterval = MediaKeyManager.notificationDuration) {
         cancelOverlayHide(for: overlayId)
+        
+        if overlayId.hasPrefix("copy") && OverlayStateRelay.shared.isClipboardCycling {
+            return
+        }
         
         let timer = Timer.scheduledTimerInCommonModes(withTimeInterval: delay, repeats: false) { [weak self] _ in
             guard let self = self else { return }
@@ -2646,9 +2728,10 @@ class MediaKeyManager: ObservableObject {
         case "volume": volumeTimer?.invalidate(); volumeTimer = nil
         case "brightness": brightnessTimer?.invalidate(); brightnessTimer = nil
         case "keyboardBrightness": keyboardBrightnessTimer?.invalidate(); keyboardBrightnessTimer = nil
-        case "battery", "battery_charging", "battery_warning":
+        case "battery", "battery_charging", "battery_warning", "battery_unplugged":
             chargingTimer?.invalidate(); chargingTimer = nil
             batteryTimer?.invalidate(); batteryTimer = nil
+            batteryTransitionWorkItem?.cancel(); batteryTransitionWorkItem = nil
         case "copy": copyTimer?.invalidate(); copyTimer = nil
         case "capsLock": capsLockTimer?.invalidate(); capsLockTimer = nil
         case "language": languageTimer?.invalidate(); languageTimer = nil
@@ -2670,7 +2753,9 @@ class MediaKeyManager: ObservableObject {
         case "cpu": hideCpuIndicatorTask?.cancel(); hideCpuIndicatorTask = nil
         case "trash": hideTrashIndicatorTask?.cancel(); hideTrashIndicatorTask = nil
         case "theme": themeTimer?.invalidate(); themeTimer = nil
-        case "focus": focusTimer?.invalidate(); focusTimer = nil
+        case "focus":
+            focusTimer?.invalidate(); focusTimer = nil
+            focusTransitionWorkItem?.cancel(); focusTransitionWorkItem = nil
         case "accessoryBattery": notificationTimers["accessoryBattery"]?.invalidate(); notificationTimers.removeValue(forKey: "accessoryBattery")
         case "airpodsGroupBattery": notificationTimers["airpodsGroupBattery"]?.invalidate(); notificationTimers.removeValue(forKey: "airpodsGroupBattery")
         default: break
@@ -2705,6 +2790,9 @@ class MediaKeyManager: ObservableObject {
         
         // 2. If finished hovering, schedule auto-hide after defaultDelay
         if !isHovering && type != "survey" {
+            if type == "copy" && OverlayStateRelay.shared.isClipboardCycling {
+                return
+            }
             scheduleOverlayHide(for: type, delay: defaultDelay)
         } else if !isHovering && type == "survey" {
             // Use 3s in thank-you mode, 15s for the full question overlay
@@ -2726,49 +2814,6 @@ class MediaKeyManager: ObservableObject {
     }
     
 
-    private var cachedFullScreenResult: Bool = false
-    private var cachedFullScreenTime: Date = .distantPast
-    
-    private func isAnyAppInFullScreen() -> Bool {
-        // Return cached result if fresh (within 2 seconds)
-        let now = Date()
-        if now.timeIntervalSince(cachedFullScreenTime) < 2.0 {
-            return cachedFullScreenResult
-        }
-        
-        guard let windowInfoList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
-            cachedFullScreenResult = false
-            cachedFullScreenTime = now
-            return false
-        }
-        
-        let screens = VisorProWindowManager.shared.cachedScreens
-        for info in windowInfoList {
-            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
-            guard let boundsDict = info[kCGWindowBounds as String] as? [String: CGFloat],
-                  let x = boundsDict["X"], let y = boundsDict["Y"],
-                  let w = boundsDict["Width"], let h = boundsDict["Height"] else { continue }
-            
-            let windowRect = NSRect(x: x, y: y, width: w, height: h)
-            
-            for screen in screens {
-                let screenFrame = screen.frame
-                if windowRect.size.width >= screenFrame.width && windowRect.size.height >= screenFrame.height {
-                    if let ownerName = info[kCGWindowOwnerName as String] as? String {
-                        if ownerName == "Dock" || ownerName == "Finder" || ownerName == "Window Server" {
-                            continue
-                        }
-                        cachedFullScreenResult = true
-                        cachedFullScreenTime = now
-                        return true
-                    }
-                }
-            }
-        }
-        cachedFullScreenResult = false
-        cachedFullScreenTime = now
-        return false
-    }
     var initialPercentageWhenPluggedIn: Int? = nil
     var hasChargedSincePluggedIn: Bool = false
     
@@ -2966,15 +3011,70 @@ class MediaKeyManager: ObservableObject {
     
     func handleStandardKeyEvent(_ event: NSEvent, cgEvent: CGEvent) -> Bool {
         return DispatchQueue.main.sync {
+            // Bypass synthetic paste events posted by VisorPro
+            if self.isSimulatingPaste || cgEvent.getIntegerValueField(.eventSourceUserData) == 0x56505354 {
+                return true
+            }
+
             if event.type == .flagsChanged {
+                // Check if user was cycling clipboard history and released the modifier key
+                if self.isClipboardCycling {
+                    let currentModifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+                    if !currentModifiers.contains(self.activeCycleModifier) {
+                        self.finishClipboardCycling()
+                    }
+                }
+                
                 // DIAGNOSTICS: Logging all flag changes (even Shift, Cmd) to catch the "invisible" Caps Lock
                 
-                if event.keyCode == 57 { // 57 to kVK_CapsLock
-                    // Caps Lock events are now fully handled by RAW-HID (setupRawCapsLockDetection)
-                    // which bypasses the issue of dropping flagsChanged events due to desynchronized system kernel.
+                if event.keyCode == 57 { // 57 is kVK_CapsLock
+                    if cgEvent.getIntegerValueField(.eventSourceUserData) != 12345 {
+                        let isOn = event.modifierFlags.contains(.capsLock)
+                        DispatchQueue.main.async {
+                            if self.enableKeyboard {
+                                self.isCapsLockOn = isOn
+                                if !self.useSystemOSD {
+                                    self.lastAction = "Caps Lock: \(isOn ? "On" : "Off")"
+                                }
+                                self.triggerCapsLockIndicator(isOn: isOn)
+                            }
+                        }
+                    }
                     return true
                 }
             } else if event.type == .keyDown {
+                // Handle active clipboard cycling
+                if self.isClipboardCycling {
+                    if event.keyCode == 53 { // Escape cancels cycling
+                        self.cancelClipboardCycling()
+                        return false
+                    }
+                    
+                    let eventModifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+                    let char = event.charactersIgnoringModifiers?.lowercased() ?? ""
+                    
+                    if char == self.activeCycleChar {
+                        if !event.isARepeat {
+                            let backwards = eventModifiers.contains(.shift)
+                            self.cycleToNextClipboardItem(backwards: backwards)
+                        }
+                        return false
+                    }
+                    
+                    if event.keyCode == 125 { // Down arrow
+                        self.cycleToNextClipboardItem(backwards: false)
+                        return false
+                    }
+                    if event.keyCode == 126 { // Up arrow
+                        self.cycleToNextClipboardItem(backwards: true)
+                        return false
+                    }
+                    
+                    // Any other key while cycling cancels cycle mode and passes event through
+                    self.cancelClipboardCycling()
+                    return true
+                }
+
                 let eventModifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
                 let char = event.charactersIgnoringModifiers?.lowercased() ?? ""
                 
@@ -3026,6 +3126,14 @@ class MediaKeyManager: ObservableObject {
                         } else {
                             if hasCustomPaste {
                                 if !isCustomPaste { return true }
+                            }
+                        }
+                        
+                        if self.enableClipboard && self.clipboardCyclePasteEnabled {
+                            let modifier = isCustomPaste ? self.pasteShortcut.modifiers : .command
+                            let charToCycle = isCustomPaste ? self.pasteShortcut.character.lowercased() : "v"
+                            if self.startClipboardCycling(shortcutModifiers: modifier, cycleChar: charToCycle) {
+                                return false // Intercept so target app does not paste immediately!
                             }
                         }
                         
@@ -3225,19 +3333,15 @@ class MediaKeyManager: ObservableObject {
                     }
                 }
                 
+                // --- Passthrough: Media keys (Play, Next, Previous) ---
+                // Allow macOS to natively dispatch media keys to Google Chrome, Safari, VLC, QuickTime, Spotify, Music
                 if keyCode == NX_KEYTYPE_PLAY || keyCode == NX_KEYTYPE_NEXT || keyCode == NX_KEYTYPE_PREVIOUS {
-                    if !isKeyDown {
-                        DispatchQueue.main.async {
-                            if keyCode == NX_KEYTYPE_PLAY {
-                                manager.simulatePlayPause()
-                            } else if keyCode == NX_KEYTYPE_NEXT {
-                                manager.simulateNext()
-                            } else if keyCode == NX_KEYTYPE_PREVIOUS {
-                                manager.simulatePrevious()
-                            }
+                    if isKeyDown && manager.enableMediaNotification {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak manager] in
+                            manager?.mediaObserver?.fetchCurrentState(triggerNotification: true)
                         }
                     }
-                    return nil
+                    return Unmanaged.passRetained(event)
                 }
                 
                 if keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE || keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN {

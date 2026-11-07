@@ -37,7 +37,13 @@ struct ContentView: View {
         if mediaKeyManager.showBrightnessIndicator { active.append(ActiveOverlay(id: "brightness", type: .brightness, position: brightnessOverlayPosition, notification: nil)) }
         if mediaKeyManager.showKeyboardBrightnessIndicator { active.append(ActiveOverlay(id: "keyboardBrightness", type: .keyboardBrightness, position: keyboardBrightnessOverlayPosition, notification: nil)) }
         if showBattery { 
-            let batId = (mediaKeyManager.showLowBatteryWarning && !mediaKeyManager.isPluggedIn) ? "battery_warning" : "battery_charging"
+            let batId: String = {
+                switch mediaKeyManager.batteryOverlayMode {
+                case .warning: return "battery_warning"
+                case .unplugged: return "battery_unplugged"
+                case .charging: return "battery_charging"
+                }
+            }()
             active.append(ActiveOverlay(id: batId, type: .battery, position: batteryOverlayPosition, notification: nil)) 
         }
         if mediaKeyManager.showCopyIndicator { active.append(ActiveOverlay(id: "copy_\(mediaKeyManager.clipboardEventId)", type: .copy, position: copyOverlayPosition, notification: nil)) }
@@ -272,7 +278,7 @@ struct ContentView: View {
         case .volume: VolumeOverlayView()
         case .brightness: BrightnessOverlayView()
         case .keyboardBrightness: KeyboardBrightnessOverlayView()
-        case .battery: BatteryOverlayView(isWarningMode: mediaKeyManager.showLowBatteryWarning && !mediaKeyManager.isPluggedIn)
+        case .battery: BatteryOverlayView(isWarningMode: OverlayStateRelay.shared.batteryOverlayMode == .warning)
         case .copy: CopyOverlayView()
         case .capsLock: CapsLockOverlayView()
         case .bluetooth: BluetoothOverlayView(notification: overlay.notification)

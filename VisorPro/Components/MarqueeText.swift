@@ -1,24 +1,22 @@
 import SwiftUI
 
-enum MarqueeState {
-    case idle
-    case scrolling
-}
-
 struct MarqueeText: View {
     var text: String
     var font: Font
     var foregroundColor: Color
     var alignment: Alignment = .leading
     
-    @State private var marqueeState: MarqueeState = .idle
+    @State private var offset: CGFloat = 0
     @State private var textWidth: CGFloat = 0
     @State private var containerWidth: CGFloat = 0
-    @State private var timer: Timer? = nil
     @State private var animationId: UUID = UUID()
     
+    private var isOverflowing: Bool {
+        containerWidth > 0 && textWidth > containerWidth + 1.0
+    }
+    
     private var effectiveAlignment: Alignment {
-        (textWidth > containerWidth && containerWidth > 0) ? .leading : alignment
+        isOverflowing ? .leading : alignment
     }
     
     var body: some View {
@@ -57,55 +55,76 @@ struct MarqueeText: View {
                                 return Color.clear
                             }
                         )
-                        .offset(x: marqueeState == .scrolling ? -(textWidth - containerWidth) : 0)
-                        .animation(marqueeState == .scrolling ? .linear(duration: Double(max(0, textWidth - containerWidth)) / 20.0) : .none, value: marqueeState)
+                        .offset(x: isOverflowing ? offset : 0)
                 },
                 alignment: effectiveAlignment
             )
-            .id(text)
             .clipped()
+            .id(text)
             .onAppear {
                 restartAnimation()
             }
-            .onChange(of: text) { oldValue, newValue in
+            .onChange(of: text) { _, _ in
                 restartAnimation()
             }
             .onDisappear {
-                timer?.invalidate()
-                timer = nil
+                stopAnimation()
             }
     }
     
+    private func stopAnimation() {
+        animationId = UUID()
+    }
+    
     private func restartAnimation() {
-        timer?.invalidate()
-        timer = nil
-        marqueeState = .idle
+        stopAnimation()
+        
+        var t = Transaction(animation: nil)
+        t.disablesAnimations = true
+        withTransaction(t) {
+            offset = 0
+        }
+        
+        guard isOverflowing else { return }
         
         let currentId = UUID()
         animationId = currentId
         
-        guard textWidth > containerWidth, containerWidth > 0 else {
-            return
-        }
-        
         let distance = textWidth - containerWidth
-        let duration = Double(distance) / 20.0
-        let totalCycle = duration + 3.0
+        let scrollSpeed: Double = 20.0 // points per second (constant linear speed)
+        let duration = max(0.6, Double(distance) / scrollSpeed)
+        let pauseAtStart: Double = 1.4 // pause duration at start (shows beginning of text)
+        let pauseAtEnd: Double = 1.4 // pause duration at end (shows end of text)
         
-        // Initial start
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        func step() {
             guard animationId == currentId else { return }
-            marqueeState = .scrolling
-        }
-        
-        // Recurring loop
-        timer = Timer.scheduledTimerInCommonModes(withTimeInterval: totalCycle, repeats: true) { _ in
-            guard animationId == currentId else { return }
-            marqueeState = .idle
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            
+            // 1. Wait at start (offset = 0) so the user can read the beginning
+            DispatchQueue.main.asyncAfter(deadline: .now() + pauseAtStart) {
                 guard animationId == currentId else { return }
-                marqueeState = .scrolling
+                
+                // 2. Linear scroll forward to the end at constant speed
+                withAnimation(.linear(duration: duration)) {
+                    offset = -distance
+                }
+                
+                // 3. Wait for scroll duration + pauseAtEnd
+                DispatchQueue.main.asyncAfter(deadline: .now() + duration + pauseAtEnd) {
+                    guard animationId == currentId else { return }
+                    
+                    // 4. Instantly teleport back to 0 (no backward scrolling)
+                    var snapTrans = Transaction(animation: nil)
+                    snapTrans.disablesAnimations = true
+                    withTransaction(snapTrans) {
+                        offset = 0
+                    }
+                    
+                    // 5. Repeat cycle (will pause at start, scroll, etc.)
+                    step()
+                }
             }
         }
+        
+        step()
     }
 }

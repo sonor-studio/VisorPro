@@ -300,12 +300,6 @@ extension Color {
     }
     
     static var offStateGray: Color {
-        return Color(NSColor(name: nil, dynamicProvider: { appearance in
-            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
-                return NSColor(white: 0.6, alpha: 1.0)
-            } else {
-                return NSColor(white: 0.4, alpha: 1.0)
-            }
-        }))
+        .secondary
     }
 }

@@ -241,7 +241,15 @@ final class NativeOverlayDismisser {
         
         let hasBannerPID = allText.contains("Banner PID")
         let isStructurallyBluetooth = hasBatteryIndicator || hasBannerPID || nestedIdentifiers.contains("smart-routing-system-banner") || nestedIdentifiers.contains(where: { $0.contains("accessory") })
-        let isStructurallyFocus = nestedIdentifiers.contains("focus-system-banner") || identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb" || nestedIdentifiers.contains(where: { $0.contains("focusmode") }) || nestedIdentifiers.contains("_gm") || lowerAllText.contains("reduce interruptions") || lowerAllText.contains("redukuj") || lowerAllText.contains("do not disturb") || lowerAllText.contains("nie przeszkadzać")
+        let isFocusKeyword = lowerAllText.contains("reduce interruptions") || lowerAllText.contains("redukuj") ||
+                             lowerAllText.contains("do not disturb") || lowerAllText.contains("nie przeszkadzać") ||
+                             lowerAllText.contains("sleep") || lowerAllText.contains("sen") || lowerAllText.contains("bedtime") ||
+                             lowerAllText.contains("work") || lowerAllText.contains("praca") ||
+                             lowerAllText.contains("personal") || lowerAllText.contains("osobisty")
+        let hasFocusSymbol = nestedIdentifiers.contains(where: {
+            $0.contains("moon") || $0.contains("bed.double") || $0.contains("briefcase") || $0.contains("person.fill") || $0.contains("apple.intelligence")
+        })
+        let isStructurallyFocus = nestedIdentifiers.contains("focus-system-banner") || identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb" || nestedIdentifiers.contains(where: { $0.contains("focusmode") }) || nestedIdentifiers.contains("_gm") || isFocusKeyword || hasFocusSymbol
         
         // If it comes from Control Center and lacks structural Bluetooth identifiers, it's very likely a Focus banner
         let isAmbiguousControlCenterBanner = isShapeMatch && identifier == "" && isControlCenter

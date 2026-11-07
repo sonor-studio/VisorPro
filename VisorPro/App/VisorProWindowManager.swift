@@ -30,6 +30,8 @@ class VisorProWindowManager: ObservableObject {
         self.targetOrigins.removeValue(forKey: id)
         self.shownPanels.remove(id)
         self.exitingPanels.remove(id)
+        
+        MediaKeyManager.shared.updateCanShowLastOverlay()
     }
     
     private func assignSlots(overlays: [ActiveOverlay], limit: Int) -> [String: Int] {
@@ -122,7 +124,7 @@ class VisorProWindowManager: ObservableObject {
             } else if overlay.type == .capsLock {
                 return 200
             } else if overlay.type == .focus {
-                return 198
+                return 220
             } else if overlay.type == .battery {
                 return 200
             } else if overlay.type == .wifi || overlay.type == .peripheral || overlay.type == .mic || overlay.type == .camera || overlay.type == .location {
@@ -157,7 +159,7 @@ class VisorProWindowManager: ObservableObject {
         if overlay.type == .capsLock {
             return 200
         } else if overlay.type == .focus {
-            return 240
+            return 260
         } else if overlay.type == .date {
             return DateOverlayView.effectiveWidth(style: style)
         } else {
@@ -338,6 +340,10 @@ class VisorProWindowManager: ObservableObject {
         }
     }
     
+    var isAnyOverlayVisible: Bool {
+        !windows.isEmpty || !allActiveOverlays.isEmpty || !OverlayStateRelay.shared.closingPanels.isEmpty
+    }
+    
     var allActiveOverlays: [ActiveOverlay] {
         let relay = OverlayStateRelay.shared
         var active: [ActiveOverlay] = []
@@ -355,7 +361,13 @@ class VisorProWindowManager: ObservableObject {
         if relay.showBrightnessIndicator { active.append(ActiveOverlay(id: "brightness", type: .brightness, position: brightnessOverlayPosition, notification: nil)) }
         if relay.showKeyboardBrightnessIndicator { active.append(ActiveOverlay(id: "keyboardBrightness", type: .keyboardBrightness, position: keyboardBrightnessOverlayPosition, notification: nil)) }
         if showBattery { 
-            let batId = (relay.showLowBatteryWarning && !relay.isPluggedIn) ? "battery_warning" : "battery_charging"
+            let batId: String = {
+                switch relay.batteryOverlayMode {
+                case .warning: return "battery_warning"
+                case .unplugged: return "battery_unplugged"
+                case .charging: return "battery_charging"
+                }
+            }()
             active.append(ActiveOverlay(id: batId, type: .battery, position: batteryOverlayPosition, notification: nil)) 
         }
         if relay.showCopyIndicator { active.append(ActiveOverlay(id: "copy", type: .copy, position: copyOverlayPosition, notification: nil)) }
@@ -1871,7 +1883,7 @@ struct SingleOverlayContainer: View {
         case .volume: VolumeOverlayView()
         case .brightness: BrightnessOverlayView()
         case .keyboardBrightness: KeyboardBrightnessOverlayView()
-        case .battery: BatteryOverlayView(isWarningMode: mediaKeyManager.showLowBatteryWarning && !mediaKeyManager.isPluggedIn)
+        case .battery: BatteryOverlayView(isWarningMode: OverlayStateRelay.shared.batteryOverlayMode == .warning)
         case .copy: CopyOverlayView()
         case .capsLock: CapsLockOverlayView()
         case .bluetooth: BluetoothOverlayView(notification: overlay.notification)

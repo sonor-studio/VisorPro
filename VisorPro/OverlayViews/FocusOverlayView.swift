@@ -41,11 +41,17 @@ struct FocusOverlayView: View {
     
     private func getDurationString(start: Date?, end: Date?) -> String {
         guard let start = start, let end = end else { return "0m" }
-        let duration = max(0, end.timeIntervalSince(start))
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = duration >= 3600 ? [.hour, .minute] : [.minute, .second]
-        formatter.unitsStyle = .abbreviated
-        return formatter.string(from: duration) ?? "0m"
+        let totalSeconds = max(0, Int(end.timeIntervalSince(start)))
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        
+        if hours > 0 {
+            return String(format: "%dh %02dm", hours, minutes)
+        } else if minutes > 0 {
+            return "\(minutes)m"
+        } else {
+            return "\(max(0, totalSeconds))s"
+        }
     }
     
     var body: some View {
@@ -60,10 +66,10 @@ struct FocusOverlayView: View {
             iconName = "moon.fill"
             iconColor = getColor(from: "systemIndigoColor")
         } else {
-            active = overlayState.isFocusModeActive
-            modeName = overlayState.focusModeName
-            iconName = overlayState.focusSymbol
-            let rawColor = getColor(from: overlayState.focusColorName)
+            active = overlayState.displayedFocusModeActive
+            modeName = overlayState.displayedFocusModeName
+            iconName = overlayState.displayedFocusSymbol
+            let rawColor = getColor(from: overlayState.displayedFocusColorName)
             if modeName.lowercased().contains("reduce") || modeName.lowercased() == "_gm" || iconName == "apple.intelligence" {
                 iconColor = Color(red: 203.0 / 255.0, green: 48.0 / 255.0, blue: 224.0 / 255.0)
             } else {
@@ -148,6 +154,10 @@ struct FocusOverlayView: View {
         }
         
         let isExpandable = (active && (details != nil || overlayState.isFocusReminder)) || (!active && lastEnded != nil)
+        let reminderDuration = getDurationString(
+            start: details?.startDate ?? overlayState.focusActiveDate ?? Date().addingTimeInterval(-Double(mediaKeyManager.focusReminderInterval * 60)),
+            end: Date()
+        )
         
         return UniversalOverlayView(
             isPreview: isPreview,
@@ -158,21 +168,22 @@ struct FocusOverlayView: View {
             barColor: displayColor,
             fillCenter: false,
             isMuted: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 198 : 240,
+            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 220 : 260,
             supportDragGesture: false,
-            onSimpleTap: {},
+            onSimpleTap: nil,
             isExpandable: isExpandable && focusAllowExpansion,
             keepAliveId: "focus",
             fixedExpandedHeight: 50,
-            minimalText: isReminder ? "Focus Reminder" : "\(resolvedModeName) \(active ? "On" : "Off")",
+            minimalText: isReminder ? "Focus Reminder • \(reminderDuration)" : "\(resolvedModeName) \(active ? "On" : "Off")",
             minimalIcon: displayIcon,
-            systemTitle: isReminder ? "Focus Reminder" : resolvedModeName,
-            systemSubtitle: isReminder ? resolvedModeName : (active ? "On" : "Off"),
+            systemTitle: resolvedModeName,
+            systemSubtitle: isReminder ? "Focus Reminder • \(reminderDuration)" : (overlayState.isFocusSwitched ? "Switched" : (active ? "On" : "Off")),
+            systemTertiaryText: nil,
             baseContent: {
                 HStack(alignment: .center, spacing: 14) {
                     Image(systemName: displayIcon)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(active ? displayColor : .primary)
+                        .foregroundColor(active ? displayColor : .secondary)
                         .frame(width: 26, height: 24)
                     
                     VStack(alignment: .leading, spacing: 2) {
@@ -181,22 +192,31 @@ struct FocusOverlayView: View {
                                 Text(displayTitle)
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
                                     .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
                                 Text("•")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(.secondary)
+                                    .fixedSize(horizontal: true, vertical: false)
                                 if isPreview {
                                     Text("1:02:15")
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .monospacedDigit()
                                         .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 } else {
                                     let timerDate = details?.startDate ?? overlayState.focusActiveDate ?? Date().addingTimeInterval(-Double(mediaKeyManager.focusReminderInterval * 60))
                                     Text(timerDate, style: .timer)
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .monospacedDigit()
                                         .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 }
                             }
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                             MarqueeText(text: resolvedModeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                         } else if active && details != nil && !overlayState.isFocusReminder && !overlayState.isFocusSwitched {
                             if let endDate = details?.endDate, let timeStr = getEndDateString(date: endDate) {
@@ -204,28 +224,40 @@ struct FocusOverlayView: View {
                                     Text(displayTitle)
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
                                     Text("•")
                                         .font(.system(size: 11, weight: .bold))
                                         .foregroundColor(.secondary)
+                                        .fixedSize(horizontal: true, vertical: false)
                                     Text("until \(timeStr)")
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .foregroundColor(.secondary)
                                         .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 }
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
                                 MarqueeText(text: resolvedModeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             } else if details?.untilLocationLeft == true {
                                 HStack(spacing: 4) {
                                     Text(displayTitle)
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
                                     Text("•")
                                         .font(.system(size: 11, weight: .bold))
                                         .foregroundColor(.secondary)
+                                        .fixedSize(horizontal: true, vertical: false)
                                     Text("until I leave")
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
                                         .foregroundColor(.secondary)
                                         .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 }
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
                                 MarqueeText(text: resolvedModeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
                             } else {
                                 Text(displayTitle)
@@ -242,7 +274,7 @@ struct FocusOverlayView: View {
                     }
                     Spacer(minLength: 8)
                 }
-                .padding(.horizontal, 16 + 4 + 3)
+                .padding(.horizontal, 16)
             },
             expandedContent: {
                 if active && overlayState.isFocusReminder {

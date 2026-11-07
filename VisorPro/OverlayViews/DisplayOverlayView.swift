@@ -104,7 +104,7 @@ struct DisplayOverlayView: View {
                 HStack(alignment: .center, spacing: 0) {
                     Image(systemName: iconName)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(isConnected ? .primary : .offStateGray)
+                        .foregroundColor(isConnected ? .primary : .secondary)
                         .frame(width: 26, height: 24)
                         .padding(.leading, 23)
                     
@@ -164,7 +164,7 @@ struct DisplayOverlayView: View {
                             .background(Color.primary.opacity(0.05))
                             .cornerRadius(6)
                         }
-                        .foregroundColor(.offStateGray)
+                        .foregroundColor(.secondary)
                     }
                     
                     if isConnected {
@@ -177,7 +177,7 @@ struct DisplayOverlayView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 5)
                                     .background(isMirrored ? Color.clear : Color.primary.opacity(0.15))
-                                    .foregroundColor(isMirrored ? .offStateGray : .primary)
+                                    .foregroundColor(isMirrored ? .secondary : .primary)
                                     .cornerRadius(6)
                             }
                             .contentShape(Rectangle())
@@ -192,7 +192,7 @@ struct DisplayOverlayView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 5)
                                     .background(!isMirrored ? Color.clear : Color.primary.opacity(0.15))
-                                    .foregroundColor(!isMirrored ? .offStateGray : .primary)
+                                    .foregroundColor(!isMirrored ? .secondary : .primary)
                                     .cornerRadius(6)
                             }
                             .contentShape(Rectangle())

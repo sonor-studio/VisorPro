@@ -405,6 +405,7 @@ extension MediaKeyManager {
     }
 
     func showLastViewedOverlay() {
+        guard canShowLastOverlay else { return }
         guard let last = self.overlayTriggerTimes.max(by: { $0.value < $1.value }) else { return }
         let overlayId = last.key
         
@@ -414,7 +415,7 @@ extension MediaKeyManager {
         case "volume": triggerVolumeIndicator(playSound: false)
         case "brightness": triggerBrightnessIndicator(playSound: false)
         case "keyboardBrightness": triggerKeyboardBrightnessIndicator(playSound: false)
-        case "battery_charging", "battery_warning", "battery": 
+        case "battery_charging", "battery_warning", "battery_unplugged", "battery": 
             if relay.showLowBatteryWarning {
                 triggerBatteryThresholdWarning(percentage: relay.currentBatteryPercentage, sound: "None")
             } else if !relay.isPluggedIn {
@@ -460,6 +461,8 @@ extension MediaKeyManager {
                 caseBattery: relay.airpodsCaseBattery,
                 caseCharging: relay.airpodsCaseCharging
             )
+        case "airpodsMode":
+            triggerAirPodsModeOverlay(mode: relay.airPodsModeValue, showOverlay: true)
         default:
             if overlayId.hasPrefix("bluetooth_") || overlayId.hasPrefix("peripheral_") || overlayId.hasPrefix("display_") {
                 if let notif = relay.notificationHistory[overlayId] {

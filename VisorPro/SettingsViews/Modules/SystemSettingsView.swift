@@ -137,7 +137,7 @@ struct SystemSettingsView: View {
                                             .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                                     )
                                     
-                                    if overlayPositionMode == "custom" {
+                                    if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
                                         Text("CPU Overlay Position")
                                             .font(.headline)
                                             .foregroundColor(.secondary)
@@ -213,7 +213,7 @@ struct SystemSettingsView: View {
                                             .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                                     )
                                     
-                                    if overlayPositionMode == "custom" {
+                                    if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
                                         Text("Overlay Position")
                                             .font(.headline)
                                             .foregroundColor(.secondary)
