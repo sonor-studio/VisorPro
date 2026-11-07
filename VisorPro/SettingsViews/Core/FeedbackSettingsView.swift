@@ -9,6 +9,7 @@ struct FeedbackSettingsView: View {
     @State private var isSubmitting: Bool = false
     @State private var showSuccessMessage: Bool = false
     @State private var errorMessage: String = ""
+    @State private var hasAttemptedSubmit: Bool = false
     
     let feedbackTypes = ["Idea", "Bug Report", "Question", "Other"]
     
@@ -29,7 +30,7 @@ struct FeedbackSettingsView: View {
     
     private var isValidToSubmit: Bool {
         let isTextValid = !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return isTextValid && isEmailValid && isCategoryValid && !isSubmitting
+        return isTextValid && isCategoryValid && !isSubmitting
     }
     
     var body: some View {
@@ -100,7 +101,7 @@ struct FeedbackSettingsView: View {
                                 TextField("email@example.com", text: $emailAddress)
                                     .textFieldStyle(.roundedBorder)
                                     .frame(maxWidth: 200)
-                                if !isEmailValid && !emailAddress.isEmpty {
+                                if hasAttemptedSubmit && !isEmailValid && !emailAddress.isEmpty {
                                     Text("Invalid email")
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(.red)
@@ -226,9 +227,16 @@ struct FeedbackSettingsView: View {
     private func resetMessages() {
         showSuccessMessage = false
         errorMessage = ""
+        hasAttemptedSubmit = false
     }
     
     private func submitFeedback() {
+        hasAttemptedSubmit = true
+        guard isEmailValid else {
+            errorMessage = "Please enter a valid email address or leave it empty."
+            return
+        }
+        
         guard let urlStr = EnvReader.shared.getValue(for: "SUPABASE_URL"),
               let anonKey = EnvReader.shared.getValue(for: "SUPABASE_ANON_KEY"),
               let url = URL(string: "\(urlStr)/rest/v1/feedback") else {
@@ -252,7 +260,7 @@ struct FeedbackSettingsView: View {
         var payload: [String: Any] = [
             "type": finalType,
             "description": description,
-            "email": emailAddress
+            "email": emailAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         ]
         
         if attachLogs {
