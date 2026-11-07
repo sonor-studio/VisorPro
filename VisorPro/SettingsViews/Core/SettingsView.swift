@@ -33,8 +33,10 @@ struct SettingsView: View {
         case accessory(String)
     }
     
+    static var pendingSelection: SidebarItem? = nil
+    
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
-    @State private var selection: SidebarItem = .general
+    @State private var selection: SidebarItem = SettingsView.pendingSelection ?? .general
     @State private var window: NSWindow?
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @AppStorage("hasCompletedWelcome") private var hasCompletedWelcome = false
@@ -352,6 +354,15 @@ struct SettingsView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenPremiumSettings"))) { _ in
             selection = .premium
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OpenChangelogSettings"))) { _ in
+            selection = .recentChanges
+        }
+        .onAppear {
+            if let target = SettingsView.pendingSelection {
+                selection = target
+                SettingsView.pendingSelection = nil
+            }
         }
     }
 }

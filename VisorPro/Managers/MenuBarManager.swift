@@ -13,13 +13,15 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     private let menu = NSMenu()
     private var cancellables = Set<AnyCancellable>()
     var openDashboardAction: (() -> Void)?
+    var openChangelogAction: (() -> Void)?
     
     private override init() {
         super.init()
     }
     
-    func setup(openDashboard: @escaping () -> Void) {
+    func setup(openDashboard: @escaping () -> Void, openChangelog: (() -> Void)? = nil) {
         self.openDashboardAction = openDashboard
+        self.openChangelogAction = openChangelog
         guard statusItem == nil else { return }
         
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -93,6 +95,11 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
         let dashboardItem = NSMenuItem(title: "Dashboard", action: #selector(openDashboardMenuAction), keyEquivalent: "")
         dashboardItem.target = self
         menu.addItem(dashboardItem)
+        
+        // What's New
+        let whatsNewItem = NSMenuItem(title: "What's New...", action: #selector(openWhatsNewMenuAction), keyEquivalent: "")
+        whatsNewItem.target = self
+        menu.addItem(whatsNewItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -263,6 +270,10 @@ final class MenuBarManager: NSObject, NSMenuDelegate {
     
     @objc private func openDashboardMenuAction() {
         openDashboardAction?()
+    }
+    
+    @objc private func openWhatsNewMenuAction() {
+        openChangelogAction?()
     }
     
     @objc private func quitAppAction() {

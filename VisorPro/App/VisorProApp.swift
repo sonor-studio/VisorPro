@@ -161,9 +161,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         
         UpdateManager.shared.checkForUpdates()
         
-        MenuBarManager.shared.setup(openDashboard: { [weak self] in
-            self?.openDashboard()
-        })
+        MenuBarManager.shared.setup(
+            openDashboard: { [weak self] in
+                self?.openDashboard()
+            },
+            openChangelog: { [weak self] in
+                self?.openChangelog()
+            }
+        )
         
         MediaKeyManager.shared.start()
         if MediaKeyManager.shared.enableBattery {
@@ -220,6 +225,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     
     @objc func showSettingsWindowAction() {
         openDashboard(force: true)
+    }
+    
+    func openChangelog() {
+        SettingsView.pendingSelection = .recentChanges
+        openDashboard(force: true)
+        NotificationCenter.default.post(name: NSNotification.Name("OpenChangelogSettings"), object: nil)
     }
     
     // Helper to call from SwiftUI and menus
