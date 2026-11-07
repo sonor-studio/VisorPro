@@ -177,7 +177,7 @@ extension MediaKeyManager {
             if self.showAirpodsGroupBatteryIndicator {
                 self.cancelOverlayHide(for: "airpodsGroupBattery")
                 self.showAirpodsGroupBatteryIndicator = false
-                AirPodsBatteryManager.shared.stopValidationTimer()
+                AirPodsBatteryManager.shared.handleOverlayDismissed()
                 self.notifyOverlayStateChanged()
             }
         }

@@ -258,10 +258,14 @@ class AirPodsBatteryManager: ObservableObject {
         startValidationTimer()
     }
     
-    func dismissOverlay() {
+    func handleOverlayDismissed() {
         stopValidationTimer()
         self.isLidClosed = true
         self.wantsBatteryOverlayFromLidOpen = false
+    }
+
+    func dismissOverlay() {
+        handleOverlayDismissed()
         MediaKeyManager.shared.dismissAirpodsGroupBatteryIndicator()
     }
     

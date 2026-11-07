@@ -2101,7 +2101,7 @@ class MediaKeyManager: ObservableObject {
             else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
             else if overlayId.hasPrefix("airpodsGroupBattery") { 
                 showAirpodsGroupBatteryIndicator = false
-                AirPodsBatteryManager.shared.stopValidationTimer()
+                AirPodsBatteryManager.shared.handleOverlayDismissed()
             }
             else if overlayId == "smartRouting" { OverlayStateRelay.shared.showSmartRoutingIndicator = false }
             else if overlayId == "survey" {
@@ -2144,7 +2144,7 @@ class MediaKeyManager: ObservableObject {
         else if overlayId.hasPrefix("accessoryBattery") { showAccessoryBatteryIndicator = false }
         else if overlayId.hasPrefix("airpodsGroupBattery") { 
             showAirpodsGroupBatteryIndicator = false
-            AirPodsBatteryManager.shared.stopValidationTimer()
+            AirPodsBatteryManager.shared.handleOverlayDismissed()
         }
         else if overlayId == "smartRouting" { OverlayStateRelay.shared.showSmartRoutingIndicator = false }
         notifyOverlayStateChanged()
