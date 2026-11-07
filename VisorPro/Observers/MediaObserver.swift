@@ -22,6 +22,7 @@ class MediaObserver {
     private var lastDuration = 0.0
     private var lastElapsedTime = 0.0
     private var lastIsPlaying = false
+    private var lastBundleId = ""
     private var isFirstRun = true
     
     init(manager: MediaKeyManager) {
@@ -344,6 +345,57 @@ class MediaObserver {
         return (title, appName.isEmpty ? "Media Player" : appName)
     }
     
+    private func isMediaActiveInFrontmostApp(title: String, bundleId: String) -> Bool {
+        guard !bundleId.isEmpty,
+              let activeApp = NSWorkspace.shared.frontmostApplication,
+              let activeBundle = activeApp.bundleIdentifier else {
+            return false
+        }
+        
+        let lowerActive = activeBundle.lowercased()
+        let lowerTarget = bundleId.lowercased()
+        
+        guard lowerActive == lowerTarget || lowerActive.contains(lowerTarget) || lowerTarget.contains(lowerActive) else {
+            return false
+        }
+        
+        let browserBundles = [
+            "com.apple.safari",
+            "com.google.chrome",
+            "com.brave.browser",
+            "company.thebrowser.browser",
+            "com.microsoft.edgemac",
+            "org.mozilla.firefox",
+            "com.operasoftware.opera"
+        ]
+        
+        if browserBundles.contains(where: { lowerActive.contains($0) }) {
+            let winTitles = getActiveWindowTitles(pid: activeApp.processIdentifier)
+            let cleanMediaTitle = title.lowercased().trimmingCharacters(in: .whitespaces)
+            
+            for winTitle in winTitles {
+                let cleanWinTitle = winTitle.lowercased().trimmingCharacters(in: .whitespaces)
+                
+                if cleanWinTitle.contains("youtube") || cleanWinTitle.contains("tiktok") ||
+                   cleanWinTitle.contains("instagram") || cleanWinTitle.contains("shorts") ||
+                   cleanWinTitle.contains("reels") || cleanWinTitle.contains("netflix") ||
+                   cleanWinTitle.contains("soundcloud") || cleanWinTitle.contains("twitch") {
+                    return true
+                }
+                
+                let cleanWinTitleStripped = cleanWinTitle.replacingOccurrences(of: " - youtube", with: "")
+                if !cleanWinTitleStripped.isEmpty && !cleanMediaTitle.isEmpty &&
+                   (cleanWinTitleStripped.contains(cleanMediaTitle) || cleanMediaTitle.contains(cleanWinTitleStripped)) {
+                    return true
+                }
+            }
+            return false
+        } else {
+            // Frontmost app is the native media player (Spotify, Apple Music, VLC, QuickTime, IINA)
+            return true
+        }
+    }
+    
     private func processMediaState(
         title: String,
         artistRaw: String,
@@ -405,12 +457,18 @@ class MediaObserver {
             }
         }
         
+        // Suppress overlay if the user is currently focused on the media player application
+        if shouldTrigger && isMediaActiveInFrontmostApp(title: finalTitle, bundleId: bundleId) {
+            shouldTrigger = false
+        }
+        
         self.lastIsPlaying = isPlaying
         self.lastTitle = finalTitle
         self.lastArtist = finalArtist
         self.lastAlbum = album
         self.lastDuration = duration
         self.lastElapsedTime = elapsedTime
+        self.lastBundleId = bundleId
         
         DispatchQueue.main.async { [weak self] in
             self?.manager?.updateMediaInfo(
