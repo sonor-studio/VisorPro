@@ -232,11 +232,6 @@ final class NativeOverlayDismisser {
             return
         }
         
-        var shouldIntercept = false
-        
-        let timeSinceFocusEvent = Date().timeIntervalSince(lastFocusEventTime)
-        let isRecentFocusEvent = timeSinceFocusEvent < 2.0
-        
         let lowerAllText = allText.lowercased()
         
         let hasBannerPID = allText.contains("Banner PID")
@@ -259,8 +254,6 @@ final class NativeOverlayDismisser {
         let isFocus = isStructurallyFocus || isShapeMatchEmptyFocus
         
         let isVolume = identifier == "volume-system-banner" || identifier == "volume" || nestedIdentifiers.contains("volume-slider") || (isShapeMatch && identifier == "" && isOSDUIHelper)
-        
-        var preventIntercept = false
         
         func hasUndoButton(element: AXUIElement) -> Bool {
             var foundUndo = false
@@ -332,8 +325,6 @@ final class NativeOverlayDismisser {
                     OverlayStateRelay.shared.isSmartRoutingUndoAvailable = true
                     self.startSmartRoutingBannerTracker(for: element)
                     MediaKeyManager.shared.triggerSmartRouting(texts: texts)
-                } else {
-                    preventIntercept = true
                 }
             } else if !isListeningMode {
                 // Connection or accessory status banner
@@ -383,22 +374,15 @@ final class NativeOverlayDismisser {
                     MediaKeyManager.shared.triggerAirPodsModeOverlay(mode: mode, showOverlay: true)
                 }
             }
-            shouldIntercept = true
         }
         
         guard enabled else { return }
         
         if isFocus && MediaKeyManager.shared.enableFocus {
-            shouldIntercept = true
             MediaKeyManager.shared.handleNativeFocusBanner(allText: allText, nestedIds: nestedIdentifiers)
         }
 
-        if isBluetooth && MediaKeyManager.shared.enableBluetooth {
-            shouldIntercept = true
-        }
-
         if isVolume && MediaKeyManager.shared.enableVolume {
-            shouldIntercept = true
             let timeSinceRoute = Date().timeIntervalSince(VolumeManager.shared.lastRouteChangeTime)
             
             let timeSinceDisplayConnection = MediaKeyManager.shared.lastDisplayConnectionTime != nil ? Date().timeIntervalSince(MediaKeyManager.shared.lastDisplayConnectionTime!) : 999.0
@@ -408,10 +392,6 @@ final class NativeOverlayDismisser {
                     MediaKeyManager.shared.triggerVolumeIndicator(playSound: false)
                 }
             }
-        }
-        
-        if preventIntercept {
-            shouldIntercept = false
         }
         
         // Native banner dismissal is disabled/commented out because macOS (especially Sequoia+)

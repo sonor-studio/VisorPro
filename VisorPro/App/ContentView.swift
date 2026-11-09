@@ -111,7 +111,7 @@ struct ContentView: View {
         }
         if mediaKeyManager.showAirpodsGroupBatteryIndicator {
             let isAirPodsIOSCard: Bool = {
-                let isSys = (mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system")
+                let isSys = (mediaKeyManager.effectiveOverlayStyle == "system")
                 guard isSys else { return false }
                 let settings = mediaKeyManager.airPodsSettings()
                 return settings.caseOpenStyle == "iosCard"
@@ -125,7 +125,8 @@ struct ContentView: View {
             active.append(ActiveOverlay(id: "airpodsMode_\(mediaKeyManager.airPodsModeEventId)", type: .airpodsMode, position: pos, notification: nil))
         }
         
-        let limit = (mediaKeyManager.overlayStyle == "system") ? 1 : max(1, mediaKeyManager.maxSimultaneousNotifications)
+        let isSingleOverlayStyle = (mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.effectiveOverlayStyle == "classic")
+        let limit = isSingleOverlayStyle ? 1 : max(1, mediaKeyManager.maxSimultaneousNotifications)
         
         let topCandidates = active.filter { $0.position.hasPrefix("top") }
         let topToKeep = Set(topCandidates.prefix(limit).map { $0.id })
@@ -337,7 +338,8 @@ struct ContentView: View {
             }
             .allowsHitTesting(false)
             
-            let limit = (mediaKeyManager.overlayStyle == "system") ? 1 : max(1, mediaKeyManager.maxSimultaneousNotifications)
+            let isSingleOverlayStyle = (mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.effectiveOverlayStyle == "classic")
+            let limit = isSingleOverlayStyle ? 1 : max(1, mediaKeyManager.maxSimultaneousNotifications)
             let topOverlays = allActiveOverlays.filter { $0.position.hasPrefix("top") }
             let bottomOverlays = allActiveOverlays.filter { $0.position.hasPrefix("bottom") }
             let topPositions = computeLayerPositions(overlays: topOverlays, limit: limit, size: geoSize)

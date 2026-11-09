@@ -313,8 +313,11 @@ class MediaKeyManager: ObservableObject {
         colorOnDisplayModeChange = "Default"
     }
     func getOverlayPosition(for key: String) -> String {
-        if overlayStyle == "system" {
+        if effectiveOverlayStyle == "system" {
             return "top"
+        }
+        if effectiveOverlayStyle == "classic" {
+            return "center"
         }
         let mode = UserDefaults.standard.string(forKey: "overlayPositionMode") ?? "custom"
         if mode == "fixed" {
@@ -408,11 +411,11 @@ class MediaKeyManager: ObservableObject {
     }
     
     var supportsOverlayPosition: Bool {
-        overlayStyle != "system" && overlayStyle != "classic"
+        effectiveOverlayStyle != "system" && effectiveOverlayStyle != "classic"
     }
     
     var supportsOverlayColor: Bool {
-        overlayStyle != "system" && overlayStyle != "classic"
+        effectiveOverlayStyle != "system" && effectiveOverlayStyle != "classic"
     }
     var globalHoveredTypes: Set<String> {
         get { OverlayStateRelay.shared.globalHoveredTypes }
@@ -1466,7 +1469,7 @@ class MediaKeyManager: ObservableObject {
             updateFocusReminderTimer()
         }
     }
-    @Published var focusReminderInterval: Int = UserDefaults.standard.integer(forKey: "focusReminderInterval") == 0 ? 15 : UserDefaults.standard.integer(forKey: "focusReminderInterval") {
+    @Published var focusReminderInterval: Int = max(5, UserDefaults.standard.integer(forKey: "focusReminderInterval") == 0 ? 15 : UserDefaults.standard.integer(forKey: "focusReminderInterval")) {
         didSet {
             UserDefaults.standard.set(focusReminderInterval, forKey: "focusReminderInterval")
             updateFocusReminderTimer()
@@ -3225,7 +3228,8 @@ class MediaKeyManager: ObservableObject {
     
     func enforceNotificationLimit() {
         let allNotifs = activeBluetoothNotifications + activePeripheralNotifications + activeDisplayNotifications
-        let limit = (overlayStyle == "system") ? 1 : max(1, maxSimultaneousNotifications)
+        let isSingleStyle = (effectiveOverlayStyle == "system" || effectiveOverlayStyle == "classic")
+        let limit = isSingleStyle ? 1 : max(1, maxSimultaneousNotifications)
         if allNotifs.count <= limit { return }
         
         let allowed = Array(allNotifs.sorted { $0.timestamp > $1.timestamp }.prefix(limit))

@@ -97,7 +97,9 @@ class RamObserver: ObservableObject {
                 }
             }
             
-            self.fetchTopProcesses()
+            if OverlayStateRelay.shared.showRamIndicator {
+                self.fetchTopProcesses()
+            }
         }
     }
     

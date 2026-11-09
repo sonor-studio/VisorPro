@@ -284,7 +284,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     var body: some View {
-        let activeStyle = forcedStyle ?? overlayForcedStyle ?? mediaKeyManager.effectiveOverlayStyle
+        let rawActiveStyle = forcedStyle ?? overlayForcedStyle ?? mediaKeyManager.effectiveOverlayStyle
+        let activeStyle = OverlayStyle.effectiveStyle(for: rawActiveStyle)
         if activeStyle == "system" {
             let defaultTitle: String? = {
                 if let st = systemTitle { return st }

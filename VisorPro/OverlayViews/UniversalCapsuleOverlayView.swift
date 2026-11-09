@@ -147,7 +147,6 @@ struct LiquidGlassBackgroundModifier: ViewModifier {
     var isPreview: Bool = false
     var isDark: Bool = true
     @Environment(\.colorScheme) var colorScheme
-    @State private var renderNonce = UUID()
     
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
@@ -160,11 +159,6 @@ struct LiquidGlassBackgroundModifier: ViewModifier {
                 .glassEffect(.regular, in: shape)
                 .materialActiveAppearance(.active)
                 .environment(\.controlActiveState, .key)
-                .id(renderNonce)
-                .task {
-                    try? await Task.sleep(nanoseconds: 50_000_000)
-                    renderNonce = UUID()
-                }
         } else {
             content
                 .background(.regularMaterial, in: shape)
@@ -180,7 +174,6 @@ struct LiquidGlassCircleModifier: ViewModifier {
     var isClear: Bool = false
     var customBackingOpacity: Double? = nil
     @Environment(\.colorScheme) var colorScheme
-    @State private var renderNonce = UUID()
     
     func body(content: Content) -> some View {
         if #available(macOS 26.0, *) {
@@ -204,11 +197,6 @@ struct LiquidGlassCircleModifier: ViewModifier {
                 .glassEffect(isClear ? .clear : .regular, in: Circle())
                 .materialActiveAppearance(.active)
                 .environment(\.controlActiveState, .key)
-                .id(renderNonce)
-                .task {
-                    try? await Task.sleep(nanoseconds: 50_000_000)
-                    renderNonce = UUID()
-                }
                 .overlay(
                     Circle()
                         .strokeBorder(
@@ -646,26 +634,6 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
         .modifier(LiquidGlassBackgroundModifier(shape: bendedShape, isPreview: isPreview, isDark: effectiveIsDark))
         .overlay(
             LiquidGlassRimOverlay(shape: bendedShape, bendProgress: bendProgress, buttonCenter: buttonCenter, cutoutSize: cutoutSize, isAround: false)
-        )
-        .background(
-            ZStack {
-                bendedShape
-                    .fill(Color.black)
-                
-                bendedShape
-                    .fill(Color.black)
-                    .blendMode(.destinationOut)
-                
-                if bendProgress > 0.03 {
-                    Circle()
-                        .fill(Color.black)
-                        .frame(width: (cutoutSize + 1) * 2, height: (cutoutSize + 1) * 2)
-                        .position(x: buttonCenter.x, y: buttonCenter.y)
-                        .blendMode(.destinationOut)
-                        .opacity(bendProgress)
-                }
-            }
-            .compositingGroup()
         )
         .overlay(alignment: .topLeading) {
             if enableCloseButton && allowCloseButton {

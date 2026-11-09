@@ -175,7 +175,8 @@ struct CopyOverlayView: View {
         let copyPos = MediaKeyManager.shared.getOverlayPosition(for: "copyOverlayPosition")
         let cleanCopiedText = masked(displayedItemText).replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let effectiveStyle = forcedStyle ?? overlayForcedStyle ?? MediaKeyManager.shared.overlayStyle
+        let rawStyle = forcedStyle ?? overlayForcedStyle ?? MediaKeyManager.shared.effectiveOverlayStyle
+        let effectiveStyle = OverlayStyle.effectiveStyle(for: rawStyle)
         let isCycleMode = (actualAction == "cyclePaste") || overlayState.isClipboardCycling
 
         return UniversalOverlayView(

@@ -73,7 +73,9 @@ class CpuObserver: ObservableObject {
             DispatchQueue.main.async {
                 MediaKeyManager.shared.triggerCpuTempOverlay(temp: currentTemp)
             }
-            self.fetchTopProcesses()
+            if OverlayStateRelay.shared.showCpuIndicator {
+                self.fetchTopProcesses()
+            }
         }
     }
 

@@ -306,20 +306,27 @@ struct GeneralSettingsView: View {
                                         Text("Overlay Position Mode")
                                             .font(.system(size: 13, weight: .medium))
                                             .foregroundColor(.primary)
-                                        let isSystem = mediaKeyManager.overlayStyle == "system"
-                                        Text(isSystem ? "In System style, overlays are permanently anchored directly below the menu bar." : "Use a single position for all modules or configure each individually.")
+                                        let positionSubtitle: String = {
+                                            if mediaKeyManager.effectiveOverlayStyle == "classic" {
+                                                return "In Classic style, overlays are permanently centered on the screen."
+                                            } else if mediaKeyManager.effectiveOverlayStyle == "system" {
+                                                return "In System style, overlays are permanently anchored directly below the menu bar."
+                                            } else {
+                                                return "Use a single position for all modules or configure each individually."
+                                            }
+                                        }()
+                                        Text(positionSubtitle)
                                             .font(.system(size: 11))
                                             .foregroundColor(.secondary)
                                     }
                                     Spacer()
-                                    let isSystem = mediaKeyManager.overlayStyle == "system"
                                     Picker("", selection: $overlayPositionMode) {
                                         Text("Custom (Individual per module)").tag("custom")
                                         Text("Fixed (Same for all modules)").tag("fixed")
                                     }
                                     .labelsHidden()
                                     .pickerStyle(MenuPickerStyle())
-                                    .disabled(isSystem)
+                                    .disabled(!mediaKeyManager.supportsOverlayPosition)
                                 }
                                 
                                 if overlayPositionMode == "fixed" {
@@ -329,7 +336,7 @@ struct GeneralSettingsView: View {
                                         .foregroundColor(.secondary)
                                     
                                     PositionPickerGroup(selection: $globalOverlayPosition)
-                                        .disabled(mediaKeyManager.overlayStyle == "system")
+                                        .disabled(!mediaKeyManager.supportsOverlayPosition)
                                 }
                                 Divider().padding(.vertical, 8)
                                 

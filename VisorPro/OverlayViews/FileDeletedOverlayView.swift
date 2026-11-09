@@ -223,7 +223,11 @@ struct FileDeletedOverlayView: View {
             
             DispatchQueue.main.async {
                 guard let finder = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == "com.apple.finder" }) else { return }
-                finder.activate(options: [.activateIgnoringOtherApps])
+                if #available(macOS 14.0, *) {
+                    finder.activate()
+                } else {
+                    finder.activate(options: [.activateIgnoringOtherApps])
+                }
                 
                 // 3. Post Command+Delete via CoreGraphics directly to Finder (triggers native Put Back without System Events assistive permission errors)
                 let source = CGEventSource(stateID: .hidSystemState)

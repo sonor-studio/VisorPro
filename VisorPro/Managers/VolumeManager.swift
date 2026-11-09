@@ -663,7 +663,7 @@ class VolumeManager {
             mScope: kAudioDevicePropertyScopeInput,
             mElement: kAudioObjectPropertyElementMain
         )
-        AudioHardwareServiceSetPropertyData(device, &virtualVolAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
+        AudioObjectSetPropertyData(device, &virtualVolAddress, 0, nil, UInt32(MemoryLayout<Float>.size), &vol)
         
         var muteAddress = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyMute,
@@ -958,7 +958,7 @@ class BrightnessManager {
 
     func startPolling() {
         guard pollingTimer == nil else { return }
-        pollingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             self.queue.async {
                 var currentSystemBrightness: Float = self.cachedBrightness

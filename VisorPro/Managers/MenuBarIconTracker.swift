@@ -51,7 +51,7 @@ final class MenuBarIconTracker {
         let screenMaxX = screen.visibleFrame.maxX
         let minAllowedX = screenMinX + (screen.visibleFrame.width * 0.4) // Must be on the right 60% of the screen
         
-        let primaryScreen = NSScreen.screens.first ?? screen
+        let primaryScreen = VisorProWindowManager.shared.cachedScreens.first ?? screen
         let isPrimary = (screen == primaryScreen)
         
         // Helper to project a coordinate from primary screen to the target screen if displaying on an external monitor

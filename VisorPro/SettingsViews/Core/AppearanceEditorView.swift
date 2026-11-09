@@ -109,10 +109,10 @@ struct AppearanceEditorView: View {
                     styleButtons
                     
                     cornerRadiusControl
-                        .opacity((mediaKeyManager.overlayStyle != "system" && mediaKeyManager.overlayStyle != "classic") ? 1.0 : 0.0)
-                        .frame(height: (mediaKeyManager.overlayStyle != "system" && mediaKeyManager.overlayStyle != "classic") ? nil : 0)
+                        .opacity((mediaKeyManager.effectiveOverlayStyle != "system" && mediaKeyManager.effectiveOverlayStyle != "classic") ? 1.0 : 0.0)
+                        .frame(height: (mediaKeyManager.effectiveOverlayStyle != "system" && mediaKeyManager.effectiveOverlayStyle != "classic") ? nil : 0)
                         .clipped()
-                        .allowsHitTesting(mediaKeyManager.overlayStyle != "system" && mediaKeyManager.overlayStyle != "classic")
+                        .allowsHitTesting(mediaKeyManager.effectiveOverlayStyle != "system" && mediaKeyManager.effectiveOverlayStyle != "classic")
                 }
                 .padding(.bottom, 16)
                 
@@ -129,7 +129,7 @@ struct AppearanceEditorView: View {
                         let isSystemStyle = mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system"
                         currentOverlayView
                             .applyTheme((isSystemStyle && isCurrentPreviewSlider) ? "dark" : mediaKeyManager.overlayTheme)
-                            .id("\(currentPreviewOverlay.rawValue)_\(mediaKeyManager.overlayStyle)")
+                            .id("\(currentPreviewOverlay.rawValue)_\(mediaKeyManager.effectiveOverlayStyle)")
                             .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }
                     .offset(y: previewSwipeOffset)
@@ -188,10 +188,10 @@ struct AppearanceEditorView: View {
                     .zIndex(10)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: mediaKeyManager.overlayStyle == "classic" ? 250 : 164)
+                .frame(height: mediaKeyManager.effectiveOverlayStyle == "classic" ? 250 : 164)
 
                 // Directly below preview: Mode switcher (Full / Mini) - available for Default and Liquid Glass
-                let supportsFullMini = mediaKeyManager.overlayStyle == "default" || mediaKeyManager.overlayStyle == "capsule"
+                let supportsFullMini = mediaKeyManager.effectiveOverlayStyle == "default" || mediaKeyManager.effectiveOverlayStyle == "capsule"
                 overlayModeControl
                     .padding(.top, 14)
                     .opacity(supportsFullMini ? 1.0 : 0.0)
@@ -291,7 +291,9 @@ struct AppearanceEditorView: View {
     private var styleButtons: some View {
         HStack(spacing: 8) {
             styleButton(title: "Default", icon: "rectangle.roundedtop", value: "default")
-            styleButton(title: "Liquid Glass", icon: "drop.fill", value: "capsule")
+            if #available(macOS 26.0, *) {
+                styleButton(title: "Liquid Glass", icon: "drop.fill", value: "capsule")
+            }
             styleButton(title: "System", icon: "apple.logo", value: "system")
             if #available(macOS 26.0, *) {
                 styleButton(title: "Classic", icon: "square.fill", value: "classic")
@@ -697,7 +699,7 @@ struct AppearanceEditorView: View {
                 }
             }
             
-            if mediaKeyManager.overlayStyle != "system" && mediaKeyManager.overlayStyle != "classic" {
+            if mediaKeyManager.effectiveOverlayStyle != "system" && mediaKeyManager.effectiveOverlayStyle != "classic" {
                 Divider()
                 
                 // Maximum tiles
@@ -731,7 +733,7 @@ struct AppearanceEditorView: View {
                 }
             }
             
-            if mediaKeyManager.overlayStyle != "system" && mediaKeyManager.overlayStyle != "classic" {
+            if mediaKeyManager.effectiveOverlayStyle != "system" && mediaKeyManager.effectiveOverlayStyle != "classic" {
                 Divider()
                 
                 // Bouncy expansion
@@ -913,12 +915,12 @@ struct PreviewAnimationWrapper<Content: View>: View {
     @ViewBuilder var content: Content
     
     private var targetCornerRadius: CGFloat {
-        if mediaKeyManager.overlayStyle == "system" {
+        if mediaKeyManager.effectiveOverlayStyle == "system" {
             return 32.0
-        } else if mediaKeyManager.overlayStyle == "classic" {
+        } else if mediaKeyManager.effectiveOverlayStyle == "classic" {
             return 18.0
         }
-        let baseRadius: CGFloat = mediaKeyManager.overlayStyle == "capsule" ? (56.0 / 2.0) : (52.0 / 2.0)
+        let baseRadius: CGFloat = mediaKeyManager.effectiveOverlayStyle == "capsule" ? (56.0 / 2.0) : (52.0 / 2.0)
         return baseRadius * CGFloat(mediaKeyManager.cornerRoundingMultiplier)
     }
     

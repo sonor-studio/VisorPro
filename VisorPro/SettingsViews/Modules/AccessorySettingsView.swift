@@ -382,7 +382,7 @@ struct AccessorySettingsView: View {
                                             }
                                         }
                                         
-                                        if mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system" {
+                                        if mediaKeyManager.effectiveOverlayStyle == "system" {
                                             Divider().padding(.leading, 40)
                                             
                                             CustomSettingsRow(icon: "iphone.gen3", iconColor: .indigo, title: "Case Overlay Style", subtitle: "Choose between standard glass pill or iOS-style bottom card") {

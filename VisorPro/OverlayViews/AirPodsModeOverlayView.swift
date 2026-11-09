@@ -55,7 +55,7 @@ struct AirPodsModeOverlayView: View {
         let deviceName = overlayState.airpodsDeviceName.isEmpty ? "AirPods" : overlayState.airpodsDeviceName
         let modeText = textForMode(overlayState.airPodsModeValue)
         let modeIcon = iconForMode(overlayState.airPodsModeValue)
-        let isSystem = MediaKeyManager.shared.overlayStyle == "system"
+        let isSystem = MediaKeyManager.shared.effectiveOverlayStyle == "system"
         let batPct = airPodsBatteryPercentage
         
         return UniversalOverlayView(

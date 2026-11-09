@@ -26,8 +26,21 @@ enum OverlayStyle: String, CaseIterable, Identifiable {
         }
     }
     
-    /// Returns the effective runtime style.
+    /// Returns the effective runtime style accounting for macOS version capabilities.
+    /// On macOS < 26.0:
+    /// - "system" resolves to "classic" since modern system HUDs require macOS 26+.
+    /// - "capsule" (Liquid Glass) resolves to "default" since .glassEffect() requires macOS 26+.
     static func effectiveStyle(for raw: String) -> String {
-        return raw
+        if #available(macOS 26.0, *) {
+            return raw
+        } else {
+            if raw == "system" {
+                return "classic"
+            }
+            if raw == "capsule" {
+                return "default"
+            }
+            return raw
+        }
     }
 }

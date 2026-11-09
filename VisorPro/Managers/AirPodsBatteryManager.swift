@@ -216,7 +216,6 @@ class AirPodsBatteryManager: ObservableObject {
         let now = Date()
         let timeSinceTrigger = now.timeIntervalSince(lastOverlayTriggerTime)
         let timeSinceLidOpen = now.timeIntervalSince(lastLidOpenTime)
-        let timeSinceBatteryUpdate = now.timeIntervalSince(lastBatteryUpdateTime)
         
         // 1. If user has no paired AirPods on this Mac, dismiss immediately
         if !hasPairedAirPods() {

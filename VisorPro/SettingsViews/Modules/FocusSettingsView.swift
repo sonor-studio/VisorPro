@@ -145,7 +145,6 @@ struct FocusSettingsView: View {
                                     HStack(spacing: 8) {
                                         if mediaKeyManager.enableFocusReminder {
                                             Picker("", selection: $mediaKeyManager.focusReminderInterval) {
-                                                Text("1 minute (test)").tag(1)
                                                 Text("5 minutes").tag(5)
                                                 Text("15 minutes").tag(15)
                                                 Text("30 minutes").tag(30)

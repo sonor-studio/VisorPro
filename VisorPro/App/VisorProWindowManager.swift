@@ -114,7 +114,7 @@ class VisorProWindowManager: ObservableObject {
             } else if overlay.type == .date {
                 return DateOverlayView.effectiveWidth(style: style)
             } else if overlay.type == .airpodsGroupBattery {
-                let isSys = (style == "system" || MediaKeyManager.shared.overlayStyle == "system")
+                let isSys = (style == "system")
                 let settings = MediaKeyManager.shared.airPodsSettings()
                 return (isSys && settings.caseOpenStyle == "iosCard") ? 340 : 260
             } else if overlay.type == .trash {
@@ -438,7 +438,7 @@ class VisorProWindowManager: ObservableObject {
         }
         if relay.showAirpodsGroupBatteryIndicator {
             let isAirPodsIOSCard: Bool = {
-                let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+                let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
                 guard isSys else { return false }
                 let settings = MediaKeyManager.shared.airPodsSettings()
                 return settings.caseOpenStyle == "iosCard"
@@ -532,6 +532,7 @@ class VisorProWindowManager: ObservableObject {
     }
     
     /// Detects whether the specified screen is currently running in a full-screen space or displaying full-screen media/apps.
+    /// Uses lightweight presentation options and menu bar bounds without synchronous WindowServer IPC.
     private func isFullScreen(on screen: NSScreen) -> Bool {
         let opts = NSApp.currentSystemPresentationOptions
         if opts.contains(.fullScreen) || opts.contains(.hideMenuBar) || opts.contains(.autoHideMenuBar) {
@@ -544,36 +545,6 @@ class VisorProWindowManager: ObservableObject {
             return true
         }
         
-        // Also check if the frontmost app has an on-screen window covering this display (e.g. fullscreen video or borderless game/player)
-        if let frontApp = NSWorkspace.shared.frontmostApplication,
-           frontApp.processIdentifier != ProcessInfo.processInfo.processIdentifier {
-            let pid = frontApp.processIdentifier
-            let primaryHeight = cachedScreens.first?.frame.height ?? screen.frame.height
-            let cgScreenRect = CGRect(
-                x: screen.frame.origin.x,
-                y: primaryHeight - (screen.frame.origin.y + screen.frame.height),
-                width: screen.frame.width,
-                height: screen.frame.height
-            )
-            
-            if let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
-                for win in windowList {
-                    let winPid = win[kCGWindowOwnerPID as String] as? pid_t ?? 0
-                    guard winPid == pid else { continue }
-                    let layer = win[kCGWindowLayer as String] as? Int ?? -1
-                    guard layer == 0 else { continue }
-                    if let boundsDict = win[kCGWindowBounds as String] as? [String: Any],
-                       let bounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary) {
-                        let intersection = bounds.intersection(cgScreenRect)
-                        if !intersection.isNull && !intersection.isInfinite &&
-                           intersection.width >= (screen.frame.width - 6.0) &&
-                           intersection.height >= (screen.frame.height - 45.0) {
-                            return true
-                        }
-                    }
-                }
-            }
-        }
         return false
     }
     
@@ -658,7 +629,7 @@ class VisorProWindowManager: ObservableObject {
                     
                     let isAirPodsIOSCard: Bool = {
                         guard overlayId == "airpodsGroupBattery" else { return false }
-                        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+                        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
                         guard isSys else { return false }
                         let settings = MediaKeyManager.shared.airPodsSettings()
                         return settings.caseOpenStyle == "iosCard"
@@ -777,7 +748,7 @@ class VisorProWindowManager: ObservableObject {
                 
                 let isAirPodsIOSCard: Bool = {
                     guard overlay.type == .airpodsGroupBattery else { return false }
-                    let isSys = (isSystemStyle || MediaKeyManager.shared.overlayStyle == "system")
+                    let isSys = isSystemStyle
                     guard isSys else { return false }
                     let settings = MediaKeyManager.shared.airPodsSettings()
                     return settings.caseOpenStyle == "iosCard"
@@ -889,7 +860,7 @@ class VisorProWindowManager: ObservableObject {
                         panel.alphaValue = 0.0
                         panel.setFrame(NSRect(origin: startOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
-                        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+                        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
                         if isSys {
                             panel.makeKey()
                         }
@@ -910,7 +881,7 @@ class VisorProWindowManager: ObservableObject {
                         panel.alphaValue = 0.0
                         panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
-                        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+                        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
                         if isSys {
                             panel.makeKey()
                         }
@@ -989,7 +960,7 @@ class VisorProWindowManager: ObservableObject {
                 let question = SurveyLibrary.shared.questions.first(where: { $0.id == questionId }) ?? SurveyLibrary.shared.questions.first
                 h = question?.height ?? 180
             } else if overlay.type == .airpodsGroupBattery {
-                let isSys = (style == "system" || MediaKeyManager.shared.overlayStyle == "system")
+                let isSys = (style == "system")
                 let settings = MediaKeyManager.shared.airPodsSettings()
                 h = (isSys && settings.caseOpenStyle == "iosCard") ? 240 : 52
             } else {
@@ -1051,7 +1022,7 @@ class VisorProWindowManager: ObservableObject {
         panel.hasShadow = false
         
         let isSlider = (overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness)
-        let isSystemStyle = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+        let isSystemStyle = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
         let theme = MediaKeyManager.shared.overlayTheme
         if (isSystemStyle && isSlider) || theme == "dark" {
             panel.appearance = NSAppearance(named: .darkAqua)
@@ -1181,7 +1152,7 @@ class VisorProWindowManager: ObservableObject {
             }
         }
         
-        return isWindowUnderMouse(for: overlayId)
+        return isOverlayHovered(id: overlayId)
     }
 
     private var pendingCollapseWorkItems: [String: DispatchWorkItem] = [:]
@@ -1270,7 +1241,7 @@ class VisorProOverlayPanel: NSPanel {
     }
     
     var isSystemStyle: Bool {
-        return (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+        return (MediaKeyManager.shared.effectiveOverlayStyle == "system")
     }
     
     override var canBecomeKey: Bool { return isSystemStyle }
@@ -1505,19 +1476,19 @@ struct SingleOverlayContainer: View {
     }
     
     private var targetCornerRadius: CGFloat {
-        if mediaKeyManager.overlayStyle == "system" {
+        if mediaKeyManager.effectiveOverlayStyle == "system" {
             return 32.0
-        } else if mediaKeyManager.overlayStyle == "classic" {
+        } else if mediaKeyManager.effectiveOverlayStyle == "classic" {
             return 18.0
         }
-        let baseRadius: CGFloat = mediaKeyManager.overlayStyle == "capsule" ? (56.0 / 2.0) : (52.0 / 2.0)
+        let baseRadius: CGFloat = mediaKeyManager.effectiveOverlayStyle == "capsule" ? (56.0 / 2.0) : (52.0 / 2.0)
         return baseRadius * CGFloat(mediaKeyManager.cornerRoundingMultiplier)
     }
     
     init(overlay: VisorProWindowManager.ActiveOverlay) {
         self.overlay = overlay
         
-        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
         let settings = MediaKeyManager.shared.airPodsSettings()
         let isCard = (overlay.type == .airpodsGroupBattery && isSys && settings.caseOpenStyle == "iosCard")
         
@@ -1534,7 +1505,6 @@ struct SingleOverlayContainer: View {
         
         let anim = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "fluid_bounce"
         let isTop = overlay.position.hasPrefix("top")
-        let verticalOffset: CGFloat = isTop ? -40.0 : 40.0
         
         switch anim {
         case "system":
@@ -1618,7 +1588,7 @@ struct SingleOverlayContainer: View {
         let anchor: UnitPoint = isTop ? .top : (isBottom ? .bottom : .center)
         
         let isSlider = (overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness)
-        let isSystemStyle = (mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system")
+        let isSystemStyle = (mediaKeyManager.effectiveOverlayStyle == "system")
         
         ZStack(alignment: isTop ? .top : (isBottom ? .bottom : .center)) {
             overlayView(for: overlay)
@@ -1627,21 +1597,16 @@ struct SingleOverlayContainer: View {
                 .threeFingerClickToDismiss(overlayId: overlay.id)
                 .activeMaterialAppearanceIfAvailable()
                 .environment(\.controlActiveState, .key)
-                .rotation3DEffect(
-                    .degrees(appearAngle),
-                    axis: (x: 1, y: 0, z: 0),
-                    anchor: anchor,
-                    perspective: 0.45
-                )
+                .modifier(OptionalRotation3DModifier(angle: appearAngle, anchor: anchor))
                 .scaleEffect(x: appearScaleX, y: appearScaleY)
-                .blur(radius: appearBlur)
+                .modifier(OptionalBlurModifier(radius: appearBlur))
                 .offset(y: appearOffset)
                 .opacity(appearOpacity)
         }
         .padding(VisorProWindowManager.panelPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: isTop ? .top : (isBottom ? .bottom : .center))
         .onAppear {
-            let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.overlayStyle == "system")
+            let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
             let settings = MediaKeyManager.shared.airPodsSettings()
             if overlay.type == .airpodsGroupBattery && isSys && settings.caseOpenStyle == "iosCard" {
                 return
@@ -1947,7 +1912,7 @@ struct ScrollSwipeModifier: ViewModifier {
         guard enableSwipe else { return }
         guard !isDismissing else { return }
         
-        let isHovered = VisorProWindowManager.shared.isWindowUnderMouse(for: overlayId)
+        let isHovered = VisorProWindowManager.shared.isOverlayHovered(id: overlayId) || VisorProWindowManager.shared.isWindowUnderMouse(for: overlayId)
         
         // We rely entirely on the precise onHoverExact system from UniversalOverlayView,
         // which perfectly tracks the interface edges (globalHoveredTypes), ignoring the hidden NSWindow area.
@@ -2156,5 +2121,33 @@ class PassThroughHostingView<Content: View>: NSHostingView<Content> {
         let view = super.hitTest(point)
         // If the view returned is exactly the hosting view (empty space), pass the click through.
         return view === self ? nil : view
+    }
+}
+
+private struct OptionalBlurModifier: ViewModifier {
+    let radius: CGFloat
+    func body(content: Content) -> some View {
+        if radius > 0.05 {
+            content.blur(radius: radius)
+        } else {
+            content
+        }
+    }
+}
+
+private struct OptionalRotation3DModifier: ViewModifier {
+    let angle: Double
+    let anchor: UnitPoint
+    func body(content: Content) -> some View {
+        if abs(angle) > 0.01 {
+            content.rotation3DEffect(
+                .degrees(angle),
+                axis: (x: 1, y: 0, z: 0),
+                anchor: anchor,
+                perspective: 0.45
+            )
+        } else {
+            content
+        }
     }
 }

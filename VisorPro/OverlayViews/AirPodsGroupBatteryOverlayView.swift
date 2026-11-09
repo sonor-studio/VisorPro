@@ -31,7 +31,7 @@ struct AirPodsGroupBatteryOverlayView: View {
     }
 
     var body: some View {
-        let isSystemStyle = mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system"
+        let isSystemStyle = mediaKeyManager.effectiveOverlayStyle == "system"
         let settings = mediaKeyManager.airPodsSettings(for: overlayState.airpodsDeviceName)
         let isAutoHide = (settings.caseOpenBehavior != "persistent")
         
