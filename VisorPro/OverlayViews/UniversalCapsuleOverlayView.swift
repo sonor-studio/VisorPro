@@ -235,6 +235,7 @@ struct LiquidGlassCircleModifier: ViewModifier {
 struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.overlayForcedMinimal) private var overlayForcedMinimal
     
     @Binding var isExpanded: Bool
     var isPreview: Bool = false
@@ -290,7 +291,8 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
     }
     
     private var isEffectivelyMinimal: Bool {
-        enableMinimalMode && !isMinimalExpandedByClick && !isHovering && !isExpanded
+        let minimalAllowed = overlayForcedMinimal ?? enableMinimalMode
+        return minimalAllowed && !isMinimalExpandedByClick && !isHovering && !isExpanded
     }
     
     private var effectiveIsDark: Bool {
@@ -386,7 +388,7 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
         VStack(spacing: 0) {
             // MARK: Top Section (Base Content + Interactive Tap/Drag Zones)
             ZStack(alignment: .center) {
-                if enableMinimalMode {
+                if (overlayForcedMinimal ?? enableMinimalMode) {
                     // Minimal mode content
                     HStack(spacing: 7) {
                         if let icon = minimalIcon, !icon.isEmpty {

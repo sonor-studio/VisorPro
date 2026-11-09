@@ -152,7 +152,7 @@ struct AccessoryBatteryOverlayView: View {
             barColor: batteryColor,
             fillCenter: false,
             isMuted: !isWarning && !isPluggedIn && !isFullyCharged,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 216 : 260,
+            customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 216 : 260,
             customHeight: 56,
             supportDragGesture: false,
             isExpandable: settings.allowExpansion && (settings.showBattery || settings.showDetails),

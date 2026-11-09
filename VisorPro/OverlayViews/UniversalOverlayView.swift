@@ -189,10 +189,18 @@ private struct OverlayForcedStyleKey: EnvironmentKey {
     static let defaultValue: String? = nil
 }
 
+private struct OverlayForcedMinimalKey: EnvironmentKey {
+    static let defaultValue: Bool? = nil
+}
+
 extension EnvironmentValues {
     var overlayForcedStyle: String? {
         get { self[OverlayForcedStyleKey.self] }
         set { self[OverlayForcedStyleKey.self] = newValue }
+    }
+    var overlayForcedMinimal: Bool? {
+        get { self[OverlayForcedMinimalKey.self] }
+        set { self[OverlayForcedMinimalKey.self] = newValue }
     }
 }
 
@@ -200,9 +208,11 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.overlayForcedStyle) var overlayForcedStyle
+    @Environment(\.overlayForcedMinimal) var overlayForcedMinimal
     
     var isPreview: Bool = false
     var forcedStyle: String? = nil
+    var forcedMinimal: Bool? = nil
     @Binding var isExpanded: Bool    
 
 
@@ -280,7 +290,8 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     private var isEffectivelyMinimal: Bool {
-        enableMinimalMode && !isMinimalExpandedByClick && !isHovering && !isExpanded
+        let minimalAllowed = forcedMinimal ?? overlayForcedMinimal ?? enableMinimalMode
+        return minimalAllowed && !isMinimalExpandedByClick && !isHovering && !isExpanded
     }
     
     var body: some View {
@@ -510,7 +521,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
         
         VStack(spacing: 0) {
             ZStack(alignment: .center) {
-                if enableMinimalMode {
+                if (forcedMinimal ?? overlayForcedMinimal ?? enableMinimalMode) {
                     // Minimal content (Icon + Key text)
                     HStack(spacing: 7) {
                         if let icon = minimalIcon, !icon.isEmpty {

@@ -29,7 +29,7 @@ struct LanguageOverlayView: View {
             timeoutEventId: overlayState.languageEventId,
             barColor: actionColor,
             fillCenter: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 210 : 260,
+            customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 210 : 260,
             customHeight: 56,
             onRightTap: hasUndo ? {
                 if let prevId = overlayState.previousKeyboardLayoutId {

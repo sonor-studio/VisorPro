@@ -175,7 +175,6 @@ struct MediaOverlayView: View {
             expandUpwards: mediaPos.hasPrefix("bottom"),
             keepAliveId: "media",
             disableTimeoutMode: true,
-            fixedExpandedHeight: 50,
             minimalText: "\(actionStatusText) • \(actualTitle)",
             minimalIcon: actionIcon,
             systemTitle: actualTitle,
@@ -348,6 +347,7 @@ struct MediaOverlayView: View {
                         )
                         .pointingHandCursor()
                 }
+                .padding(.top, 4)
             }
         )
         

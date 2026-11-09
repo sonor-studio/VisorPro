@@ -52,9 +52,9 @@ struct FocusSettingsView: View {
                             PreviewBackgroundView()
                             
                             HStack(spacing: 20) {
-                                FocusOverlayView(isPreview: true, previewIsActive: true, previewModeName: "Do Not Disturb")
+                                FocusOverlayView(isPreview: true, previewIsActive: true, previewModeName: focusDetailMode ? "Work" : "Focus")
                                     .applyTheme(mediaKeyManager.overlayTheme)
-                                FocusOverlayView(isPreview: true, previewIsActive: false, previewModeName: "Do Not Disturb")
+                                FocusOverlayView(isPreview: true, previewIsActive: false, previewModeName: focusDetailMode ? "Work" : "Focus")
                                     .applyTheme(mediaKeyManager.overlayTheme)
                             }
                             .scaleEffect(0.85)
@@ -84,6 +84,7 @@ struct FocusSettingsView: View {
                                                 showFDAAlert = true
                                             } else {
                                                 focusDetailMode = newValue
+                                                mediaKeyManager.refreshFocusStatus()
                                                 TelemetryHelper.signal("FocusDetailModeToggled", parameters: [
                                                     "enabled": newValue ? "true" : "false",
                                                     "focus_enabled": mediaKeyManager.enableFocus ? "true" : "false"
@@ -141,9 +142,14 @@ struct FocusSettingsView: View {
                                 .padding(.leading, 4)
                                 
                             VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "bell.badge", iconColor: .purple, title: "Active Mode Reminder", subtitle: "Periodically remind you that Focus Mode is still active") {
+                                CustomSettingsRow(
+                                    icon: "bell.badge",
+                                    iconColor: focusDetailMode ? .purple : .secondary,
+                                    title: "Active Mode Reminder",
+                                    subtitle: focusDetailMode ? "Periodically remind you that Focus Mode is still active" : "Requires Detailed Mode (Full Disk Access)"
+                                ) {
                                     HStack(spacing: 8) {
-                                        if mediaKeyManager.enableFocusReminder {
+                                        if mediaKeyManager.enableFocusReminder && focusDetailMode {
                                             Picker("", selection: $mediaKeyManager.focusReminderInterval) {
                                                 Text("5 minutes").tag(5)
                                                 Text("15 minutes").tag(15)
@@ -153,10 +159,13 @@ struct FocusSettingsView: View {
                                             .frame(width: 140)
                                             .labelsHidden()
                                         }
-                                        Toggle("", isOn: $mediaKeyManager.enableFocusReminder).labelsHidden()
+                                        Toggle("", isOn: $mediaKeyManager.enableFocusReminder)
+                                            .labelsHidden()
+                                            .disabled(!focusDetailMode)
                                     }
                                 }
                             }
+                            .opacity(focusDetailMode ? 1.0 : 0.6)
                             .toggleStyle(.switch)
                             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                             .cornerRadius(10)
@@ -209,6 +218,9 @@ struct FocusSettingsView: View {
         .navigationTitle("Focus Mode")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
+        .onChange(of: focusDetailMode) { _, _ in
+            mediaKeyManager.refreshFocusStatus()
+        }
         .alert(isPresented: $showFDAAlert) {
             Alert(
                 title: Text("Full Disk Access Required"),

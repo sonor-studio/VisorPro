@@ -295,7 +295,6 @@ struct PremiumSettingsView: View {
                                     customCornerRadius: 24,
                                     forceGlow: false,
                                     isExpandable: false,
-                                    fixedExpandedHeight: 46,
                                     allowCloseButton: false,
                                     minimalText: "AirPods Max",
                                     minimalIcon: "airpodsmax",
@@ -340,7 +339,7 @@ struct PremiumSettingsView: View {
                                                 RoundedRectangle(cornerRadius: 2).fill(Color.primary.opacity(0.6)).frame(width: 14, height: 4)
                                             }
                                         }
-                                        .padding(.horizontal, 20).padding(.bottom, 14).padding(.top, 4)
+                                        .padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 6)
                                     }
                                 )
                                 .scaleEffect(0.9)
@@ -787,6 +786,7 @@ struct PremiumSettingsView: View {
             .padding(24)
         }
         .environment(\.overlayForcedStyle, "default")
+        .environment(\.overlayForcedMinimal, false)
         // Removed rigid white background so the view inherits transparency from SettingsView
         .background(Color.clear)
         .sheet(isPresented: $showingCheckout) {

@@ -878,7 +878,7 @@ class VisorProWindowManager: ObservableObject {
                             })
                         }
                     } else {
-                        panel.alphaValue = 0.0
+                        panel.alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
                         panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
                         let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
@@ -886,16 +886,10 @@ class VisorProWindowManager: ObservableObject {
                             panel.makeKey()
                         }
                         
-                        DispatchQueue.main.async {
-                            NSAnimationContext.runAnimationGroup({ ctx in
-                                ctx.duration = entryDuration
-                                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                                panel.animator().alphaValue = 1.0 - (abs(swipeOffset) / 60.0)
-                            }, completionHandler: {
-                                Task { @MainActor in
-                                    self.animatingEntryPanels.remove(windowId)
-                                }
-                            })
+                        DispatchQueue.main.asyncAfter(deadline: .now() + entryDuration) {
+                            Task { @MainActor in
+                                self.animatingEntryPanels.remove(windowId)
+                            }
                         }
                     }
                 } else if !MediaKeyManager.shared.isDisplayTransitioning && !animatingEntryPanels.contains(windowId) {
@@ -1232,6 +1226,23 @@ class VisorProOverlayPanel: NSPanel {
     
     private var isExecutingMakeKey: Bool = false
     
+    private var isUpdatingConstraintsSafely: Bool = false
+    private var isPerformingLayout: Bool = false
+    
+    override func layoutIfNeeded() {
+        guard !isPerformingLayout else { return }
+        isPerformingLayout = true
+        defer { isPerformingLayout = false }
+        super.layoutIfNeeded()
+    }
+    
+    override func updateConstraintsIfNeeded() {
+        guard !isUpdatingConstraintsSafely else { return }
+        isUpdatingConstraintsSafely = true
+        defer { isUpdatingConstraintsSafely = false }
+        super.updateConstraintsIfNeeded()
+    }
+    
     override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
         super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
         
@@ -1354,11 +1365,13 @@ class VisorProOverlayPanel: NSPanel {
     }
     
     override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        guard !isPerformingLayout else { return }
         let newFrame = adjustFrame(frameRect)
         super.setFrame(newFrame, display: flag)
     }
     
     override func setFrame(_ frameRect: NSRect, display flag: Bool, animate: Bool) {
+        guard !isPerformingLayout else { return }
         let newFrame = adjustFrame(frameRect)
         super.setFrame(newFrame, display: flag, animate: animate)
     }
@@ -1368,6 +1381,34 @@ typealias VisorProOverlayWindow = VisorProOverlayPanel
 
 class TrackingHostingView<Content: View>: NSHostingView<Content> {
     var overlayId: String?
+    private var isUpdatingConstraints = false
+    
+    override class var requiresConstraintBasedLayout: Bool {
+        return false
+    }
+    
+    @objc func windowDidLayout() {
+        // Suppress NSHostingView from resizing VisorPro overlay panels via updateAnimatedWindowSize.
+        // VisorPro overlay windows are exclusively sized and positioned by VisorProWindowManager.
+    }
+    
+    override var needsUpdateConstraints: Bool {
+        get { super.needsUpdateConstraints }
+        set {
+            // Prevent re-entrant constraint updates while updateConstraints is executing.
+            // When NSHostingView evaluates ViewGraph transforms during spring/hover animations,
+            // it calls setNeedsUpdateConstraints, which triggers an infinite updateConstraints
+            // loop on the NSWindow (NSGenericException).
+            guard !isUpdatingConstraints || !newValue else { return }
+            super.needsUpdateConstraints = newValue
+        }
+    }
+    
+    override func updateConstraints() {
+        isUpdatingConstraints = true
+        super.updateConstraints()
+        isUpdatingConstraints = false
+    }
     
     required init(rootView: Content) {
         super.init(rootView: rootView)
@@ -1471,9 +1512,7 @@ struct SingleOverlayContainer: View {
     @State private var appearAngle: Double
     @State private var appearOpacity: Double
     @State private var appearCornerRadius: CGFloat
-    private var animType: String {
-        UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "fluid_bounce"
-    }
+    @AppStorage("overlayAnimationType") private var animType: String = "fluid_bounce"
     
     private var targetCornerRadius: CGFloat {
         if mediaKeyManager.effectiveOverlayStyle == "system" {
@@ -1598,7 +1637,7 @@ struct SingleOverlayContainer: View {
                 .activeMaterialAppearanceIfAvailable()
                 .environment(\.controlActiveState, .key)
                 .modifier(OptionalRotation3DModifier(angle: appearAngle, anchor: anchor))
-                .scaleEffect(x: appearScaleX, y: appearScaleY)
+                .scaleEffect(x: appearScaleX, y: appearScaleY, anchor: anchor)
                 .modifier(OptionalBlurModifier(radius: appearBlur))
                 .offset(y: appearOffset)
                 .opacity(appearOpacity)
@@ -1612,29 +1651,18 @@ struct SingleOverlayContainer: View {
                 return
             }
             
-            let isTop = overlay.position.hasPrefix("top")
-            
-            if animType == "system" {
-                appearScaleX = 0.90
-                appearScaleY = 0.90
-                appearBlur = 0.0
-                appearOffset = 0.0
-                appearAngle = 0.0
-                appearOpacity = 0.0
-                DispatchQueue.main.async {
+            DispatchQueue.main.async {
+                switch animType {
+                case "system":
                     withAnimation(.easeOut(duration: 0.22)) {
                         appearScaleX = 1.0
                         appearScaleY = 1.0
                         appearOpacity = 1.0
+                        appearBlur = 0.0
+                        appearOffset = 0.0
                     }
-                }
-            } else if animType == "scale" {
-                appearScaleX = 0.6
-                appearScaleY = 0.6
-                appearBlur = 15.0
-                appearOpacity = 0.0
-                DispatchQueue.main.async {
-                    withAnimation(.easeOut(duration: 0.12)) {
+                case "scale":
+                    withAnimation(.easeOut(duration: 0.15)) {
                         appearOpacity = 1.0
                     }
                     withAnimation(.interpolatingSpring(stiffness: 300, damping: 20)) {
@@ -1642,31 +1670,14 @@ struct SingleOverlayContainer: View {
                         appearScaleY = 1.0
                         appearBlur = 0.0
                     }
-                }
-            } else if animType == "fluid_bounce" {
-                appearScaleX = 0.3
-                appearScaleY = 0.3
-                appearOffset = isTop ? -35.0 : 35.0
-                appearBlur = 0.0
-                appearOpacity = 0.0
-                DispatchQueue.main.async {
-                    withAnimation(.easeOut(duration: 0.12)) {
-                        appearOpacity = 1.0
-                    }
+                case "fluid_bounce":
                     withAnimation(.spring(response: 0.45, dampingFraction: 0.62)) {
                         appearScaleX = 1.0
                         appearScaleY = 1.0
                         appearOffset = 0.0
+                        appearOpacity = 1.0
                     }
-                }
-            } else if animType == "fluid_drop" {
-                appearScaleX = 0.0846
-                appearScaleY = 0.4231
-                appearBlur = 5.0
-                appearCornerRadius = 26.0
-                appearOffset = isTop ? -50.0 : 50.0
-                appearOpacity = 0.0
-                DispatchQueue.main.async {
+                case "fluid_drop":
                     withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
                         appearOffset = 0.0
                         appearOpacity = 1.0
@@ -1675,15 +1686,7 @@ struct SingleOverlayContainer: View {
                         appearBlur = 0.0
                         appearCornerRadius = targetCornerRadius
                     }
-                }
-            } else if animType == "ripple" {
-                appearScaleX = 0.08
-                appearScaleY = 1.0
-                appearBlur = 8.0
-                appearOffset = 0.0
-                appearAngle = 0.0
-                appearOpacity = 0.0
-                DispatchQueue.main.async {
+                case "ripple":
                     withAnimation(.easeOut(duration: 0.12)) {
                         appearOpacity = 1.0
                     }
@@ -1691,15 +1694,7 @@ struct SingleOverlayContainer: View {
                         appearScaleX = 1.0
                         appearBlur = 0.0
                     }
-                }
-            } else if animType == "flip" {
-                appearScaleX = 1.0
-                appearScaleY = 1.0
-                appearBlur = 4.0
-                appearOffset = 0.0
-                appearAngle = isTop ? -75.0 : 75.0
-                appearOpacity = 0.0
-                DispatchQueue.main.async {
+                case "flip":
                     withAnimation(.easeOut(duration: 0.10)) {
                         appearOpacity = 1.0
                     }
@@ -1707,15 +1702,7 @@ struct SingleOverlayContainer: View {
                         appearAngle = 0.0
                         appearBlur = 0.0
                     }
-                }
-            } else if animType == "unfold" {
-                appearScaleX = 1.0
-                appearScaleY = 0.03
-                appearBlur = 6.0
-                appearOffset = 0.0
-                appearAngle = 0.0
-                appearOpacity = 0.0
-                DispatchQueue.main.async {
+                case "unfold":
                     withAnimation(.easeOut(duration: 0.10)) {
                         appearOpacity = 1.0
                     }
@@ -1723,15 +1710,7 @@ struct SingleOverlayContainer: View {
                         appearScaleY = 1.0
                         appearBlur = 0.0
                     }
-                }
-            } else if animType == "pop" {
-                appearScaleX = 0.75
-                appearScaleY = 0.35
-                appearBlur = 4.0
-                appearOffset = isTop ? -35.0 : 35.0
-                appearAngle = 0.0
-                appearOpacity = 0.0
-                DispatchQueue.main.async {
+                case "pop":
                     withAnimation(.easeOut(duration: 0.10)) {
                         appearOpacity = 1.0
                     }
@@ -1741,16 +1720,7 @@ struct SingleOverlayContainer: View {
                         appearOffset = 0.0
                         appearBlur = 0.0
                     }
-                }
-            } else {
-                // Default Fade (Slide in from top with fade)
-                appearScaleX = 1.0
-                appearScaleY = 1.0
-                appearBlur = 0.0
-                appearOffset = isTop ? -32.0 : 32.0
-                appearAngle = 0.0
-                appearOpacity = 0.0
-                DispatchQueue.main.async {
+                default:
                     withAnimation(.easeOut(duration: 0.20)) {
                         appearOffset = 0.0
                         appearOpacity = 1.0
@@ -1780,7 +1750,7 @@ struct SingleOverlayContainer: View {
                     withAnimation(.easeIn(duration: 0.20)) {
                         appearScaleX = 0.3
                         appearScaleY = 0.3
-                        appearOffset = isTop ? -35.0 : 35.0
+                        appearOffset = isTop ? -50.0 : 50.0
                         appearBlur = 0.0
                         appearOpacity = 0.0
                     }
@@ -2127,11 +2097,7 @@ class PassThroughHostingView<Content: View>: NSHostingView<Content> {
 private struct OptionalBlurModifier: ViewModifier {
     let radius: CGFloat
     func body(content: Content) -> some View {
-        if radius > 0.05 {
-            content.blur(radius: radius)
-        } else {
-            content
-        }
+        content.blur(radius: radius)
     }
 }
 
@@ -2139,15 +2105,11 @@ private struct OptionalRotation3DModifier: ViewModifier {
     let angle: Double
     let anchor: UnitPoint
     func body(content: Content) -> some View {
-        if abs(angle) > 0.01 {
-            content.rotation3DEffect(
-                .degrees(angle),
-                axis: (x: 1, y: 0, z: 0),
-                anchor: anchor,
-                perspective: 0.45
-            )
-        } else {
-            content
-        }
+        content.rotation3DEffect(
+            .degrees(angle),
+            axis: (x: 1, y: 0, z: 0),
+            anchor: anchor,
+            perspective: 0.45
+        )
     }
 }

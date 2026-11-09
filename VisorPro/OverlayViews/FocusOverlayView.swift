@@ -55,6 +55,7 @@ struct FocusOverlayView: View {
     }
     
     var body: some View {
+        let isDetailed = isPreview ? UserDefaults.standard.bool(forKey: "focusDetailMode") : (UserDefaults.standard.bool(forKey: "focusDetailMode") && PermissionHelper.hasFullDiskAccess())
         let iconName: String
         let iconColor: Color
         let active: Bool
@@ -63,17 +64,28 @@ struct FocusOverlayView: View {
         if isPreview {
             active = previewIsActive
             modeName = previewModeName
-            iconName = "moon.fill"
-            iconColor = getColor(from: "systemIndigoColor")
+            if isDetailed && previewModeName == "Work" {
+                iconName = "briefcase.fill"
+                iconColor = Color(red: 0.0, green: 0.6, blue: 0.9)
+            } else {
+                iconName = "moon.fill"
+                iconColor = getColor(from: "systemIndigoColor")
+            }
         } else {
             active = overlayState.displayedFocusModeActive
-            modeName = overlayState.displayedFocusModeName
-            iconName = overlayState.displayedFocusSymbol
-            let rawColor = getColor(from: overlayState.displayedFocusColorName)
-            if modeName.lowercased().contains("reduce") || modeName.lowercased() == "_gm" || iconName == "apple.intelligence" {
-                iconColor = Color(red: 203.0 / 255.0, green: 48.0 / 255.0, blue: 224.0 / 255.0)
+            if isDetailed {
+                modeName = overlayState.displayedFocusModeName
+                iconName = overlayState.displayedFocusSymbol
+                let rawColor = getColor(from: overlayState.displayedFocusColorName)
+                if modeName.lowercased().contains("reduce") || modeName.lowercased() == "_gm" || iconName == "apple.intelligence" {
+                    iconColor = Color(red: 203.0 / 255.0, green: 48.0 / 255.0, blue: 224.0 / 255.0)
+                } else {
+                    iconColor = rawColor
+                }
             } else {
-                iconColor = rawColor
+                modeName = "Focus"
+                iconName = "moon.fill"
+                iconColor = getColor(from: "systemIndigoColor")
             }
         }
         
@@ -83,12 +95,15 @@ struct FocusOverlayView: View {
         let isReminder = active && (isPreview ? false : overlayState.isFocusReminder)
         
         let resolvedModeName: String = {
+            if !isDetailed {
+                return "Focus"
+            }
             let raw = modeName.trimmingCharacters(in: .whitespacesAndNewlines)
             if raw.isEmpty || raw.lowercased() == "focus" {
                 if !overlayState.lastActiveFocusModeName.isEmpty && overlayState.lastActiveFocusModeName.lowercased() != "focus" && overlayState.lastActiveFocusModeName.lowercased() != "_gm" {
                     return overlayState.lastActiveFocusModeName
                 }
-                return "Do Not Disturb"
+                return "Focus"
             }
             if raw.lowercased() == "_gm" {
                 return "Reduce Interruptions"
@@ -97,6 +112,9 @@ struct FocusOverlayView: View {
         }()
         
         let resolvedIcon: String = {
+            if !isDetailed {
+                return "moon.fill"
+            }
             if iconName.isEmpty || iconName == "moon.zzz" || iconName == "_gm" {
                 if !overlayState.lastActiveFocusSymbol.isEmpty && overlayState.lastActiveFocusSymbol != "moon.zzz" && overlayState.lastActiveFocusSymbol != "_gm" {
                     return overlayState.lastActiveFocusSymbol
@@ -127,11 +145,11 @@ struct FocusOverlayView: View {
         let lastEnded: MediaKeyManager.ActiveFocusDetails?
         
         if isPreview {
-            let start = Date().addingTimeInterval(-3600)
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy/MM/dd HH:mm"
-            let end = formatter.date(from: "2030/01/01 20:00") ?? Date().addingTimeInterval(3600)
-            if UserDefaults.standard.bool(forKey: "focusDetailMode") {
+            if isDetailed {
+                let start = Date().addingTimeInterval(-3600)
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy/MM/dd HH:mm"
+                let end = formatter.date(from: "2030/01/01 20:00") ?? Date().addingTimeInterval(3600)
                 if active {
                     details = MediaKeyManager.ActiveFocusDetails(startDate: start, endDate: end, source: "com.apple.focus", device: "This Mac", untilLocationLeft: false, endedAt: nil, endedReason: nil)
                     lastEnded = nil
@@ -140,20 +158,20 @@ struct FocusOverlayView: View {
                     lastEnded = MediaKeyManager.ActiveFocusDetails(startDate: start, endDate: end, source: "com.apple.focus", device: "This Mac", untilLocationLeft: false, endedAt: Date(), endedReason: "turned off")
                 }
             } else {
-                if active {
-                    details = nil
-                    lastEnded = nil
-                } else {
-                    details = nil
-                    lastEnded = MediaKeyManager.ActiveFocusDetails(startDate: start, endDate: nil, source: "com.apple.focus", device: "This Mac", untilLocationLeft: false, endedAt: Date(), endedReason: "turned off")
-                }
+                details = nil
+                lastEnded = nil
             }
         } else {
-            details = overlayState.activeFocusDetails
-            lastEnded = overlayState.lastEndedFocusDetails
+            if isDetailed {
+                details = overlayState.activeFocusDetails
+                lastEnded = overlayState.lastEndedFocusDetails
+            } else {
+                details = nil
+                lastEnded = nil
+            }
         }
         
-        let isExpandable = (active && (details != nil || overlayState.isFocusReminder)) || (!active && lastEnded != nil)
+        let isExpandable = isDetailed ? ((active && (details != nil || overlayState.isFocusReminder)) || (!active && lastEnded != nil)) : (active && (isPreview ? false : overlayState.isFocusReminder))
         let reminderDuration = getDurationString(
             start: details?.startDate ?? overlayState.focusActiveDate ?? Date().addingTimeInterval(-Double(mediaKeyManager.focusReminderInterval * 60)),
             end: Date()
@@ -217,7 +235,7 @@ struct FocusOverlayView: View {
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                             MarqueeText(text: resolvedModeName, font: .system(size: 14, weight: .semibold, design: .rounded), foregroundColor: .primary)
-                        } else if active && details != nil && !overlayState.isFocusReminder && !overlayState.isFocusSwitched {
+                        } else if active && isDetailed && details != nil && !overlayState.isFocusReminder && !overlayState.isFocusSwitched {
                             if let endDate = details?.endDate, let timeStr = getEndDateString(date: endDate) {
                                 HStack(spacing: 4) {
                                     Text(displayTitle)
@@ -302,7 +320,7 @@ struct FocusOverlayView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
                     .padding(.bottom, 8)
-                } else if active, let details = details {
+                } else if isDetailed && active, let details = details {
                     HStack(spacing: 0) {
                         if let startDate = details.startDate {
                             VStack(alignment: .center, spacing: 4) {
@@ -389,7 +407,7 @@ struct FocusOverlayView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 8)
-                } else if !active, let lastEnded = lastEnded {
+                } else if isDetailed && !active, let lastEnded = lastEnded {
                     if let start = lastEnded.startDate, let end = lastEnded.endedAt {
                         let durStr = getDurationString(start: start, end: end)
                         

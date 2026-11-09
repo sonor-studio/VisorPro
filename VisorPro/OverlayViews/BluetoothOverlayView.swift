@@ -283,7 +283,7 @@ struct BluetoothOverlayView: View {
             barColor: isAccessoryType && actualIsConnected ? accessoryBatteryColor : (actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnBluetoothConnect", defaultColor: .indigo) : .offStateGray),
             fillCenter: false,
             isMuted: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 218 : 260,
+            customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 218 : 260,
             customHeight: 56,
             supportDragGesture: false,
             onSimpleTap: {

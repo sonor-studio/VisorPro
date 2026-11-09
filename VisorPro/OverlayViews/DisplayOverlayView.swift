@@ -83,7 +83,7 @@ struct DisplayOverlayView: View {
             barColor: !isConnected ? .offStateGray : (notification?.isModeChange == true ? OverlayColorManager.shared.getOverlayColor(for: "colorOnDisplayModeChange", defaultColor: actionColor) : OverlayColorManager.shared.getOverlayColor(for: "colorOnDisplayConnect", defaultColor: actionColor)),
             fillCenter: false,
             isMuted: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 212 : 260,
+            customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 212 : 260,
             supportDragGesture: false,
             onRightTap: isConnected ? {
                 manualToggle()

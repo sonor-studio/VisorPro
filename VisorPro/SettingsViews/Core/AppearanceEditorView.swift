@@ -60,13 +60,13 @@ struct AppearanceEditorView: View {
     private var currentOverlayView: some View {
         switch currentPreviewOverlay {
         case .volume:
-            VolumeOverlayView(isPreview: true).id("volume")
+            VolumeOverlayView(isPreview: true)
         case .brightness:
-            BrightnessOverlayView(isPreview: true).id("brightness")
+            BrightnessOverlayView(isPreview: true)
         case .media:
-            MediaOverlayView(isPreview: true).id("media")
+            MediaOverlayView(isPreview: true)
         case .keyboard:
-            KeyboardBrightnessOverlayView(isPreview: true).id("keyboard")
+            KeyboardBrightnessOverlayView(isPreview: true)
         }
     }
 
@@ -130,7 +130,6 @@ struct AppearanceEditorView: View {
                         currentOverlayView
                             .applyTheme((isSystemStyle && isCurrentPreviewSlider) ? "dark" : mediaKeyManager.overlayTheme)
                             .id("\(currentPreviewOverlay.rawValue)_\(mediaKeyManager.effectiveOverlayStyle)_\(enableMinimalMode)")
-                            .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }
                     .offset(y: previewSwipeOffset)
                     .opacity(max(0.0, 1.0 - (abs(previewSwipeOffset) / 60.0)))
@@ -943,7 +942,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 anchor: .top,
                 perspective: 0.45
             )
-            .scaleEffect(x: appearScaleX, y: appearScaleY)
+            .scaleEffect(x: appearScaleX, y: appearScaleY, anchor: .top)
             .blur(radius: appearBlur)
             .offset(y: appearOffset)
             .opacity(appearOpacity)

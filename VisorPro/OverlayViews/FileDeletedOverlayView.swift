@@ -45,7 +45,7 @@ struct FileDeletedOverlayView: View {
             barColor: themeColor,
             fillCenter: false,
             isMuted: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 216 : 260,
+            customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 216 : 260,
             supportDragGesture: false,
             onRightTap: {
                 if !isPreview {

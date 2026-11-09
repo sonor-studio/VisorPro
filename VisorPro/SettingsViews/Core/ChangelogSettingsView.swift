@@ -1320,6 +1320,7 @@ struct ChangelogSettingsView: View {
             .padding(32)
         }
         .environment(\.overlayForcedStyle, "default")
+        .environment(\.overlayForcedMinimal, false)
         .navigationTitle("Changelog")
     }
 }

@@ -134,7 +134,7 @@ struct WiFiOverlayView: View {
             barColor: actualIsConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnWiFiConnect", defaultColor: .blue) : .offStateGray,
             fillCenter: false,
             isMuted: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 208 : 260,
+            customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 208 : 260,
             customHeight: 56,
             supportDragGesture: false,
             onRightTap: actualIsConnected ? {

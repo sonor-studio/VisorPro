@@ -39,7 +39,7 @@ struct ThemeOverlayView: View {
             barColor: OverlayColorManager.shared.getOverlayColor(for: (isPreview ? previewIsDark : overlayState.isDarkMode) ? "colorOnThemeDark" : "colorOnThemeLight", defaultColor: iconColor),
             fillCenter: false, // It was using strokeBorder
             isMuted: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 188 : 260,
+            customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 188 : 260,
             supportDragGesture: false,
             onSimpleTap: {
                 if !isPreview && themeAllowInteractivity {

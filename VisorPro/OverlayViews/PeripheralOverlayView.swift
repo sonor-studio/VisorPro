@@ -155,7 +155,7 @@ struct PeripheralOverlayView: View {
             barColor: isConnected ? OverlayColorManager.shared.getOverlayColor(for: "colorOnPeripheralConnect", defaultColor: .blue) : .offStateGray,
             fillCenter: false, // uses strokeBorder
             isMuted: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 208 : 260,
+            customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 208 : 260,
             supportDragGesture: false,
             isExpandable: isExpandable && peripheralAllowExpansion,
             expandUpwards: periPos.hasPrefix("bottom"),

@@ -183,8 +183,9 @@ struct CopyOverlayView: View {
             isPreview: isPreview,
             forcedStyle: effectiveStyle,
             isExpanded: $isExpanded,
-            showProgressBar: !isCycleMode && !isPreview,
-            hasTimeoutProgress: !isCycleMode && !isPreview,
+            showProgressBar: true,
+            progress: isCycleMode ? 1.0 : 0.0,
+            hasTimeoutProgress: !isCycleMode,
             timeoutEventId: overlayState.clipboardEventId,
             barColor: OverlayColorManager.shared.getOverlayColor(for: actualAction == "copy" ? "colorOnCopy" : (actualAction == "cut" ? "colorOnCut" : "colorOnPaste"), defaultColor: actionColor),
             fillCenter: false, // The original uses strokeBorder

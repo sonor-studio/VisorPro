@@ -102,7 +102,7 @@ struct BatteryOverlayView: View {
             fillCenter: batteryFillCenter,
             isMuted: !actualIsPluggedIn && !effectiveWarningMode,
             isWarningMode: effectiveWarningMode,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 200 : 260,
+            customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 200 : 260,
             customHeight: isFullyCharged ? 56 : 72,
             supportDragGesture: false,
             isExpandable: batteryAllowExpansion,
