@@ -280,7 +280,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
     }
     
     private var isEffectivelyMinimal: Bool {
-        !isPreview && enableMinimalMode && !isMinimalExpandedByClick && !isHovering && !isExpanded
+        enableMinimalMode && !isMinimalExpandedByClick && !isHovering && !isExpanded
     }
     
     var body: some View {

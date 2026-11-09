@@ -168,12 +168,11 @@ struct FocusOverlayView: View {
             barColor: displayColor,
             fillCenter: false,
             isMuted: false,
-            customWidth: (MediaKeyManager.shared.overlayStyle == "system") ? 220 : 260,
+            customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 220 : 260,
             supportDragGesture: false,
             onSimpleTap: nil,
             isExpandable: isExpandable && focusAllowExpansion,
             keepAliveId: "focus",
-            fixedExpandedHeight: 50,
             minimalText: isReminder ? "Focus Reminder • \(reminderDuration)" : "\(resolvedModeName) \(active ? "On" : "Off")",
             minimalIcon: displayIcon,
             systemTitle: resolvedModeName,
@@ -274,7 +273,8 @@ struct FocusOverlayView: View {
                     }
                     Spacer(minLength: 8)
                 }
-                .padding(.horizontal, 16)
+                .padding(.leading, 23)
+                .padding(.trailing, 20)
             },
             expandedContent: {
                 if active && overlayState.isFocusReminder {
@@ -301,6 +301,7 @@ struct FocusOverlayView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
+                    .padding(.bottom, 8)
                 } else if active, let details = details {
                     HStack(spacing: 0) {
                         if let startDate = details.startDate {
@@ -386,7 +387,8 @@ struct FocusOverlayView: View {
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
                 } else if !active, let lastEnded = lastEnded {
                     if let start = lastEnded.startDate, let end = lastEnded.endedAt {
                         let durStr = getDurationString(start: start, end: end)
@@ -404,6 +406,7 @@ struct FocusOverlayView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.horizontal, 16)
                         .padding(.top, 4)
+                        .padding(.bottom, 8)
                     }
                 } else {
                     EmptyView()

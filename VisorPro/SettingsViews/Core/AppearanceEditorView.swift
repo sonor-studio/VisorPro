@@ -129,7 +129,7 @@ struct AppearanceEditorView: View {
                         let isSystemStyle = mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system"
                         currentOverlayView
                             .applyTheme((isSystemStyle && isCurrentPreviewSlider) ? "dark" : mediaKeyManager.overlayTheme)
-                            .id("\(currentPreviewOverlay.rawValue)_\(mediaKeyManager.effectiveOverlayStyle)")
+                            .id("\(currentPreviewOverlay.rawValue)_\(mediaKeyManager.effectiveOverlayStyle)_\(enableMinimalMode)")
                             .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     }
                     .offset(y: previewSwipeOffset)
