@@ -6,6 +6,8 @@ struct KeyboardBrightnessSettingsView: View {
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("keyboardBrightnessFillCenter") private var keyboardBrightnessFillCenter: Bool = false
     @AppStorage("keyboardBrightnessStep") private var keyboardBrightnessStep: Double = 15.0
+    @AppStorage("keyboardBrightnessFastModifier") private var keyboardBrightnessFastModifier: String = "option"
+    @AppStorage("keyboardBrightnessModifierStep") private var keyboardBrightnessModifierStep: Double = 30.0
     
     var body: some View {
         ScrollView {
@@ -62,7 +64,7 @@ struct KeyboardBrightnessSettingsView: View {
                                 .foregroundColor(.secondary)
                                 .padding(.leading, 4)
                             VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "keyboard", iconColor: .orange, title: "Modifier Key", subtitle: "Hold this key while pressing F1/F2 to change keyboard brightness") {
+                                CustomSettingsRow(icon: "keyboard", iconColor: .orange, title: "Activation Key", subtitle: "Hold this key while pressing F1/F2 to change keyboard brightness") {
                                     Picker("", selection: $mediaKeyManager.keyboardBrightnessModifier) {
                                         Text("Command ⌘").tag("command")
                                         Text("Option ⌥").tag("option")
@@ -126,6 +128,39 @@ struct KeyboardBrightnessSettingsView: View {
                                         .frame(width: 50, alignment: .trailing)
                                 }
                             }
+                            
+                            Divider().padding(.leading, 40)
+                            
+                            CustomSettingsRow(icon: "keyboard", iconColor: .orange, title: "Fast Step Modifier", subtitle: "Hold this key together with the activation key for alternative step size") {
+                                Picker("", selection: $keyboardBrightnessFastModifier) {
+                                    Text("None").tag("none")
+                                    if mediaKeyManager.keyboardBrightnessModifier != "option" {
+                                        Text("Option ⌥").tag("option")
+                                    }
+                                    if mediaKeyManager.keyboardBrightnessModifier != "control" {
+                                        Text("Control ⌃").tag("control")
+                                    }
+                                    if mediaKeyManager.keyboardBrightnessModifier != "command" {
+                                        Text("Command ⌘").tag("command")
+                                    }
+                                }
+                                .frame(width: 140)
+                            }
+                            
+                            if keyboardBrightnessFastModifier != "none" {
+                                Divider().padding(.leading, 40)
+                                
+                                CustomSettingsRow(icon: "plus.forwardslash.minus", iconColor: .orange, title: "Modifier Step Size", subtitle: "Percentage to change when pressing keys with modifier") {
+                                    HStack {
+                                        Slider(value: $keyboardBrightnessModifierStep, in: 1...50, step: 1)
+                                            .labelsHidden()
+                                            .frame(width: 150)
+                                        
+                                        Text(String(format: "%.1f%%", keyboardBrightnessModifierStep))
+                                            .frame(width: 50, alignment: .trailing)
+                                    }
+                                }
+                            }
                         }
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                         .cornerRadius(10)
@@ -161,5 +196,16 @@ struct KeyboardBrightnessSettingsView: View {
         .navigationTitle("Keyboard Brightness")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
+        .onAppear {
+            if keyboardBrightnessFastModifier.lowercased() == mediaKeyManager.keyboardBrightnessModifier.lowercased() {
+                keyboardBrightnessFastModifier = "none"
+            }
+        }
+        .onChange(of: mediaKeyManager.keyboardBrightnessModifier) { _, newMod in
+            mediaKeyManager.sanitizeModifierKeys()
+            if keyboardBrightnessFastModifier.lowercased() == newMod.lowercased() {
+                keyboardBrightnessFastModifier = "none"
+            }
+        }
     }
 }

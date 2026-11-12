@@ -787,8 +787,12 @@ class VisorProWindowManager: ObservableObject {
                 }()
                 
                 if let overlayPanel = panel as? VisorProOverlayPanel {
-                    if isSystemStyle {
+                    if isSystemStyle || overlay.position.hasPrefix("top") {
                         overlayPanel.anchorMode = .top
+                    } else if overlay.position.hasPrefix("bottom") {
+                        overlayPanel.anchorMode = .bottom
+                    } else {
+                        overlayPanel.anchorMode = .center
                     }
                 }
                 
@@ -1155,34 +1159,57 @@ class VisorProWindowManager: ObservableObject {
     /// Resizes the transparent window canvas instantly on expansion so SwiftUI handles 100% of the
     /// visual animation smoothly via BouncyHeightModifier without any window-frame animation conflicts or jitter.
     func setOverlayExpandedHeight(overlayId: String, pillHeight: CGFloat, animated: Bool = true) {
-        let targetWindowHeight = pillHeight + (VisorProWindowManager.panelPadding * 2)
+        let pad = VisorProWindowManager.panelPadding
+        
+        let posKey = "\(overlayId)OverlayPosition"
+        let overlayPos = MediaKeyManager.shared.getOverlayPosition(for: posKey)
+        let isTop = overlayPos.hasPrefix("top") || (MediaKeyManager.shared.effectiveOverlayStyle == "system")
+        let isBottom = overlayPos.hasPrefix("bottom")
         
         for (key, panel) in windows {
             guard key.hasPrefix(overlayId) else { continue }
-            let currentHeight = panel.frame.height
-            if abs(currentHeight - targetWindowHeight) < 1.0 { continue }
             
-            let isExpanding = targetWindowHeight > currentHeight
-            
-            // Cancel any pending collapse for this window
+            // Cancel any pending collapse for this window immediately
             pendingCollapseWorkItems[key]?.cancel()
             pendingCollapseWorkItems.removeValue(forKey: key)
+            
+            if let overlayPanel = panel as? VisorProOverlayPanel {
+                if isTop {
+                    overlayPanel.anchorMode = .top
+                } else if isBottom {
+                    overlayPanel.anchorMode = .bottom
+                } else {
+                    overlayPanel.anchorMode = .center
+                }
+            }
+            
+            let currentHeight = panel.frame.height
+            let baseWindowHeight = pillHeight + (pad * 2)
+            let isExpanding = baseWindowHeight > currentHeight
+            // Provide 60pt transparent headroom buffer during expansion so the bouncy spring
+            // can freely overshoot without exceeding the window canvas and shifting the anchored edge.
+            let overshootBuffer: CGFloat = isExpanding ? 60.0 : 0.0
+            let targetWindowHeight = baseWindowHeight + overshootBuffer
+            
+            if abs(currentHeight - targetWindowHeight) < 1.0 { continue }
             
             let applyResize = { [weak self, weak panel] in
                 guard let self = self, let panel = panel else { return }
                 
                 let targetOrigin: NSPoint
-                if let overlayPanel = panel as? VisorProOverlayWindow {
-                    switch overlayPanel.anchorMode {
-                    case .top:
+                if let overlayPanel = panel as? VisorProOverlayPanel {
+                    if isTop {
                         let topY = overlayPanel.stableMaxY ?? panel.frame.maxY
-                        targetOrigin = NSPoint(x: panel.frame.origin.x, y: topY - targetWindowHeight)
-                    case .bottom:
+                        targetOrigin = NSPoint(x: panel.frame.origin.x, y: round(topY - targetWindowHeight))
+                        overlayPanel.stableMaxY = topY
+                    } else if isBottom {
                         let bottomY = overlayPanel.stableMinY ?? panel.frame.origin.y
-                        targetOrigin = NSPoint(x: panel.frame.origin.x, y: bottomY)
-                    case .center:
+                        targetOrigin = NSPoint(x: panel.frame.origin.x, y: round(bottomY))
+                        overlayPanel.stableMinY = bottomY
+                    } else {
                         let midY = overlayPanel.stableMidY ?? panel.frame.midY
-                        targetOrigin = NSPoint(x: panel.frame.origin.x, y: midY - (targetWindowHeight / 2))
+                        targetOrigin = NSPoint(x: panel.frame.origin.x, y: round(midY - (targetWindowHeight / 2)))
+                        overlayPanel.stableMidY = midY
                     }
                 } else {
                     targetOrigin = panel.frame.origin
@@ -1190,7 +1217,10 @@ class VisorProWindowManager: ObservableObject {
                 
                 self.targetOrigins[key] = targetOrigin
                 let newFrame = NSRect(origin: targetOrigin, size: CGSize(width: panel.frame.width, height: targetWindowHeight))
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
                 panel.setFrame(newFrame, display: true)
+                CATransaction.commit()
             }
             
             if isExpanding || !animated {
@@ -1365,13 +1395,11 @@ class VisorProOverlayPanel: NSPanel {
     }
     
     override func setFrame(_ frameRect: NSRect, display flag: Bool) {
-        guard !isPerformingLayout else { return }
         let newFrame = adjustFrame(frameRect)
         super.setFrame(newFrame, display: flag)
     }
     
     override func setFrame(_ frameRect: NSRect, display flag: Bool, animate: Bool) {
-        guard !isPerformingLayout else { return }
         let newFrame = adjustFrame(frameRect)
         super.setFrame(newFrame, display: flag, animate: animate)
     }
@@ -1622,8 +1650,9 @@ struct SingleOverlayContainer: View {
     }
     
     var body: some View {
-        let isTop = overlay.position.hasPrefix("top")
-        let isBottom = overlay.position.hasPrefix("bottom")
+        let currentPos = MediaKeyManager.shared.getOverlayPosition(for: "\(overlay.id)OverlayPosition")
+        let isTop = currentPos.hasPrefix("top") || (mediaKeyManager.effectiveOverlayStyle == "system")
+        let isBottom = currentPos.hasPrefix("bottom")
         let anchor: UnitPoint = isTop ? .top : (isBottom ? .bottom : .center)
         
         let isSlider = (overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness)
@@ -1637,7 +1666,7 @@ struct SingleOverlayContainer: View {
                 .activeMaterialAppearanceIfAvailable()
                 .environment(\.controlActiveState, .key)
                 .modifier(OptionalRotation3DModifier(angle: appearAngle, anchor: anchor))
-                .scaleEffect(x: appearScaleX, y: appearScaleY, anchor: anchor)
+                .scaleEffect(x: appearScaleX, y: appearScaleY)
                 .modifier(OptionalBlurModifier(radius: appearBlur))
                 .offset(y: appearOffset)
                 .opacity(appearOpacity)
@@ -2097,7 +2126,11 @@ class PassThroughHostingView<Content: View>: NSHostingView<Content> {
 private struct OptionalBlurModifier: ViewModifier {
     let radius: CGFloat
     func body(content: Content) -> some View {
-        content.blur(radius: radius)
+        if radius > 0.05 {
+            content.blur(radius: radius)
+        } else {
+            content
+        }
     }
 }
 
@@ -2105,11 +2138,15 @@ private struct OptionalRotation3DModifier: ViewModifier {
     let angle: Double
     let anchor: UnitPoint
     func body(content: Content) -> some View {
-        content.rotation3DEffect(
-            .degrees(angle),
-            axis: (x: 1, y: 0, z: 0),
-            anchor: anchor,
-            perspective: 0.45
-        )
+        if abs(angle) > 0.01 {
+            content.rotation3DEffect(
+                .degrees(angle),
+                axis: (x: 1, y: 0, z: 0),
+                anchor: anchor,
+                perspective: 0.45
+            )
+        } else {
+            content
+        }
     }
 }

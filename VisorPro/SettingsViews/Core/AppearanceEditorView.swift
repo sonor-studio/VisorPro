@@ -217,8 +217,8 @@ struct AppearanceEditorView: View {
                 if self.previewSwipeOffset != 0 { self.previewSwipeOffset = 0 }
                 if self.skipExitAnimation { self.skipExitAnimation = false }
             }
-            // Blokujemy możliwość kolejnego swipe'a (isDismissingSwipe) aż do pełnego zakończenia wjazdu!
-            // Eliminuje to dublowanie animacji i glitche wywołane poruszeniem gładzika podczas wjazdu.
+            // Block consecutive swipes (isDismissingSwipe) until entrance animation completes fully!
+            // Eliminates duplicated animations and glitches caused by trackpad movement during entrance.
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 if self.isDismissingSwipe { self.isDismissingSwipe = false }
                 if self.isDismissingRightClick { self.isDismissingRightClick = false }
@@ -510,7 +510,7 @@ struct AppearanceEditorView: View {
             let reverseSwipe = UserDefaults.standard.bool(forKey: "reverseSwipeDirection")
             let delta = reverseSwipe ? rawDelta : -rawDelta
             
-            // Tylko gładziki wysyłają .began. Używamy tego do pewnego odblokowania gestu.
+            // Only trackpads send .began. We use this to reliably unlock the gesture.
             if phase == .began {
                 if self.ignoreUntilNewGesture { self.ignoreUntilNewGesture = false }
                 localScrollDelta = 0
@@ -557,14 +557,14 @@ struct AppearanceEditorView: View {
                 previewDebounceTimer?.invalidate()
                 previewDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { _ in
                     DispatchQueue.main.async {
-                        // Dla zwykłych myszek (które nie wysyłają .began) odblokowujemy timerem.
-                        // Gładziki trzymają blokadę inercji aż do momentu ponownego dotknięcia (.began).
+                        // For standard mice (which do not send .began), unlock via timer.
+                        // Trackpads retain inertia block until touched again (.began).
                         if !isTrackpad {
                             if self.ignoreUntilNewGesture { self.ignoreUntilNewGesture = false }
                         }
                         
                         guard !self.isDismissingSwipe else { return }
-                        guard !self.ignoreUntilNewGesture else { return } // Nie resetuj, jeśli czekamy na .began
+                        guard !self.ignoreUntilNewGesture else { return } // Do not reset if waiting for .began
                         
                         localScrollDelta = 0
                         if self.previewSwipeOffset != 0 {

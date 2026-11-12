@@ -179,6 +179,7 @@ extension MediaKeyManager {
                 self.micMutedDate = nil
                 if self.showMicIndicator && !self.isMicActive {
                     if self.isOverlayHoveredOrExpanded("mic") { return }
+                    self.cancelOverlayHide(for: "mic")
                     withAnimation(.easeInOut(duration: 0.2)) {
                         self.showMicIndicator = false
                     }
@@ -195,7 +196,7 @@ extension MediaKeyManager {
         
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.micTimer?.invalidate()
+            self.cancelOverlayHide(for: "mic")
             if self.micMutedDate == nil {
                 self.micMutedDate = Date().addingTimeInterval(-Double(self.micMuteReminderInterval * 60))
             }
@@ -214,13 +215,7 @@ extension MediaKeyManager {
                 }
                 
                 if !self.isOverlayHoveredOrExpanded("mic") {
-                    self.micTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                        guard let self = self, !self.isOverlayHoveredOrExpanded("mic") else { return }
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            self.showMicIndicator = false
-                            self.isMicMuteReminder = false
-                        }
-                    }
+                    self.scheduleOverlayHide(for: "mic")
                 }
                 
                 // Schedule next reminder instead of using repeats: true
@@ -228,16 +223,7 @@ extension MediaKeyManager {
                 self.startMicMuteReminderTimer()
             }
             
-            if self.showMicIndicator {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    self.showMicIndicator = false
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    executeShow()
-                }
-            } else {
-                executeShow()
-            }
+            executeShow()
         }
     }
     
@@ -503,19 +489,21 @@ extension MediaKeyManager {
             self.isMicMuteReminder = false
             
             if isActive {
-                self.micTimer?.invalidate()
-                self.micEventId = UUID()
-                
-                if self.showMicIndicator && !self.isOverlayHoveredOrExpanded("mic") {
-                    self.isMicTimerScheduledInstantly = true
-                    self.micTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                        guard let self = self, !self.isOverlayHoveredOrExpanded("mic") else { return }
+                if !self.enablePrivacy || !self.notifyOnMicOn {
+                    self.cancelOverlayHide(for: "mic")
+                    if !self.isOverlayHoveredOrExpanded("mic") {
                         withAnimation(.easeInOut(duration: 0.25)) {
                             self.showMicIndicator = false
                         }
                     }
-                } else {
-                    self.isMicTimerScheduledInstantly = false
+                    return
+                }
+                
+                self.cancelOverlayHide(for: "mic")
+                self.micEventId = UUID()
+                
+                if self.showMicIndicator && !self.isOverlayHoveredOrExpanded("mic") {
+                    self.scheduleOverlayHide(for: "mic")
                 }
                 
                 self.activeMicName = deviceName.isEmpty ? "System Microphone" : deviceName
@@ -531,8 +519,11 @@ extension MediaKeyManager {
             if !self.enablePrivacy { return }
             
             if !self.notifyOnMicOff {
+                self.cancelOverlayHide(for: "mic")
                 if !self.isOverlayHoveredOrExpanded("mic") {
-                    self.showMicIndicator = false
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self.showMicIndicator = false
+                    }
                 }
                 return
             }
@@ -546,22 +537,18 @@ extension MediaKeyManager {
             
             self.playNotificationSound(named: self.soundOnMicOff)
             
-            self.micTimer?.invalidate()
+            self.cancelOverlayHide(for: "mic")
             let pos = self.getOverlayPosition(for: "micOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "mic")
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.micEventId = UUID()
-                self.showMicIndicator = true; self.overlayTriggerTimes["mic"] = Date()
+                self.showMicIndicator = true
+                self.overlayTriggerTimes["mic"] = Date()
                 self.notifyOverlayStateChanged()
             }
             
             if !self.isOverlayHoveredOrExpanded("mic") {
-                self.micTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                    guard let self = self, !self.isOverlayHoveredOrExpanded("mic") else { return }
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        self.showMicIndicator = false
-                    }
-                }
+                self.scheduleOverlayHide(for: "mic")
             }
         }
     }
@@ -576,19 +563,21 @@ extension MediaKeyManager {
             self.isCameraActive = isActive
             
             if isActive {
-                self.cameraTimer?.invalidate()
-                self.cameraEventId = UUID()
-                
-                if self.showCameraIndicator && !self.isOverlayHoveredOrExpanded("camera") {
-                    self.isCameraTimerScheduledInstantly = true
-                    self.cameraTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                        guard let self = self, !self.isOverlayHoveredOrExpanded("camera") else { return }
+                if !self.enablePrivacy || !self.notifyOnCameraOn {
+                    self.cancelOverlayHide(for: "camera")
+                    if !self.isOverlayHoveredOrExpanded("camera") {
                         withAnimation(.easeInOut(duration: 0.25)) {
                             self.showCameraIndicator = false
                         }
                     }
-                } else {
-                    self.isCameraTimerScheduledInstantly = false
+                    return
+                }
+                
+                self.cancelOverlayHide(for: "camera")
+                self.cameraEventId = UUID()
+                
+                if self.showCameraIndicator && !self.isOverlayHoveredOrExpanded("camera") {
+                    self.scheduleOverlayHide(for: "camera")
                 }
                 
                 self.activeCameraName = deviceName.isEmpty ? "Built-in Camera" : deviceName
@@ -603,8 +592,11 @@ extension MediaKeyManager {
             if !self.enablePrivacy { return }
             
             if !self.notifyOnCameraOff {
+                self.cancelOverlayHide(for: "camera")
                 if !self.isOverlayHoveredOrExpanded("camera") {
-                    self.showCameraIndicator = false
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        self.showCameraIndicator = false
+                    }
                 }
                 return
             }
@@ -618,12 +610,13 @@ extension MediaKeyManager {
             
             self.playNotificationSound(named: self.soundOnCameraOff)
             
-            self.cameraTimer?.invalidate()
+            self.cancelOverlayHide(for: "camera")
             let pos = self.getOverlayPosition(for: "cameraOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "camera")
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.cameraEventId = UUID()
-                self.showCameraIndicator = true; self.overlayTriggerTimes["camera"] = Date()
+                self.showCameraIndicator = true
+                self.overlayTriggerTimes["camera"] = Date()
                 self.notifyOverlayStateChanged()
             }
             
@@ -631,12 +624,7 @@ extension MediaKeyManager {
             if !camAllow { self.isCameraExpanded = false }
             
             if !self.isOverlayHoveredOrExpanded("camera") {
-                self.cameraTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                    guard let self = self, !self.isOverlayHoveredOrExpanded("camera") else { return }
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        self.showCameraIndicator = false
-                    }
-                }
+                self.scheduleOverlayHide(for: "camera")
             }
         }
     }
@@ -658,23 +646,18 @@ extension MediaKeyManager {
             
             self.playNotificationSound(named: self.soundOnLocationOn)
             
-            self.locationTimer?.invalidate()
+            self.cancelOverlayHide(for: "location")
             let pos = self.getOverlayPosition(for: "locationOverlayPosition")
             self.dismissCollidingIndicators(newPosition: pos, source: "location")
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.locationEventId = UUID()
-                self.showLocationIndicator = true; self.overlayTriggerTimes["location"] = Date()
+                self.showLocationIndicator = true
+                self.overlayTriggerTimes["location"] = Date()
                 self.notifyOverlayStateChanged()
             }
             
             if !self.isOverlayHoveredOrExpanded("location") {
-                self.locationTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                    guard let self = self, !self.isOverlayHoveredOrExpanded("location") else { return }
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        self.showLocationIndicator = false
-                        self.isLocationActive = false
-                    }
-                }
+                self.scheduleOverlayHide(for: "location")
             }
         }
     }

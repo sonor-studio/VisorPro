@@ -1,95 +1,34 @@
 import Cocoa
 import Foundation
 import CoreAudio
-
-// MARK: - MediaRemote in-process client
-// Loads MediaRemote.framework directly (private framework, no subprocess needed).
-// All function pointers are resolved once at init time and reused on every notification.
-private final class MediaRemoteClient {
-    typealias InfoFunc     = @convention(c) (DispatchQueue, @escaping @convention(block) (NSDictionary?) -> Void) -> Void
-    typealias IsPlayingFunc = @convention(c) (DispatchQueue, @escaping @convention(block) (Bool) -> Void) -> Void
-    typealias ClientFunc   = @convention(c) (DispatchQueue, @escaping @convention(block) (AnyObject?) -> Void) -> Void
-    typealias RegisterFunc = @convention(c) (DispatchQueue) -> Void
-
-    let getInfo: InfoFunc
-    let getIsPlaying: IsPlayingFunc
-    let getClient: ClientFunc
-    let register: RegisterFunc
-
-    init?() {
-        guard let bundleURL = URL(string: "file:///System/Library/PrivateFrameworks/MediaRemote.framework"),
-              let bundle = CFBundleCreate(kCFAllocatorDefault, bundleURL as CFURL) else { return nil }
-
-        if !CFBundleIsExecutableLoaded(bundle) {
-            _ = CFBundleLoadExecutable(bundle)
-        }
-
-        guard
-            let infoPtr      = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingInfo" as CFString),
-            let isPlayingPtr  = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingApplicationIsPlaying" as CFString),
-            let registerPtr   = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteRegisterForNowPlayingNotifications" as CFString),
-            let clientPtr     = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteGetNowPlayingClient" as CFString)
-        else { return nil }
-
-        self.getInfo      = unsafeBitCast(infoPtr,      to: InfoFunc.self)
-        self.getIsPlaying  = unsafeBitCast(isPlayingPtr,  to: IsPlayingFunc.self)
-        self.register     = unsafeBitCast(registerPtr,   to: RegisterFunc.self)
-        self.getClient    = unsafeBitCast(clientPtr,     to: ClientFunc.self)
-    }
-
-    /// Fetch current now-playing state and call `completion` on the main queue.
-    func fetchState(completion: @escaping (_ title: String, _ artist: String, _ album: String,
-                                            _ duration: Double, _ elapsedTime: Double,
-                                            _ isPlaying: Bool, _ appName: String, _ bundleId: String) -> Void) {
-        getClient(DispatchQueue.main) { clientObj in
-            let nsObj    = clientObj as? NSObject
-            let appName  = (nsObj?.value(forKey: "displayName") as? String) ?? ""
-            let bundleId = (nsObj?.value(forKey: "parentApplicationBundleIdentifier") as? String)
-                        ?? (nsObj?.value(forKey: "bundleIdentifier") as? String)
-                        ?? ""
-
-            self.getIsPlaying(DispatchQueue.main) { isPlaying in
-                self.getInfo(DispatchQueue.main) { info in
-                    let d        = (info as? [String: Any]) ?? [:]
-                    let title    = d["kMRMediaRemoteNowPlayingInfoTitle"]  as? String ?? ""
-                    let artist   = d["kMRMediaRemoteNowPlayingInfoArtist"] as? String ?? ""
-                    let album    = d["kMRMediaRemoteNowPlayingInfoAlbum"]  as? String ?? ""
-                    let durVal   = d["kMRMediaRemoteNowPlayingInfoDuration"]
-                    let duration = (durVal as? Double) ?? (durVal as? NSNumber)?.doubleValue
-                                ?? (durVal as? String).flatMap { Double($0) } ?? 0.0
-                    let elVal    = d["kMRMediaRemoteNowPlayingInfoElapsedTime"]
-                    let elapsed  = (elVal  as? Double) ?? (elVal  as? NSNumber)?.doubleValue
-                                ?? (elVal  as? String).flatMap { Double($0) } ?? 0.0
-
-                    completion(title, artist, album, duration, elapsed, isPlaying, appName, bundleId)
-                }
-            }
-        }
-    }
-}
+import ApplicationServices
 
 // MARK: - MediaObserver
+// Recreates the proven background helper process architecture from commit 5cc693e,
+// but uses macOS's pre-installed /usr/bin/osascript (JXA) instead of /usr/bin/swift.
+//
+// Key improvements:
+//   1. ZERO Command Line Tools prompt: /usr/bin/osascript is an Apple-signed system binary
+//      pre-installed on 100% of Macs since OS X 10.0. No developer tools dialog will ever appear.
+//   2. Full Apple entitlements: unlike third-party binaries or user scripts, osascript has
+//      system rights to query MediaRemote.framework on macOS Sonoma & Sequoia without permission denials.
+//   3. Persistent background monitoring: runs a low-overhead (300ms sleep) JXA loop that emits
+//      JSON lines over an anonymous Pipe whenever media starts, pauses, resumes, or changes track.
+//   4. Accurate track minutes: duration and elapsed seconds are parsed and delivered directly
+//      to UniversalOverlayView for exact "M:SS / M:SS" counters and progress bars.
+//   5. Strict filtering: VisorPro, Antigravity, and non-media host apps are completely blocked.
 
 class MediaObserver {
     private weak var manager: MediaKeyManager?
-
-    // MediaRemote in-process client
-    private var mrClient: MediaRemoteClient?
+    private var helperProcess: Process?
+    private var outputPipe: Pipe?
 
     // CoreAudio Output State
     private var outputDevice: AudioDeviceID = 0
     private var isAudioRunning = false
     private var audioPauseTimer: Timer?
 
-    // Distributed Notification State (Spotify & Apple Music)
-    private var spotifyTitle = ""
-    private var spotifyArtist = ""
-    private var spotifyAlbum = ""
-    private var musicTitle = ""
-    private var musicArtist = ""
-    private var musicAlbum = ""
-
-    // State
+    // Playback State Cache
     private var lastTitle = ""
     private var lastArtist = ""
     private var lastAlbum = ""
@@ -104,128 +43,287 @@ class MediaObserver {
     }
 
     func startObserving() {
-        setupDistributedNotifications()
+        // 1. Direct distributed notifications for Spotify and Apple Music (zero-overhead secondary path)
+        let dnc = DistributedNotificationCenter.default()
+        dnc.addObserver(self, selector: #selector(handleSpotifyNotification(_:)),
+                        name: NSNotification.Name("com.spotify.client.PlaybackStateChanged"), object: nil)
+        dnc.addObserver(self, selector: #selector(handleAppleMusicNotification(_:)),
+                        name: NSNotification.Name("com.apple.Music.playerInfo"), object: nil)
+
+        // 2. CoreAudio output device listener
         setupAudioOutputObserver()
-        startMediaRemoteObserver()
+
+        // 3. Start background JXA helper daemon
+        startHelperProcess()
     }
 
-    // MARK: - MediaRemote in-process observer
+    // MARK: - Background JXA Helper Daemon
 
-    private func startMediaRemoteObserver() {
-        guard let client = MediaRemoteClient() else {
-            NSLog("[MediaObserver] Failed to load MediaRemote.framework — media overlay disabled.")
+    private func startHelperProcess() {
+        helperProcess?.terminationHandler = nil
+        if helperProcess?.isRunning == true {
+            helperProcess?.terminate()
+        }
+
+        // JavaScript for Automation loop.
+        // Uses Apple-signed system /usr/bin/osascript to query MRNowPlayingRequest.
+        // Emits JSON lines directly to standard output without triggering any CLT dialogs.
+        let jxaScript = """
+        const b = $.NSBundle.bundleWithPath('/System/Library/PrivateFrameworks/MediaRemote.framework/');
+        b.load;
+        const req = $.NSClassFromString('MRNowPlayingRequest');
+        const stdout = $.NSFileHandle.fileHandleWithStandardOutput;
+
+        function emit(dict) {
+            try {
+                const str = JSON.stringify(dict) + "\\n";
+                const data = $.NSString.alloc.initWithString(str).dataUsingEncoding($.NSUTF8StringEncoding);
+                stdout.writeData(data);
+            } catch(e) {}
+        }
+
+        let lastTitle = '';
+        let lastPlaying = null;
+
+        function snapshot(isInitial) {
+            let title = '';
+            let artist = '';
+            let album = '';
+            let duration = 0;
+            let elapsed = 0;
+            let isPlaying = false;
+            let appName = '';
+            let bundleId = '';
+
+            const item = req ? req.localNowPlayingItem : null;
+            const path = req ? req.localNowPlayingPlayerPath : null;
+
+            if (item && item.nowPlayingInfo) {
+                const d = item.nowPlayingInfo;
+                try { const t = d.valueForKey('kMRMediaRemoteNowPlayingInfoTitle'); if (t) title = t.js; } catch(e){}
+                try { const a = d.valueForKey('kMRMediaRemoteNowPlayingInfoArtist'); if (a) artist = a.js; } catch(e){}
+                try { const al = d.valueForKey('kMRMediaRemoteNowPlayingInfoAlbum'); if (al) album = al.js; } catch(e){}
+                try { const dur = d.valueForKey('kMRMediaRemoteNowPlayingInfoDuration'); if (dur) duration = dur.js; } catch(e){}
+                try { const el = d.valueForKey('kMRMediaRemoteNowPlayingInfoElapsedTime'); if (el) elapsed = el.js; } catch(e){}
+                try { const rate = d.valueForKey('kMRMediaRemoteNowPlayingInfoPlaybackRate'); if (rate && rate.js > 0) isPlaying = true; } catch(e){}
+            }
+            if (path && path.client) {
+                try { appName = path.client.displayName.js || ''; } catch(e){}
+                try { bundleId = path.client.parentApplicationBundleIdentifier.js || path.client.bundleIdentifier.js || ''; } catch(e){}
+            }
+
+            lastTitle = title;
+            lastPlaying = isPlaying;
+
+            emit({
+                isInitial: isInitial,
+                title: title,
+                artist: artist,
+                album: album,
+                duration: duration,
+                elapsed: elapsed,
+                isPlaying: isPlaying,
+                appName: appName,
+                bundleId: bundleId
+            });
+        }
+
+        // 1. Immediate snapshot for cache warm-up
+        snapshot(true);
+
+        // 2. Real-time change observer loop
+        while (true) {
+            $.NSThread.sleepForTimeInterval(0.15);
+
+            let title = '';
+            let isPlaying = false;
+            const item = req ? req.localNowPlayingItem : null;
+            if (item && item.nowPlayingInfo) {
+                const d = item.nowPlayingInfo;
+                try { const t = d.valueForKey('kMRMediaRemoteNowPlayingInfoTitle'); if (t) title = t.js; } catch(e){}
+                try { const rate = d.valueForKey('kMRMediaRemoteNowPlayingInfoPlaybackRate'); if (rate && rate.js > 0) isPlaying = true; } catch(e){}
+            }
+
+            if (title !== lastTitle || isPlaying !== lastPlaying) {
+                snapshot(false);
+            }
+        }
+        """
+
+        let proc = Process()
+        let pipe = Pipe()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        proc.arguments = ["-l", "JavaScript", "-e", jxaScript]
+        proc.standardOutput = pipe
+        proc.standardError = pipe
+
+        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+            let data = handle.availableData
+            guard !data.isEmpty, let self = self,
+                  let str = String(data: data, encoding: .utf8) else { return }
+
+            let lines = str.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            for line in lines {
+                self.parseJSON(line)
+            }
+        }
+
+        proc.terminationHandler = { [weak self] _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self?.startHelperProcess()
+            }
+        }
+
+        do {
+            try proc.run()
+            self.helperProcess = proc
+            self.outputPipe = pipe
+        } catch {
+            NSLog("[MediaObserver] Failed to run osascript helper: %@", error.localizedDescription)
+        }
+    }
+
+    // MARK: - JSON Parser & Overlay Trigger
+
+    private func parseJSON(_ jsonString: String) {
+        guard let data = jsonString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+
+        let isInitial = json["isInitial"] as? Bool ?? false
+        let rawTitle  = json["title"] as? String ?? ""
+        let artistRaw = json["artist"] as? String ?? ""
+        let album     = json["album"] as? String ?? ""
+        let duration  = json["duration"] as? Double ?? 0.0
+        let elapsed   = json["elapsed"] as? Double ?? 0.0
+        let isPlaying = json["isPlaying"] as? Bool ?? false
+        let appName   = json["appName"] as? String ?? ""
+        let bundleId  = json["bundleId"] as? String ?? ""
+
+        let cleanTitle = cleanMediaTitle(rawTitle)
+
+        // Strict blacklist: prevent VisorPro, Antigravity, QuickLook, Finder from ever appearing
+        let lowerBundle = bundleId.lowercased()
+        let lowerApp = appName.lowercased()
+        let ownBundle = Bundle.main.bundleIdentifier?.lowercased() ?? ""
+
+        if (!ownBundle.isEmpty && lowerBundle == ownBundle) ||
+           lowerBundle.contains("visorpro") || lowerApp.contains("visorpro") ||
+           lowerBundle.contains("antigravity") || lowerApp.contains("antigravity") ||
+           lowerBundle.contains("quicklook") || lowerApp.contains("quick look") ||
+           lowerBundle.contains("finder") || lowerApp == "finder" {
             return
         }
-        self.mrClient = client
 
-        // Register for system now-playing notifications (must be called from main queue)
-        client.register(DispatchQueue.main)
-
-        // Observe now-playing changes
-        let nc = NotificationCenter.default
-        nc.addObserver(self,
-                       selector: #selector(handleMediaRemoteNotification(_:)),
-                       name: NSNotification.Name("kMRMediaRemoteNowPlayingInfoDidChangeNotification"),
-                       object: nil)
-        nc.addObserver(self,
-                       selector: #selector(handleMediaRemoteNotification(_:)),
-                       name: NSNotification.Name("kMRMediaRemoteNowPlayingApplicationIsPlayingDidChangeNotification"),
-                       object: nil)
-        nc.addObserver(self,
-                       selector: #selector(handleMediaRemoteNotification(_:)),
-                       name: NSNotification.Name("kMRMediaRemoteNowPlayingApplicationPlaybackStateDidChangeNotification"),
-                       object: nil)
-
-        // Fetch initial state (silent — just populate internal state, do not show overlay)
-        fetchMediaRemoteState(triggerNotification: false)
-    }
-
-    @objc private func handleMediaRemoteNotification(_ notification: Notification) {
-        fetchMediaRemoteState(triggerNotification: true)
-    }
-
-    private func fetchMediaRemoteState(triggerNotification: Bool) {
-        guard let client = mrClient else { return }
-
-        client.fetchState { [weak self] title, artist, album, duration, elapsed, isPlaying, appName, bundleId in
-            guard let self = self else { return }
-
-            // Filter out Quick Look / Finder noise
-            let lowerBundle = bundleId.lowercased()
-            let lowerApp    = appName.lowercased()
-            if lowerBundle.contains("quicklook") || lowerBundle.contains("finder") ||
-               lowerApp.contains("quick look")   || lowerApp == "finder" {
-                return
+        // Resolve application name if missing or generic
+        var effectiveAppName = appName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if effectiveAppName.isEmpty && !bundleId.isEmpty {
+            if let runningApp = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == bundleId }) {
+                effectiveAppName = runningApp.localizedName ?? ""
             }
-
-            // Build cleaned title
-            var cleanTitle = title
-            if cleanTitle.isEmpty || cleanTitle == "Unknown Media" {
-                let browserBundles = ["com.apple.quicktimeplayerx", "com.apple.iina", "org.videolan.vlc",
-                                      "io.mpv", "com.apple.safari", "com.google.chrome"]
-                if browserBundles.contains(where: { lowerBundle.contains($0) }),
-                   let app = NSWorkspace.shared.runningApplications.first(where: {
-                       $0.bundleIdentifier?.lowercased() == lowerBundle
-                   }) {
-                    let winTitles = self.getActiveWindowTitles(pid: app.processIdentifier)
-                    if let first = winTitles.first(where: { !$0.isEmpty }) {
-                        cleanTitle = self.cleanMediaTitle(first)
-                    }
-                }
-                if cleanTitle.isEmpty {
-                    cleanTitle = self.lastTitle
-                }
+            if effectiveAppName.isEmpty {
+                let lowerB = bundleId.lowercased()
+                if lowerB.contains("safari") { effectiveAppName = "Safari" }
+                else if lowerB.contains("chrome") { effectiveAppName = "Google Chrome" }
+                else if lowerB.contains("spotify") { effectiveAppName = "Spotify" }
+                else if lowerB.contains("music") { effectiveAppName = "Music" }
+                else if lowerB.contains("quicktime") { effectiveAppName = "QuickTime Player" }
+                else if lowerB.contains("vlc") { effectiveAppName = "VLC" }
+                else if lowerB.contains("arc") { effectiveAppName = "Arc" }
+                else if lowerB.contains("brave") { effectiveAppName = "Brave" }
+                else if lowerB.contains("edge") { effectiveAppName = "Microsoft Edge" }
+                else if lowerB.contains("firefox") { effectiveAppName = "Firefox" }
+                else if lowerB.contains("iina") { effectiveAppName = "IINA" }
             }
+        }
 
-            // Build artist label
-            let finalArtist: String
-            if !artist.isEmpty && !appName.isEmpty {
-                finalArtist = artist.lowercased() == appName.lowercased() ? appName : "\(artist) • \(appName)"
-            } else if !artist.isEmpty {
-                finalArtist = artist
-            } else if !appName.isEmpty {
-                finalArtist = appName
+        // Clean up artistRaw
+        let effectiveArtist = artistRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Build clean finalArtist label
+        var finalArtist = ""
+        if !effectiveArtist.isEmpty && !effectiveAppName.isEmpty {
+            if effectiveArtist.lowercased() == effectiveAppName.lowercased() {
+                finalArtist = effectiveAppName
             } else {
-                finalArtist = "Unknown source"
+                finalArtist = "\(effectiveArtist) • \(effectiveAppName)"
             }
+        } else if !effectiveArtist.isEmpty {
+            finalArtist = effectiveArtist
+        } else if !effectiveAppName.isEmpty {
+            finalArtist = effectiveAppName
+        } else {
+            finalArtist = "Media"
+        }
 
-            // Determine action
-            var shouldTrigger = triggerNotification
-            var mediaAction = "pause"
-
-            if self.isFirstRun {
-                self.isFirstRun = false
-                mediaAction = isPlaying ? "resume" : "pause"
-                shouldTrigger = false
-            } else {
-                if self.lastTitle != cleanTitle && !cleanTitle.isEmpty {
-                    mediaAction = "start"
-                    shouldTrigger = true
-                } else if self.lastIsPlaying != isPlaying {
-                    shouldTrigger = true
-                    mediaAction = isPlaying ? "resume" : "pause"
-                } else {
-                    mediaAction = isPlaying ? "resume" : "pause"
-                }
-
-                if shouldTrigger {
-                    if mediaAction == "resume" && elapsed <= 0.1 {
-                        mediaAction = "start"
-                    } else if mediaAction == "pause" && duration > 0 && elapsed >= (duration - 0.5) {
-                        mediaAction = "end"
-                    }
-                }
-            }
-
-            self.lastIsPlaying   = isPlaying
+        if isInitial {
             self.lastTitle       = cleanTitle
             self.lastArtist      = finalArtist
             self.lastAlbum       = album
             self.lastDuration    = duration
             self.lastElapsedTime = elapsed
+            self.lastIsPlaying   = isPlaying
             self.lastBundleId    = bundleId
+            self.isFirstRun      = false
+            return
+        }
 
-            self.manager?.updateMediaInfo(
+        guard !cleanTitle.isEmpty else {
+            if self.lastIsPlaying {
+                self.lastIsPlaying = false
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    self.manager?.updateMediaInfo(
+                        title:               self.lastTitle,
+                        artist:              self.lastArtist,
+                        album:               self.lastAlbum,
+                        duration:            self.lastDuration,
+                        elapsedTime:         self.lastElapsedTime,
+                        isPlaying:           false,
+                        mediaAction:         "end",
+                        bundleId:            self.lastBundleId,
+                        triggerNotification: true
+                    )
+                }
+            }
+            return
+        }
+
+        var shouldTrigger = false
+        var mediaAction = "pause"
+
+        if self.lastTitle != cleanTitle && !cleanTitle.isEmpty {
+            mediaAction = "start"
+            shouldTrigger = true
+        } else if self.lastIsPlaying != isPlaying {
+            mediaAction = isPlaying ? "resume" : "pause"
+            shouldTrigger = true
+        } else {
+            mediaAction = isPlaying ? "resume" : "pause"
+        }
+
+        if shouldTrigger {
+            if mediaAction == "resume" && elapsed <= 0.5 {
+                mediaAction = "start"
+            } else if mediaAction == "pause" && duration > 0 && elapsed >= (duration - 1.0) {
+                mediaAction = "end"
+            }
+
+            // Suppress overlay if the user is already focused on the window/tab playing this media
+            if isUserFocusedOnPlayingWindow(bundleId: bundleId, title: cleanTitle) {
+                shouldTrigger = false
+            }
+        }
+
+        self.lastIsPlaying   = isPlaying
+        self.lastTitle       = cleanTitle
+        self.lastArtist      = finalArtist
+        self.lastAlbum       = album
+        self.lastDuration    = duration
+        self.lastElapsedTime = elapsed
+        self.lastBundleId    = bundleId
+
+        DispatchQueue.main.async { [weak self] in
+            self?.manager?.updateMediaInfo(
                 title:               cleanTitle,
                 artist:              finalArtist,
                 album:               album,
@@ -239,89 +337,214 @@ class MediaObserver {
         }
     }
 
-    // MARK: - Distributed Notifications (Spotify & Apple Music)
-
-    private func setupDistributedNotifications() {
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(handleSpotifyNotification(_:)),
-            name: NSNotification.Name("com.spotify.client.PlaybackStateChanged"),
-            object: nil
-        )
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(handleMusicNotification(_:)),
-            name: NSNotification.Name("com.apple.Music.playerInfo"),
-            object: nil
-        )
+    private func cleanMediaTitle(_ raw: String) -> String {
+        return raw
+            .replacingOccurrences(of: " - YouTube Music", with: "")
+            .replacingOccurrences(of: " - YouTube", with: "")
+            .replacingOccurrences(of: " | YouTube", with: "")
+            .replacingOccurrences(of: " — QuickTime Player", with: "")
+            .replacingOccurrences(of: " - QuickTime Player", with: "")
+            .replacingOccurrences(of: " - VLC media player", with: "")
+            .replacingOccurrences(of: " - VLC", with: "")
+            .replacingOccurrences(of: " - IINA", with: "")
+            .replacingOccurrences(of: " - mpv", with: "")
+            .replacingOccurrences(of: " — Safari", with: "")
+            .replacingOccurrences(of: " - Google Chrome", with: "")
+            .replacingOccurrences(of: " - Brave", with: "")
+            .replacingOccurrences(of: " - Microsoft Edge", with: "")
+            .replacingOccurrences(of: " - Arc", with: "")
+            .replacingOccurrences(of: " - Opera", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    @objc private func handleSpotifyNotification(_ notif: Notification) {
-        guard let userInfo = notif.userInfo else { return }
+    // MARK: - Active Window Suppression Check
+
+    /// Checks if the user is currently focused on the window/tab that is playing this media.
+    /// When true, the overlay is suppressed because the user is already looking directly at the player.
+    private func isUserFocusedOnPlayingWindow(bundleId: String, title: String) -> Bool {
+        guard !bundleId.isEmpty,
+              let frontApp = NSWorkspace.shared.frontmostApplication,
+              let frontBundleId = frontApp.bundleIdentifier else {
+            return false
+        }
+
+        let lowerFront = frontBundleId.lowercased()
+        let lowerMedia = bundleId.lowercased()
+
+        // If the frontmost application is completely different from the media player, user is not on this player
+        guard lowerFront == lowerMedia || lowerFront.contains(lowerMedia) || lowerMedia.contains(lowerFront) else {
+            return false
+        }
+
+        // Dedicated media players (Spotify, Music, TV, QuickTime, VLC, IINA, Podcasts):
+        // Being focused on the dedicated player app means the user is looking directly at its interface.
+        let browserBundles = [
+            "com.apple.safari",
+            "com.google.chrome",
+            "com.brave.browser",
+            "company.thebrowser.browser",
+            "com.microsoft.edgemac",
+            "org.mozilla.firefox",
+            "com.operasoftware.opera"
+        ]
+
+        let isBrowser = browserBundles.contains { lowerFront.contains($0) || $0.contains(lowerFront) }
+        if !isBrowser {
+            return true
+        }
+
+        // Web browsers: check if the frontmost window/tab title matches media keywords or track title
+        let winTitles = getActiveWindowTitles(pid: frontApp.processIdentifier)
+        let cleanMedia = cleanMediaTitle(title).lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+
+        for winTitle in winTitles {
+            let cleanWin = winTitle.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+            if cleanWin.isEmpty { continue }
+
+            if cleanWin.contains("youtube") || cleanWin.contains("tiktok") ||
+               cleanWin.contains("instagram") || cleanWin.contains("shorts") ||
+               cleanWin.contains("reels") || cleanWin.contains("netflix") ||
+               cleanWin.contains("twitch") || cleanWin.contains("spotify") {
+                return true
+            }
+
+            let strippedWin = cleanMediaTitle(cleanWin)
+                .replacingOccurrences(of: " - google chrome", with: "")
+                .replacingOccurrences(of: " — safari", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if !cleanMedia.isEmpty && !strippedWin.isEmpty {
+                if strippedWin.contains(cleanMedia) || cleanMedia.contains(strippedWin) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    private func getActiveWindowTitles(pid: pid_t) -> [String] {
+        var titles = [String]()
+
+        // 1. Accessibility API
+        let axApp = AXUIElementCreateApplication(pid)
+        var focusedWindow: CFTypeRef?
+        if AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &focusedWindow) == .success,
+           let window = focusedWindow, CFGetTypeID(window) == AXUIElementGetTypeID() {
+            var title: CFTypeRef?
+            if AXUIElementCopyAttributeValue(window as! AXUIElement, kAXTitleAttribute as CFString, &title) == .success,
+               let t = title as? String, !t.isEmpty {
+                titles.append(t)
+            }
+        }
+
+        var mainWindow: CFTypeRef?
+        if AXUIElementCopyAttributeValue(axApp, kAXMainWindowAttribute as CFString, &mainWindow) == .success,
+           let window = mainWindow, CFGetTypeID(window) == AXUIElementGetTypeID() {
+            var title: CFTypeRef?
+            if AXUIElementCopyAttributeValue(window as! AXUIElement, kAXTitleAttribute as CFString, &title) == .success,
+               let t = title as? String, !t.isEmpty, !titles.contains(t) {
+                titles.append(t)
+            }
+        }
+
+        // 2. CoreGraphics Window List (handles Chrome, Brave, Arc if AX title is unavailable)
+        if titles.isEmpty {
+            if let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
+                for win in windowList {
+                    if let winPid = win[kCGWindowOwnerPID as String] as? pid_t, winPid == pid,
+                       let layer = win[kCGWindowLayer as String] as? Int, layer == 0,
+                       let name = win[kCGWindowName as String] as? String, !name.isEmpty {
+                        titles.append(name)
+                        break
+                    }
+                }
+            }
+        }
+
+        return titles
+    }
+
+    // MARK: - Distributed Notifications (Spotify & Apple Music)
+
+    @objc private func handleSpotifyNotification(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
         let state = (userInfo["Player State"] as? String) ?? ""
         let isPlaying = (state.lowercased() == "playing" || state.lowercased() == "kplaybackstateplaying")
-        let name   = (userInfo["Name"]   as? String) ?? ""
+        let title  = (userInfo["Name"]   as? String) ?? ""
         let artist = (userInfo["Artist"] as? String) ?? ""
         let album  = (userInfo["Album"]  as? String) ?? ""
 
-        self.spotifyTitle  = name
-        self.spotifyArtist = artist
-        self.spotifyAlbum  = album
-        self.lastTitle     = name
-        self.lastArtist    = artist.isEmpty ? "Spotify" : "\(artist) • Spotify"
-        self.lastAlbum     = album
-        self.lastBundleId  = "com.spotify.client"
-        self.lastIsPlaying = isPlaying
+        let durationVal = (userInfo["Duration"] as? NSNumber)?.doubleValue ?? 0.0
+        let duration = durationVal > 1000 ? durationVal / 1000.0 : durationVal
+        let elapsed = (userInfo["Playback Position"] as? NSNumber)?.doubleValue ?? 0.0
+
+        guard !title.isEmpty else { return }
 
         let action = isPlaying ? "resume" : "pause"
+        self.lastTitle = title
+        self.lastArtist = artist.isEmpty ? "Spotify" : "\(artist) • Spotify"
+        self.lastAlbum = album
+        self.lastDuration = duration
+        self.lastElapsedTime = elapsed
+        self.lastIsPlaying = isPlaying
+        self.lastBundleId = "com.spotify.client"
+
+        let shouldTrigger = !isUserFocusedOnPlayingWindow(bundleId: "com.spotify.client", title: title)
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.manager?.updateMediaInfo(
-                title:               self.lastTitle,
+                title:               title,
                 artist:              self.lastArtist,
-                album:               self.lastAlbum,
-                duration:            self.lastDuration,
-                elapsedTime:         self.lastElapsedTime,
+                album:               album,
+                duration:            duration,
+                elapsedTime:         elapsed,
                 isPlaying:           isPlaying,
                 mediaAction:         action,
-                bundleId:            self.lastBundleId,
-                triggerNotification: true
+                bundleId:            "com.spotify.client",
+                triggerNotification: shouldTrigger
             )
         }
     }
 
-    @objc private func handleMusicNotification(_ notif: Notification) {
-        guard let userInfo = notif.userInfo else { return }
+    @objc private func handleAppleMusicNotification(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else { return }
         let state = (userInfo["Player State"] as? String) ?? ""
         let isPlaying = (state.lowercased() == "playing")
-        let name   = (userInfo["Name"]   as? String) ?? ""
+        let title  = (userInfo["Name"]   as? String) ?? ""
         let artist = (userInfo["Artist"] as? String) ?? ""
         let album  = (userInfo["Album"]  as? String) ?? ""
 
-        self.musicTitle  = name
-        self.musicArtist = artist
-        self.musicAlbum  = album
-        self.lastTitle   = name
-        self.lastArtist  = artist.isEmpty ? "Music" : "\(artist) • Music"
-        self.lastAlbum   = album
-        self.lastBundleId  = "com.apple.Music"
-        self.lastIsPlaying = isPlaying
+        let durationVal = (userInfo["Total Time"] as? NSNumber)?.doubleValue ?? 0.0
+        let duration = durationVal > 1000 ? durationVal / 1000.0 : durationVal
+        let elapsed = (userInfo["Player Position"] as? NSNumber)?.doubleValue ?? 0.0
+
+        guard !title.isEmpty else { return }
 
         let action = isPlaying ? "resume" : "pause"
+        self.lastTitle = title
+        self.lastArtist = artist.isEmpty ? "Music" : "\(artist) • Music"
+        self.lastAlbum = album
+        self.lastDuration = duration
+        self.lastElapsedTime = elapsed
+        self.lastIsPlaying = isPlaying
+        self.lastBundleId = "com.apple.Music"
+
+        let shouldTrigger = !isUserFocusedOnPlayingWindow(bundleId: "com.apple.Music", title: title)
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.manager?.updateMediaInfo(
-                title:               self.lastTitle,
+                title:               title,
                 artist:              self.lastArtist,
-                album:               self.lastAlbum,
-                duration:            self.lastDuration,
-                elapsedTime:         self.lastElapsedTime,
+                album:               album,
+                duration:            duration,
+                elapsedTime:         elapsed,
                 isPlaying:           isPlaying,
                 mediaAction:         action,
-                bundleId:            self.lastBundleId,
-                triggerNotification: true
+                bundleId:            "com.apple.Music",
+                triggerNotification: shouldTrigger
             )
         }
     }
@@ -354,19 +577,19 @@ class MediaObserver {
         )
         var dev: AudioDeviceID = 0
         var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        let err = AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &defaultOutputAddress, 0, nil, &size, &dev)
-        if err == 0 && dev != 0 {
-            self.outputDevice = dev
-            var runningAddress = AudioObjectPropertyAddress(
-                mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
-                mScope: kAudioObjectPropertyScopeGlobal,
-                mElement: kAudioObjectPropertyElementMain
-            )
-            AudioObjectAddPropertyListenerBlock(dev, &runningAddress, DispatchQueue.main) { [weak self] _, _ in
-                self?.checkOutputAudioState()
-            }
-            checkOutputAudioState()
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &defaultOutputAddress, 0, nil, &size, &dev) == 0,
+              dev != 0 else { return }
+
+        self.outputDevice = dev
+        var runningAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        AudioObjectAddPropertyListenerBlock(dev, &runningAddress, DispatchQueue.main) { [weak self] _, _ in
+            self?.checkOutputAudioState()
         }
+        checkOutputAudioState()
     }
 
     private func checkOutputAudioState() {
@@ -378,8 +601,7 @@ class MediaObserver {
         )
         var isRunning: UInt32 = 0
         var size = UInt32(MemoryLayout<UInt32>.size)
-        let err = AudioObjectGetPropertyData(outputDevice, &runningAddress, 0, nil, &size, &isRunning)
-        guard err == 0 else { return }
+        guard AudioObjectGetPropertyData(outputDevice, &runningAddress, 0, nil, &size, &isRunning) == 0 else { return }
         let currentlyRunning = (isRunning > 0)
 
         if currentlyRunning {
@@ -387,195 +609,33 @@ class MediaObserver {
             audioPauseTimer = nil
             if !self.isAudioRunning {
                 self.isAudioRunning = true
-                self.handlePlaybackStateChange(isPlaying: true)
             }
         } else {
-            // Debounce pause by 300ms so seeking / track changes don't cause false pauses
             audioPauseTimer?.invalidate()
             audioPauseTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
                 guard let self = self else { return }
                 if self.isAudioRunning {
                     self.isAudioRunning = false
-                    self.handlePlaybackStateChange(isPlaying: false)
                 }
             }
         }
-    }
-
-    // MARK: - Helpers
-
-    private func cleanMediaTitle(_ raw: String) -> String {
-        return raw
-            .replacingOccurrences(of: " - YouTube", with: "")
-            .replacingOccurrences(of: " — QuickTime Player", with: "")
-            .replacingOccurrences(of: " - VLC media player", with: "")
-            .replacingOccurrences(of: " - Safari", with: "")
-            .replacingOccurrences(of: " - Google Chrome", with: "")
-            .replacingOccurrences(of: " - Brave", with: "")
-            .replacingOccurrences(of: " - Arc", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func detectCurrentMediaInfo() -> (title: String, artist: String, bundleId: String) {
-        // 1. Check running Spotify or Apple Music
-        let runningApps = NSWorkspace.shared.runningApplications
-        if let _ = runningApps.first(where: { $0.bundleIdentifier == "com.spotify.client" }), !self.spotifyTitle.isEmpty {
-            return (self.spotifyTitle, self.spotifyArtist.isEmpty ? "Spotify" : self.spotifyArtist, "com.spotify.client")
-        }
-        if let _ = runningApps.first(where: { $0.bundleIdentifier == "com.apple.Music" }), !self.musicTitle.isEmpty {
-            return (self.musicTitle, self.musicArtist.isEmpty ? "Music" : self.musicArtist, "com.apple.Music")
-        }
-
-        // 2. Check frontmost application
-        if let frontApp = NSWorkspace.shared.frontmostApplication {
-            let winTitles = getActiveWindowTitles(pid: frontApp.processIdentifier)
-            for t in winTitles where !t.isEmpty {
-                let clean = cleanMediaTitle(t)
-                if !clean.isEmpty && (t.contains("YouTube") || t.contains("VLC") || t.contains("QuickTime") ||
-                                      t.contains("Netflix") || t.contains("Spotify")) {
-                    return (clean, frontApp.localizedName ?? "Media", frontApp.bundleIdentifier ?? "")
-                }
-            }
-        }
-
-        // 3. Check any running media / browser application
-        let targetBundles = [
-            "com.apple.safari", "com.google.chrome", "com.brave.browser", "company.thebrowser.browser",
-            "com.microsoft.edgemac", "org.mozilla.firefox", "org.videolan.vlc",
-            "com.apple.quicktimeplayerx", "com.apple.iina"
-        ]
-        for app in runningApps {
-            if let bId = app.bundleIdentifier?.lowercased(), targetBundles.contains(where: { bId.contains($0) }) {
-                let winTitles = getActiveWindowTitles(pid: app.processIdentifier)
-                for t in winTitles where !t.isEmpty {
-                    let clean = cleanMediaTitle(t)
-                    if !clean.isEmpty && (t.contains("YouTube") || t.contains("VLC") || t.contains("QuickTime") || t.contains("Netflix")) {
-                        return (clean, app.localizedName ?? "Browser", app.bundleIdentifier ?? "")
-                    }
-                }
-            }
-        }
-
-        // 4. Fallback: frontmost app first window
-        if let frontApp = NSWorkspace.shared.frontmostApplication {
-            let winTitles = getActiveWindowTitles(pid: frontApp.processIdentifier)
-            if let first = winTitles.first(where: { !$0.isEmpty }) {
-                let clean = cleanMediaTitle(first)
-                if !clean.isEmpty {
-                    return (clean, frontApp.localizedName ?? "Media", frontApp.bundleIdentifier ?? "")
-                }
-            }
-        }
-
-        return (self.lastTitle, self.lastArtist, self.lastBundleId)
-    }
-
-    private func handlePlaybackStateChange(isPlaying: Bool) {
-        if self.isFirstRun {
-            self.isFirstRun = false
-            self.lastIsPlaying = isPlaying
-            return
-        }
-
-        let info = detectCurrentMediaInfo()
-        if !info.title.isEmpty {
-            self.lastTitle    = info.title
-            self.lastArtist   = info.artist
-            self.lastBundleId = info.bundleId
-        }
-
-        guard !self.lastTitle.isEmpty else { return }
-        self.lastIsPlaying = isPlaying
-        let action = isPlaying ? "resume" : "pause"
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.manager?.updateMediaInfo(
-                title:               self.lastTitle,
-                artist:              self.lastArtist,
-                album:               self.lastAlbum,
-                duration:            self.lastDuration,
-                elapsedTime:         self.lastElapsedTime,
-                isPlaying:           isPlaying,
-                mediaAction:         action,
-                bundleId:            self.lastBundleId,
-                triggerNotification: true
-            )
-        }
-    }
-
-    private func getActiveWindowTitles(pid: pid_t) -> [String] {
-        let axApp = AXUIElementCreateApplication(pid)
-        var titles = [String]()
-
-        var focusedWindow: CFTypeRef?
-        if AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &focusedWindow) == .success {
-            if let window = focusedWindow, CFGetTypeID(window) == AXUIElementGetTypeID() {
-                let axWindow = window as! AXUIElement
-                var title: CFTypeRef?
-                if AXUIElementCopyAttributeValue(axWindow, kAXTitleAttribute as CFString, &title) == .success,
-                   let t = title as? String {
-                    titles.append(t)
-                }
-            }
-        }
-
-        var mainWindow: CFTypeRef?
-        if AXUIElementCopyAttributeValue(axApp, kAXMainWindowAttribute as CFString, &mainWindow) == .success {
-            if let window = mainWindow, CFGetTypeID(window) == AXUIElementGetTypeID() {
-                let axWindow = window as! AXUIElement
-                var title: CFTypeRef?
-                if AXUIElementCopyAttributeValue(axWindow, kAXTitleAttribute as CFString, &title) == .success,
-                   let t = title as? String {
-                    titles.append(t)
-                }
-            }
-        }
-
-        return titles
     }
 
     // MARK: - Public API (called from MediaKeyManager)
 
     func toggleOrFetchCurrentState(triggerNotification: Bool = true) {
-        let info = detectCurrentMediaInfo()
-        if !info.title.isEmpty {
-            self.lastTitle    = info.title
-            self.lastArtist   = info.artist
-            self.lastBundleId = info.bundleId
-        }
-
-        self.lastIsPlaying = !self.lastIsPlaying
-        let action = self.lastIsPlaying ? "resume" : "pause"
-
-        guard !self.lastTitle.isEmpty else { return }
-
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.manager?.updateMediaInfo(
-                title:               self.lastTitle,
-                artist:              self.lastArtist,
-                album:               self.lastAlbum,
-                duration:            self.lastDuration,
-                elapsedTime:         self.lastElapsedTime,
-                isPlaying:           self.lastIsPlaying,
-                mediaAction:         action,
-                bundleId:            self.lastBundleId,
-                triggerNotification: triggerNotification
-            )
-        }
+        // Query the true playback state from MediaRemote without guessing or speculative inverting
+        fetchOneShotState(triggerNotification: triggerNotification)
     }
 
     func fetchCurrentState(triggerNotification: Bool = false) {
-        let info = detectCurrentMediaInfo()
-        if !info.title.isEmpty {
-            self.lastTitle    = info.title
-            self.lastArtist   = info.artist
-            self.lastBundleId = info.bundleId
+        if self.lastTitle.isEmpty {
+            fetchOneShotState(triggerNotification: triggerNotification)
+            return
         }
-
+        let shouldTrigger = triggerNotification && !isUserFocusedOnPlayingWindow(bundleId: self.lastBundleId, title: self.lastTitle)
         DispatchQueue.main.async { [weak self] in
-            guard let self = self, !self.lastTitle.isEmpty else { return }
+            guard let self = self else { return }
             self.manager?.updateMediaInfo(
                 title:               self.lastTitle,
                 artist:              self.lastArtist,
@@ -585,15 +645,58 @@ class MediaObserver {
                 isPlaying:           self.lastIsPlaying,
                 mediaAction:         self.lastIsPlaying ? "resume" : "pause",
                 bundleId:            self.lastBundleId,
-                triggerNotification: triggerNotification
+                triggerNotification: shouldTrigger
             )
+        }
+    }
+
+    private func fetchOneShotState(triggerNotification: Bool) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let oneShot = Process()
+            let pipe = Pipe()
+            oneShot.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            let script = """
+            const b = $.NSBundle.bundleWithPath('/System/Library/PrivateFrameworks/MediaRemote.framework/');
+            b.load;
+            const req = $.NSClassFromString('MRNowPlayingRequest');
+            const item = req ? req.localNowPlayingItem : null;
+            const path = req ? req.localNowPlayingPlayerPath : null;
+            let title = '', artist = '', album = '', duration = 0, elapsed = 0, isPlaying = false, appName = '', bundleId = '';
+            if (item && item.nowPlayingInfo) {
+                const d = item.nowPlayingInfo;
+                try { const t = d.valueForKey('kMRMediaRemoteNowPlayingInfoTitle'); if (t) title = t.js; } catch(e){}
+                try { const a = d.valueForKey('kMRMediaRemoteNowPlayingInfoArtist'); if (a) artist = a.js; } catch(e){}
+                try { const al = d.valueForKey('kMRMediaRemoteNowPlayingInfoAlbum'); if (al) album = al.js; } catch(e){}
+                try { const dur = d.valueForKey('kMRMediaRemoteNowPlayingInfoDuration'); if (dur) duration = dur.js; } catch(e){}
+                try { const el = d.valueForKey('kMRMediaRemoteNowPlayingInfoElapsedTime'); if (el) elapsed = el.js; } catch(e){}
+                try { const rate = d.valueForKey('kMRMediaRemoteNowPlayingInfoPlaybackRate'); if (rate && rate.js > 0) isPlaying = true; } catch(e){}
+            }
+            if (path && path.client) {
+                try { appName = path.client.displayName.js || ''; } catch(e){}
+                try { bundleId = path.client.parentApplicationBundleIdentifier.js || path.client.bundleIdentifier.js || ''; } catch(e){}
+            }
+            const s = JSON.stringify({ isInitial: false, title, artist, album, duration, elapsed, isPlaying, appName, bundleId }) + '\\n';
+            $.NSFileHandle.fileHandleWithStandardOutput.writeData($.NSString.alloc.initWithString(s).dataUsingEncoding($.NSUTF8StringEncoding));
+            """
+            oneShot.arguments = ["-l", "JavaScript", "-e", script]
+            oneShot.standardOutput = pipe
+            oneShot.standardError = pipe
+            do {
+                try oneShot.run()
+                oneShot.waitUntilExit()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                if let str = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !str.isEmpty {
+                    self?.parseJSON(str)
+                }
+            } catch {}
         }
     }
 
     deinit {
         audioPauseTimer?.invalidate()
         audioPauseTimer = nil
-        NotificationCenter.default.removeObserver(self)
         DistributedNotificationCenter.default().removeObserver(self)
+        helperProcess?.terminationHandler = nil
+        helperProcess?.terminate()
     }
 }

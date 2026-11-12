@@ -10,7 +10,6 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
 struct CopyOverlayView: View {
     @State private var isExpanded: Bool = false
     @State private var previewItemId: UUID? = nil
-    @State private var scrollOffset: CGFloat = 0
     @State private var textNeedsExpansion: Bool = false
     @AppStorage("copyAllowExpansion") private var copyAllowExpansion: Bool = true
     @AppStorage("clipboardEnableHistory") var clipboardEnableHistory: Bool = true
@@ -123,7 +122,7 @@ struct CopyOverlayView: View {
             }
             return "1 cup all-purpose flour\n2 tablespoons sugar\n2 teaspoons baking powder\n1 cup milk\n1 egg"
         }
-        if isExpanded, let id = activePreviewId, let item = currentHistory.first(where: { $0.id == id }) {
+        if isExpanded, let id = previewItemId, let item = currentHistory.first(where: { $0.id == id }) {
             return item.text
         }
         return overlayState.copiedText.isEmpty ? actionFallbackText : overlayState.copiedText
@@ -136,7 +135,7 @@ struct CopyOverlayView: View {
             }
             return "Safari"
         }
-        if isExpanded, let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+        if isExpanded, let previewId = previewItemId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.app
         }
         return overlayState.clipboardSourceApp.isEmpty ? "Unknown" : overlayState.clipboardSourceApp
@@ -149,7 +148,7 @@ struct CopyOverlayView: View {
             }
             return nil
         }
-        if isExpanded, let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+        if isExpanded, let previewId = previewItemId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.folder
         }
         return overlayState.clipboardSourceFolder
@@ -162,7 +161,7 @@ struct CopyOverlayView: View {
             }
             return "128 bytes"
         }
-        if isExpanded, let previewId = activePreviewId, let item = currentHistory.first(where: { $0.id == previewId }) {
+        if isExpanded, let previewId = previewItemId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.size
         }
         return overlayState.clipboardMetadataSize.isEmpty ? "Unknown" : overlayState.clipboardMetadataSize
@@ -220,7 +219,6 @@ struct CopyOverlayView: View {
                             .frame(height: 18)
                             .id("marquee-\(isExpanded)-\(overlayState.clipboardCycleIndex)")
                             .transition(.identity)
-                            .opacity((isExpanded && textNeedsExpansion && clipboardEnablePreview) ? 0 : 1)
                     }
                     .padding(.leading, 12)
                     .padding(.trailing, 20)
@@ -300,18 +298,13 @@ struct CopyOverlayView: View {
                             VStack(spacing: 12) {
                                 if textNeedsExpansion {
                                     ScrollView(showsIndicators: true) {
-                                        Text(String(repeating: " ", count: 15) + masked(displayedItemText))
+                                        Text(masked(displayedItemText))
                                             .font(.system(size: 14, weight: .semibold, design: .rounded))
                                             .foregroundColor(.primary)
                                             .frame(maxWidth: .infinity, alignment: .leading)
-                                            .padding(.horizontal, 12)
-                                            .padding(.top, 0)
-                                            .padding(.bottom, 4)
-                                            .background(
-                                                GeometryReader { geo in
-                                                    Color.clear.preference(key: ScrollOffsetPreferenceKey.self, value: geo.frame(in: .named("scroll")).minY)
-                                                }
-                                            )
+                                            .padding(.horizontal, 16)
+                                            .padding(.top, 8)
+                                            .padding(.bottom, 6)
                                             .contentShape(Rectangle())
                                             .onTapGesture {
                                                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -319,53 +312,7 @@ struct CopyOverlayView: View {
                                                 }
                                             }
                                     }
-                                    .coordinateSpace(name: "scroll")
-                                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-                                        scrollOffset = value
-                                    }
-                                    .mask(
-                                        HStack(spacing: 0) {
-                                            // LEWA STRONA (obszar ikony)
-                                            VStack(spacing: 0) {
-                                                Color.clear.frame(height: 14) // Deeper cutting square under the icon, increasing "curtain margin"
-                                                LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
-                                                    .frame(height: 8) // Shorter fade under the square
-                                                Color.black
-                                            }
-                                            .frame(width: 61)
-                                            
-                                            // CENTER (dynamically clipping text proportionally to scroll movement)
-                                            ZStack(alignment: .top) {
-                                                // Clipping mask aligned to the left edge of the icon (target state after scrolling)
-                                                VStack(spacing: 0) {
-                                                    Color.clear.frame(height: 14)
-                                                    LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
-                                                        .frame(height: 8)
-                                                    Color.black
-                                                }
-                                                
-                                                // Top mask at rest (to avoid clipping the first line)
-                                                // Fades progressively, revealing the cut, proportionally to scroll offset (from 0 to -15 pixels)
-                                                VStack(spacing: 0) {
-                                                    LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
-                                                        .frame(height: 6)
-                                                    Color.black
-                                                }
-                                                .opacity(max(0, min(1, 1.0 + (scrollOffset / 15.0))))
-                                            }
-                                            
-                                            // RIGHT MARGIN OF THE WINDOW (excludes the scrollbar from clipping)
-                                            VStack(spacing: 0) {
-                                                LinearGradient(gradient: Gradient(colors: [.clear, .black]), startPoint: .top, endPoint: .bottom)
-                                                    .frame(height: 6)
-                                                Color.black
-                                            }
-                                            .frame(width: 20)
-                                        }
-                                    )
                                     .frame(maxHeight: 128)
-                                    .offset(y: -28)
-                                    .padding(.bottom, -28)
                                     .onHover { hovering in
                                         DispatchQueue.main.async {
                                             if OverlayStateRelay.shared.isHoveringScrollView != hovering {

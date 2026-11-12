@@ -305,7 +305,7 @@ extension MediaKeyManager {
         hardwareKeyPollingTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             guard let self = self, self.enableClipboard, self.isTrusted else { return }
             
-            // Cmd (lewy lub prawy)
+            // Cmd (left or right)
             let cmdPressed = CGEventSource.keyState(.hidSystemState, key: 55) || CGEventSource.keyState(.hidSystemState, key: 54)
             if !cmdPressed { return }
             

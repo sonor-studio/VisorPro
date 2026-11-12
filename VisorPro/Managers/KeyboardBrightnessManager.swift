@@ -102,11 +102,12 @@ class KeyboardBrightnessManager {
         }
     }
     
-    func changeBrightness(increase: Bool, completion: @escaping (Int) -> Void) {
+    func changeBrightness(increase: Bool, step: Double? = nil, completion: @escaping (Int) -> Void) {
         queue.async {
             let defaultKbbStep = UserDefaults.standard.object(forKey: "keyboardBrightnessStep") != nil ? UserDefaults.standard.double(forKey: "keyboardBrightnessStep") : 15.0
-            let step: Float = Float(defaultKbbStep) / 100.0
-            var newBrightness = increase ? self.currentBrightness + step : self.currentBrightness - step
+            let effectiveStep = step ?? defaultKbbStep
+            let stepFloat: Float = Float(effectiveStep) / 100.0
+            var newBrightness = increase ? self.currentBrightness + stepFloat : self.currentBrightness - stepFloat
             newBrightness = max(0.0, min(1.0, newBrightness))
             
             let intBrightness = Int(newBrightness * 100)
@@ -118,12 +119,12 @@ class KeyboardBrightnessManager {
         }
     }
     
-    func increaseBrightness(completion: @escaping (Int) -> Void) {
-        changeBrightness(increase: true, completion: completion)
+    func increaseBrightness(step: Double? = nil, completion: @escaping (Int) -> Void) {
+        changeBrightness(increase: true, step: step, completion: completion)
     }
     
-    func decreaseBrightness(completion: @escaping (Int) -> Void) {
-        changeBrightness(increase: false, completion: completion)
+    func decreaseBrightness(step: Double? = nil, completion: @escaping (Int) -> Void) {
+        changeBrightness(increase: false, step: step, completion: completion)
     }
     
     func setBrightness(to level: Int, completion: @escaping (Int) -> Void) {

@@ -47,6 +47,52 @@ struct ChangelogSettingsView: View {
                 Divider()
                     .padding(.bottom, 32)
                 
+                // Version 2.0.1 Area
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("VisorPro 2.0.1")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.primary)
+                    
+                    Text("Introduces customizable modifier key step sizes for sliders and key bug fixes.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 8)
+                    
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)], spacing: 32) {
+                        
+                        ChangelogCard(
+                            icon: "slider.horizontal.2.square",
+                            title: "Custom Modifier Steps",
+                            description: "Hold a customizable modifier key (Option, Control, or Command) while pressing Volume, Brightness, or Keyboard Brightness keys to adjust values by an alternative or larger custom step.",
+                            preview: CustomStepsChangelogPreview()
+                        )
+                        
+                        ChangelogCard(
+                            icon: "wrench.and.screwdriver.fill",
+                            title: "Desktop Log Bug Fix & Refinements",
+                            description: "Resolved an issue where a debug log file (VisorProWiFiLog.txt) was mistakenly created on the user's Desktop. Included general stability refinements and smoother key interception.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.teal.opacity(0.05))
+                                 
+                                ZStack {
+                                    Circle()
+                                        .stroke(Color.teal.opacity(0.25), lineWidth: 4)
+                                        .frame(width: 60, height: 60)
+                                    
+                                    Image(systemName: "checkmark.shield.fill")
+                                        .font(.system(size: 28))
+                                        .foregroundColor(.teal)
+                                }
+                            }
+                        )
+                    }
+                }
+                .padding(.bottom, 32)
+                
+                Divider()
+                    .padding(.bottom, 32)
+                
                 // Version 2.0.0 Area
                 VStack(alignment: .leading, spacing: 16) {
                     Text("VisorPro 2.0.0")
@@ -1531,20 +1577,89 @@ struct CyclePasteChangelogPreview: View {
     }
 }
 
+// MARK: - Custom Steps Preview Component
+
+struct CustomStepsChangelogPreview: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.blue.opacity(0.04))
+            
+            VStack(spacing: 12) {
+                // Normal Step comparison row
+                HStack(spacing: 10) {
+                    HStack(spacing: 3) {
+                        ChangelogKeyCap(text: "F12")
+                    }
+                    .frame(width: 44, alignment: .leading)
+                    
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.secondary.opacity(0.12))
+                            .frame(width: 84, height: 5)
+                        Capsule()
+                            .fill(Color.secondary.opacity(0.45))
+                            .frame(width: 24, height: 5)
+                    }
+                    
+                    Text("+6%")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(.secondary)
+                        .frame(width: 34, alignment: .trailing)
+                }
+                
+                // Boosted Step with Modifier row
+                HStack(spacing: 10) {
+                    HStack(spacing: 3) {
+                        ChangelogKeyCap(text: "⌥", accent: true)
+                        ChangelogKeyCap(text: "F12")
+                    }
+                    .frame(width: 44, alignment: .leading)
+                    
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.blue.opacity(0.15))
+                            .frame(width: 84, height: 5)
+                        Capsule()
+                            .fill(Color.blue.opacity(0.85))
+                            .frame(width: 64, height: 5)
+                    }
+                    
+                    Text("+25%")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundColor(.blue)
+                        .frame(width: 34, alignment: .trailing)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.04), radius: 3, y: 1)
+        }
+    }
+}
+
 private struct ChangelogKeyCap: View {
     let text: String
+    var accent: Bool = false
     
     var body: some View {
         Text(text)
-            .font(.system(size: 10, weight: .bold, design: .rounded))
-            .foregroundColor(.primary)
-            .frame(width: 18, height: 18)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(4)
+            .font(.system(size: 9, weight: accent ? .bold : .medium, design: .rounded))
+            .foregroundColor(accent ? .blue : .primary)
+            .frame(height: 17)
+            .frame(minWidth: 17)
+            .padding(.horizontal, text.count > 1 ? 3 : 0)
+            .background(accent ? Color.blue.opacity(0.08) : Color(NSColor.windowBackgroundColor))
+            .cornerRadius(3.5)
             .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 3.5)
+                    .stroke(accent ? Color.blue.opacity(0.35) : Color.secondary.opacity(0.2), lineWidth: 0.8)
             )
-            .shadow(color: .black.opacity(0.08), radius: 1, y: 0.5)
     }
 }

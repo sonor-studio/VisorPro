@@ -586,13 +586,12 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 .allowsHitTesting(!allowBaseHitTesting)
             }
             .frame(width: width, height: baseHeight, alignment: .center)
-            .clipShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: outerRadius, style: .continuous))
             .gesture(
                 DragGesture(minimumDistance: 10)
                     .onChanged { value in
                         if isPreview {
-                            // ScrollWheel event w AppearanceEditorView dba o fizyczne machnięcie gładzikiem
+                            // ScrollWheel event in AppearanceEditorView handles physical trackpad swipe
                         }
                         if supportDragGesture && !isMinimal {
                             if !isDragging {
@@ -656,7 +655,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .background(
                         Group {
-                            if fixedExpandedHeight == nil && isExpanded {
+                            if fixedExpandedHeight == nil {
                                 GeometryReader { proxy in
                                     Color.clear.preference(key: ExpandedHeightPreferenceKey.self, value: proxy.size.height)
                                 }
@@ -667,21 +666,12 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                         height: isExpanded ? (fixedExpandedHeight ?? expandedHeight) : 0,
                         alignment: expandUpwards ? .bottom : .top
                     ))
-                    .animation(isExpanded ? (enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)) : .easeOut(duration: 0.2), value: isExpanded)
                     .animation(enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25), value: expandedHeight)
                     .allowsHitTesting(isExpanded)
                     .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
-                        guard isExpanded else { return }
                         DispatchQueue.main.async {
                             if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 2.0 {
-                                if isExpanded && expandedHeight > 0 {
-                                    let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
-                                    withAnimation(anim) {
-                                        expandedHeight = height
-                                    }
-                                } else {
-                                    expandedHeight = height
-                                }
+                                expandedHeight = height
                                 if isExpanded && !isPreview, let id = keepAliveId {
                                     let baseH = isEffectivelyMinimal ? 38 : customHeight
                                     let totalPillHeight = baseH + height
@@ -992,7 +982,7 @@ struct UniversalOverlayView<BaseContent: View, ExpandedContent: View>: View {
                 .animation(shouldShowCloseButton ? .spring(response: 0.3, dampingFraction: 0.7) : .easeOut(duration: 0.2), value: shouldShowCloseButton)
             }
         }
-        .frame(width: width, alignment: .center)
+        .frame(width: width, alignment: isPreview ? .center : (expandUpwards ? .bottom : .top))
     }
     
     

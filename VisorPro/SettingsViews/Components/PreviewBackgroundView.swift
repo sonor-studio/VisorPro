@@ -43,7 +43,7 @@ struct PreviewBackgroundView: View {
                 }
             } else {
                 Color.clear
-                    .visorGlassEffect(.ultraThinMaterial)
+                    .background(.ultraThinMaterial)
                     .modifier(OptionalClipShape(apply: !fullBleed, shape: RoundedRectangle(cornerRadius: 16)))
                     .frame(minHeight: minHeight)
             }

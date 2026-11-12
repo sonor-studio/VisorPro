@@ -61,7 +61,7 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             } else {
                 self.lastSSID = nil
             }
-            // Zgadujemy początkowy stan na podstawie SSID, resztę ogarnie pathMonitor
+            // Guess initial state based on SSID; the rest is handled by pathMonitor
             self.lastIsConnected = self.lastSSID != nil 
         }
         
@@ -112,8 +112,6 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
             powerOn = true
         }
         
-        Logger.log("pollWiFi: powerOn=\(powerOn), networkIsSatisfied=\(self.networkIsSatisfied)")
-        
         if !powerOn {
             inactiveCounter = 0
             handleFinalState(isConnected: false, ssid: nil, isEnabled: manager.enableWiFi)
@@ -128,32 +126,28 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
                 connected = true
                 currentSSID = ssid
             } else {
-                // Gdy brakuje SSID, weryfikujemy stan za pomocą NWPathMonitor
+                // When SSID is missing, verify connectivity status using NWPathMonitor
                 connected = self.networkIsSatisfied
             }
         } else {
             connected = self.networkIsSatisfied
         }
         
-        Logger.log("pollWiFi: connected=\(connected), currentSSID=\(currentSSID ?? "nil")")
-        
         if connected {
             inactiveCounter = 0
-            // Zabezpieczenie przed błędem "Switched to: Unknown Wi-Fi" podczas flappingu
+            // Protect against "Switched to: Unknown Wi-Fi" glitch during connection flapping
             if currentSSID == nil && self.lastIsConnected {
                 currentSSID = self.lastSSID
             }
             handleFinalState(isConnected: true, ssid: currentSSID, isEnabled: manager.enableWiFi)
         } else {
-            // Skoro system (NWPathMonitor) twierdzi że ścieżka padła,
-            // to nie jest to chwilowy flapping. Rozłączamy natychmiast.
+            // Since NWPathMonitor reports path is down, this is not transient flapping. Disconnect immediately.
             if !self.networkIsSatisfied {
                 inactiveCounter = 5
             } else {
                 inactiveCounter += 1
             }
             
-            Logger.log("pollWiFi: inactiveCounter=\(inactiveCounter)")
             if inactiveCounter >= 5 {
                 handleFinalState(isConnected: false, ssid: nil, isEnabled: manager.enableWiFi)
             }
@@ -163,30 +157,23 @@ class WiFiObserver: NSObject, CLLocationManagerDelegate {
     private func handleFinalState(isConnected: Bool, ssid: String?, isEnabled: Bool) {
         guard let manager = manager else { return }
         if manager.useSystemOSD {
-            Logger.log("handleFinalState: useSystemOSD is true, returning")
             return
         }
         
         if isInitialLoad {
             self.lastIsConnected = isConnected
             self.lastSSID = ssid
-            Logger.log("handleFinalState: isInitialLoad, returning")
             return
         }
         
         let connectionStateChanged = isConnected != self.lastIsConnected
         let ssidChanged = ssid != self.lastSSID
         
-        Logger.log("handleFinalState: isConnected=\(isConnected), ssid=\(ssid ?? "nil") | lastIsConnected=\(self.lastIsConnected), lastSSID=\(self.lastSSID ?? "nil") | connChanged=\(connectionStateChanged), ssidChanged=\(ssidChanged)")
-        
         if !connectionStateChanged && !ssidChanged {
-            Logger.log("handleFinalState: no change, returning")
             return
         }
         
         if isEnabled {
-            Logger.log("handleFinalState: triggerWiFiIndicator will be called!")
-            
             DispatchQueue.main.async { [weak self] in
                 guard let self = self else { return }
                 

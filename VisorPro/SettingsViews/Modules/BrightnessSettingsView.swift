@@ -6,6 +6,8 @@ struct BrightnessSettingsView: View {
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("brightnessFillCenter") private var brightnessFillCenter: Bool = false
     @AppStorage("brightnessStep") private var brightnessStep: Double = 6.0
+    @AppStorage("brightnessModifierKey") private var brightnessModifierKey: String = "option"
+    @AppStorage("brightnessModifierStep") private var brightnessModifierStep: Double = 20.0
     @AppStorage("brightnessAllowInteractivity") private var brightnessAllowInteractivity: Bool = true
     @AppStorage("brightnessAllowExpansion") private var brightnessAllowExpansion: Bool = true
     @State private var showAppleEventsPermissionAlert: Bool = false
@@ -113,6 +115,39 @@ struct BrightnessSettingsView: View {
                             
                             Divider().padding(.leading, 40)
                             
+                            CustomSettingsRow(icon: "keyboard", iconColor: .yellow, title: "Modifier Key", subtitle: "Hold this key while pressing brightness keys for alternative step size") {
+                                Picker("", selection: $brightnessModifierKey) {
+                                    Text("None").tag("none")
+                                    if mediaKeyManager.keyboardBrightnessModifier != "option" {
+                                        Text("Option ⌥").tag("option")
+                                    }
+                                    if mediaKeyManager.keyboardBrightnessModifier != "control" {
+                                        Text("Control ⌃").tag("control")
+                                    }
+                                    if mediaKeyManager.keyboardBrightnessModifier != "command" {
+                                        Text("Command ⌘").tag("command")
+                                    }
+                                }
+                                .frame(width: 140)
+                            }
+                            
+                            if brightnessModifierKey != "none" {
+                                Divider().padding(.leading, 40)
+                                
+                                CustomSettingsRow(icon: "plus.forwardslash.minus", iconColor: .yellow, title: "Modifier Step Size", subtitle: "Percentage to change when pressing brightness keys with modifier") {
+                                    HStack {
+                                        Slider(value: $brightnessModifierStep, in: 1...50, step: 1)
+                                            .labelsHidden()
+                                            .frame(width: 150)
+                                        
+                                        Text(String(format: "%.1f%%", brightnessModifierStep))
+                                            .frame(width: 50, alignment: .trailing)
+                                    }
+                                }
+                            }
+                            
+                            Divider().padding(.leading, 40)
+                            
                             CustomSettingsRow(icon: "arrow.up.left.and.arrow.down.right", iconColor: .yellow, title: "Allow Expansion", subtitle: "Allow overlay to expand and show Quick Actions (Dark Mode, Night Shift, True Tone)") {
                                 Toggle("", isOn: $brightnessAllowExpansion).labelsHidden()
                             }
@@ -158,6 +193,16 @@ struct BrightnessSettingsView: View {
         .navigationTitle("Brightness")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
+        .onAppear {
+            if brightnessModifierKey.lowercased() == mediaKeyManager.keyboardBrightnessModifier.lowercased() {
+                brightnessModifierKey = "none"
+            }
+        }
+        .onChange(of: mediaKeyManager.keyboardBrightnessModifier) { _, newMod in
+            if brightnessModifierKey.lowercased() == newMod.lowercased() {
+                brightnessModifierKey = "none"
+            }
+        }
         .alert(isPresented: $showAppleEventsPermissionAlert) {
             Alert(
                 title: Text("Apple Events Access Required"),

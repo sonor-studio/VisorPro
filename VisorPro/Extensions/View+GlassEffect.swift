@@ -55,12 +55,8 @@ extension View {
     
     @ViewBuilder
     func visorGlassEffect(_ material: Material = .regularMaterial, blendingMode: NSVisualEffectView.BlendingMode = .behindWindow) -> some View {
-        if #available(macOS 26.0, *) {
-            self.glassEffect(.regular)
-        } else {
-            self.background(material)
-                .background(AlwaysActiveVisualEffectView(blendingMode: blendingMode))
-        }
+        self.background(material)
+            .background(AlwaysActiveVisualEffectView(blendingMode: blendingMode))
     }
 
     @ViewBuilder

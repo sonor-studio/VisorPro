@@ -2,7 +2,12 @@ import Foundation
 
 struct UserDefaultsMigrator {
     static func migrate(defaults: UserDefaults = .standard) {
-        let doubleKeys = ["brightnessStep", "keyboardBrightnessStep", "volumeStep", "overlayMargin"]
+        let doubleKeys = [
+            "brightnessStep", "brightnessModifierStep",
+            "keyboardBrightnessStep", "keyboardBrightnessModifierStep",
+            "volumeStep", "volumeModifierStep",
+            "overlayMargin"
+        ]
         for key in doubleKeys {
             if let val = defaults.object(forKey: key) {
                 // Safely convert any numeric value to Double

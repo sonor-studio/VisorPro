@@ -168,18 +168,6 @@ final class NativeOverlayDismisser {
             }
         }
         
-        let logLine = "[\(Date())] Banner: id='\(identifier)', text='\(allText)', nestedIds=\(nestedIdentifiers), battery=\(hasBatteryIndicator)\n"
-        let logURL = URL(fileURLWithPath: "/Users/macbook/Desktop/Dev/VisorPro/ax_banners.log")
-        DispatchQueue.global(qos: .utility).async {
-            if let handle = try? FileHandle(forWritingTo: logURL) {
-                handle.seekToEndOfFile()
-                if let data = logLine.data(using: .utf8) { handle.write(data) }
-                try? handle.close()
-            } else {
-                try? logLine.write(to: logURL, atomically: true, encoding: .utf8)
-            }
-        }
-        
         let isControlCenter = bundleID.contains("controlcenter") || appName.contains("control center")
         let isOSDUIHelper = bundleID.contains("osduihelper") || appName.contains("osduihelper")
         
@@ -517,13 +505,6 @@ final class NativeOverlayDismisser {
             }
             
             found = findAndClickButton(element: banner)
-            logOutput += "Found button? \(found)\n"
-            
-            let logURL = URL(fileURLWithPath: "/Users/macbook/Desktop/Dev/VisorPro/ax_click.log")
-            DispatchQueue.global(qos: .utility).async {
-                try? logOutput.write(to: logURL, atomically: true, encoding: .utf8)
-            }
-            
         } else {
         }
         

@@ -515,7 +515,7 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
                 .fixedSize(horizontal: false, vertical: true)
                 .background(
                     Group {
-                        if fixedExpandedHeight == nil && isExpanded {
+                        if fixedExpandedHeight == nil {
                             GeometryReader { proxy in
                                 Color.clear.preference(key: ExpandedHeightPreferenceKey.self, value: proxy.size.height)
                             }
@@ -526,21 +526,12 @@ struct UniversalCapsuleOverlayView<BaseContent: View, ExpandedContent: View>: Vi
                     height: isExpanded ? (fixedExpandedHeight ?? expandedHeight) : 0,
                     alignment: expandUpwards ? .bottom : .top
                 ))
-                .animation(isExpanded ? (enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)) : .easeOut(duration: 0.2), value: isExpanded)
                 .animation(enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25), value: expandedHeight)
                 .allowsHitTesting(isExpanded)
                 .onPreferenceChange(ExpandedHeightPreferenceKey.self) { height in
-                    guard isExpanded else { return }
                     DispatchQueue.main.async {
                         if fixedExpandedHeight == nil && height > 0 && abs(height - expandedHeight) > 2.0 {
-                            if isExpanded && expandedHeight > 0 {
-                                let anim: Animation = enableBouncyExpansion ? .spring(response: 0.4, dampingFraction: 0.6) : .easeInOut(duration: 0.25)
-                                withAnimation(anim) {
-                                    expandedHeight = height
-                                }
-                            } else {
-                                expandedHeight = height
-                            }
+                            expandedHeight = height
                             if isExpanded && !isPreview, let id = keepAliveId {
                                 let totalPillHeight = effectiveBaseHeight + height
                                 VisorProWindowManager.shared.setOverlayExpandedHeight(overlayId: id, pillHeight: totalPillHeight)

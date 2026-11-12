@@ -683,15 +683,15 @@ class VolumeManager {
         }
     }
 
-    func changeVolume(increase: Bool, completion: @escaping (Int, Bool) -> Void) {
+    func changeVolume(increase: Bool, step: Double? = nil, completion: @escaping (Int, Bool) -> Void) {
         DispatchQueue.main.async {
             if !self.isInitialized {
                 self.isInitialized = true
             }
             
             let defaultVolumeStep = UserDefaults.standard.object(forKey: "volumeStep") != nil ? UserDefaults.standard.double(forKey: "volumeStep") : 6.0
-            let step = defaultVolumeStep
-            var newVol = Double(self.cachedVolume) + (increase ? step : -step)
+            let effectiveStep = step ?? defaultVolumeStep
+            var newVol = Double(self.cachedVolume) + (increase ? effectiveStep : -effectiveStep)
             if newVol < 0 { newVol = 0 }
             if newVol > 100 { newVol = 100 }
             
@@ -732,12 +732,12 @@ class VolumeManager {
         }
     }
     
-    func increaseVolume(completion: @escaping (Int, Bool) -> Void) {
-        changeVolume(increase: true, completion: completion)
+    func increaseVolume(step: Double? = nil, completion: @escaping (Int, Bool) -> Void) {
+        changeVolume(increase: true, step: step, completion: completion)
     }
     
-    func decreaseVolume(completion: @escaping (Int, Bool) -> Void) {
-        changeVolume(increase: false, completion: completion)
+    func decreaseVolume(step: Double? = nil, completion: @escaping (Int, Bool) -> Void) {
+        changeVolume(increase: false, step: step, completion: completion)
     }
     
     func setVolume(to level: Int, completion: @escaping (Int, Bool) -> Void) {
@@ -1035,14 +1035,15 @@ class BrightnessManager {
         }
     }
     
-    func changeBrightness(increase: Bool, completion: @escaping (Int) -> Void) {
+    func changeBrightness(increase: Bool, step: Double? = nil, completion: @escaping (Int) -> Void) {
         queue.async {
             DispatchQueue.main.async {
                 let defaultBrightnessStep = UserDefaults.standard.object(forKey: "brightnessStep") != nil ? UserDefaults.standard.double(forKey: "brightnessStep") : 6.0
-                let step: Float = Float(defaultBrightnessStep) / 100.0
+                let effectiveStep = step ?? defaultBrightnessStep
+                let stepFloat: Float = Float(effectiveStep) / 100.0
                 
                 let current = self.actualHardwareBrightness
-                var newBrightness = increase ? current + step : current - step
+                var newBrightness = increase ? current + stepFloat : current - stepFloat
                 newBrightness = max(0.0, min(1.0, newBrightness))
                 
                 self.cachedBrightness = newBrightness
@@ -1053,12 +1054,12 @@ class BrightnessManager {
         }
     }
     
-    func increaseBrightness(completion: @escaping (Int) -> Void) {
-        changeBrightness(increase: true, completion: completion)
+    func increaseBrightness(step: Double? = nil, completion: @escaping (Int) -> Void) {
+        changeBrightness(increase: true, step: step, completion: completion)
     }
     
-    func decreaseBrightness(completion: @escaping (Int) -> Void) {
-        changeBrightness(increase: false, completion: completion)
+    func decreaseBrightness(step: Double? = nil, completion: @escaping (Int) -> Void) {
+        changeBrightness(increase: false, step: step, completion: completion)
     }
     
     func setBrightness(to level: Int, completion: @escaping (Int) -> Void) {

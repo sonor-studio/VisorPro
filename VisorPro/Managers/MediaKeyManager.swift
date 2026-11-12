@@ -429,6 +429,8 @@ class MediaKeyManager: ObservableObject {
         didSet { setupMediaKeyTap() }
     }
     @AppStorage("soundOnVolume") var soundOnVolume: String = "None"
+    @AppStorage("volumeModifierKey") var volumeModifierKey: String = "option"
+    @AppStorage("volumeModifierStep") var volumeModifierStep: Double = 20.0
     @Published var enableVolume: Bool = UserDefaults.standard.object(forKey: "enableVolume") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(enableVolume, forKey: "enableVolume")
@@ -438,6 +440,8 @@ class MediaKeyManager: ObservableObject {
     }
     
     @AppStorage("soundOnBrightness") var soundOnBrightness: String = "None"
+    @AppStorage("brightnessModifierKey") var brightnessModifierKey: String = "option"
+    @AppStorage("brightnessModifierStep") var brightnessModifierStep: Double = 20.0
     @Published var enableBrightness: Bool = UserDefaults.standard.object(forKey: "enableBrightness") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(enableBrightness, forKey: "enableBrightness")
@@ -447,7 +451,13 @@ class MediaKeyManager: ObservableObject {
     }
     
     @AppStorage("soundOnKeyboardBrightness") var soundOnKeyboardBrightness: String = "None"
-    @AppStorage("keyboardBrightnessModifier") var keyboardBrightnessModifier: String = "command"
+    @AppStorage("keyboardBrightnessModifier") var keyboardBrightnessModifier: String = "command" {
+        didSet {
+            sanitizeModifierKeys()
+        }
+    }
+    @AppStorage("keyboardBrightnessFastModifier") var keyboardBrightnessFastModifier: String = "option"
+    @AppStorage("keyboardBrightnessModifierStep") var keyboardBrightnessModifierStep: Double = 30.0
     @Published var enableKeyboardBrightness: Bool = UserDefaults.standard.object(forKey: "enableKeyboardBrightness") as? Bool ?? true {
         didSet {
             UserDefaults.standard.set(enableKeyboardBrightness, forKey: "enableKeyboardBrightness")
@@ -2029,11 +2039,14 @@ class MediaKeyManager: ObservableObject {
                     self.micHistory.append(appName)
                 }
                 if self.micBlocklist.contains(appName) {
+                    self.cancelOverlayHide(for: "mic")
                     self.showMicIndicator = false
                     return
                 }
             }
             
+            self.cancelOverlayHide(for: "mic")
+            self.micEventId = UUID()
             self.showMicIndicator = true
             self.overlayTriggerTimes["mic"] = Date()
             self.notifyOverlayStateChanged()
@@ -2041,17 +2054,8 @@ class MediaKeyManager: ObservableObject {
             if !micAllow { self.isMicExpanded = false }
             self.playNotificationSound(named: self.soundOnMicOn)
             
-            if !self.isMicTimerScheduledInstantly {
-                self.notificationTimers["mic"]?.invalidate()
-                self.micEventId = UUID()
-                if !self.isOverlayHoveredOrExpanded("mic") {
-                    self.notificationTimers["mic"] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                        guard let self = self, !self.isOverlayHoveredOrExpanded("mic") else { return }
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            self.showMicIndicator = false
-                        }
-                    }
-                }
+            if !self.isOverlayHoveredOrExpanded("mic") {
+                self.scheduleOverlayHide(for: "mic")
             }
             self.isMicTimerScheduledInstantly = false
         }
@@ -2071,11 +2075,14 @@ class MediaKeyManager: ObservableObject {
                     self.cameraHistory.append(appName)
                 }
                 if self.cameraBlocklist.contains(appName) {
+                    self.cancelOverlayHide(for: "camera")
                     self.showCameraIndicator = false
                     return
                 }
             }
             
+            self.cancelOverlayHide(for: "camera")
+            self.cameraEventId = UUID()
             self.showCameraIndicator = true
             self.overlayTriggerTimes["camera"] = Date()
             self.notifyOverlayStateChanged()
@@ -2083,16 +2090,8 @@ class MediaKeyManager: ObservableObject {
             if !camAllow { self.isCameraExpanded = false }
             self.playNotificationSound(named: self.soundOnCameraOn)
             
-            if !self.isCameraTimerScheduledInstantly {
-                self.cameraTimer?.invalidate()
-                if !self.isOverlayHoveredOrExpanded("camera") {
-                    self.cameraTimer = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                        guard let self = self, !self.isOverlayHoveredOrExpanded("camera") else { return }
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            self.showCameraIndicator = false
-                        }
-                    }
-                }
+            if !self.isOverlayHoveredOrExpanded("camera") {
+                self.scheduleOverlayHide(for: "camera")
             }
             self.isCameraTimerScheduledInstantly = false
         }
@@ -2196,7 +2195,7 @@ class MediaKeyManager: ObservableObject {
                     self.isFocusSwitched = false
                 }
             }
-            else if overlayId == "mic" { showMicIndicator = false; isMicExpanded = false }
+            else if overlayId == "mic" { showMicIndicator = false; isMicMuteReminder = false; isMicExpanded = false }
             else if overlayId == "camera" { showCameraIndicator = false; isCameraExpanded = false }
             else if overlayId == "location" { showLocationIndicator = false; isLocationActive = false; isLocationExpanded = false }
             else if overlayId == "wifi" { showWiFiIndicator = false }
@@ -2247,7 +2246,7 @@ class MediaKeyManager: ObservableObject {
                 self.isFocusSwitched = false
             }
         }
-        else if overlayId == "mic" { showMicIndicator = false; isMicExpanded = false }
+        else if overlayId == "mic" { showMicIndicator = false; isMicMuteReminder = false; isMicExpanded = false }
         else if overlayId == "camera" { showCameraIndicator = false; isCameraExpanded = false }
         else if overlayId == "location" { showLocationIndicator = false; isLocationActive = false; isLocationExpanded = false }
         else if overlayId == "wifi" { showWiFiIndicator = false }
@@ -2846,7 +2845,34 @@ class MediaKeyManager: ObservableObject {
     var pasteShortcut: Shortcut = Shortcut(character: "v", modifiers: .command)
     var cutShortcut: Shortcut = Shortcut(character: "x", modifiers: .command)
     
+    func sanitizeModifierKeys() {
+        let forbidden = keyboardBrightnessModifier.lowercased()
+        if volumeModifierKey.lowercased() == forbidden {
+            volumeModifierKey = "none"
+        }
+        if brightnessModifierKey.lowercased() == forbidden {
+            brightnessModifierKey = "none"
+        }
+        if keyboardBrightnessFastModifier.lowercased() == forbidden {
+            keyboardBrightnessFastModifier = "none"
+        }
+    }
+
+    func isModifierPressed(_ modifier: String, flags: CGEventFlags) -> Bool {
+        switch modifier.lowercased() {
+        case "option":
+            return flags.contains(.maskAlternate)
+        case "control":
+            return flags.contains(.maskControl)
+        case "command":
+            return flags.contains(.maskCommand)
+        default:
+            return false
+        }
+    }
+    
     init() {
+        sanitizeModifierKeys()
         if !accessoryBatteryHistory.isEmpty {
             var filtered = accessoryBatteryHistory.filter { !$0.hasSuffix(" (Lewa)") && !$0.hasSuffix(" (Prawa)") && !$0.hasSuffix(" (Etui)") }
             filtered = filtered.map { $0.replacingOccurrences(of: "’", with: "'") }
@@ -3046,6 +3072,21 @@ class MediaKeyManager: ObservableObject {
                     return true
                 }
             } else if event.type == .keyDown {
+                // Intercept standard function keys for media (F8 Play/Pause, F7 Prev, F9 Next)
+                if event.keyCode == 100 { // F8 Play/Pause
+                    if self.enableMediaNotification {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                            self?.mediaObserver?.toggleOrFetchCurrentState(triggerNotification: true)
+                        }
+                    }
+                } else if event.keyCode == 98 || event.keyCode == 101 { // F7 Prev, F9 Next
+                    if self.enableMediaNotification {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                            self?.mediaObserver?.fetchCurrentState(triggerNotification: true)
+                        }
+                    }
+                }
+                
                 // Handle active clipboard cycling
                 if self.isClipboardCycling {
                     if event.keyCode == 53 { // Escape cancels cycling
@@ -3303,9 +3344,6 @@ class MediaKeyManager: ObservableObject {
                 let isKeyDown = (keyState == 0x0A)
                 
                 let flags = event.flags
-                let isCommand = flags.contains(.maskCommand)
-                let isOption = flags.contains(.maskAlternate)
-                let isControl = flags.contains(.maskControl)
                 
                 let NX_KEYTYPE_SOUND_UP = 0
                 let NX_KEYTYPE_SOUND_DOWN = 1
@@ -3315,9 +3353,12 @@ class MediaKeyManager: ObservableObject {
                 let NX_KEYTYPE_PLAY = 16
                 let NX_KEYTYPE_NEXT = 17
                 let NX_KEYTYPE_PREVIOUS = 18
+                let NX_KEYTYPE_ILLUMINATION_UP = 21
+                let NX_KEYTYPE_ILLUMINATION_DOWN = 22
                 
                 let isVolumeKey = (keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE)
                 let isBrightnessKey = (keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN)
+                let isKeyboardIlluminationKey = (keyCode == NX_KEYTYPE_ILLUMINATION_UP || keyCode == NX_KEYTYPE_ILLUMINATION_DOWN)
                 
                 // --- Passthrough: Volume disabled ---
                 if isVolumeKey && !manager.enableVolume {
@@ -3326,41 +3367,54 @@ class MediaKeyManager: ObservableObject {
                 
                 // --- Passthrough: Brightness disabled ---
                 if isBrightnessKey && !manager.enableBrightness {
-                    // If keyboard brightness is enabled and modifier is pressed,
+                    // If keyboard brightness is enabled and activation modifier is pressed,
                     // we do not passthrough — let main handler handle keyboard brightness
-                    let hasModifier = (manager.keyboardBrightnessModifier == "command" && isCommand) ||
-                                      (manager.keyboardBrightnessModifier == "option" && isOption) ||
-                                      (manager.keyboardBrightnessModifier == "control" && isControl)
+                    let hasKbdActivation = manager.isModifierPressed(manager.keyboardBrightnessModifier, flags: flags)
                     
-                    if !(manager.enableKeyboardBrightness && hasModifier) {
+                    if !(manager.enableKeyboardBrightness && hasKbdActivation) {
                         return Unmanaged.passRetained(event)
                     }
                 }
                 
-                // --- Passthrough: Media keys (Play, Next, Previous) ---
+                // --- Passthrough: Keyboard illumination disabled ---
+                if isKeyboardIlluminationKey && !manager.enableKeyboardBrightness {
+                    return Unmanaged.passRetained(event)
+                }
+                
+                // --- Passthrough: Media keys (Play, Next, Previous, Fast, Rewind) ---
                 // Allow macOS to natively dispatch media keys to Google Chrome, Safari, VLC, QuickTime, Spotify, Music
-                if keyCode == NX_KEYTYPE_PLAY || keyCode == NX_KEYTYPE_NEXT || keyCode == NX_KEYTYPE_PREVIOUS {
+                let NX_KEYTYPE_FAST = 19
+                let NX_KEYTYPE_REWIND = 20
+                if keyCode == NX_KEYTYPE_PLAY || keyCode == NX_KEYTYPE_NEXT || keyCode == NX_KEYTYPE_PREVIOUS || keyCode == NX_KEYTYPE_FAST || keyCode == NX_KEYTYPE_REWIND {
                     if isKeyDown && manager.enableMediaNotification {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak manager] in
-                            manager?.mediaObserver?.fetchCurrentState(triggerNotification: true)
+                            if keyCode == NX_KEYTYPE_PLAY {
+                                manager?.mediaObserver?.toggleOrFetchCurrentState(triggerNotification: true)
+                            } else {
+                                manager?.mediaObserver?.fetchCurrentState(triggerNotification: true)
+                            }
                         }
                     }
                     return Unmanaged.passRetained(event)
                 }
                 
-                if keyCode == NX_KEYTYPE_SOUND_UP || keyCode == NX_KEYTYPE_SOUND_DOWN || keyCode == NX_KEYTYPE_MUTE || keyCode == NX_KEYTYPE_BRIGHTNESS_UP || keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN {
+                if isVolumeKey || isBrightnessKey || isKeyboardIlluminationKey {
                     if isKeyDown {
                         DispatchQueue.main.async {
                             if keyCode == NX_KEYTYPE_SOUND_UP {
                                 manager.lastAction = "Volume up"
-                                VolumeManager.shared.increaseVolume { vol, muted in
+                                let isFast = manager.isModifierPressed(manager.volumeModifierKey, flags: flags)
+                                let customStep = isFast ? manager.volumeModifierStep : nil
+                                VolumeManager.shared.increaseVolume(step: customStep) { vol, muted in
                                     manager.currentVolume = vol
                                     manager.isMuted = muted
                                     manager.triggerVolumeIndicator(playSound: true)
                                 }
                             } else if keyCode == NX_KEYTYPE_SOUND_DOWN {
                                 manager.lastAction = "Volume down"
-                                VolumeManager.shared.decreaseVolume { vol, muted in
+                                let isFast = manager.isModifierPressed(manager.volumeModifierKey, flags: flags)
+                                let customStep = isFast ? manager.volumeModifierStep : nil
+                                VolumeManager.shared.decreaseVolume(step: customStep) { vol, muted in
                                     manager.currentVolume = vol
                                     manager.isMuted = muted
                                     manager.triggerVolumeIndicator(playSound: true)
@@ -3373,40 +3427,60 @@ class MediaKeyManager: ObservableObject {
                                     manager.triggerVolumeIndicator(playSound: true)
                                 }
                             } else if keyCode == NX_KEYTYPE_BRIGHTNESS_UP {
-                                let hasModifier = (manager.keyboardBrightnessModifier == "command" && isCommand) ||
-                                                  (manager.keyboardBrightnessModifier == "option" && isOption) ||
-                                                  (manager.keyboardBrightnessModifier == "control" && isControl)
+                                let hasKbdActivation = manager.isModifierPressed(manager.keyboardBrightnessModifier, flags: flags)
                                                   
-                                if manager.enableKeyboardBrightness && hasModifier {
+                                if manager.enableKeyboardBrightness && hasKbdActivation {
                                     manager.lastAction = "Keyboard brightness up"
-                                    KeyboardBrightnessManager.shared.increaseBrightness { newBright in
+                                    let isFast = manager.isModifierPressed(manager.keyboardBrightnessFastModifier, flags: flags)
+                                    let customStep = isFast ? manager.keyboardBrightnessModifierStep : nil
+                                    KeyboardBrightnessManager.shared.increaseBrightness(step: customStep) { newBright in
                                         manager.currentKeyboardBrightness = newBright
                                         manager.triggerKeyboardBrightnessIndicator(playSound: true)
                                     }
                                 } else {
                                     manager.lastAction = "Brightness up"
-                                    BrightnessManager.shared.increaseBrightness { newBright in
+                                    let isFast = manager.isModifierPressed(manager.brightnessModifierKey, flags: flags)
+                                    let customStep = isFast ? manager.brightnessModifierStep : nil
+                                    BrightnessManager.shared.increaseBrightness(step: customStep) { newBright in
                                         manager.currentBrightness = newBright
                                         manager.triggerBrightnessIndicator(playSound: true)
                                     }
                                 }
                             } else if keyCode == NX_KEYTYPE_BRIGHTNESS_DOWN {
-                                let hasModifier = (manager.keyboardBrightnessModifier == "command" && isCommand) ||
-                                                  (manager.keyboardBrightnessModifier == "option" && isOption) ||
-                                                  (manager.keyboardBrightnessModifier == "control" && isControl)
+                                let hasKbdActivation = manager.isModifierPressed(manager.keyboardBrightnessModifier, flags: flags)
                                                   
-                                if manager.enableKeyboardBrightness && hasModifier {
+                                if manager.enableKeyboardBrightness && hasKbdActivation {
                                     manager.lastAction = "Keyboard brightness down"
-                                    KeyboardBrightnessManager.shared.decreaseBrightness { newBright in
+                                    let isFast = manager.isModifierPressed(manager.keyboardBrightnessFastModifier, flags: flags)
+                                    let customStep = isFast ? manager.keyboardBrightnessModifierStep : nil
+                                    KeyboardBrightnessManager.shared.decreaseBrightness(step: customStep) { newBright in
                                         manager.currentKeyboardBrightness = newBright
                                         manager.triggerKeyboardBrightnessIndicator(playSound: true)
                                     }
                                 } else {
                                     manager.lastAction = "Brightness down"
-                                    BrightnessManager.shared.decreaseBrightness { newBright in
+                                    let isFast = manager.isModifierPressed(manager.brightnessModifierKey, flags: flags)
+                                    let customStep = isFast ? manager.brightnessModifierStep : nil
+                                    BrightnessManager.shared.decreaseBrightness(step: customStep) { newBright in
                                         manager.currentBrightness = newBright
                                         manager.triggerBrightnessIndicator(playSound: true)
                                     }
+                                }
+                            } else if keyCode == NX_KEYTYPE_ILLUMINATION_UP {
+                                manager.lastAction = "Keyboard brightness up"
+                                let isFast = manager.isModifierPressed(manager.keyboardBrightnessFastModifier, flags: flags)
+                                let customStep = isFast ? manager.keyboardBrightnessModifierStep : nil
+                                KeyboardBrightnessManager.shared.increaseBrightness(step: customStep) { newBright in
+                                    manager.currentKeyboardBrightness = newBright
+                                    manager.triggerKeyboardBrightnessIndicator(playSound: true)
+                                }
+                            } else if keyCode == NX_KEYTYPE_ILLUMINATION_DOWN {
+                                manager.lastAction = "Keyboard brightness down"
+                                let isFast = manager.isModifierPressed(manager.keyboardBrightnessFastModifier, flags: flags)
+                                let customStep = isFast ? manager.keyboardBrightnessModifierStep : nil
+                                KeyboardBrightnessManager.shared.decreaseBrightness(step: customStep) { newBright in
+                                    manager.currentKeyboardBrightness = newBright
+                                    manager.triggerKeyboardBrightnessIndicator(playSound: true)
                                 }
                             }
                         }
@@ -3435,7 +3509,6 @@ class MediaKeyManager: ObservableObject {
                 CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
-        } else {
         }
     }
 

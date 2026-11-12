@@ -8,6 +8,8 @@ struct VolumeSettingsView: View {
     @AppStorage("volumeAllowExpansion") private var volumeAllowExpansion: Bool = true
     @AppStorage("volumeAllowInteractivity") private var volumeAllowInteractivity: Bool = true
     @AppStorage("volumeStep") private var volumeStep: Double = 6.0
+    @AppStorage("volumeModifierKey") private var volumeModifierKey: String = "option"
+    @AppStorage("volumeModifierStep") private var volumeModifierStep: Double = 20.0
     @State private var showAppleEventsPermissionAlert: Bool = false
     
     var body: some View {
@@ -122,6 +124,39 @@ struct VolumeSettingsView: View {
                                         .frame(width: 50, alignment: .trailing)
                                 }
                             }
+                            
+                            Divider().padding(.leading, 40)
+                            
+                            CustomSettingsRow(icon: "keyboard", iconColor: .blue, title: "Modifier Key", subtitle: "Hold this key while pressing volume keys for alternative step size") {
+                                Picker("", selection: $volumeModifierKey) {
+                                    Text("None").tag("none")
+                                    if mediaKeyManager.keyboardBrightnessModifier != "option" {
+                                        Text("Option ⌥").tag("option")
+                                    }
+                                    if mediaKeyManager.keyboardBrightnessModifier != "control" {
+                                        Text("Control ⌃").tag("control")
+                                    }
+                                    if mediaKeyManager.keyboardBrightnessModifier != "command" {
+                                        Text("Command ⌘").tag("command")
+                                    }
+                                }
+                                .frame(width: 140)
+                            }
+                            
+                            if volumeModifierKey != "none" {
+                                Divider().padding(.leading, 40)
+                                
+                                CustomSettingsRow(icon: "plus.forwardslash.minus", iconColor: .blue, title: "Modifier Step Size", subtitle: "Percentage to change when pressing volume keys with modifier") {
+                                    HStack {
+                                        Slider(value: $volumeModifierStep, in: 1...50, step: 1)
+                                            .labelsHidden()
+                                            .frame(width: 150)
+                                        
+                                        Text(String(format: "%.1f%%", volumeModifierStep))
+                                            .frame(width: 50, alignment: .trailing)
+                                    }
+                                }
+                            }
                         }
                         .toggleStyle(.switch)
                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -158,6 +193,16 @@ struct VolumeSettingsView: View {
         .navigationTitle("Volume")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
+        .onAppear {
+            if volumeModifierKey.lowercased() == mediaKeyManager.keyboardBrightnessModifier.lowercased() {
+                volumeModifierKey = "none"
+            }
+        }
+        .onChange(of: mediaKeyManager.keyboardBrightnessModifier) { _, newMod in
+            if volumeModifierKey.lowercased() == newMod.lowercased() {
+                volumeModifierKey = "none"
+            }
+        }
         .alert(isPresented: $showAppleEventsPermissionAlert) {
             Alert(
                 title: Text("Apple Events Access Required"),

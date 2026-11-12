@@ -125,8 +125,8 @@ final class NetworkSpeedManager: NSObject, URLSessionDataDelegate {
     }
     
     private func measurePing(session: URLSession) async throws {
-        // Zawsze próbujemy natywnego pinga ICMP by pominąć narzuty na zestawienie połączeń HTTPS (np TLS handshake), 
-        // które w URLSession wypaczają pomiar pingu do wielkości >100ms.
+        // Always attempt native ICMP ping first to bypass HTTPS connection setup overhead (e.g. TLS handshake),
+        // which in URLSession distorts ping measurements to >100ms.
         let baseRtt: Double? = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let process = Process()
@@ -150,7 +150,7 @@ final class NetworkSpeedManager: NSObject, URLSessionDataDelegate {
                         }
                     }
                 } catch {
-                    // Ignorujemy błędy i przechodzimy do fallbacku.
+                    // Ignore errors and proceed to fallback.
                 }
                 continuation.resume(returning: nil)
             }
@@ -161,7 +161,7 @@ final class NetworkSpeedManager: NSObject, URLSessionDataDelegate {
             return
         }
         
-        // Fallback HTTP gdy ICMP jest zablokowane na sieci (częste w korporacjach / macOS app sandbox)
+        // HTTP fallback when ICMP is blocked on the network (common in corporate environments / macOS app sandbox)
         _ = try? await session.data(from: URL(string: "https://speed.cloudflare.com/__down?bytes=0")!)
         try? await Task.sleep(nanoseconds: 50_000_000)
         let fallbackStart = CACurrentMediaTime()
