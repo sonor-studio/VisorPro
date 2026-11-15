@@ -54,6 +54,13 @@ final class MenuBarManager: NSObject, NSMenuDelegate, NSMenuItemValidation {
     
     // MARK: - NSMenuDelegate
     
+    func menuWillOpen(_ menu: NSMenu) {
+        if NSApp.activationPolicy() != .accessory {
+            NSApp.setActivationPolicy(.accessory)
+        }
+        rebuildMenu()
+    }
+    
     func menuNeedsUpdate(_ menu: NSMenu) {
         rebuildMenu()
     }

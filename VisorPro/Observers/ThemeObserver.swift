@@ -20,14 +20,24 @@ class ThemeObserver {
     }
     
     @objc private func themeChanged() {
+        let isDark: Bool
+        if let style = UserDefaults.standard.string(forKey: "AppleInterfaceStyle"), style == "Dark" {
+            isDark = true
+        } else {
+            let appearance = NSApp.effectiveAppearance
+            isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        }
+        
+        DispatchQueue.main.async {
+            OverlayStateRelay.shared.isDarkMode = isDark
+        }
+        
         if ThemeObserver.ignoreNextChange {
             ThemeObserver.ignoreNextChange = false
             return
         }
         
         DispatchQueue.main.async { [weak self] in
-            let appearance = NSApp.effectiveAppearance
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             self?.manager?.triggerThemeIndicator(isDark: isDark)
         }
     }

@@ -10,7 +10,6 @@ struct VolumeSettingsView: View {
     @AppStorage("volumeStep") private var volumeStep: Double = 6.0
     @AppStorage("volumeModifierKey") private var volumeModifierKey: String = "option"
     @AppStorage("volumeModifierStep") private var volumeModifierStep: Double = 20.0
-    @State private var showAppleEventsPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
@@ -202,16 +201,6 @@ struct VolumeSettingsView: View {
             if volumeModifierKey.lowercased() == newMod.lowercased() {
                 volumeModifierKey = "none"
             }
-        }
-        .alert(isPresented: $showAppleEventsPermissionAlert) {
-            Alert(
-                title: Text("Apple Events Access Required"),
-                message: Text("To control the system volume, VisorPro needs Apple Events (Automation) access. Please enable it in System Settings > Privacy & Security > Automation."),
-                primaryButton: .default(Text("Open Settings")) {
-                    PermissionHelper.openPrivacySettings(for: "AppleEvents")
-                },
-                secondaryButton: .cancel()
-            )
         }
     }
 }

@@ -3,20 +3,43 @@ import SwiftUI
 struct ThemeSettingsView: View {
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @ObservedObject private var permissionManager = PermissionManager.shared
     @AppStorage("themeOverlayPosition") private var themeOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("themeAllowInteractivity") private var themeAllowInteractivity: Bool = true
-    @State private var showAppleEventsPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                VStack(alignment: .leading, spacing: 12) {
+                if savedLicenseKey.isEmpty {
+                    VStack(alignment: .center) {
+                        Text("Preview")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        ZStack {
+                            PreviewBackgroundView()
+                            
+                            HStack(spacing: 20) {
+                                ThemeOverlayView(isPreview: true, previewIsDark: false).applyTheme(mediaKeyManager.overlayTheme)
+                                ThemeOverlayView(isPreview: true, previewIsDark: true).applyTheme(mediaKeyManager.overlayTheme)
+                            }
+                            .scaleEffect(0.85)
+                        }
+                        .frame(minHeight: 180)
+                        .padding(.horizontal)
+                    }
+                    .padding(.top, 20)
+                    
+                    Divider()
+                    PremiumLockedView()
+                } else {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Theme Module")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.primary)
                             .frame(maxWidth: .infinity, alignment: .center)
-                    
+                        
                         Text("Module Configuration")
                             .font(.headline)
                             .foregroundColor(.secondary)
@@ -36,16 +59,16 @@ struct ThemeSettingsView: View {
                         )
                     }
                     .padding(.horizontal)
-                
+                    
                     if mediaKeyManager.enableTheme {
                         VStack(alignment: .center) {
                             Text("Preview")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
-                        
+                            
                             ZStack {
                                 PreviewBackgroundView()
-                            
+                                
                                 HStack(spacing: 20) {
                                     ThemeOverlayView(isPreview: true, previewIsDark: false).applyTheme(mediaKeyManager.overlayTheme)
                                     ThemeOverlayView(isPreview: true, previewIsDark: true).applyTheme(mediaKeyManager.overlayTheme)
@@ -55,29 +78,39 @@ struct ThemeSettingsView: View {
                             .padding(.horizontal)
                         }
                         .padding(.top, 20)
-                    
+                        
                         Divider()
-                    
+                        
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Overlay Triggers")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
                                 .padding(.bottom, 4)
                                 .padding(.leading, 4)
-                        
+                            
                             VStack(spacing: 0) {
                                 CustomSettingsRow(icon: "moon.fill", iconColor: .purple, title: "Dark Mode", subtitle: "Show overlay when switching to Dark Mode") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnThemeDark { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnThemeDark) 
- if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnThemeDark) } }
-    Toggle("", isOn: $mediaKeyManager.notifyOnThemeDark).labelsHidden() }
-                           
+                                    HStack(spacing: 8) {
+                                        if mediaKeyManager.notifyOnThemeDark {
+                                            SoundPickerControl(selectedSound: $mediaKeyManager.soundOnThemeDark)
+                                            if mediaKeyManager.overlayColorMode == "custom" {
+                                                ColorPickerControl(selectedColor: $mediaKeyManager.colorOnThemeDark)
+                                            }
+                                        }
+                                        Toggle("", isOn: $mediaKeyManager.notifyOnThemeDark).labelsHidden()
+                                    }
                                 }
                                 Divider().padding(.leading, 48)
                                 CustomSettingsRow(icon: "sun.max.fill", iconColor: .purple, title: "Light Mode", subtitle: "Show overlay when switching to Light Mode") {
-                                    HStack(spacing: 8) { if mediaKeyManager.notifyOnThemeLight { SoundPickerControl(selectedSound: $mediaKeyManager.soundOnThemeLight) 
- if mediaKeyManager.overlayColorMode == "custom" { ColorPickerControl(selectedColor: $mediaKeyManager.colorOnThemeLight) } }
-    Toggle("", isOn: $mediaKeyManager.notifyOnThemeLight).labelsHidden() }
-                           
+                                    HStack(spacing: 8) {
+                                        if mediaKeyManager.notifyOnThemeLight {
+                                            SoundPickerControl(selectedSound: $mediaKeyManager.soundOnThemeLight)
+                                            if mediaKeyManager.overlayColorMode == "custom" {
+                                                ColorPickerControl(selectedColor: $mediaKeyManager.colorOnThemeLight)
+                                            }
+                                        }
+                                        Toggle("", isOn: $mediaKeyManager.notifyOnThemeLight).labelsHidden()
+                                    }
                                 }
                             }
                             .toggleStyle(.switch)
@@ -87,17 +120,40 @@ struct ThemeSettingsView: View {
                                 RoundedRectangle(cornerRadius: 10)
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
-                        
+                            
                             Text("Behavior")
                                 .font(.headline)
                                 .foregroundColor(.secondary)
                                 .padding(.top, 10)
                                 .padding(.bottom, 4)
                                 .padding(.leading, 4)
-                        
+                            
                             VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "hand.tap.fill", iconColor: .purple, title: "Allow Interactivity", subtitle: "Allow tapping to toggle system theme") {
-                                    Toggle("", isOn: $themeAllowInteractivity).labelsHidden()
+                                if permissionManager.isThemeAutomationAuthorized {
+                                    CustomSettingsRow(icon: "hand.tap.fill", iconColor: .purple, title: "Allow Interactivity", subtitle: "Allow tapping to toggle system theme") {
+                                        Toggle("", isOn: $themeAllowInteractivity).labelsHidden()
+                                    }
+                                } else {
+                                    CustomSettingsRow(icon: "hand.tap.fill", iconColor: .gray, title: "Allow Interactivity", subtitle: "Allow tapping to toggle system theme (Automation permission required)") {
+                                        Toggle("", isOn: .constant(false))
+                                            .labelsHidden()
+                                            .disabled(true)
+                                    }
+                                    
+                                    Divider().padding(.leading, 48)
+                                    
+                                    InlinePermissionCard(
+                                        permissionType: "AppleEvents",
+                                        icon: "lock.fill",
+                                        color: .purple,
+                                        title: "Automation Permission Required",
+                                        description: "Permission required to toggle Dark Mode via System Events.",
+                                        isNotDetermined: permissionManager.isThemeAutomationNotDetermined,
+                                        isDenied: permissionManager.isThemeAutomationDenied,
+                                        onGrantRequested: {
+                                            permissionManager.requestThemeAutomationPermission()
+                                        }
+                                    )
                                 }
                             }
                             .toggleStyle(.switch)
@@ -107,24 +163,24 @@ struct ThemeSettingsView: View {
                                 RoundedRectangle(cornerRadius: 10)
                                     .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
                             )
-                        
+                            
                             Group {
                                 if overlayPositionMode == "custom" && mediaKeyManager.supportsOverlayPosition {
-                                Text("Overlay Position")
-                                    .font(.headline)
-                                    .foregroundColor(.secondary)
-                                    .padding(.top, 10)
-                            
-                                PositionPickerGroup(selection: $themeOverlayPosition)
+                                    Text("Overlay Position")
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                        .padding(.top, 10)
+                                    
+                                    PositionPickerGroup(selection: $themeOverlayPosition)
                                 }
                             }
+                        }
+                        .padding(.horizontal)
+                        
+                        Spacer()
+                    } else {
+                        DisabledModuleView(icon: "power", title: "Theme Module is Disabled", description: "Turn on the module to configure theme overlays.")
                     }
-                    .padding(.horizontal)
-                
-                    Spacer()
-            
-                } else {
-                    DisabledModuleView(icon: "power", title: "Theme Module is Disabled", description: "Turn on the module to configure theme overlays.")
                 }
             }
             .padding(.vertical, 20)
@@ -132,15 +188,10 @@ struct ThemeSettingsView: View {
         .navigationTitle("Theme")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
-        .alert(isPresented: $showAppleEventsPermissionAlert) {
-            Alert(
-                title: Text("Apple Events Access Required"),
-                message: Text("To monitor the system theme, VisorPro needs Apple Events (Automation) access. Please enable it in System Settings > Privacy & Security > Automation."),
-                primaryButton: .default(Text("Open Settings")) {
-                    PermissionHelper.openPrivacySettings(for: "AppleEvents")
-                },
-                secondaryButton: .cancel()
-            )
+        .onAppear {
+            PermissionHelper.ensureSystemEventsRunning {
+                permissionManager.refresh()
+            }
         }
     }
 }

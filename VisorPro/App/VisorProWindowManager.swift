@@ -822,14 +822,27 @@ class VisorProWindowManager: ObservableObject {
                 if isAirPodsIOSCard {
                     originY = screen.visibleFrame.origin.y + 20.0 - pad
                 } else if isSystemStyle {
-                    let menuBarH = max(24.0, screen.frame.maxY - screen.visibleFrame.maxY)
-                    let pillTop = screen.frame.maxY - menuBarH - 11.0
-                    originY = pillTop - (currentHeight - pad)
+                    let menuBarH = isCurrentFullScreen ? 0.0 : max(24.0, screen.frame.maxY - screen.visibleFrame.maxY)
+                    let pillTop = screen.frame.maxY - menuBarH - (isCurrentFullScreen ? 18.0 : 11.0)
+                    let calculatedY = pillTop - (currentHeight - pad)
+                    if isCurrentFullScreen {
+                        let maxAllowedOriginY = screen.frame.maxY - currentHeight - 12.0
+                        originY = min(calculatedY, maxAllowedOriginY)
+                    } else {
+                        originY = calculatedY
+                    }
                 } else if isClassicStyle {
                     // Apple OS X classic HUD is rigidly positioned: centered horizontally, bottom edge 140 pt from display bottom
                     originY = screen.frame.origin.y + 140.0 - pad
                 } else if overlay.position.hasPrefix("top") {
-                    originY = (yCenter + (targetHeight / 2) + pad) - currentHeight
+                    let calculatedY = (yCenter + (targetHeight / 2) + pad) - currentHeight
+                    // In full-screen mode on macOS, leave at least 12pt buffer below screen top so mouse hits macOS menu bar trigger
+                    if isCurrentFullScreen {
+                        let maxAllowedOriginY = screen.frame.maxY - currentHeight - 12.0
+                        originY = min(calculatedY, maxAllowedOriginY)
+                    } else {
+                        originY = calculatedY
+                    }
                 } else if overlay.position.hasPrefix("bottom") {
                     originY = yCenter - (targetHeight / 2) - pad
                 } else {
@@ -865,7 +878,7 @@ class VisorProWindowManager: ObservableObject {
                         panel.setFrame(NSRect(origin: startOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
                         let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
-                        if isSys {
+                        if isSys && !isCurrentFullScreen {
                             panel.makeKey()
                         }
                         
@@ -886,7 +899,7 @@ class VisorProWindowManager: ObservableObject {
                         panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
                         let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
-                        if isSys {
+                        if isSys && !isCurrentFullScreen {
                             panel.makeKey()
                         }
                         
@@ -925,7 +938,7 @@ class VisorProWindowManager: ObservableObject {
                     
                     if let overlayPanel = panel as? VisorProOverlayPanel {
                         let isSys = overlayPanel.isSystemStyle
-                        if isSys {
+                        if isSys && !isCurrentFullScreen {
                             if NSApp.keyWindow !== overlayPanel {
                                 overlayPanel.makeKey()
                             }
@@ -1285,31 +1298,37 @@ class VisorProOverlayPanel: NSPanel {
         return (MediaKeyManager.shared.effectiveOverlayStyle == "system")
     }
     
-    override var canBecomeKey: Bool { return isSystemStyle }
+    private var isFullScreenSpace: Bool {
+        guard let screen = self.screen else { return false }
+        let menuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
+        return menuBarHeight < 4.0
+    }
+    
+    override var canBecomeKey: Bool { return isSystemStyle && !isFullScreenSpace }
     override var canBecomeMain: Bool { return false }
     
     override var isKeyWindow: Bool {
-        guard isSystemStyle, !isBeingClosed, isVisible, contentView != nil else {
+        guard isSystemStyle, !isFullScreenSpace, !isBeingClosed, isVisible, contentView != nil else {
             return super.isKeyWindow
         }
         return true
     }
     
     override var isMainWindow: Bool {
-        guard isSystemStyle, !isBeingClosed, isVisible, contentView != nil else {
+        guard isSystemStyle, !isFullScreenSpace, !isBeingClosed, isVisible, contentView != nil else {
             return super.isMainWindow
         }
         return true
     }
     
     override func resignKey() {
-        guard isSystemStyle, !isBeingClosed, isVisible, contentView != nil else {
+        guard isSystemStyle, !isFullScreenSpace, !isBeingClosed, isVisible, contentView != nil else {
             super.resignKey()
             return
         }
         // Seamlessly maintain active key HUD appearance without stealing focus from clicked apps (system style only)
         DispatchQueue.main.async { [weak self] in
-            guard let self = self, self.isSystemStyle, !self.isBeingClosed, self.isVisible, self.contentView != nil else { return }
+            guard let self = self, self.isSystemStyle, !self.isFullScreenSpace, !self.isBeingClosed, self.isVisible, self.contentView != nil else { return }
             self.makeKey()
         }
     }
@@ -1540,6 +1559,7 @@ struct SingleOverlayContainer: View {
     @State private var appearAngle: Double
     @State private var appearOpacity: Double
     @State private var appearCornerRadius: CGFloat
+    @State private var isDropletClipping: Bool
     @AppStorage("overlayAnimationType") private var animType: String = "fluid_bounce"
     
     private var targetCornerRadius: CGFloat {
@@ -1567,11 +1587,12 @@ struct SingleOverlayContainer: View {
             _appearAngle = State(initialValue: 0.0)
             _appearOpacity = State(initialValue: 1.0)
             _appearCornerRadius = State(initialValue: 36.0)
+            _isDropletClipping = State(initialValue: false)
             return
         }
         
         let anim = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "fluid_bounce"
-        let isTop = overlay.position.hasPrefix("top")
+        let isTop = overlay.position.hasPrefix("top") || isSys
         
         switch anim {
         case "system":
@@ -1582,6 +1603,7 @@ struct SingleOverlayContainer: View {
             _appearAngle = State(initialValue: 0.0)
             _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
+            _isDropletClipping = State(initialValue: false)
         case "fluid_drop":
             _appearScaleX = State(initialValue: 0.0846)
             _appearScaleY = State(initialValue: 0.4231)
@@ -1590,6 +1612,7 @@ struct SingleOverlayContainer: View {
             _appearAngle = State(initialValue: 0.0)
             _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
+            _isDropletClipping = State(initialValue: true)
         case "scale":
             _appearScaleX = State(initialValue: 0.6)
             _appearScaleY = State(initialValue: 0.6)
@@ -1598,6 +1621,7 @@ struct SingleOverlayContainer: View {
             _appearAngle = State(initialValue: 0.0)
             _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
+            _isDropletClipping = State(initialValue: false)
         case "fluid_bounce":
             _appearScaleX = State(initialValue: 0.3)
             _appearScaleY = State(initialValue: 0.3)
@@ -1606,6 +1630,7 @@ struct SingleOverlayContainer: View {
             _appearAngle = State(initialValue: 0.0)
             _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
+            _isDropletClipping = State(initialValue: false)
         case "ripple":
             _appearScaleX = State(initialValue: 0.08)
             _appearScaleY = State(initialValue: 1.0)
@@ -1614,6 +1639,7 @@ struct SingleOverlayContainer: View {
             _appearAngle = State(initialValue: 0.0)
             _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
+            _isDropletClipping = State(initialValue: false)
         case "flip":
             _appearScaleX = State(initialValue: 1.0)
             _appearScaleY = State(initialValue: 1.0)
@@ -1622,6 +1648,7 @@ struct SingleOverlayContainer: View {
             _appearAngle = State(initialValue: isTop ? -75.0 : 75.0)
             _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
+            _isDropletClipping = State(initialValue: false)
         case "unfold":
             _appearScaleX = State(initialValue: 1.0)
             _appearScaleY = State(initialValue: 0.03)
@@ -1630,6 +1657,7 @@ struct SingleOverlayContainer: View {
             _appearAngle = State(initialValue: 0.0)
             _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
+            _isDropletClipping = State(initialValue: false)
         case "pop":
             _appearScaleX = State(initialValue: 0.75)
             _appearScaleY = State(initialValue: 0.35)
@@ -1638,6 +1666,7 @@ struct SingleOverlayContainer: View {
             _appearAngle = State(initialValue: 0.0)
             _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
+            _isDropletClipping = State(initialValue: false)
         default:
             _appearScaleX = State(initialValue: 1.0)
             _appearScaleY = State(initialValue: 1.0)
@@ -1646,6 +1675,7 @@ struct SingleOverlayContainer: View {
             _appearAngle = State(initialValue: 0.0)
             _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
+            _isDropletClipping = State(initialValue: false)
         }
     }
     
@@ -1665,168 +1695,38 @@ struct SingleOverlayContainer: View {
                 .threeFingerClickToDismiss(overlayId: overlay.id)
                 .activeMaterialAppearanceIfAvailable()
                 .environment(\.controlActiveState, .key)
-                .modifier(OptionalRotation3DModifier(angle: appearAngle, anchor: anchor))
-                .scaleEffect(x: appearScaleX, y: appearScaleY)
-                .modifier(OptionalBlurModifier(radius: appearBlur))
+                .modifier(DropletClippingModifier(isDropletClipping: isDropletClipping, cornerRadius: appearCornerRadius))
+                .rotation3DEffect(
+                    .degrees(appearAngle),
+                    axis: (x: 1, y: 0, z: 0),
+                    anchor: anchor,
+                    perspective: 0.45
+                )
+                .scaleEffect(x: appearScaleX, y: appearScaleY, anchor: anchor)
+                .blur(radius: appearBlur)
                 .offset(y: appearOffset)
                 .opacity(appearOpacity)
         }
         .padding(VisorProWindowManager.panelPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: isTop ? .top : (isBottom ? .bottom : .center))
         .onAppear {
-            let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
-            let settings = MediaKeyManager.shared.airPodsSettings()
-            if overlay.type == .airpodsGroupBattery && isSys && settings.caseOpenStyle == "iosCard" {
-                return
-            }
-            
-            DispatchQueue.main.async {
-                switch animType {
-                case "system":
-                    withAnimation(.easeOut(duration: 0.22)) {
-                        appearScaleX = 1.0
-                        appearScaleY = 1.0
-                        appearOpacity = 1.0
-                        appearBlur = 0.0
-                        appearOffset = 0.0
-                    }
-                case "scale":
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        appearOpacity = 1.0
-                    }
-                    withAnimation(.interpolatingSpring(stiffness: 300, damping: 20)) {
-                        appearScaleX = 1.0
-                        appearScaleY = 1.0
-                        appearBlur = 0.0
-                    }
-                case "fluid_bounce":
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.62)) {
-                        appearScaleX = 1.0
-                        appearScaleY = 1.0
-                        appearOffset = 0.0
-                        appearOpacity = 1.0
-                    }
-                case "fluid_drop":
-                    withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
-                        appearOffset = 0.0
-                        appearOpacity = 1.0
-                        appearScaleX = 1.0
-                        appearScaleY = 1.0
-                        appearBlur = 0.0
-                        appearCornerRadius = targetCornerRadius
-                    }
-                case "ripple":
-                    withAnimation(.easeOut(duration: 0.12)) {
-                        appearOpacity = 1.0
-                    }
-                    withAnimation(.spring(response: 0.42, dampingFraction: 0.60)) {
-                        appearScaleX = 1.0
-                        appearBlur = 0.0
-                    }
-                case "flip":
-                    withAnimation(.easeOut(duration: 0.10)) {
-                        appearOpacity = 1.0
-                    }
-                    withAnimation(.spring(response: 0.45, dampingFraction: 0.65)) {
-                        appearAngle = 0.0
-                        appearBlur = 0.0
-                    }
-                case "unfold":
-                    withAnimation(.easeOut(duration: 0.10)) {
-                        appearOpacity = 1.0
-                    }
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.62)) {
-                        appearScaleY = 1.0
-                        appearBlur = 0.0
-                    }
-                case "pop":
-                    withAnimation(.easeOut(duration: 0.10)) {
-                        appearOpacity = 1.0
-                    }
-                    withAnimation(.spring(response: 0.40, dampingFraction: 0.55)) {
-                        appearScaleX = 1.0
-                        appearScaleY = 1.0
-                        appearOffset = 0.0
-                        appearBlur = 0.0
-                    }
-                default:
-                    withAnimation(.easeOut(duration: 0.20)) {
-                        appearOffset = 0.0
-                        appearOpacity = 1.0
-                    }
+            runEntryAnimation()
+        }
+        .onChange(of: stateRelay.overlayTriggerTimes[overlay.id]) { _, newTrigger in
+            if newTrigger != nil && !stateRelay.closingPanels.contains(overlay.id) {
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.70)) {
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
+                    appearOpacity = 1.0
+                    appearBlur = 0.0
+                    appearAngle = 0.0
+                    appearOffset = 0.0
                 }
             }
         }
         .onChange(of: stateRelay.closingPanels.contains(overlay.id)) { oldValue, isClosing in
-            let isTop = overlay.position.hasPrefix("top")
             if isClosing {
-                if animType == "system" {
-                    withAnimation(.easeIn(duration: 0.16)) {
-                        appearScaleX = 0.92
-                        appearScaleY = 0.92
-                        appearBlur = 0.0
-                        appearOffset = 0.0
-                        appearOpacity = 0.0
-                    }
-                } else if animType == "scale" {
-                    withAnimation(.easeIn(duration: 0.20)) {
-                        appearScaleX = 0.6
-                        appearScaleY = 0.6
-                        appearBlur = 15.0
-                        appearOpacity = 0.0
-                    }
-                } else if animType == "fluid_bounce" {
-                    withAnimation(.easeIn(duration: 0.20)) {
-                        appearScaleX = 0.3
-                        appearScaleY = 0.3
-                        appearOffset = isTop ? -50.0 : 50.0
-                        appearBlur = 0.0
-                        appearOpacity = 0.0
-                    }
-                } else if animType == "fluid_drop" {
-                    withAnimation(.spring(response: 0.26, dampingFraction: 0.75)) {
-                        appearScaleX = 0.0846
-                        appearScaleY = 0.4231
-                        appearBlur = 5.0
-                        appearCornerRadius = 26.0
-                        appearOffset = isTop ? -50.0 : 50.0
-                        appearOpacity = 0.0
-                    }
-                } else if animType == "ripple" {
-                    withAnimation(.easeIn(duration: 0.22)) {
-                        appearScaleX = 0.08
-                        appearScaleY = 1.0
-                        appearBlur = 8.0
-                        appearOpacity = 0.0
-                    }
-                } else if animType == "flip" {
-                    withAnimation(.easeIn(duration: 0.22)) {
-                        appearAngle = isTop ? -75.0 : 75.0
-                        appearBlur = 4.0
-                        appearOpacity = 0.0
-                    }
-                } else if animType == "unfold" {
-                    withAnimation(.easeIn(duration: 0.20)) {
-                        appearScaleX = 1.0
-                        appearScaleY = 0.03
-                        appearBlur = 6.0
-                        appearOpacity = 0.0
-                    }
-                } else if animType == "pop" {
-                    withAnimation(.easeIn(duration: 0.20)) {
-                        appearScaleX = 0.75
-                        appearScaleY = 0.35
-                        appearOffset = isTop ? -35.0 : 35.0
-                        appearBlur = 4.0
-                        appearOpacity = 0.0
-                    }
-                } else {
-                    // Default Fade (Slide out to top with fade)
-                    withAnimation(.easeIn(duration: 0.18)) {
-                        appearOffset = isTop ? -32.0 : 32.0
-                        appearOpacity = 0.0
-                    }
-                }
+                runExitAnimation()
             } else {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                     appearScaleX = 1.0
@@ -1837,6 +1737,238 @@ struct SingleOverlayContainer: View {
                     appearOpacity = 1.0
                     appearCornerRadius = targetCornerRadius
                 }
+            }
+        }
+    }
+    
+    private func runEntryAnimation() {
+        let isSys = (mediaKeyManager.effectiveOverlayStyle == "system")
+        let settings = mediaKeyManager.airPodsSettings()
+        if overlay.type == .airpodsGroupBattery && isSys && settings.caseOpenStyle == "iosCard" {
+            appearScaleX = 1.0
+            appearScaleY = 1.0
+            appearOpacity = 1.0
+            appearOffset = 0.0
+            appearAngle = 0.0
+            appearBlur = 0.0
+            return
+        }
+        
+        let currentPos = mediaKeyManager.getOverlayPosition(for: "\(overlay.id)OverlayPosition")
+        let isTop = currentPos.hasPrefix("top") || isSys
+        let currentAnim = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? animType
+        
+        var initTransaction = Transaction()
+        initTransaction.disablesAnimations = true
+        withTransaction(initTransaction) {
+            appearOffset = 0.0
+            appearAngle = 0.0
+            appearScaleX = 1.0
+            appearScaleY = 1.0
+            appearBlur = 0.0
+            appearOpacity = 0.0
+            isDropletClipping = false
+            
+            switch currentAnim {
+            case "system":
+                appearScaleX = 0.90
+                appearScaleY = 0.90
+                appearBlur = 0.0
+                appearOffset = 0.0
+                appearAngle = 0.0
+                appearOpacity = 0.0
+            case "scale":
+                appearScaleX = 0.6
+                appearScaleY = 0.6
+                appearBlur = 15.0
+            case "fluid_bounce":
+                appearScaleX = 0.3
+                appearScaleY = 0.3
+                appearOffset = isTop ? -35.0 : 35.0
+            case "fluid_drop":
+                isDropletClipping = true
+                appearScaleX = 0.0846
+                appearScaleY = 0.4231
+                appearBlur = 5.0
+                appearCornerRadius = 26.0
+                appearOffset = isTop ? -50.0 : 50.0
+            case "ripple":
+                appearScaleX = 0.08
+                appearScaleY = 1.0
+                appearBlur = 8.0
+                appearOffset = 0.0
+            case "flip":
+                appearAngle = isTop ? -75.0 : 75.0
+                appearBlur = 4.0
+                appearOffset = 0.0
+            case "unfold":
+                appearScaleX = 1.0
+                appearScaleY = 0.03
+                appearBlur = 6.0
+                appearOffset = 0.0
+            case "pop":
+                appearScaleX = 0.75
+                appearScaleY = 0.35
+                appearBlur = 4.0
+                appearOffset = isTop ? -35.0 : 35.0
+            default: // fade / slide
+                appearOffset = isTop ? -32.0 : 32.0
+            }
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
+            switch currentAnim {
+            case "system":
+                withAnimation(.easeOut(duration: 0.22)) {
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
+                    appearOpacity = 1.0
+                    appearBlur = 0.0
+                    appearOffset = 0.0
+                }
+            case "scale":
+                withAnimation(.easeOut(duration: 0.15)) {
+                    appearOpacity = 1.0
+                }
+                withAnimation(.interpolatingSpring(stiffness: 300, damping: 20)) {
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
+                    appearBlur = 0.0
+                }
+            case "fluid_bounce":
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.62)) {
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
+                    appearOffset = 0.0
+                    appearOpacity = 1.0
+                }
+            case "fluid_drop":
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.72)) {
+                    appearOffset = 0.0
+                    appearOpacity = 1.0
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
+                    appearBlur = 0.0
+                    appearCornerRadius = targetCornerRadius
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    isDropletClipping = false
+                }
+            case "ripple":
+                withAnimation(.easeOut(duration: 0.12)) {
+                    appearOpacity = 1.0
+                }
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.60)) {
+                    appearScaleX = 1.0
+                    appearBlur = 0.0
+                }
+            case "flip":
+                withAnimation(.easeOut(duration: 0.10)) {
+                    appearOpacity = 1.0
+                }
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.65)) {
+                    appearAngle = 0.0
+                    appearBlur = 0.0
+                }
+            case "unfold":
+                withAnimation(.easeOut(duration: 0.10)) {
+                    appearOpacity = 1.0
+                }
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.62)) {
+                    appearScaleY = 1.0
+                    appearBlur = 0.0
+                }
+            case "pop":
+                withAnimation(.easeOut(duration: 0.10)) {
+                    appearOpacity = 1.0
+                }
+                withAnimation(.spring(response: 0.40, dampingFraction: 0.55)) {
+                    appearScaleX = 1.0
+                    appearScaleY = 1.0
+                    appearOffset = 0.0
+                    appearBlur = 0.0
+                }
+            default: // fade / slide
+                withAnimation(.easeOut(duration: 0.20)) {
+                    appearOffset = 0.0
+                    appearOpacity = 1.0
+                }
+            }
+        }
+    }
+    
+    private func runExitAnimation() {
+        let isSys = (mediaKeyManager.effectiveOverlayStyle == "system")
+        let currentPos = mediaKeyManager.getOverlayPosition(for: "\(overlay.id)OverlayPosition")
+        let isTop = currentPos.hasPrefix("top") || isSys
+        let currentAnim = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? animType
+        
+        switch currentAnim {
+        case "system":
+            withAnimation(.easeIn(duration: 0.16)) {
+                appearScaleX = 0.92
+                appearScaleY = 0.92
+                appearBlur = 0.0
+                appearOffset = 0.0
+                appearOpacity = 0.0
+            }
+        case "scale":
+            withAnimation(.easeIn(duration: 0.20)) {
+                appearScaleX = 0.6
+                appearScaleY = 0.6
+                appearBlur = 15.0
+                appearOpacity = 0.0
+            }
+        case "fluid_bounce":
+            withAnimation(.easeIn(duration: 0.20)) {
+                appearScaleX = 0.3
+                appearScaleY = 0.3
+                appearOffset = isTop ? -50.0 : 50.0
+                appearBlur = 0.0
+                appearOpacity = 0.0
+            }
+        case "fluid_drop":
+            isDropletClipping = true
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.75)) {
+                appearScaleX = 0.0846
+                appearScaleY = 0.4231
+                appearBlur = 5.0
+                appearCornerRadius = 26.0
+                appearOffset = isTop ? -50.0 : 50.0
+                appearOpacity = 0.0
+            }
+        case "ripple":
+            withAnimation(.easeIn(duration: 0.22)) {
+                appearScaleX = 0.08
+                appearScaleY = 1.0
+                appearBlur = 8.0
+                appearOpacity = 0.0
+            }
+        case "flip":
+            withAnimation(.easeIn(duration: 0.22)) {
+                appearAngle = isTop ? -75.0 : 75.0
+                appearBlur = 4.0
+                appearOpacity = 0.0
+            }
+        case "unfold":
+            withAnimation(.easeIn(duration: 0.20)) {
+                appearScaleX = 1.0
+                appearScaleY = 0.03
+                appearBlur = 6.0
+                appearOpacity = 0.0
+            }
+        case "pop":
+            withAnimation(.easeIn(duration: 0.20)) {
+                appearScaleX = 0.75
+                appearScaleY = 0.35
+                appearOffset = isTop ? -35.0 : 35.0
+                appearBlur = 4.0
+                appearOpacity = 0.0
+            }
+        default: // fade / slide
+            withAnimation(.easeIn(duration: 0.18)) {
+                appearOffset = isTop ? -32.0 : 32.0
+                appearOpacity = 0.0
             }
         }
     }
@@ -2123,28 +2255,14 @@ class PassThroughHostingView<Content: View>: NSHostingView<Content> {
     }
 }
 
-private struct OptionalBlurModifier: ViewModifier {
-    let radius: CGFloat
+private struct DropletClippingModifier: ViewModifier {
+    let isDropletClipping: Bool
+    let cornerRadius: CGFloat
+    
+    @ViewBuilder
     func body(content: Content) -> some View {
-        if radius > 0.05 {
-            content.blur(radius: radius)
-        } else {
-            content
-        }
-    }
-}
-
-private struct OptionalRotation3DModifier: ViewModifier {
-    let angle: Double
-    let anchor: UnitPoint
-    func body(content: Content) -> some View {
-        if abs(angle) > 0.01 {
-            content.rotation3DEffect(
-                .degrees(angle),
-                axis: (x: 1, y: 0, z: 0),
-                anchor: anchor,
-                perspective: 0.45
-            )
+        if isDropletClipping {
+            content.clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         } else {
             content
         }

@@ -87,9 +87,15 @@ struct BatteryOverlayView: View {
     var body: some View {
         let batPos = MediaKeyManager.shared.getOverlayPosition(for: "batteryOverlayPosition")
         let isFullyCharged = actualPercentage == 100 || (actualIsPluggedIn && overlayState.isEffectivelyFullyCharged && !isPreview)
-        let systemTitle: String = isLowBattery ? "Low Battery" : "Battery"
+        let systemTitle: String = {
+            if effectiveWarningMode {
+                return isLowBattery ? "Low Battery" : "Battery Alert"
+            }
+            return isLowBattery ? "Low Battery" : "Battery"
+        }()
         let systemSub: String = {
             if isFullyCharged { return "Fully Charged" }
+            if effectiveWarningMode { return "\(actualPercentage)%" }
             return actualIsPluggedIn ? "Charging" : "Unplugged"
         }()
         
@@ -134,7 +140,7 @@ struct BatteryOverlayView: View {
                                 AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: true)
                             }
                         } else {
-                            Text(isLowBattery ? "Low Battery" : (actualIsPluggedIn ? "Charging" : "Unplugged"))
+                            Text(effectiveWarningMode ? (isLowBattery ? "Low Battery" : "Battery Alert") : (isLowBattery ? "Low Battery" : (actualIsPluggedIn ? "Charging" : "Unplugged")))
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .foregroundColor(.secondary)
                             AnimatablePercentageText(progress: animatedBatteryProgress, isTopTitle: false, color: .primary, isPluggedIn: actualIsPluggedIn)

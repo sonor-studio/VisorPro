@@ -82,7 +82,7 @@ class AirPodsBatteryManager: ObservableObject {
                 return name
             }
         }
-        if let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] {
+        if PermissionHelper.isBluetoothAuthorized(), let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] {
             for device in devices {
                 guard let name = device.name ?? device.nameOrAddress else { continue }
                 let lower = name.lowercased()
@@ -152,7 +152,7 @@ class AirPodsBatteryManager: ObservableObject {
 
     
     func hasPairedAirPods() -> Bool {
-        if let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] {
+        if PermissionHelper.isBluetoothAuthorized(), let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] {
             for device in devices {
                 let name = (device.name ?? device.nameOrAddress ?? "").lowercased()
                 if name.contains("airpod") || name.contains("beats") {
@@ -445,7 +445,7 @@ class AirPodsBatteryManager: ObservableObject {
     }
 
     func isAnyAirPodsConnectedToMac() -> Bool {
-        guard let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] else { return false }
+        guard PermissionHelper.isBluetoothAuthorized(), let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] else { return false }
         for device in devices {
             if device.isConnected() {
                 let name = (device.name ?? device.nameOrAddress ?? "").lowercased()

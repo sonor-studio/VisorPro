@@ -9,6 +9,7 @@ class TrashObserver: ObservableObject {
     private var hasTriggeredAlert = false
     private var lastAlertSizeGB: Double = 0.0
     private var isInitialCheck = true
+    private var initialWarmupTicks = 0
     private let trashURL = FileManager.default.urls(for: .trashDirectory, in: .userDomainMask).first!
     private var previousTrashItems: Set<String>? = nil
     private var tickCount = 0
@@ -36,9 +37,10 @@ class TrashObserver: ObservableObject {
     private func checkForDeletedFiles() {
         do {
             var allItemsArray: [URL] = []
+            let propertyKeys: [URLResourceKey] = [.fileSizeKey, .isDirectoryKey, .addedToDirectoryDateKey, .attributeModificationDateKey]
             
             // Local trash
-            if let enumerator = FileManager.default.enumerator(at: self.trashURL, includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey], options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]) {
+            if let enumerator = FileManager.default.enumerator(at: self.trashURL, includingPropertiesForKeys: propertyKeys, options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]) {
                 for case let fileURL as URL in enumerator {
                     allItemsArray.append(fileURL)
                 }
@@ -46,7 +48,7 @@ class TrashObserver: ObservableObject {
             
             // iCloud trash (if exists)
             if let icloudURL = FileManager.default.url(forUbiquityContainerIdentifier: nil)?.appendingPathComponent(".Trash"),
-               let icloudEnumerator = FileManager.default.enumerator(at: icloudURL, includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey], options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]) {
+               let icloudEnumerator = FileManager.default.enumerator(at: icloudURL, includingPropertiesForKeys: propertyKeys, options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]) {
                 for case let fileURL as URL in icloudEnumerator {
                     allItemsArray.append(fileURL)
                 }
@@ -54,32 +56,46 @@ class TrashObserver: ObservableObject {
             
             let currentItems = Set(allItemsArray.map { $0.lastPathComponent })
             
+            // Warm-up phase: establish baseline without firing any alerts for existing files
+            if initialWarmupTicks < 3 {
+                initialWarmupTicks += 1
+                self.previousTrashItems = currentItems
+                return
+            }
+            
             if let previous = self.previousTrashItems {
                 if currentItems != previous {
                     let newItems = currentItems.subtracting(previous)
                     
                     if let firstNewName = newItems.first, let firstNew = allItemsArray.first(where: { $0.lastPathComponent == firstNewName }) {
                         let name = firstNew.lastPathComponent
-                        let resourceValues = try? firstNew.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey])
+                        let resourceValues = try? firstNew.resourceValues(forKeys: Set(propertyKeys))
                         let isDir = resourceValues?.isDirectory ?? false
                         let fileSizeBytes = Double(resourceValues?.fileSize ?? 0)
                         let fileSizeMB = isDir ? -1.0 : (fileSizeBytes / 1_000_000.0)
                         
-                        let icon = NSWorkspace.shared.icon(forFile: firstNew.path)
+                        // Verify that the file was actually added to Trash recently (within the last 4 seconds)
+                        // to avoid alerting on existing files when disk permissions are granted or restored.
+                        let addedDate = resourceValues?.addedToDirectoryDate ?? resourceValues?.attributeModificationDate
+                        let wasRecentlyAdded = addedDate.map { abs(Date().timeIntervalSince($0)) < 4.0 } ?? false
                         
-                        DispatchQueue.main.async {
-                            MediaKeyManager.shared.lastDeletedFileName = name
-                            MediaKeyManager.shared.lastDeletedFileSizeMB = fileSizeMB
-                            MediaKeyManager.shared.lastDeletedFileIcon = icon
-                            MediaKeyManager.shared.lastDeletedFileURL = firstNew
-                            MediaKeyManager.shared.triggerFileDeletedOverlay()
+                        if wasRecentlyAdded {
+                            let icon = NSWorkspace.shared.icon(forFile: firstNew.path)
                             
-                            DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
-                                if !self.isCalculatingSize {
-                                    self.isCalculatingSize = true
-                                    self.updateTrashStats(didAddItems: true)
-                                    self.isCalculatingSize = false
-                                }
+                            DispatchQueue.main.async {
+                                MediaKeyManager.shared.lastDeletedFileName = name
+                                MediaKeyManager.shared.lastDeletedFileSizeMB = fileSizeMB
+                                MediaKeyManager.shared.lastDeletedFileIcon = icon
+                                MediaKeyManager.shared.lastDeletedFileURL = firstNew
+                                MediaKeyManager.shared.triggerFileDeletedOverlay()
+                            }
+                        }
+                        
+                        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
+                            if !self.isCalculatingSize {
+                                self.isCalculatingSize = true
+                                self.updateTrashStats(didAddItems: true)
+                                self.isCalculatingSize = false
                             }
                         }
                     } else {

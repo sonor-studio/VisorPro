@@ -36,13 +36,17 @@ struct ThemeOverlayView: View {
             showProgressBar: true,
             hasTimeoutProgress: true,
             timeoutEventId: overlayState.themeEventId,
-            barColor: OverlayColorManager.shared.getOverlayColor(for: (isPreview ? previewIsDark : overlayState.isDarkMode) ? "colorOnThemeDark" : "colorOnThemeLight", defaultColor: iconColor),
+            barColor: OverlayColorManager.shared.getOverlayColor(for: actualIsDark ? "colorOnThemeDark" : "colorOnThemeLight", defaultColor: iconColor),
             fillCenter: false, // It was using strokeBorder
             isMuted: false,
             customWidth: (MediaKeyManager.shared.effectiveOverlayStyle == "system") ? 188 : 260,
             supportDragGesture: false,
             onSimpleTap: {
-                if !isPreview && themeAllowInteractivity {
+                if isPreview {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        localPreviewIsDark.toggle()
+                    }
+                } else if themeAllowInteractivity && PermissionHelper.isAutomationAuthorized(for: "com.apple.systemevents") {
                     toggleSystemTheme()
                 }
             },
@@ -56,8 +60,10 @@ struct ThemeOverlayView: View {
             systemRightButtonColor: Color(white: 0.5, opacity: 0.25),
             systemOnRightButtonTap: {
                 if isPreview {
-                    localPreviewIsDark.toggle()
-                } else if themeAllowInteractivity {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        localPreviewIsDark.toggle()
+                    }
+                } else if themeAllowInteractivity && PermissionHelper.isAutomationAuthorized(for: "com.apple.systemevents") {
                     toggleSystemTheme()
                 }
             },
@@ -89,17 +95,30 @@ struct ThemeOverlayView: View {
     }
     
     private func toggleSystemTheme() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-            process.arguments = [
-                "-e",
-                "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"
-            ]
-            do {
-                try process.run()
-            } catch {
+        let newIsDark = !actualIsDark
+        
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            overlayState.isDarkMode = newIsDark
+            overlayState.themeEventId = UUID()
+        }
+        
+        if newIsDark {
+            if mediaKeyManager.notifyOnThemeDark {
+                mediaKeyManager.playNotificationSound(named: mediaKeyManager.soundOnThemeDark)
             }
+        } else {
+            if mediaKeyManager.notifyOnThemeLight {
+                mediaKeyManager.playNotificationSound(named: mediaKeyManager.soundOnThemeLight)
+            }
+        }
+        
+        mediaKeyManager.cancelOverlayHide(for: "theme")
+        mediaKeyManager.scheduleOverlayHide(for: "theme")
+        
+        DisplaySettingsManager.shared.toggleDarkMode()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            PermissionManager.shared.refresh()
         }
     }
 }

@@ -3,59 +3,16 @@ import SwiftUI
 struct BluetoothSettingsView: View {
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @ObservedObject private var permissionManager = PermissionManager.shared
     @AppStorage("bluetoothOverlayPosition") private var bluetoothOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("bluetoothAllowExpansion") private var bluetoothAllowExpansion: Bool = true
     @State private var isHistoryExpanded: Bool = false
-    @State private var showBluetoothPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                if !savedLicenseKey.isEmpty {
-    VStack(alignment: .leading, spacing: 12) {
-                        Text("Bluetooth Module")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    
-                        Text("Module Configuration")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 4)
-                        
-                        VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "power", iconColor: .indigo, title: "Enable Bluetooth Module", subtitle: "When disabled, VisorPro completely ignores Bluetooth connections") {
-                                Toggle("", isOn: Binding(
-                                    get: { mediaKeyManager.enableBluetooth },
-                                    set: { newValue in
-                                        if newValue {
-                                            if PermissionHelper.checkBluetoothPermission() {
-                                                mediaKeyManager.enableBluetooth = true
-                                            } else {
-                                                mediaKeyManager.enableBluetooth = false
-                                                showBluetoothPermissionAlert = true
-                                            }
-                                        } else {
-                                            mediaKeyManager.enableBluetooth = false
-                                        }
-                                    }
-                                )).labelsHidden()
-                            }
-                        }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .padding(.horizontal)
-                }
-
-                if mediaKeyManager.enableBluetooth || savedLicenseKey.isEmpty {
-                
+                if savedLicenseKey.isEmpty {
                     VStack(alignment: .center) {
                         Text("Preview")
                             .font(.headline)
@@ -77,11 +34,93 @@ struct BluetoothSettingsView: View {
                     .padding(.top, 20)
                 
                     Divider()
+                    PremiumLockedView()
+                } else if !permissionManager.isBluetoothAuthorized {
+                    VStack(alignment: .center) {
+                        Text("Preview")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                    
+                        ZStack {
+                            PreviewBackgroundView()
+                        
+                            HStack(spacing: 20) {
+                                BluetoothOverlayView(isPreview: true, previewIsConnected: true, previewDeviceName: "AirPods Pro").applyTheme(mediaKeyManager.overlayTheme)
+                            
+                                BluetoothOverlayView(isPreview: true, previewIsConnected: false, previewDeviceName: "Magic Mouse").applyTheme(mediaKeyManager.overlayTheme)
+                            }
+                            .scaleEffect(0.85)
+                        }
+                        .frame(minHeight: 180)
+                        .padding(.horizontal)
+                    }
+                    .padding(.top, 20)
                 
-                    if savedLicenseKey.isEmpty {
-                        PremiumLockedView()
-                    } else {
+                    Divider()
+                    
+                    PermissionLockedView(
+                        permissionType: "Bluetooth",
+                        icon: "point.3.connected.trianglepath.dotted",
+                        color: .indigo,
+                        title: "Bluetooth Permission Required",
+                        description: "To monitor Bluetooth devices and display battery overlays, VisorPro requires Bluetooth access in macOS System Settings.",
+                        isNotDetermined: permissionManager.isBluetoothNotDetermined,
+                        isDenied: permissionManager.isBluetoothDenied,
+                        onGrantRequested: {
+                            permissionManager.requestBluetoothPermission()
+                        }
+                    )
+                } else {
                     VStack(alignment: .leading, spacing: 12) {
+                        Text("Bluetooth Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "power", iconColor: .indigo, title: "Enable Bluetooth Module", subtitle: "When disabled, VisorPro completely ignores Bluetooth connections") {
+                                Toggle("", isOn: $mediaKeyManager.enableBluetooth).labelsHidden()
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
+
+                    if mediaKeyManager.enableBluetooth {
+                        VStack(alignment: .center) {
+                            Text("Preview")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                        
+                            ZStack {
+                                PreviewBackgroundView()
+                            
+                                HStack(spacing: 20) {
+                                    BluetoothOverlayView(isPreview: true, previewIsConnected: true, previewDeviceName: "AirPods Pro").applyTheme(mediaKeyManager.overlayTheme)
+                                
+                                    BluetoothOverlayView(isPreview: true, previewIsConnected: false, previewDeviceName: "Magic Mouse").applyTheme(mediaKeyManager.overlayTheme)
+                                }
+                                .scaleEffect(0.85)
+                            }
+                            .frame(minHeight: 180)
+                            .padding(.horizontal)
+                        }
+                        .padding(.top, 20)
+                    
+                        Divider()
+                    
+                        VStack(alignment: .leading, spacing: 12) {
                         Text("Overlay Triggers")
                             .font(.headline)
                             .foregroundColor(.secondary)
@@ -239,25 +278,18 @@ struct BluetoothSettingsView: View {
                 
                     Spacer()
             
-                }
                 } else {
                     DisabledModuleView(icon: "power", title: "Bluetooth Module is Disabled", description: "Turn on the module to configure Bluetooth overlays.")
                 }
             }
-            .padding(.vertical, 20)
         }
-        .navigationTitle("Bluetooth")
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.clear)
-        .alert(isPresented: $showBluetoothPermissionAlert) {
-            Alert(
-                title: Text("Bluetooth Access Required"),
-                message: Text("To monitor Bluetooth devices, VisorPro needs Bluetooth access. Please enable it in System Settings > Privacy & Security > Bluetooth."),
-                primaryButton: .default(Text("Open Settings")) {
-                    PermissionHelper.openPrivacySettings(for: "Bluetooth")
-                },
-                secondaryButton: .cancel()
-            )
-        }
+        .padding(.vertical, 20)
     }
+    .navigationTitle("Bluetooth")
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color.clear)
+    .onAppear {
+        permissionManager.refresh()
+    }
+}
 }

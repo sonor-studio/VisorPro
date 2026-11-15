@@ -7,7 +7,6 @@ struct MediaSettingsView: View {
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("mediaAllowExpansion") private var mediaAllowExpansion: Bool = true
     @AppStorage("mediaAllowInteractivity") private var mediaAllowInteractivity: Bool = true
-    @State private var showAppleEventsPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
@@ -171,15 +170,5 @@ struct MediaSettingsView: View {
         .navigationTitle("Media")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
-        .alert(isPresented: $showAppleEventsPermissionAlert) {
-            Alert(
-                title: Text("Apple Events Access Required"),
-                message: Text("To show media playback notifications, VisorPro needs Apple Events (Automation) access. Please enable it in System Settings > Privacy & Security > Automation."),
-                primaryButton: .default(Text("Open Settings")) {
-                    PermissionHelper.openPrivacySettings(for: "AppleEvents")
-                },
-                secondaryButton: .cancel()
-            )
-        }
     }
 }

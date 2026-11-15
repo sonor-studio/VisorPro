@@ -4,12 +4,11 @@ import TelemetryClient
 struct FocusSettingsView: View {
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @ObservedObject private var permissionManager = PermissionManager.shared
     @AppStorage("focusOverlayPosition") private var focusOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("focusDetailMode") private var focusDetailMode: Bool = false
     @AppStorage("focusAllowExpansion") private var focusAllowExpansion: Bool = true
-    
-    @State private var showFDAAlert: Bool = false
     
     var body: some View {
         ScrollView {
@@ -76,13 +75,11 @@ struct FocusSettingsView: View {
                                 .padding(.leading, 4)
                                 
                             VStack(spacing: 0) {
-                                CustomSettingsRow(icon: "doc.text.magnifyingglass", iconColor: .purple, title: "Detailed Mode", subtitle: "Show exact Focus mode name (e.g. Work, Sleep). Requires Full Disk Access.") {
-                                    Toggle("", isOn: Binding(
-                                        get: { focusDetailMode },
-                                        set: { newValue in
-                                            if newValue && !PermissionHelper.hasFullDiskAccess() {
-                                                showFDAAlert = true
-                                            } else {
+                                if permissionManager.isFullDiskAccessAuthorized {
+                                    CustomSettingsRow(icon: "doc.text.magnifyingglass", iconColor: .purple, title: "Detailed Mode", subtitle: "Show exact Focus mode name (e.g. Work, Sleep)") {
+                                        Toggle("", isOn: Binding(
+                                            get: { focusDetailMode },
+                                            set: { newValue in
                                                 focusDetailMode = newValue
                                                 mediaKeyManager.refreshFocusStatus()
                                                 TelemetryHelper.signal("FocusDetailModeToggled", parameters: [
@@ -90,8 +87,27 @@ struct FocusSettingsView: View {
                                                     "focus_enabled": mediaKeyManager.enableFocus ? "true" : "false"
                                                 ])
                                             }
-                                        }
-                                    )).labelsHidden()
+                                        )).labelsHidden()
+                                    }
+                                } else {
+                                    CustomSettingsRow(icon: "doc.text.magnifyingglass", iconColor: .gray, title: "Detailed Mode", subtitle: "Show exact Focus mode name (Full Disk Access required)") {
+                                        Toggle("", isOn: .constant(false))
+                                            .labelsHidden()
+                                            .disabled(true)
+                                    }
+                                    
+                                    Divider().padding(.leading, 48)
+                                    
+                                    InlinePermissionCard(
+                                        permissionType: "FullDisk",
+                                        icon: "lock.fill",
+                                        color: .purple,
+                                        title: "Full Disk Access Required",
+                                        description: "Full Disk Access is required to read exact Focus Mode name.",
+                                        isNotDetermined: false,
+                                        isDenied: true,
+                                        onGrantRequested: nil
+                                    )
                                 }
                             }
                             .toggleStyle(.switch)
@@ -220,16 +236,6 @@ struct FocusSettingsView: View {
         .background(Color.clear)
         .onChange(of: focusDetailMode) { _, _ in
             mediaKeyManager.refreshFocusStatus()
-        }
-        .alert(isPresented: $showFDAAlert) {
-            Alert(
-                title: Text("Full Disk Access Required"),
-                message: Text("To read the exact Focus Mode name from macOS, VisorPro needs Full Disk Access. Please enable it in System Settings > Privacy & Security > Full Disk Access, and then restart VisorPro."),
-                primaryButton: .default(Text("Open Settings")) {
-                    PermissionHelper.openPrivacySettings(for: "FullDisk")
-                },
-                secondaryButton: .cancel()
-            )
         }
     }
 }

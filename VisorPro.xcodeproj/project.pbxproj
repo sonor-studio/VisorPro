@@ -186,6 +186,12 @@
 				FA01FF85300BB56700235EBF /* VisorPro */,
 			);
 			name = VisorPro;
+			packageProductDependencies = (
+				FA8D1710304634CE0040670D /* TelemetryDeck */,
+				FA8D18253046353E0040670D /* TelemetryClient */,
+				FA6B08833048A2EC008824F5 /* SMC */,
+				FA6B08853048A2EC008824F5 /* SMCKit */,
+			);
 			productName = VisorPro;
 			productReference = FA01FF83300BB56700235EBF /* VisorPro.app */;
 			productType = "com.apple.product-type.application";
@@ -502,7 +508,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Icon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
-				AUTOMATION_APPLE_EVENTS = NO;
+				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ENTITLEMENTS = VisorPro/VisorPro.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -521,6 +527,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "VisorPro needs Automation access to System Events to switch Dark and Light mode appearance on macOS.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "VisorPro requires Bluetooth access for the on-screen displays.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "VisorPro needs full access to your calendar to display upcoming events in the Date overlay.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "VisorPro needs access to your calendar to display upcoming events in the Date overlay.";
@@ -561,7 +568,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = Icon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
-				AUTOMATION_APPLE_EVENTS = NO;
+				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ENTITLEMENTS = VisorPro/VisorPro.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
@@ -580,6 +587,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "VisorPro needs Automation access to System Events to switch Dark and Light mode appearance on macOS.";
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "VisorPro requires Bluetooth access for the on-screen displays.";
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "VisorPro needs full access to your calendar to display upcoming events in the Date overlay.";
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "VisorPro needs access to your calendar to display upcoming events in the Date overlay.";

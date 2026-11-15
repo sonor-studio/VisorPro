@@ -14,5 +14,11 @@
 	<string>VisorPro needs location access to read the SSID of your currently connected Wi-Fi network.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>VisorPro needs location access to read the SSID of your currently connected Wi-Fi network.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>VisorPro needs Bluetooth access to detect connected wireless devices and display battery levels.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>VisorPro needs microphone access to visualize audio waveforms in the Privacy overlay.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>VisorPro needs Automation access to System Events to switch Dark and Light mode appearance on macOS.</string>
 </dict>
 </plist>

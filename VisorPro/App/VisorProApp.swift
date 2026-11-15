@@ -208,10 +208,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     
     func applicationDidBecomeActive(_ notification: Notification) {
-        // App is an accessory, so we don't force open the Dashboard here anymore.
-        // It should open in the background on first launch.
-        // Dashboard will be explicitly opened via applicationShouldHandleReopen
-        // when the user clicks the app icon while it's already running.
+        if let existing = customDashboardWindow, existing.isVisible {
+            if NSApp.activationPolicy() != .regular {
+                NSApp.setActivationPolicy(.regular)
+            }
+        }
+    }
+    
+    func applicationDidResignActive(_ notification: Notification) {
+        // Do not downgrade activation policy to .accessory while the dashboard window is open!
+        // Otherwise, macOS hides the dashboard window whenever a system permission dialog appears.
+        if let existing = customDashboardWindow, existing.isVisible {
+            return
+        }
+        if NSApp.activationPolicy() != .accessory {
+            NSApp.setActivationPolicy(.accessory)
+        }
     }
     
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -277,6 +289,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             settingsWindow.center()
         }
         settingsWindow.isReleasedWhenClosed = false
+        settingsWindow.hidesOnDeactivate = false
         settingsWindow.delegate = self
         self.customDashboardWindow = settingsWindow
         
@@ -286,6 +299,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     
     func windowWillClose(_ notification: Notification) {
         if let closingWindow = notification.object as? NSWindow, closingWindow == customDashboardWindow {
+            self.customDashboardWindow = nil
             if NSApp.activationPolicy() != .accessory {
                 NSApp.setActivationPolicy(.accessory)
             }

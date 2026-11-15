@@ -17,10 +17,26 @@ class BluetoothObserver: NSObject {
             self.isInitialLoad = false
         }
         
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleBluetoothAuthChanged),
+            name: Notification.Name("BluetoothAuthorizationChanged"),
+            object: nil
+        )
+        
+        startObserving()
+    }
+    
+    @objc private func handleBluetoothAuthChanged() {
         startObserving()
     }
     
     func startObserving() {
+        guard PermissionHelper.isBluetoothAuthorized() else {
+            return
+        }
+        guard connectNotification == nil else { return }
+        
         if let paired = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] {
             for device in paired {
                 if device.isConnected() {

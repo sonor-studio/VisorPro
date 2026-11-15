@@ -4,63 +4,18 @@ import CoreLocation
 struct WiFiSettingsView: View {
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @ObservedObject private var permissionManager = PermissionManager.shared
     @AppStorage("wifiOverlayPosition") private var wifiOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("wifiAllowExpansion") private var wifiAllowExpansion: Bool = true
     @AppStorage("wifiShowSpeedTest") private var wifiShowSpeedTest: Bool = true
     @AppStorage("wifiShowDetails") private var wifiShowDetails: Bool = true
     @State private var isHistoryExpanded: Bool = false
-    @State private var showLocationPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
-                if !savedLicenseKey.isEmpty {
-    VStack(alignment: .leading, spacing: 12) {
-                        Text("Wi-Fi Module")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    
-                        Text("Module Configuration")
-                            .font(.headline)
-                            .foregroundColor(.secondary)
-                            .padding(.leading, 4)
-                        
-                        VStack(spacing: 0) {
-                            CustomSettingsRow(icon: "power", iconColor: .cyan, title: "Enable Wi-Fi Module", subtitle: "When disabled, VisorPro completely ignores Wi-Fi network changes") {
-                                Toggle("", isOn: Binding(
-                                    get: { mediaKeyManager.enableWiFi },
-                                    set: { newValue in
-                                        if newValue {
-                                            if PermissionHelper.hasLocationPermission() {
-                                                mediaKeyManager.enableWiFi = true
-                                            } else if PermissionHelper.isLocationNotDetermined() {
-                                                mediaKeyManager.enableWiFi = true
-                                                PermissionHelper.requestLocationPermission()
-                                            } else {
-                                                showLocationPermissionAlert = true
-                                            }
-                                        } else {
-                                            mediaKeyManager.enableWiFi = false
-                                        }
-                                    }
-                                )).labelsHidden()
-                            }
-                        }
-                        .toggleStyle(.switch)
-                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .padding(.horizontal)
-                }
-
-                if mediaKeyManager.enableWiFi || savedLicenseKey.isEmpty {
-                
+                if savedLicenseKey.isEmpty {
                     VStack(alignment: .center) {
                         Text("Preview")
                             .font(.headline)
@@ -82,11 +37,93 @@ struct WiFiSettingsView: View {
                     .padding(.top, 20)
                 
                     Divider()
+                    PremiumLockedView()
+                } else if !permissionManager.isLocationAuthorized {
+                    VStack(alignment: .center) {
+                        Text("Preview")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                    
+                        ZStack {
+                            PreviewBackgroundView()
+                        
+                            HStack(spacing: 20) {
+                                WiFiOverlayView(isPreview: true, previewIsConnected: true, previewSSID: "Home Network").applyTheme(mediaKeyManager.overlayTheme)
+                            
+                                WiFiOverlayView(isPreview: true, previewIsConnected: false, previewSSID: "Biuro_5GHz").applyTheme(mediaKeyManager.overlayTheme)
+                            }
+                            .scaleEffect(0.85)
+                        }
+                        .frame(minHeight: 180)
+                        .padding(.horizontal)
+                    }
+                    .padding(.top, 20)
                 
-                    if savedLicenseKey.isEmpty {
-                        PremiumLockedView()
-                    } else {
+                    Divider()
+                    
+                    PermissionLockedView(
+                        permissionType: "Location",
+                        icon: "wifi.exclamationmark",
+                        color: .cyan,
+                        title: "Location Permission Required",
+                        description: "To read and display your connected Wi-Fi network's name (SSID), macOS requires Location Services permission.",
+                        isNotDetermined: permissionManager.isLocationNotDetermined,
+                        isDenied: permissionManager.isLocationDenied,
+                        onGrantRequested: {
+                            permissionManager.requestLocationPermission()
+                        }
+                    )
+                } else {
                     VStack(alignment: .leading, spacing: 12) {
+                        Text("Wi-Fi Module")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.primary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    
+                        Text("Module Configuration")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+                        
+                        VStack(spacing: 0) {
+                            CustomSettingsRow(icon: "power", iconColor: .cyan, title: "Enable Wi-Fi Module", subtitle: "When disabled, VisorPro completely ignores Wi-Fi network changes") {
+                                Toggle("", isOn: $mediaKeyManager.enableWiFi).labelsHidden()
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(NSColor.separatorColor).opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .padding(.horizontal)
+
+                    if mediaKeyManager.enableWiFi {
+                        VStack(alignment: .center) {
+                            Text("Preview")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                        
+                            ZStack {
+                                PreviewBackgroundView()
+                            
+                                HStack(spacing: 20) {
+                                    WiFiOverlayView(isPreview: true, previewIsConnected: true, previewSSID: "Home Network").applyTheme(mediaKeyManager.overlayTheme)
+                                
+                                    WiFiOverlayView(isPreview: true, previewIsConnected: false, previewSSID: "Biuro_5GHz").applyTheme(mediaKeyManager.overlayTheme)
+                                }
+                                .scaleEffect(0.85)
+                            }
+                            .frame(minHeight: 180)
+                            .padding(.horizontal)
+                        }
+                        .padding(.top, 20)
+                    
+                        Divider()
+                    
+                        VStack(alignment: .leading, spacing: 12) {
                         Text("Overlay Content")
                             .font(.headline)
                             .foregroundColor(.secondary)
@@ -289,36 +326,18 @@ struct WiFiSettingsView: View {
                 
                     Spacer()
             
-                }
                 } else {
                     DisabledModuleView(icon: "wifi.slash", title: "Wi-Fi Module is Disabled", description: "Turn on the module to configure Wi-Fi overlays.")
                 }
             }
-            .padding(.vertical, 20)
         }
-        .navigationTitle("Wi-Fi")
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.clear)
-        .alert(isPresented: $showLocationPermissionAlert) {
-            Alert(
-                title: Text("Location Access Required"),
-                message: Text("To read the Wi-Fi network name, VisorPro needs location access. Please enable it in System Settings > Privacy & Security > Location Services."),
-                primaryButton: .default(Text("Open Settings")) {
-                    PermissionHelper.openPrivacySettings(for: "Location")
-                },
-                secondaryButton: .cancel()
-            )
-        }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("LocationAuthorizationChanged"))) { _ in
-            if mediaKeyManager.enableWiFi && PermissionHelper.isLocationDenied() {
-                DispatchQueue.main.async {
-                    mediaKeyManager.enableWiFi = true
-                    DispatchQueue.main.async {
-                        mediaKeyManager.enableWiFi = false
-                    }
-                }
-                showLocationPermissionAlert = true
-            }
-        }
+        .padding(.vertical, 20)
     }
+    .navigationTitle("Wi-Fi")
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color.clear)
+    .onAppear {
+        permissionManager.refresh()
+    }
+}
 }

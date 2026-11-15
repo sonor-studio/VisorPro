@@ -1411,7 +1411,7 @@ class MediaKeyManager: ObservableObject {
     var mediaObserver: MediaObserver?
     
     // Theme
-    @Published var enableTheme: Bool = UserDefaults.standard.object(forKey: "enableTheme") as? Bool ?? false {
+    @Published var enableTheme: Bool = UserDefaults.standard.object(forKey: "enableTheme") as? Bool ?? true {
         didSet { 
             UserDefaults.standard.set(enableTheme, forKey: "enableTheme")
             if !enableTheme { withAnimation { self.showThemeIndicator = false } }

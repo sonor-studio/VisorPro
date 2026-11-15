@@ -10,7 +10,6 @@ struct BrightnessSettingsView: View {
     @AppStorage("brightnessModifierStep") private var brightnessModifierStep: Double = 20.0
     @AppStorage("brightnessAllowInteractivity") private var brightnessAllowInteractivity: Bool = true
     @AppStorage("brightnessAllowExpansion") private var brightnessAllowExpansion: Bool = true
-    @State private var showAppleEventsPermissionAlert: Bool = false
     
     var body: some View {
         ScrollView {
@@ -202,16 +201,6 @@ struct BrightnessSettingsView: View {
             if brightnessModifierKey.lowercased() == newMod.lowercased() {
                 brightnessModifierKey = "none"
             }
-        }
-        .alert(isPresented: $showAppleEventsPermissionAlert) {
-            Alert(
-                title: Text("Apple Events Access Required"),
-                message: Text("To control the screen brightness, VisorPro needs Apple Events (Automation) access. Please enable it in System Settings > Privacy & Security > Automation."),
-                primaryButton: .default(Text("Open Settings")) {
-                    PermissionHelper.openPrivacySettings(for: "AppleEvents")
-                },
-                secondaryButton: .cancel()
-            )
         }
     }
 }

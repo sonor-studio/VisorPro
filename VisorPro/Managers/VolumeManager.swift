@@ -1162,6 +1162,7 @@ class DisplaySettingsManager: NSObject, ObservableObject {
             
             DispatchQueue.main.async {
                 self.isDarkMode = dark
+                OverlayStateRelay.shared.isDarkMode = dark
                 self.isNightShiftEnabled = nsEnabled
                 self.isTrueToneEnabled = ttEnabled
                 self.isTrueToneSupported = ttSupported
@@ -1171,12 +1172,16 @@ class DisplaySettingsManager: NSObject, ObservableObject {
     
     func toggleDarkMode() {
         ThemeObserver.ignoreNextChange = true
-        let source = "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"
-        var error: NSDictionary?
-        if let script = NSAppleScript(source: source) {
-            script.executeAndReturnError(&error)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let source = "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"
+            var error: NSDictionary?
+            if let script = NSAppleScript(source: source) {
+                let res = script.executeAndReturnError(&error)
+                print("🎨 [DisplaySettingsManager] toggleDarkMode result: \(String(describing: res)), error: \(String(describing: error))")
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.fetchStatuses()
+                self?.fetchStatuses()
+                PermissionManager.shared.refresh()
             }
         }
     }

@@ -115,15 +115,16 @@ extension MediaKeyManager {
             self.enableBluetooth = false
         }
         
-        if PermissionHelper.isLocationDenied() {
+        if !PermissionHelper.hasLocationPermission() {
             if self.enableWiFi { 
                 self.enableWiFi = false 
             }
-            if self.notifyOnLocationOn { self.notifyOnLocationOn = false }
+            if self.notifyOnLocationOn { 
+                self.notifyOnLocationOn = false 
+            }
         }
         
-        let micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-        if micStatus != .authorized && micStatus != .notDetermined {
+        if !PermissionHelper.hasMicrophonePermission() {
             if UserDefaults.standard.bool(forKey: "micShowVisualizer") {
                 UserDefaults.standard.set(false, forKey: "micShowVisualizer")
             }
