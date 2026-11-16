@@ -2,13 +2,28 @@ import SwiftUI
 
 class ThemeObserver {
     private weak var manager: MediaKeyManager?
+    private var lastObservedDarkMode: Bool?
     
     init(manager: MediaKeyManager) {
         self.manager = manager
+        let initialDark = ThemeObserver.isSystemInDarkMode()
+        self.lastObservedDarkMode = initialDark
+        OverlayStateRelay.shared.isDarkMode = initialDark
         startObserving()
     }
     
     static var ignoreNextChange: Bool = false
+    
+    static func isSystemInDarkMode() -> Bool {
+        if let style = CFPreferencesCopyAppValue("AppleInterfaceStyle" as CFString, kCFPreferencesAnyApplication) as? String, style == "Dark" {
+            return true
+        }
+        if let style = UserDefaults.standard.string(forKey: "AppleInterfaceStyle"), style == "Dark" {
+            return true
+        }
+        let appearance = NSApp.effectiveAppearance
+        return appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
     
     private func startObserving() {
         DistributedNotificationCenter.default().addObserver(
@@ -20,13 +35,7 @@ class ThemeObserver {
     }
     
     @objc private func themeChanged() {
-        let isDark: Bool
-        if let style = UserDefaults.standard.string(forKey: "AppleInterfaceStyle"), style == "Dark" {
-            isDark = true
-        } else {
-            let appearance = NSApp.effectiveAppearance
-            isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        }
+        let isDark = ThemeObserver.isSystemInDarkMode()
         
         DispatchQueue.main.async {
             OverlayStateRelay.shared.isDarkMode = isDark
@@ -34,8 +43,14 @@ class ThemeObserver {
         
         if ThemeObserver.ignoreNextChange {
             ThemeObserver.ignoreNextChange = false
+            lastObservedDarkMode = isDark
             return
         }
+        
+        if let last = lastObservedDarkMode, last == isDark {
+            return
+        }
+        lastObservedDarkMode = isDark
         
         DispatchQueue.main.async { [weak self] in
             self?.manager?.triggerThemeIndicator(isDark: isDark)

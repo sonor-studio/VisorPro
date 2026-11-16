@@ -14,6 +14,20 @@ extension MediaKeyManager {
         if action == "cut" && !notifyOnCut { return }
         if action == "paste" && !notifyOnPaste && !isProgrammaticPasteboardChange { return }
         
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let now = Date()
+        
+        // Debounce duplicate triggers within 1.8 seconds for the same action and content
+        if let lastTrigger = overlayTriggerTimes["copy"], now.timeIntervalSince(lastTrigger) < 1.8 {
+            if self.copiedText == trimmedText && self.clipboardAction == action {
+                return
+            }
+        }
+        
+        self.overlayTriggerTimes["copy"] = now
+        self.copiedText = trimmedText
+        self.clipboardAction = action
+        
         if action == "copy" { playNotificationSound(named: soundOnCopy) }
         else if action == "cut" { playNotificationSound(named: soundOnCut) }
         else if action == "paste" { playNotificationSound(named: soundOnPaste) }
@@ -24,8 +38,6 @@ extension MediaKeyManager {
         
         let copyPos = self.getOverlayPosition(for: "copyOverlayPosition")
         dismissCollidingIndicators(newPosition: copyPos, source: "copy")
-        
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         
         let executeShow = { [weak self] in
             guard let self = self else { return }
@@ -55,39 +67,38 @@ extension MediaKeyManager {
             withAnimation(.easeInOut(duration: 0.15)) {
                 self.showCopyIndicator = true
                 self.notifyOverlayStateChanged()
-                self.overlayTriggerTimes["copy"] = Date()
             }
             
             self.scheduleOverlayHide(for: "copy")
         }
         
-        if self.showCopyIndicator && self.clipboardAction != action && action != "paste" {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self.showCopyIndicator = false
-            }
-            let task = DispatchWorkItem(block: executeShow)
-            self.pendingClipboardShowTask = task
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: task)
-        } else {
-            executeShow()
-        }
+        executeShow()
     }
     
     internal func getFinderActiveFolder() -> String? {
+        guard PermissionManager.shared.isFinderAutomationAuthorized else { return nil }
         let script = """
         tell application "Finder"
             try
-                set theTarget to target of front Finder window
-                return POSIX path of (theTarget as alias)
+                if (count of Finder windows) > 0 then
+                    set theTarget to target of front Finder window
+                    return POSIX path of (theTarget as alias)
+                else
+                    return POSIX path of (path to desktop folder as alias)
+                end if
             on error
-                return POSIX path of (path to desktop folder as alias)
+                try
+                    return POSIX path of (insertion location as alias)
+                on error
+                    return ""
+                end try
             end try
         end tell
         """
         var error: NSDictionary?
         if let appleScript = NSAppleScript(source: script) {
             let output = appleScript.executeAndReturnError(&error)
-            if let stringValue = output.stringValue {
+            if let stringValue = output.stringValue, !stringValue.isEmpty {
                 var path = stringValue
                 if path.hasSuffix("/") && path.count > 1 {
                     path.removeLast()
@@ -194,9 +205,13 @@ extension MediaKeyManager {
                 }
             }
             
-            if action == "paste" && frontApp == "Finder" {
-                if let destFolder = self.getFinderActiveFolder() {
+            if action == "paste" {
+                let detectFolder = UserDefaults.standard.object(forKey: "clipboardDetectDestinationFolder") as? Bool ?? true
+                let isFinder = frontApp == "Finder" || (NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.finder")
+                if detectFolder && isFinder, let destFolder = self.getFinderActiveFolder() {
                     folder = destFolder
+                } else {
+                    folder = nil
                 }
             }
         } else if let copiedText = board.string(forType: .string) {

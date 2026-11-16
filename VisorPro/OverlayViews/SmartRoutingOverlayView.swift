@@ -55,10 +55,7 @@ struct SmartRoutingOverlayView: View {
             onRightTap: {
                 if !isPreview {
                     mediaKeyManager.returnAudioToMac()
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        overlayState.showSmartRoutingIndicator = false
-                    }
-                    mediaKeyManager.notifyOverlayStateChanged()
+                    mediaKeyManager.forceHide(overlayId: "smartRouting")
                 }
             },
             isExpandable: false,
@@ -73,10 +70,7 @@ struct SmartRoutingOverlayView: View {
             systemOnRightButtonTap: {
                 if !isPreview {
                     mediaKeyManager.returnAudioToMac()
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        overlayState.showSmartRoutingIndicator = false
-                    }
-                    mediaKeyManager.notifyOverlayStateChanged()
+                    mediaKeyManager.forceHide(overlayId: "smartRouting")
                 }
             },
             baseContent: {

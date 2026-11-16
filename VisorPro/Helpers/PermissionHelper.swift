@@ -153,14 +153,22 @@ struct PermissionHelper {
         }
         
         DispatchQueue.global(qos: .userInitiated).async {
-            // Using the current dark mode status ensures setting dark mode is completely idempotent
-            // (no visual change occurs), but because it is a mutation command to System Events,
-            // macOS TCC intercepts it and displays the native Automation permission dialog!
-            let isDark = DisplaySettingsManager.shared.isDarkMode
-            let scriptSource = "tell application \"System Events\" to tell appearance preferences to set dark mode to \(isDark ? "true" : "false")"
+            let scriptSource: String
+            if bundleIdentifier == "com.apple.finder" {
+                scriptSource = "tell application \"Finder\" to get name"
+            } else {
+                // Ignore the notification that System Events may fire when setting dark mode
+                ThemeObserver.ignoreNextChange = true
+                let isDark = ThemeObserver.isSystemInDarkMode()
+                scriptSource = "tell application \"System Events\" to tell appearance preferences to set dark mode to \(isDark ? "true" : "false")"
+            }
             let script = NSAppleScript(source: scriptSource)
             var errorInfo: NSDictionary?
             let res = script?.executeAndReturnError(&errorInfo)
+            
+            if errorInfo != nil {
+                ThemeObserver.ignoreNextChange = false
+            }
             
             let targetDesc = NSAppleEventDescriptor(bundleIdentifier: bundleIdentifier)
             let status = AEDeterminePermissionToAutomateTarget(targetDesc.aeDesc, typeWildCard, typeWildCard, false)

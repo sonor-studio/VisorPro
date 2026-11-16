@@ -21,6 +21,10 @@ final class PermissionManager: ObservableObject {
     @Published var isThemeAutomationNotDetermined: Bool = false
     @Published var isThemeAutomationDenied: Bool = false
     
+    @Published var isFinderAutomationAuthorized: Bool = false
+    @Published var isFinderAutomationNotDetermined: Bool = false
+    @Published var isFinderAutomationDenied: Bool = false
+    
     @Published var isFullDiskAccessAuthorized: Bool = false
     
     private var cancellables = Set<AnyCancellable>()
@@ -135,11 +139,19 @@ final class PermissionManager: ObservableObject {
             let tNotDet = PermissionHelper.isAutomationNotDetermined(for: "com.apple.systemevents")
             let tDenied = PermissionHelper.isAutomationDenied(for: "com.apple.systemevents")
             
+            let fAuthorized = PermissionHelper.isAutomationAuthorized(for: "com.apple.finder")
+            let fNotDet = PermissionHelper.isAutomationNotDetermined(for: "com.apple.finder")
+            let fDenied = PermissionHelper.isAutomationDenied(for: "com.apple.finder")
+            
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.isThemeAutomationAuthorized = tAuthorized
                 self.isThemeAutomationNotDetermined = tNotDet
                 self.isThemeAutomationDenied = tDenied
+                
+                self.isFinderAutomationAuthorized = fAuthorized
+                self.isFinderAutomationNotDetermined = fNotDet
+                self.isFinderAutomationDenied = fDenied
             }
         }
     }
@@ -168,6 +180,13 @@ final class PermissionManager: ObservableObject {
     func requestThemeAutomationPermission() {
         PermissionHelper.requestAutomationPermission(for: "com.apple.systemevents") { [weak self] _ in
             self?.refresh()
+        }
+    }
+    
+    func requestFinderAutomationPermission(completion: ((Bool) -> Void)? = nil) {
+        PermissionHelper.requestAutomationPermission(for: "com.apple.finder") { [weak self] granted in
+            self?.refresh()
+            completion?(granted)
         }
     }
 }

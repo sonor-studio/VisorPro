@@ -7,17 +7,24 @@ extension MediaKeyManager {
         if !showTrashModule { return }
         if !notifyOnFileDeleted { return }
         
+        let now = Date()
+        if let lastTrigger = overlayTriggerTimes["fileDeleted"], now.timeIntervalSince(lastTrigger) < 3.0 {
+            return
+        }
+        
         let pos = self.getOverlayPosition(for: "fileDeletedOverlayPosition")
         dismissCollidingIndicators(newPosition: pos, source: "fileDeleted")
         playNotificationSound(named: self.soundOnFileDeleted)
+        cancelOverlayHide(for: "fileDeleted")
+        
+        OverlayStateRelay.shared.fileDeletedEventId = UUID()
         
         withAnimation(.easeInOut(duration: 0.15)) {
             self.showFileDeletedIndicator = true
             self.notifyOverlayStateChanged()
-            self.overlayTriggerTimes["fileDeleted"] = Date()
+            self.overlayTriggerTimes["fileDeleted"] = now
         }
         
-        OverlayStateRelay.shared.fileDeletedEventId = UUID()
         scheduleOverlayHide(for: "fileDeleted")
     }
 
@@ -265,11 +272,11 @@ extension MediaKeyManager {
         guard isClipboardCycling else { return }
         isClipboardCycling = false
         clipboardCycleItems = []
+        cancelOverlayHide(for: "copy")
         withAnimation(.easeInOut(duration: 0.15)) {
             self.showCopyIndicator = false
             self.notifyOverlayStateChanged()
         }
-        cancelOverlayHide(for: "copy")
     }
 
 }

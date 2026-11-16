@@ -201,27 +201,13 @@ struct FileDeletedOverlayView: View {
     
     private func restoreFile() {
         guard let url = overlayState.lastDeletedFileURL else { return }
-        let path = url.path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-        DispatchQueue.global(qos: .userInitiated).async {
+        TrashObserver.shared.ignoreFile(name: url.lastPathComponent)
+        DispatchQueue.main.async {
             // 1. Tell Finder to reveal the file in Trash
-            let scriptSource = """
-            tell application "Finder"
-                activate
-                reveal (POSIX file "\(path)")
-            end tell
-            """
-            if let script = NSAppleScript(source: scriptSource) {
-                var errorInfo: NSDictionary?
-                script.executeAndReturnError(&errorInfo)
-                if let error = errorInfo {
-                    print("⚠️ [RestoreFile] Finder reveal warning/error: \(error)")
-                }
-            }
+            NSWorkspace.shared.activateFileViewerSelecting([url])
             
             // 2. Allow Finder window to appear and the item to be selected
-            usleep(350_000) // 350ms
-            
-            DispatchQueue.main.async {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 guard let finder = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == "com.apple.finder" }) else { return }
                 if #available(macOS 14.0, *) {
                     finder.activate()
@@ -237,13 +223,13 @@ struct FileDeletedOverlayView: View {
                 if let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) {
                     keyDown.flags = flags
                     keyDown.postToPid(finder.processIdentifier)
-                    keyDown.post(tap: .cghidEventTap)
                 }
                 
-                if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
-                    keyUp.flags = flags
-                    keyUp.postToPid(finder.processIdentifier)
-                    keyUp.post(tap: .cghidEventTap)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) {
+                    if let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) {
+                        keyUp.flags = flags
+                        keyUp.postToPid(finder.processIdentifier)
+                    }
                 }
             }
         }

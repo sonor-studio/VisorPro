@@ -379,7 +379,7 @@ class MediaKeyManager: ObservableObject {
         set { SwipeStateRelay.shared.activeSwipeIds = newValue }
     }
     var notificationTimers: [String: Timer] = [:]
-    private var overlayHideTimers: [String: Timer] = [:]
+    var overlayHideTimers: [String: Timer] = [:]
     
     var overlayTriggerTimes: [String: Date] = [:]
     
@@ -1052,28 +1052,7 @@ class MediaKeyManager: ObservableObject {
     func openTrash(selecting fileURL: URL? = nil) {
         let targetURL = fileURL ?? lastDeletedFileURL
         if let url = targetURL, FileManager.default.fileExists(atPath: url.path) {
-            let path = url.path.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-            DispatchQueue.global(qos: .userInitiated).async {
-                let scriptSource = """
-                tell application "Finder"
-                    activate
-                    reveal (POSIX file "\(path)")
-                end tell
-                """
-                if let script = NSAppleScript(source: scriptSource) {
-                    var errorInfo: NSDictionary?
-                    script.executeAndReturnError(&errorInfo)
-                    if errorInfo != nil {
-                        DispatchQueue.main.async {
-                            NSWorkspace.shared.activateFileViewerSelecting([url])
-                        }
-                    }
-                } else {
-                    DispatchQueue.main.async {
-                        NSWorkspace.shared.activateFileViewerSelecting([url])
-                    }
-                }
-            }
+            NSWorkspace.shared.activateFileViewerSelecting([url])
             return
         }
         
@@ -1573,7 +1552,7 @@ class MediaKeyManager: ObservableObject {
             updateMicMuteReminderState()
         }
     }
-    @Published var micMuteReminderInterval: Int = UserDefaults.standard.integer(forKey: "micMuteReminderInterval") == 0 ? 15 : UserDefaults.standard.integer(forKey: "micMuteReminderInterval") {
+    @Published var micMuteReminderInterval: Int = UserDefaults.standard.integer(forKey: "micMuteReminderInterval") < 5 ? 15 : UserDefaults.standard.integer(forKey: "micMuteReminderInterval") {
         didSet {
             UserDefaults.standard.set(micMuteReminderInterval, forKey: "micMuteReminderInterval")
             updateMicMuteReminderTimer()
@@ -2323,12 +2302,8 @@ class MediaKeyManager: ObservableObject {
         }
         
         let timerKey = "peripheral_\(notifId)"
-        self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
-        self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                self?.activePeripheralNotifications.removeAll(where: { $0.id == notifId })
-            }
-        }
+        self.overlayTriggerTimes[timerKey] = Date()
+        self.scheduleOverlayHide(for: timerKey)
     }
     
     func triggerDisplayIndicator(id: String, deviceName: String, type: String, typeIcon: String, isConnected: Bool, isModeChange: Bool = false, details: [String: String]? = nil) {
@@ -2380,13 +2355,8 @@ class MediaKeyManager: ObservableObject {
             }
             
             let timerKey = "display_\(id)"
-            self.notificationTimers[timerKey]?.invalidate(); self.overlayTriggerTimes[timerKey] = Date()
-            self.notificationTimers[timerKey] = Timer.scheduledTimerInCommonModes(withTimeInterval: MediaKeyManager.notificationDuration, repeats: false) { [weak self] _ in
-                if self?.globalHoveredTypes.contains(timerKey) == true { return }
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    self?.activeDisplayNotifications.removeAll(where: { $0.id == id })
-                }
-            }
+            self.overlayTriggerTimes[timerKey] = Date()
+            self.scheduleOverlayHide(for: timerKey)
         }
     }
     
@@ -3187,6 +3157,7 @@ class MediaKeyManager: ObservableObject {
                         
                         self.pendingClipboardAction = "paste"
                         self.pendingClipboardActionTimestamp = Date()
+                        self.lastPasteTrigger = Date()
                         let data = self.processClipboardData(for: "paste")
                         self.triggerClipboardIndicator(text: data.text, action: "paste", app: data.app, folder: data.folder, size: data.size, isMasked: data.isMasked)
                     } else if isCustomCut || isNativeCut {

@@ -13,6 +13,8 @@ struct ClipboardSettingsView: View {
     @AppStorage("clipboardHistoryRetention") private var clipboardHistoryRetention: String = "24h"
     @AppStorage("clipboardShowPasswordToggle") private var clipboardShowPasswordToggle: Bool = true
     @AppStorage("clipboardCyclePasteEnabled") private var clipboardCyclePasteEnabled: Bool = true
+    @AppStorage("clipboardDetectDestinationFolder") private var clipboardDetectDestinationFolder: Bool = true
+    @ObservedObject private var permissionManager = PermissionManager.shared
             
     var body: some View {
         ScrollView {
@@ -162,6 +164,35 @@ struct ClipboardSettingsView: View {
                                                 }
                                             }
                                     }
+                                    
+                                    Divider().padding(.leading, 40)
+                                    
+                                    if permissionManager.isFinderAutomationAuthorized {
+                                        CustomSettingsRow(icon: "folder.fill", iconColor: .blue, title: "Destination Folder Detection", subtitle: "Detect target directory when pasting files in Finder") {
+                                            Toggle("", isOn: $clipboardDetectDestinationFolder).labelsHidden()
+                                        }
+                                    } else {
+                                        CustomSettingsRow(icon: "folder.fill", iconColor: .gray, title: "Destination Folder Detection", subtitle: "Detect target directory when pasting files in Finder (Automation permission required)") {
+                                            Toggle("", isOn: .constant(false))
+                                                .labelsHidden()
+                                                .disabled(true)
+                                        }
+                                        
+                                        Divider().padding(.leading, 48)
+                                        
+                                        InlinePermissionCard(
+                                            permissionType: "AppleEvents",
+                                            icon: "lock.fill",
+                                            color: .blue,
+                                            title: "Automation Permission Required",
+                                            description: "Permission required to detect destination folder in Finder.",
+                                            isNotDetermined: permissionManager.isFinderAutomationNotDetermined,
+                                            isDenied: permissionManager.isFinderAutomationDenied,
+                                            onGrantRequested: {
+                                                permissionManager.requestFinderAutomationPermission()
+                                            }
+                                        )
+                                    }
                                 }
                                 .toggleStyle(.switch)
                                 .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
@@ -269,5 +300,8 @@ struct ClipboardSettingsView: View {
         }
         .navigationTitle("Clipboard")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            permissionManager.refresh()
+        }
     }
 }

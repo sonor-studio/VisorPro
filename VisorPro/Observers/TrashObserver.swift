@@ -14,9 +14,19 @@ class TrashObserver: ObservableObject {
     private var previousTrashItems: Set<String>? = nil
     private var tickCount = 0
     private var isCalculatingSize = false
+    private let checkQueue = DispatchQueue(label: "com.sonorstudio.VisorPro.TrashCheck")
+    private var ignoredFiles: [String: Date] = [:]
+    private var lastAlertedFileName: String = ""
+    private var lastAlertedTime: Date = .distantPast
     
     private init() {
         startMonitoring()
+    }
+    
+    func ignoreFile(name: String) {
+        checkQueue.async {
+            self.ignoredFiles[name] = Date()
+        }
     }
     
     func startMonitoring() {
@@ -29,32 +39,41 @@ class TrashObserver: ObservableObject {
     
     private func tick() {
         tickCount += 1
-        DispatchQueue.global(qos: .background).async {
+        checkQueue.async {
             self.checkForDeletedFiles()
         }
     }
     
     private func checkForDeletedFiles() {
         do {
-            var allItemsArray: [URL] = []
-            let propertyKeys: [URLResourceKey] = [.fileSizeKey, .isDirectoryKey, .addedToDirectoryDateKey, .attributeModificationDateKey]
+            // Clean up expired ignored files older than 5 seconds
+            let now = Date()
+            self.ignoredFiles = self.ignoredFiles.filter { now.timeIntervalSince($0.value) < 5.0 }
             
-            // Local trash
-            if let enumerator = FileManager.default.enumerator(at: self.trashURL, includingPropertiesForKeys: propertyKeys, options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]) {
-                for case let fileURL as URL in enumerator {
-                    allItemsArray.append(fileURL)
+            var currentItems = Set<String>()
+            var fileURLMap: [String: URL] = [:]
+            
+            // Local trash (fast directory listing without property prefetching that blocks permissions)
+            if let contents = try? FileManager.default.contentsOfDirectory(atPath: self.trashURL.path) {
+                for item in contents where !item.hasPrefix(".") {
+                    currentItems.insert(item)
+                    fileURLMap[item] = self.trashURL.appendingPathComponent(item)
                 }
             }
             
-            // iCloud trash (if exists)
-            if let icloudURL = FileManager.default.url(forUbiquityContainerIdentifier: nil)?.appendingPathComponent(".Trash"),
-               let icloudEnumerator = FileManager.default.enumerator(at: icloudURL, includingPropertiesForKeys: propertyKeys, options: [.skipsHiddenFiles, .skipsSubdirectoryDescendants]) {
-                for case let fileURL as URL in icloudEnumerator {
-                    allItemsArray.append(fileURL)
+            // iCloud trash (if exists in Mobile Documents)
+            if let libURL = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first {
+                let icloudTrash = libURL.appendingPathComponent("Mobile Documents/com~apple~CloudDocs/.Trash")
+                if FileManager.default.fileExists(atPath: icloudTrash.path),
+                   let icloudItems = try? FileManager.default.contentsOfDirectory(atPath: icloudTrash.path) {
+                    for item in icloudItems where !item.hasPrefix(".") {
+                        currentItems.insert(item)
+                        if fileURLMap[item] == nil {
+                            fileURLMap[item] = icloudTrash.appendingPathComponent(item)
+                        }
+                    }
                 }
             }
-            
-            let currentItems = Set(allItemsArray.map { $0.lastPathComponent })
             
             // Warm-up phase: establish baseline without firing any alerts for existing files
             if initialWarmupTicks < 3 {
@@ -67,28 +86,42 @@ class TrashObserver: ObservableObject {
                 if currentItems != previous {
                     let newItems = currentItems.subtracting(previous)
                     
-                    if let firstNewName = newItems.first, let firstNew = allItemsArray.first(where: { $0.lastPathComponent == firstNewName }) {
-                        let name = firstNew.lastPathComponent
-                        let resourceValues = try? firstNew.resourceValues(forKeys: Set(propertyKeys))
+                    // Ignore bulk appearances (e.g. permission grant, clearing large directory, external disk)
+                    if newItems.count > 5 {
+                        self.previousTrashItems = currentItems
+                        return
+                    }
+                    
+                    if let firstNewName = newItems.first, let firstNew = fileURLMap[firstNewName] {
+                        let name = firstNewName
+                        
+                        // Check if file is currently ignored (e.g. during Put Back / restore)
+                        if self.ignoredFiles[name] != nil {
+                            self.previousTrashItems = currentItems
+                            return
+                        }
+                        
+                        // Debounce identical file alerts within 5 seconds
+                        if name == self.lastAlertedFileName && now.timeIntervalSince(self.lastAlertedTime) < 5.0 {
+                            self.previousTrashItems = currentItems
+                            return
+                        }
+                        
+                        let resourceValues = try? firstNew.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey])
                         let isDir = resourceValues?.isDirectory ?? false
                         let fileSizeBytes = Double(resourceValues?.fileSize ?? 0)
                         let fileSizeMB = isDir ? -1.0 : (fileSizeBytes / 1_000_000.0)
                         
-                        // Verify that the file was actually added to Trash recently (within the last 4 seconds)
-                        // to avoid alerting on existing files when disk permissions are granted or restored.
-                        let addedDate = resourceValues?.addedToDirectoryDate ?? resourceValues?.attributeModificationDate
-                        let wasRecentlyAdded = addedDate.map { abs(Date().timeIntervalSince($0)) < 4.0 } ?? false
+                        self.lastAlertedFileName = name
+                        self.lastAlertedTime = now
+                        let icon = NSWorkspace.shared.icon(forFile: firstNew.path)
                         
-                        if wasRecentlyAdded {
-                            let icon = NSWorkspace.shared.icon(forFile: firstNew.path)
-                            
-                            DispatchQueue.main.async {
-                                MediaKeyManager.shared.lastDeletedFileName = name
-                                MediaKeyManager.shared.lastDeletedFileSizeMB = fileSizeMB
-                                MediaKeyManager.shared.lastDeletedFileIcon = icon
-                                MediaKeyManager.shared.lastDeletedFileURL = firstNew
-                                MediaKeyManager.shared.triggerFileDeletedOverlay()
-                            }
+                        DispatchQueue.main.async {
+                            MediaKeyManager.shared.lastDeletedFileName = name
+                            MediaKeyManager.shared.lastDeletedFileSizeMB = fileSizeMB
+                            MediaKeyManager.shared.lastDeletedFileIcon = icon
+                            MediaKeyManager.shared.lastDeletedFileURL = firstNew
+                            MediaKeyManager.shared.triggerFileDeletedOverlay()
                         }
                         
                         DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 1.0) {
@@ -131,7 +164,7 @@ class TrashObserver: ObservableObject {
             let threshold = MediaKeyManager.shared.trashSizeThresholdGB
             
             if sizeGB >= threshold && sizeGB > 0 {
-                if !self.hasTriggeredAlert || (sizeGB > self.lastAlertSizeGB) || didAddItems {
+                if !self.hasTriggeredAlert || (sizeGB - self.lastAlertSizeGB >= 0.5) {
                     self.hasTriggeredAlert = true
                     self.lastAlertSizeGB = sizeGB
                     

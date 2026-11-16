@@ -46,8 +46,8 @@ struct ContentView: View {
             }()
             active.append(ActiveOverlay(id: batId, type: .battery, position: batteryOverlayPosition, notification: nil)) 
         }
-        if mediaKeyManager.showCopyIndicator { active.append(ActiveOverlay(id: "copy_\(mediaKeyManager.clipboardEventId)", type: .copy, position: copyOverlayPosition, notification: nil)) }
-        if mediaKeyManager.showCapsLockIndicator { active.append(ActiveOverlay(id: "capsLock_\(mediaKeyManager.capsLockEventId)", type: .capsLock, position: capsLockOverlayPosition, notification: nil)) }
+        if mediaKeyManager.showCopyIndicator { active.append(ActiveOverlay(id: "copy", type: .copy, position: copyOverlayPosition, notification: nil)) }
+        if mediaKeyManager.showCapsLockIndicator { active.append(ActiveOverlay(id: "capsLock", type: .capsLock, position: capsLockOverlayPosition, notification: nil)) }
         if OverlayStateRelay.shared.showSurveyIndicator { active.append(ActiveOverlay(id: "survey", type: .survey, position: "top", notification: nil)) }
         
         let btPos = MediaKeyManager.shared.getOverlayPosition(for: "bluetoothOverlayPosition")

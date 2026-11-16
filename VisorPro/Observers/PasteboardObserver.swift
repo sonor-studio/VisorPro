@@ -37,6 +37,9 @@ class PasteboardObserver {
                let hwTimestamp = manager.detectedHardwareActionTimestamp,
                Date().timeIntervalSince(hwTimestamp) < 1.5 {
                 action = hwAction
+                
+                manager.detectedHardwareAction = nil
+                manager.detectedHardwareActionTimestamp = nil
             }
             
             if action == "ignore" { return }

@@ -150,17 +150,23 @@ extension MediaKeyManager {
             
 
             if self.showThemeIndicator {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                    self.isDarkMode = isDark
-                    self.themeEventId = UUID()
-                    self.overlayTriggerTimes["theme"] = Date()
-                    self.notifyOverlayStateChanged()
+
+                withAnimation(.easeInOut(duration: 0.25)) {
+
+                    self.showThemeIndicator = false
+
                 }
-                if !self.globalHoveredTypes.contains("theme") {
-                    self.scheduleOverlayHide(for: "theme")
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+
+                    executeShow()
+
                 }
+
             } else {
+
                 executeShow()
+
             }
         }
     }

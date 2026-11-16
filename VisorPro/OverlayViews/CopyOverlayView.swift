@@ -16,6 +16,7 @@ struct CopyOverlayView: View {
     @AppStorage("clipboardEnablePreview") var clipboardEnablePreview: Bool = true
     @AppStorage("clipboardKeepExpandedOnPaste") var clipboardKeepExpandedOnPaste: Bool = false
     @AppStorage("clipboardShowPasswordToggle") private var clipboardShowPasswordToggle: Bool = true
+    @AppStorage("clipboardDetectDestinationFolder") private var clipboardDetectDestinationFolder: Bool = true
     
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
     @EnvironmentObject var overlayState: OverlayStateRelay
@@ -135,6 +136,9 @@ struct CopyOverlayView: View {
             }
             return "Safari"
         }
+        if actualAction == "paste" && previewItemId == nil {
+            return overlayState.clipboardSourceApp.isEmpty ? "Finder" : overlayState.clipboardSourceApp
+        }
         if isExpanded, let previewId = previewItemId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.app
         }
@@ -147,6 +151,10 @@ struct CopyOverlayView: View {
                 return item.folder
             }
             return nil
+        }
+        if actualAction == "paste" {
+            guard clipboardDetectDestinationFolder else { return nil }
+            return overlayState.clipboardSourceFolder
         }
         if isExpanded, let previewId = previewItemId, let item = currentHistory.first(where: { $0.id == previewId }) {
             return item.folder
@@ -356,7 +364,7 @@ struct CopyOverlayView: View {
                                         .frame(maxWidth: .infinity, alignment: .center)
                                     } else {
                                         VStack(alignment: .center, spacing: 4) {
-                                            Text("Folder")
+                                            Text(actualAction == "paste" ? "Destination" : "Folder")
                                                 .font(.system(size: 11, weight: .medium, design: .rounded))
                                                 .foregroundColor(.secondary)
                                                 .lineLimit(1)

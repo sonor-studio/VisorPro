@@ -1029,7 +1029,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
             withAnimation(.easeIn(duration: 0.20)) {
                 appearScaleX = 0.6
                 appearScaleY = 0.6
-                appearBlur = 15.0
+                appearBlur = 0.0
                 appearOpacity = 0.0
             }
         case "fluid_bounce":
@@ -1037,7 +1037,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 appearScaleX = 0.3
                 appearScaleY = 0.3
                 appearBlur = 0.0
-                appearOffset = -50
+                appearOffset = -24
                 appearOpacity = 0.0
             }
         case "fluid_drop":
@@ -1045,13 +1045,13 @@ struct PreviewAnimationWrapper<Content: View>: View {
             withAnimation(.spring(response: 0.26, dampingFraction: 0.75)) {
                 appearScaleX = 0.0846
                 appearScaleY = 0.4231
-                appearBlur = 5.0
+                appearBlur = 0.0
                 appearCornerRadius = 26.0
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
                 guard stateRef.tokenId == currentToken else { return }
                 withAnimation(.easeIn(duration: 0.20)) {
-                    appearOffset = -50
+                    appearOffset = -24
                     appearOpacity = 0.0
                 }
             }
@@ -1060,7 +1060,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
             withAnimation(.easeIn(duration: 0.22)) {
                 appearScaleX = 0.08
                 appearScaleY = 1.0
-                appearBlur = 8.0
+                appearBlur = 0.0
                 appearOffset = 0.0
                 appearOpacity = 0.0
             }
@@ -1068,7 +1068,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
             // 3D visor flip up into bezel
             withAnimation(.easeIn(duration: 0.22)) {
                 appearAngle = -75.0
-                appearBlur = 4.0
+                appearBlur = 0.0
                 appearOffset = 0.0
                 appearOpacity = 0.0
             }
@@ -1077,7 +1077,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
             withAnimation(.easeIn(duration: 0.20)) {
                 appearScaleX = 1.0
                 appearScaleY = 0.03
-                appearBlur = 6.0
+                appearBlur = 0.0
                 appearOffset = 0.0
                 appearOpacity = 0.0
             }
@@ -1086,13 +1086,13 @@ struct PreviewAnimationWrapper<Content: View>: View {
             withAnimation(.easeIn(duration: 0.20)) {
                 appearScaleX = 0.75
                 appearScaleY = 0.35
-                appearOffset = -35.0
-                appearBlur = 4.0
+                appearOffset = -20.0
+                appearBlur = 0.0
                 appearOpacity = 0.0
             }
         default: // Fade (Slide in from top with fade in & out)
             withAnimation(.easeIn(duration: 0.18)) {
-                appearOffset = -32.0
+                appearOffset = -20.0
                 appearOpacity = 0.0
             }
         }
@@ -1140,44 +1140,44 @@ struct PreviewAnimationWrapper<Content: View>: View {
             } else if animType == "scale" {
                 appearScaleX = 0.6
                 appearScaleY = 0.6
-                appearBlur = 15.0
+                appearBlur = 0.0
             } else if animType == "fluid_bounce" {
                 appearScaleX = 0.3
                 appearScaleY = 0.3
-                appearOffset = -40
+                appearOffset = -20
             } else if animType == "fluid_drop" {
                 isDropletClipping = true
                 appearScaleX = 0.0846
                 appearScaleY = 0.4231
-                appearBlur = 5.0
+                appearBlur = 0.0
                 appearCornerRadius = 26.0
-                appearOffset = -50
+                appearOffset = -24
             } else if animType == "ripple" {
                 // Pure horizontal liquid emergence - zero vertical offset
                 appearScaleX = 0.08
                 appearScaleY = 1.0
-                appearBlur = 8.0
+                appearBlur = 0.0
                 appearOffset = 0.0
             } else if animType == "flip" {
                 // 3D perspective flip from top edge
                 appearAngle = -75.0
-                appearBlur = 4.0
+                appearBlur = 0.0
                 appearOffset = 0.0
             } else if animType == "unfold" {
                 // Razor-thin horizontal glass slit
                 appearScaleX = 1.0
                 appearScaleY = 0.03
-                appearBlur = 6.0
+                appearBlur = 0.0
                 appearOffset = 0.0
             } else if animType == "pop" {
                 // Elastic pop from top bezel
                 appearScaleX = 0.75
                 appearScaleY = 0.35
-                appearBlur = 4.0
-                appearOffset = -35.0
+                appearBlur = 0.0
+                appearOffset = -20.0
             } else {
                 // Default Fade (Slide in from top with fade)
-                appearOffset = -32.0
+                appearOffset = -20.0
             }
         }
         
