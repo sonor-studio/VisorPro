@@ -4,14 +4,20 @@ import Combine
 
 class CalendarEventManager: ObservableObject {
     static let shared = CalendarEventManager()
-    private let eventStore = EKEventStore()
+    private var _eventStore: EKEventStore?
+    private var eventStore: EKEventStore {
+        if let store = _eventStore { return store }
+        let store = EKEventStore()
+        _eventStore = store
+        NotificationCenter.default.addObserver(self, selector: #selector(eventStoreChanged), name: .EKEventStoreChanged, object: store)
+        return store
+    }
     
     @Published var todaysEvents: [EKEvent] = []
     @Published var hasAccess: Bool = false
     
     init() {
         checkAccess()
-        NotificationCenter.default.addObserver(self, selector: #selector(eventStoreChanged), name: .EKEventStoreChanged, object: eventStore)
     }
     
     @objc private func eventStoreChanged() {
@@ -23,7 +29,7 @@ class CalendarEventManager: ObservableObject {
     func checkAccess() {
         let status = EKEventStore.authorizationStatus(for: .event)
         if #available(macOS 14.0, *) {
-            self.hasAccess = (status == .fullAccess || status == .writeOnly)
+            self.hasAccess = (status == .fullAccess)
         } else {
             // Fallback on earlier versions
             self.hasAccess = (status == .authorized)
@@ -35,6 +41,7 @@ class CalendarEventManager: ObservableObject {
             eventStore.requestFullAccessToEvents { granted, error in
                 DispatchQueue.main.async {
                     self.hasAccess = granted
+                    NotificationCenter.default.post(name: Notification.Name("CalendarAuthorizationChanged"), object: granted)
                     completion(granted)
                 }
             }
@@ -42,6 +49,7 @@ class CalendarEventManager: ObservableObject {
             eventStore.requestAccess(to: .event) { granted, error in
                 DispatchQueue.main.async {
                     self.hasAccess = granted
+                    NotificationCenter.default.post(name: Notification.Name("CalendarAuthorizationChanged"), object: granted)
                     completion(granted)
                 }
             }

@@ -223,7 +223,6 @@ struct KeyboardSettingsView: View {
 }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Keyboard")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

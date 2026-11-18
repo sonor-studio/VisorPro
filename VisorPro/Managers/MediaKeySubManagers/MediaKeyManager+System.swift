@@ -111,23 +111,8 @@ extension MediaKeyManager {
     }
 
     func syncPermissions() {
-        if self.enableBluetooth && !PermissionHelper.checkBluetoothPermission() {
-            self.enableBluetooth = false
-        }
-        
-        if !PermissionHelper.hasLocationPermission() {
-            if self.enableWiFi { 
-                self.enableWiFi = false 
-            }
-            if self.notifyOnLocationOn { 
-                self.notifyOnLocationOn = false 
-            }
-        }
-        
-        if !PermissionHelper.hasMicrophonePermission() {
-            if UserDefaults.standard.bool(forKey: "micShowVisualizer") {
-                UserDefaults.standard.set(false, forKey: "micShowVisualizer")
-            }
+        DispatchQueue.main.async {
+            PermissionManager.shared.refresh()
         }
     }
 

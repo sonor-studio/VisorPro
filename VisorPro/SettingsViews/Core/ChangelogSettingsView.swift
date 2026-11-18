@@ -47,6 +47,210 @@ struct ChangelogSettingsView: View {
                 Divider()
                     .padding(.bottom, 32)
                 
+                // Version 2.0.2 Area
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("VisorPro 2.0.2")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.primary)
+                    
+                    Text("Introduces iOS AirPods Cards with 3D animations, a modernized permission lifecycle, and stability improvements.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                        .padding(.bottom, 8)
+                    
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 24), GridItem(.flexible(), spacing: 24)], spacing: 32) {
+                        
+                        ChangelogCard(
+                            icon: "airpodspro",
+                            title: "iOS AirPods Card & 3D Animations",
+                            description: "Brand-new iOS Card overlay for AirPods featuring smooth 360° 3D animations and split battery status for earbuds and case when opening the lid.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.blue.opacity(0.05))
+                                
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .frame(width: 120, height: 84)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 16)
+                                                .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+                                        )
+                                        .shadow(color: .black.opacity(0.08), radius: 5, y: 3)
+                                    
+                                    HStack(spacing: 24) {
+                                        // Left column: Earbuds icon & battery gauge
+                                        VStack(spacing: 10) {
+                                            Image(systemName: "airpodspro")
+                                                .font(.system(size: 20, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 32, height: 22)
+                                            
+                                            Circle()
+                                                .stroke(Color.green, lineWidth: 2.5)
+                                                .frame(width: 16, height: 16)
+                                        }
+                                        .frame(width: 32)
+                                        
+                                        // Right column: Case icon & battery gauge
+                                        VStack(spacing: 10) {
+                                            Image(systemName: "airpodspro.chargingcase.wireless.fill")
+                                                .font(.system(size: 20, weight: .medium))
+                                                .foregroundColor(.primary)
+                                                .frame(width: 32, height: 22)
+                                            
+                                            Circle()
+                                                .stroke(Color.green, lineWidth: 2.5)
+                                                .frame(width: 16, height: 16)
+                                        }
+                                        .frame(width: 32)
+                                    }
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "menubar.rectangle",
+                            title: "Dynamic Menu Bar Icon",
+                            description: "In System overlay style, the menu bar icon smoothly changes to match the active system overlay (volume, brightness, AirPods, etc.) and returns to VisorPro when dismissed.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.orange.opacity(0.05))
+                                
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(Color(NSColor.controlBackgroundColor))
+                                        .frame(width: 120, height: 72)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 14)
+                                                .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+                                        )
+                                        .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                    
+                                    HStack(spacing: 12) {
+                                        Image("MenuBarIcon")
+                                            .renderingMode(.template)
+                                            .font(.system(size: 14))
+                                            .foregroundColor(.secondary)
+                                        
+                                        Image(systemName: "arrow.right")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(.secondary.opacity(0.5))
+                                        
+                                        Image(systemName: "speaker.wave.3.fill")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(.primary)
+                                    }
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "lock.shield.fill",
+                            title: "Modernized Permission System",
+                            description: "Complete overhaul of the permission architecture with a centralized PermissionManager, native macOS inline status cards, and deferred prompts to eliminate disruptive popups on launch.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.blue.opacity(0.05))
+                                
+                                ZStack(alignment: .bottomTrailing) {
+                                    // Tilted background card
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.blue.opacity(0.18))
+                                        .frame(width: 96, height: 64)
+                                        .rotationEffect(.degrees(-7))
+                                        .offset(x: -8, y: -4)
+                                    
+                                    // Main card
+                                    VStack(spacing: 7) {
+                                        Image(systemName: "lock.shield.fill")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(.blue)
+                                        
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color.blue.opacity(0.5))
+                                            .frame(width: 44, height: 4)
+                                        
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color.secondary.opacity(0.25))
+                                            .frame(width: 28, height: 3)
+                                    }
+                                    .frame(width: 96, height: 64)
+                                    .background(Color(NSColor.controlBackgroundColor))
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+                                    )
+                                    .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                    
+                                    // Status badge on corner
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.green)
+                                        .background(Circle().fill(Color(NSColor.windowBackgroundColor)).frame(width: 14, height: 14))
+                                        .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                                        .offset(x: 6, y: 6)
+                                }
+                            }
+                        )
+                        
+                        ChangelogCard(
+                            icon: "wrench.and.screwdriver.fill",
+                            title: "Stability, Observers & Bug Fixes",
+                            description: "Fixed settings window dismissal during system dialogs, prevented startup focus stealing, rebuilt TrashObserver on a serial queue with debounce protection, and eliminated animation tearing.",
+                            preview: ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.teal.opacity(0.05))
+                                
+                                ZStack(alignment: .bottomTrailing) {
+                                    // Tilted background card
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .fill(Color.teal.opacity(0.18))
+                                        .frame(width: 96, height: 64)
+                                        .rotationEffect(.degrees(7))
+                                        .offset(x: 8, y: -4)
+                                    
+                                    // Main card
+                                    VStack(spacing: 7) {
+                                        Image(systemName: "wrench.and.screwdriver.fill")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(.teal)
+                                        
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color.teal.opacity(0.5))
+                                            .frame(width: 44, height: 4)
+                                        
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(Color.secondary.opacity(0.25))
+                                            .frame(width: 28, height: 3)
+                                    }
+                                    .frame(width: 96, height: 64)
+                                    .background(Color(NSColor.controlBackgroundColor))
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+                                    )
+                                    .shadow(color: .black.opacity(0.08), radius: 4, y: 2)
+                                    
+                                    // Status badge on corner
+                                    Image(systemName: "checkmark.shield.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(.teal)
+                                        .background(Circle().fill(Color(NSColor.windowBackgroundColor)).frame(width: 14, height: 14))
+                                        .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                                        .offset(x: 6, y: 6)
+                                }
+                            }
+                        )
+                    }
+                }
+                .padding(.bottom, 32)
+                
+                Divider()
+                    .padding(.bottom, 32)
+                
                 // Version 2.0.1 Area
                 VStack(alignment: .leading, spacing: 16) {
                     Text("VisorPro 2.0.1")
@@ -1367,7 +1571,6 @@ struct ChangelogSettingsView: View {
         }
         .environment(\.overlayForcedStyle, "default")
         .environment(\.overlayForcedMinimal, false)
-        .navigationTitle("Changelog")
     }
 }
 

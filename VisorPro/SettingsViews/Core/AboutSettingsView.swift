@@ -115,7 +115,6 @@ struct AboutSettingsView: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
-        .navigationTitle("About")
     }
 }
 

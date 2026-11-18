@@ -19,6 +19,11 @@ final class MenuBarManager: NSObject, NSMenuDelegate, NSMenuItemValidation {
         super.init()
     }
     
+    private var originalMenuBarImage: NSImage?
+    private var customIconHostingView: NSView?
+    private var activeOverlaySymbolName: String?
+    private var pillView: MenuBarPillView?
+    
     func setup(openDashboard: @escaping () -> Void, openChangelog: (() -> Void)? = nil) {
         self.openDashboardAction = openDashboard
         self.openChangelogAction = openChangelog
@@ -26,10 +31,21 @@ final class MenuBarManager: NSObject, NSMenuDelegate, NSMenuItemValidation {
         
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
-            let image = NSImage(named: "MenuBarIcon")
-            image?.isTemplate = true
-            button.image = image
+            let orig = NSImage(named: "MenuBarIcon")
+            orig?.isTemplate = true
+            self.originalMenuBarImage = orig
+            
+            // Set initial fixed-size template image
+            button.image = makeFixedImage(from: orig)
             button.toolTip = "VisorPro"
+            button.wantsLayer = true
+            button.layer?.masksToBounds = false
+            
+            // Capsule pill highlight subview placed behind the native button cell drawing
+            let pill = MenuBarPillView(frame: button.bounds)
+            pill.autoresizingMask = [.width, .height]
+            button.addSubview(pill, positioned: .below, relativeTo: nil)
+            self.pillView = pill
         }
         
         menu.delegate = self
@@ -50,6 +66,153 @@ final class MenuBarManager: NSObject, NSMenuDelegate, NSMenuItemValidation {
     func updateVisibility() {
         let isVisible = UserDefaults.standard.object(forKey: "showMenuBarIcon") as? Bool ?? true
         statusItem?.isVisible = isVisible
+    }
+    
+    // MARK: - Animated Menu Bar Icon Morph for System Style Overlays
+    
+    /// Morph the menu bar icon into the active overlay's symbol when a System-style overlay appears,
+    /// or morph it back to the original VisorPro icon when all overlays disappear.
+    func morphIcon(to symbolName: String?) {
+        guard let button = statusItemButton,
+              let buttonLayer = button.layer,
+              let pillView = self.pillView,
+              let pillLayer = pillView.layer else { return }
+        
+        let isSystemTransformEnabled = UserDefaults.standard.object(forKey: "systemMenuBarIconTransform") as? Bool ?? true
+        let isSystemStyle = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
+        
+        // If disabled or not in system style, always reset to original icon if transformed
+        guard isSystemTransformEnabled && isSystemStyle else {
+            if activeOverlaySymbolName != nil {
+                resetIconImmediately()
+            }
+            return
+        }
+        
+        // If symbol hasn't changed, do nothing
+        if activeOverlaySymbolName == symbolName { return }
+        activeOverlaySymbolName = symbolName
+        
+        pillView.updatePillColor()
+        
+        // Ensure proper layer anchor point
+        buttonLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        buttonLayer.position = CGPoint(x: button.frame.midX, y: button.frame.midY)
+        
+        pillLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        pillLayer.position = CGPoint(x: button.bounds.midX, y: button.bounds.midY)
+        
+        // 1. Shrink icon and pill smoothly
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.18)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(controlPoints: 0.4, 0.0, 0.2, 1.0))
+        
+        let shrinkAnim = CAKeyframeAnimation(keyPath: "transform.scale")
+        shrinkAnim.values = [1.0, 0.2]
+        shrinkAnim.keyTimes = [0.0, 1.0]
+        shrinkAnim.isRemovedOnCompletion = false
+        shrinkAnim.fillMode = .forwards
+        
+        let fadeOut = CAKeyframeAnimation(keyPath: "opacity")
+        fadeOut.values = [1.0, 0.0]
+        fadeOut.keyTimes = [0.0, 1.0]
+        fadeOut.isRemovedOnCompletion = false
+        fadeOut.fillMode = .forwards
+        
+        CATransaction.setCompletionBlock { [weak self, weak button, weak pillView] in
+            guard let self = self, let button = button, let pillLayer = pillView?.layer else { return }
+            
+            let isHighlightEnabled = UserDefaults.standard.object(forKey: "systemMenuBarIconHighlight") as? Bool ?? true
+            let isOverlay = (symbolName != nil)
+            
+            // Switch image on the native NSStatusBarButton
+            self.applyIconDirect(symbolName: symbolName)
+            
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            pillLayer.opacity = (isOverlay && isHighlightEnabled) ? 1.0 : 0.0
+            button.layer?.removeAllAnimations()
+            pillLayer.removeAllAnimations()
+            CATransaction.commit()
+            
+            // 2. Grow new icon and pill out smoothly
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(0.24)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(controlPoints: 0.16, 1.0, 0.3, 1.0))
+            
+            let growAnim = CAKeyframeAnimation(keyPath: "transform.scale")
+            growAnim.values = [0.2, 1.04, 1.0]
+            growAnim.keyTimes = [0.0, 0.7, 1.0]
+            growAnim.isRemovedOnCompletion = false
+            growAnim.fillMode = .forwards
+            
+            let fadeIn = CAKeyframeAnimation(keyPath: "opacity")
+            fadeIn.values = [0.0, 1.0]
+            fadeIn.keyTimes = [0.0, 1.0]
+            fadeIn.isRemovedOnCompletion = false
+            fadeIn.fillMode = .forwards
+            
+            button.layer?.add(growAnim, forKey: "growScale")
+            button.layer?.add(fadeIn, forKey: "growFade")
+            
+            if isOverlay && isHighlightEnabled {
+                pillLayer.add(growAnim, forKey: "pillGrowScale")
+                pillLayer.add(fadeIn, forKey: "pillGrowFade")
+            }
+            
+            CATransaction.commit()
+        }
+        
+        buttonLayer.add(shrinkAnim, forKey: "shrinkScale")
+        buttonLayer.add(fadeOut, forKey: "shrinkFade")
+        if pillLayer.opacity > 0.0 {
+            pillLayer.add(shrinkAnim, forKey: "pillShrinkScale")
+            pillLayer.add(fadeOut, forKey: "pillShrinkFade")
+        }
+        CATransaction.commit()
+    }
+    
+    private func applyIconDirect(symbolName: String?) {
+        guard let button = statusItemButton else { return }
+        if let symbolName = symbolName,
+           let sfImage = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Overlay Status") {
+            let config = NSImage.SymbolConfiguration(pointSize: 13.0, weight: .semibold)
+            let configured = sfImage.withSymbolConfiguration(config) ?? sfImage
+            configured.isTemplate = true
+            button.image = makeFixedImage(from: configured)
+        } else {
+            let orig = originalMenuBarImage ?? NSImage(named: "MenuBarIcon")
+            orig?.isTemplate = true
+            button.image = makeFixedImage(from: orig)
+        }
+    }
+    
+    private func makeFixedImage(from source: NSImage?) -> NSImage? {
+        guard let source = source else { return nil }
+        // 24 width slightly widens the button bounds naturally (by ~2pt) without hardcoding or breaking button.window
+        let fixed = NSImage(size: NSSize(width: 24, height: 16), flipped: false) { rect in
+            let targetSize = source.size
+            let drawRect = NSRect(
+                x: (rect.width - targetSize.width) / 2.0,
+                y: (rect.height - targetSize.height) / 2.0,
+                width: targetSize.width,
+                height: targetSize.height
+            )
+            source.draw(in: drawRect)
+            return true
+        }
+        fixed.isTemplate = true
+        return fixed
+    }
+    
+    private func resetIconImmediately() {
+        activeOverlaySymbolName = nil
+        applyIconDirect(symbolName: nil)
+        statusItemButton?.layer?.removeAllAnimations()
+        statusItemButton?.layer?.transform = CATransform3DIdentity
+        statusItemButton?.layer?.opacity = 1.0
+        pillView?.layer?.removeAllAnimations()
+        pillView?.layer?.opacity = 0.0
     }
     
     // MARK: - NSMenuDelegate
@@ -212,27 +375,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate, NSMenuItemValidation {
     }
     
     @objc private func toggleWiFi() {
-        let manager = MediaKeyManager.shared
-        if !manager.enableWiFi {
-            if PermissionHelper.isLocationNotDetermined() {
-                PermissionHelper.sharedLocationManager.requestAlwaysAuthorization()
-                manager.enableWiFi = true
-            } else if PermissionHelper.hasLocationPermission() {
-                manager.enableWiFi = true
-            } else {
-                manager.enableWiFi = false
-                PermissionHelper.openPrivacySettings(for: "Location")
-                
-                let alert = NSAlert()
-                alert.messageText = "Location Access Required"
-                alert.informativeText = "To read the Wi-Fi network name, VisorPro needs location access. Please enable it in System Settings > Privacy & Security > Location Services."
-                alert.alertStyle = .warning
-                alert.addButton(withTitle: "OK")
-                alert.runModal()
-            }
-        } else {
-            manager.enableWiFi = false
-        }
+        MediaKeyManager.shared.enableWiFi.toggle()
     }
     
     @objc private func toggleBluetooth() {
@@ -295,5 +438,61 @@ final class MenuBarManager: NSObject, NSMenuDelegate, NSMenuItemValidation {
     
     @objc private func quitAppAction() {
         NSApplication.shared.terminate(nil)
+    }
+}
+
+// MARK: - Dedicated Subviews for Menu Bar Icon and Capsule Pill
+
+/// Layer-backed native macOS translucent pill highlight behind the active status item.
+private final class MenuBarPillView: NSView {
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        self.wantsLayer = true
+        self.layer?.cornerCurve = .circular
+        self.layer?.masksToBounds = true
+        self.layer?.opacity = 0.0
+        updateCornerRadius()
+        updatePillColor()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+    
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        return nil
+    }
+    
+    func updateCornerRadius() {
+        self.layer?.cornerRadius = self.bounds.height / 2.0
+    }
+    
+    override func layout() {
+        super.layout()
+        if let superview = self.superview {
+            // Expand vertically by 1pt up and down (2px Retina) to match system height perfectly,
+            // while keeping horizontal width exactly matching superview bounds so ends do not get clipped.
+            let targetFrame = NSRect(
+                x: 0,
+                y: -1.0,
+                width: superview.bounds.width,
+                height: superview.bounds.height + 2.0
+            )
+            if self.frame != targetFrame {
+                self.frame = targetFrame
+            }
+        }
+        updateCornerRadius()
+    }
+    
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updatePillColor()
+    }
+    
+    func updatePillColor() {
+        // 10% opacity white (90% transparency)
+        let color = NSColor.white.withAlphaComponent(0.10)
+        self.layer?.backgroundColor = color.cgColor
     }
 }

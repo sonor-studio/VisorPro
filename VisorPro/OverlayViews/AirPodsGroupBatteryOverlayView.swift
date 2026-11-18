@@ -6,12 +6,12 @@ struct AirPodsGroupBatteryOverlayView: View {
     @State private var isExpanded: Bool = false
     
     var isPreview: Bool = false
-    var previewLeftBattery: Int = 85
-    var previewLeftCharging: Bool = false
-    var previewRightBattery: Int = 80
-    var previewRightCharging: Bool = false
-    var previewCaseBattery: Int = 40
-    var previewCaseCharging: Bool = true
+    var previewLeftBattery: Int = 100
+    var previewLeftCharging: Bool = true
+    var previewRightBattery: Int = 100
+    var previewRightCharging: Bool = true
+    var previewCaseBattery: Int = 70
+    var previewCaseCharging: Bool = false
     
     private var leftBattery: Int { isPreview ? previewLeftBattery : overlayState.airpodsLeftBattery }
     private var leftCharging: Bool { isPreview ? previewLeftCharging : overlayState.airpodsLeftCharging }

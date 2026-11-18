@@ -231,6 +231,5 @@ struct SystemSettingsView: View {
             }
             .padding(.vertical, 24)
         }
-        .navigationTitle("System")
     }
 }

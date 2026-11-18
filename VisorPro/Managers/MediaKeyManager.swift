@@ -136,7 +136,7 @@ struct AccessoryDeviceSettings: Codable, Equatable {
     var notifyOnCaseOpen: Bool = true
     var soundOnCaseOpen: String = "None"
     var caseOpenBehavior: String = "autoHide" // "autoHide" or "persistent"
-    var caseOpenStyle: String = "glass"       // "glass" or "iosCard"
+    var caseOpenStyle: String = "iosCard"     // "glass" or "iosCard" (default to native iOS Card)
     
     var colorOnConnect: String = "Default"
     var colorOnDisconnect: String = "Default"
@@ -188,7 +188,7 @@ struct AccessoryDeviceSettings: Codable, Equatable {
         notifyOnCaseOpen = try container.decodeIfPresent(Bool.self, forKey: .notifyOnCaseOpen) ?? true
         soundOnCaseOpen = try container.decodeIfPresent(String.self, forKey: .soundOnCaseOpen) ?? "None"
         caseOpenBehavior = try container.decodeIfPresent(String.self, forKey: .caseOpenBehavior) ?? "autoHide"
-        caseOpenStyle = try container.decodeIfPresent(String.self, forKey: .caseOpenStyle) ?? "glass"
+        caseOpenStyle = try container.decodeIfPresent(String.self, forKey: .caseOpenStyle) ?? "iosCard"
         colorOnCaseOpen = try container.decodeIfPresent(String.self, forKey: .colorOnCaseOpen) ?? "Default"
         colorOn100Percent = try container.decodeIfPresent(String.self, forKey: .colorOn100Percent) ?? "Default"
         colorOnAirPodsANC = try container.decodeIfPresent(String.self, forKey: .colorOnAirPodsANC) ?? "Default"
@@ -403,6 +403,9 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("glowIntensity") var glowIntensity: Double = 1.0
     @AppStorage("cornerRoundingMultiplier") var cornerRoundingMultiplier: Double = 0.85
     @AppStorage("overlayStyle") var overlayStyle: String = "default"
+    @AppStorage("centerSystemOverlayOnFullScreen") var centerSystemOverlayOnFullScreen: Bool = true
+    @AppStorage("systemMenuBarIconTransform") var systemMenuBarIconTransform: Bool = true
+    @AppStorage("systemMenuBarIconHighlight") var systemMenuBarIconHighlight: Bool = true
     
     /// Returns the effective runtime style accounting for macOS version capabilities.
     /// On macOS < 26.0, "system" resolves to "classic" since .glassEffect() requires macOS 26+.

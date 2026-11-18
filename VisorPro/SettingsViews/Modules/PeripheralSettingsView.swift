@@ -216,7 +216,6 @@ struct PeripheralSettingsView: View {
             }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Peripherals")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
     }

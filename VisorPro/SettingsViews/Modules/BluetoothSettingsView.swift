@@ -285,7 +285,6 @@ struct BluetoothSettingsView: View {
         }
         .padding(.vertical, 20)
     }
-    .navigationTitle("Bluetooth")
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.clear)
     .onAppear {

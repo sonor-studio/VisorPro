@@ -185,7 +185,6 @@ struct ThemeSettingsView: View {
             }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Theme")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
         .onAppear {

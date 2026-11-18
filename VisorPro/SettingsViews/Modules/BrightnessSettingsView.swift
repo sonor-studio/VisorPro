@@ -189,7 +189,6 @@ struct BrightnessSettingsView: View {
             }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Brightness")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
         .onAppear {

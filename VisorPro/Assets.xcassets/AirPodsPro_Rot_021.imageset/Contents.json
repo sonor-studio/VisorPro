@@ -1,0 +1,8 @@
+{
+  "images": [
+    {"idiom": "universal", "scale": "1x"},
+    {"idiom": "universal", "scale": "2x", "filename": "AirPodsPro_Rot_021@2x.png"},
+    {"idiom": "universal", "scale": "3x", "filename": "AirPodsPro_Rot_021@3x.png"}
+  ],
+  "info": {"author": "xcode", "version": 1}
+}

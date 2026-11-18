@@ -215,7 +215,6 @@ struct FeedbackSettingsView: View {
             }
             .padding()
         }
-        .navigationTitle("Feedback")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
         .onChange(of: feedbackType) { resetMessages() }

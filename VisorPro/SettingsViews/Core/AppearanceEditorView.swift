@@ -31,6 +31,9 @@ struct AppearanceEditorView: View {
     @AppStorage("enableBouncyExpansion") private var enableBouncyExpansion = true
     @AppStorage("enableMinimalMode") private var enableMinimalMode = false
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
+    @AppStorage("centerSystemOverlayOnFullScreen") private var centerSystemOverlayOnFullScreen = true
+    @AppStorage("systemMenuBarIconTransform") private var systemMenuBarIconTransform = true
+    @AppStorage("systemMenuBarIconHighlight") private var systemMenuBarIconHighlight = true
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     
     @State private var animationTrigger = false
@@ -206,7 +209,6 @@ struct AppearanceEditorView: View {
             }
             .padding(.horizontal, 20)
         }
-        .navigationTitle("Design Studio")
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("PreviewDismissTriggered"))) { _ in
             if !isPreviewPlaying {
                 isPreviewPlaying = true
@@ -347,6 +349,30 @@ struct AppearanceEditorView: View {
             }
             .buttonStyle(InteractiveGlassButtonStyle(isActive: enableMinimalMode, tintColor: .blue))
         }
+    }
+    
+    // MARK: - System Full Screen Center Control
+    private var systemFullScreenCenterControl: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "rectangle.center.inset.filled")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.primary)
+            
+            Text("Center in Full Screen")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.primary)
+            
+            Toggle("", isOn: $centerSystemOverlayOnFullScreen)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .onChange(of: centerSystemOverlayOnFullScreen) { _, _ in
+                    MediaKeyManager.shared.notifyOverlayStateChanged()
+                }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .nativeGlassBackground()
     }
     
     // MARK: - Bottom Controls (action buttons only)
@@ -698,6 +724,70 @@ struct AppearanceEditorView: View {
                 }
             }
             
+            if #available(macOS 26.0, *) {
+                if mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.overlayStyle == "system" {
+                    Divider()
+                    
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Center in Full Screen")
+                                .font(.system(size: 13, weight: .medium))
+                            Text("Center overlays horizontally when in full screen.")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer(minLength: 20)
+                        Toggle("", isOn: $centerSystemOverlayOnFullScreen)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .onChange(of: centerSystemOverlayOnFullScreen) { _, _ in
+                                MediaKeyManager.shared.notifyOverlayStateChanged()
+                            }
+                    }
+                    
+                    Divider()
+                    
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Change Menu Bar Icon")
+                                .font(.system(size: 13, weight: .medium))
+                            Text("Change the menu bar icon to reflect the active system overlay.")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer(minLength: 20)
+                        Toggle("", isOn: $systemMenuBarIconTransform)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .onChange(of: systemMenuBarIconTransform) { _, isEnabled in
+                                if !isEnabled {
+                                    MenuBarManager.shared.morphIcon(to: nil)
+                                }
+                            }
+                    }
+                    
+                    if systemMenuBarIconTransform {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Active Icon Highlight")
+                                    .font(.system(size: 12, weight: .regular))
+                                Text("Display a native translucent capsule highlight behind the active icon.")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.leading, 8)
+                            Spacer(minLength: 20)
+                            Toggle("", isOn: $systemMenuBarIconHighlight)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .controlSize(.mini)
+                        }
+                    }
+                }
+            }
+            
             if mediaKeyManager.effectiveOverlayStyle != "system" && mediaKeyManager.effectiveOverlayStyle != "classic" {
                 Divider()
                 
@@ -940,7 +1030,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 .degrees(appearAngle),
                 axis: (x: 1, y: 0, z: 0),
                 anchor: .top,
-                perspective: 0.45
+                perspective: 0.08
             )
             .scaleEffect(x: appearScaleX, y: appearScaleY, anchor: .top)
             .blur(radius: appearBlur)
@@ -1067,7 +1157,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
         case "flip":
             // 3D visor flip up into bezel
             withAnimation(.easeIn(duration: 0.22)) {
-                appearAngle = -75.0
+                appearAngle = -50.0
                 appearBlur = 0.0
                 appearOffset = 0.0
                 appearOpacity = 0.0
@@ -1160,7 +1250,7 @@ struct PreviewAnimationWrapper<Content: View>: View {
                 appearOffset = 0.0
             } else if animType == "flip" {
                 // 3D perspective flip from top edge
-                appearAngle = -75.0
+                appearAngle = -50.0
                 appearBlur = 0.0
                 appearOffset = 0.0
             } else if animType == "unfold" {

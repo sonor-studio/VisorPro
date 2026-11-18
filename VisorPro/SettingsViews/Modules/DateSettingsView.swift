@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DateSettingsView: View {
     @EnvironmentObject var mediaKeyManager: MediaKeyManager
+    @ObservedObject private var permissionManager = PermissionManager.shared
     @AppStorage("dateOverlayPosition") private var dateOverlayPosition: String = "top"
     @AppStorage("overlayPositionMode") private var overlayPositionMode: String = "custom"
     @AppStorage("dateAllowExpansion") private var dateAllowExpansion: Bool = true
@@ -15,7 +16,6 @@ struct DateSettingsView: View {
     @AppStorage("dateCustomCountdownDate") private var customCountdownDate: Double = Date().timeIntervalSince1970
     
     @AppStorage("dateShowCalendarEvents") private var showCalendarEvents: Bool = false
-    @State private var showCalendarPermissionAlert = false
     
     private var moduleColor: Color {
         OverlayColorManager.shared.parseColor("Emerald")
@@ -123,15 +123,15 @@ struct DateSettingsView: View {
                                 
                                 VStack(spacing: 0) {
                                     CustomSettingsRow(icon: "number.circle", iconColor: moduleColor, title: "Day of Year", subtitle: "Show the current day out of 365/366") {
-                                        Toggle("", isOn: $showDayOfYear).toggleStyle(SwitchToggleStyle(tint: .accentColor)).labelsHidden()
+                                        Toggle("", isOn: $showDayOfYear).toggleStyle(SwitchToggleStyle(tint: moduleColor)).labelsHidden()
                                     }
                                     Divider().padding(.leading, 40)
                                     CustomSettingsRow(icon: "calendar.badge.clock", iconColor: moduleColor, title: "Week of Year", subtitle: "Show the current week number") {
-                                        Toggle("", isOn: $showWeekOfYear).toggleStyle(SwitchToggleStyle(tint: .accentColor)).labelsHidden()
+                                        Toggle("", isOn: $showWeekOfYear).toggleStyle(SwitchToggleStyle(tint: moduleColor)).labelsHidden()
                                     }
                                     Divider().padding(.leading, 40)
                                     CustomSettingsRow(icon: "hourglass", iconColor: moduleColor, title: "Days Left", subtitle: "Show days remaining in the current year") {
-                                        Toggle("", isOn: $showDaysLeft).toggleStyle(SwitchToggleStyle(tint: .accentColor)).labelsHidden()
+                                        Toggle("", isOn: $showDaysLeft).toggleStyle(SwitchToggleStyle(tint: moduleColor)).labelsHidden()
                                     }
                                     Divider().padding(.leading, 40)
                                     CustomSettingsRow(icon: "timer", iconColor: moduleColor, title: "Countdown", subtitle: "Show days left until a specific date") {
@@ -164,22 +164,37 @@ struct DateSettingsView: View {
                                         }
                                     }
                                     Divider().padding(.leading, 40)
-                                    CustomSettingsRow(icon: "calendar.day.timeline.left", iconColor: moduleColor, title: "Calendar Events", subtitle: "Show today's events from Calendar") {
-                                        Toggle("", isOn: $showCalendarEvents)
-                                            .toggleStyle(SwitchToggleStyle(tint: .accentColor))
-                                            .labelsHidden()
-                                            .onChange(of: showCalendarEvents) { _, newValue in
-                                                if newValue {
-                                                    CalendarEventManager.shared.requestAccess { granted in
-                                                        if !granted {
-                                                            showCalendarEvents = false
-                                                            showCalendarPermissionAlert = true
-                                                        }
-                                                    }
-                                                }
+                                    if permissionManager.isCalendarAuthorized {
+                                        CustomSettingsRow(icon: "calendar.day.timeline.left", iconColor: moduleColor, title: "Calendar Events", subtitle: "Show today's events from Calendar") {
+                                            Toggle("", isOn: $showCalendarEvents)
+                                                .toggleStyle(SwitchToggleStyle(tint: moduleColor))
+                                                .labelsHidden()
+                                        }
+                                    } else {
+                                        CustomSettingsRow(icon: "calendar.day.timeline.left", iconColor: .gray, title: "Calendar Events", subtitle: "Show today's events from Calendar (Full Calendar permission required)") {
+                                            Toggle("", isOn: .constant(false))
+                                                .toggleStyle(SwitchToggleStyle(tint: moduleColor))
+                                                .labelsHidden()
+                                                .disabled(true)
+                                        }
+                                        
+                                        Divider().padding(.leading, 48)
+                                        
+                                        InlinePermissionCard(
+                                            permissionType: "Calendar",
+                                            icon: "lock.fill",
+                                            color: moduleColor,
+                                            title: "Full Calendar Access Required",
+                                            description: "Full access to your Calendar is required to display upcoming events.",
+                                            isNotDetermined: permissionManager.isCalendarNotDetermined,
+                                            isDenied: permissionManager.isCalendarDenied,
+                                            onGrantRequested: {
+                                                permissionManager.requestCalendarPermission()
                                             }
+                                        )
                                     }
                                 }
+                                .toggleStyle(.switch)
                                 .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                                 .cornerRadius(10)
                                 .overlay(
@@ -230,19 +245,9 @@ struct DateSettingsView: View {
             }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Date")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .alert("Calendar Access Required", isPresented: $showCalendarPermissionAlert) {
-            Button("Open System Settings") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("VisorPro needs access to your Calendar to display upcoming events. Please grant access in System Settings -> Privacy & Security -> Calendars.")
-        }
         .onAppear {
+            permissionManager.refresh()
             if dateFormatOption.contains("EEEE") {
                 dateFormatOption = dateFormatOption.replacingOccurrences(of: "EEEE", with: "EEE")
             }

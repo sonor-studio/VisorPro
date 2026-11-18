@@ -167,7 +167,6 @@ struct MediaSettingsView: View {
             }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Media")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
     }

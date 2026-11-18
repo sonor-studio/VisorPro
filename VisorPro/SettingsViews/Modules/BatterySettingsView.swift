@@ -246,7 +246,6 @@ struct BatterySettingsView: View {
             }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Battery")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
     }

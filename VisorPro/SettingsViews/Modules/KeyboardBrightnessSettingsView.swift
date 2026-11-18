@@ -193,7 +193,6 @@ struct KeyboardBrightnessSettingsView: View {
             }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Keyboard Brightness")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
         .onAppear {

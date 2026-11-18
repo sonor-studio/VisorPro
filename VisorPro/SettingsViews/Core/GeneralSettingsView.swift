@@ -413,7 +413,6 @@ struct GeneralSettingsView: View {
             }
             .padding(.vertical)
         }
-        .navigationTitle("General")
         .onAppear {
             launchAtLogin = (SMAppService.mainApp.status == .enabled)
             if savedLicenseKey.isEmpty {

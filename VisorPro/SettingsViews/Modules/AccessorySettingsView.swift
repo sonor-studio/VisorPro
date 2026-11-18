@@ -333,11 +333,11 @@ struct AccessorySettingsView: View {
                                                     AirPodsBatteryManager.shared.prepareForTestTrigger()
                                                     mediaKeyManager.triggerAirpodsGroupBatteryIndicator(
                                                         deviceName: deviceName,
-                                                        leftBattery: 75,
+                                                        leftBattery: 100,
                                                         leftCharging: true,
-                                                        rightBattery: 75,
+                                                        rightBattery: 100,
                                                         rightCharging: true,
-                                                        caseBattery: 49,
+                                                        caseBattery: 70,
                                                         caseCharging: false
                                                     )
                                                 } label: {

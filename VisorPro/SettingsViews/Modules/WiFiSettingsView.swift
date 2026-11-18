@@ -333,7 +333,6 @@ struct WiFiSettingsView: View {
         }
         .padding(.vertical, 20)
     }
-    .navigationTitle("Wi-Fi")
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.clear)
     .onAppear {

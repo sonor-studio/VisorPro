@@ -25,6 +25,10 @@ final class PermissionManager: ObservableObject {
     @Published var isFinderAutomationNotDetermined: Bool = false
     @Published var isFinderAutomationDenied: Bool = false
     
+    @Published var isCalendarAuthorized: Bool = false
+    @Published var isCalendarNotDetermined: Bool = false
+    @Published var isCalendarDenied: Bool = false
+    
     @Published var isFullDiskAccessAuthorized: Bool = false
     
     private var cancellables = Set<AnyCancellable>()
@@ -59,6 +63,13 @@ final class PermissionManager: ObservableObject {
                 self?.refresh()
             }
             .store(in: &cancellables)
+            
+        // Listen to Calendar authorization changes
+        NotificationCenter.default.publisher(for: Notification.Name("CalendarAuthorizationChanged"))
+            .sink { [weak self] _ in
+                self?.refresh()
+            }
+            .store(in: &cancellables)
     }
     
     func refresh() {
@@ -73,6 +84,10 @@ final class PermissionManager: ObservableObject {
         let mAuthorized = PermissionHelper.hasMicrophonePermission()
         let mNotDet = PermissionHelper.isMicrophoneNotDetermined()
         let mDenied = PermissionHelper.isMicrophoneDenied()
+        
+        let cAuthorized = PermissionHelper.hasCalendarPermission()
+        let cNotDet = PermissionHelper.isCalendarNotDetermined()
+        let cDenied = PermissionHelper.isCalendarDenied()
         
         let fAuthorized = PermissionHelper.hasFullDiskAccess()
         
@@ -89,47 +104,60 @@ final class PermissionManager: ObservableObject {
         self.isMicrophoneNotDetermined = mNotDet
         self.isMicrophoneDenied = mDenied
         
+        self.isCalendarAuthorized = cAuthorized
+        self.isCalendarNotDetermined = cNotDet
+        self.isCalendarDenied = cDenied
+        
         self.isFullDiskAccessAuthorized = fAuthorized
         
-        let mgr = MediaKeyManager.shared
-        
-        // Sync Bluetooth
-        if !bAuthorized {
-            if mgr.enableBluetooth {
-                mgr.enableBluetooth = false
-            }
-        } else {
-            if UserDefaults.standard.object(forKey: "enableBluetooth") as? Bool ?? true {
-                if !mgr.enableBluetooth {
-                    mgr.enableBluetooth = true
+        DispatchQueue.main.async {
+            let mgr = MediaKeyManager.shared
+            
+            // Sync Bluetooth
+            if !bAuthorized {
+                if mgr.enableBluetooth {
+                    mgr.enableBluetooth = false
+                }
+            } else {
+                if UserDefaults.standard.object(forKey: "enableBluetooth") as? Bool ?? true {
+                    if !mgr.enableBluetooth {
+                        mgr.enableBluetooth = true
+                    }
                 }
             }
-        }
-        
-        // Sync Location
-        if !lAuthorized {
-            if mgr.enableWiFi {
-                mgr.enableWiFi = false
-            }
-        } else {
-            if UserDefaults.standard.object(forKey: "enableWiFi") as? Bool ?? true {
-                if !mgr.enableWiFi {
-                    mgr.enableWiFi = true
+            
+            // Sync Location
+            if !lAuthorized {
+                if mgr.enableWiFi {
+                    mgr.enableWiFi = false
+                }
+            } else {
+                if UserDefaults.standard.object(forKey: "enableWiFi") as? Bool ?? true {
+                    if !mgr.enableWiFi {
+                        mgr.enableWiFi = true
+                    }
                 }
             }
-        }
-        
-        // Sync Microphone
-        if !mAuthorized {
-            if UserDefaults.standard.bool(forKey: "micShowVisualizer") {
-                UserDefaults.standard.set(false, forKey: "micShowVisualizer")
+            
+            // Sync Microphone
+            if !mAuthorized {
+                if UserDefaults.standard.bool(forKey: "micShowVisualizer") {
+                    UserDefaults.standard.set(false, forKey: "micShowVisualizer")
+                }
             }
-        }
-        
-        // Sync Full Disk Access (Focus Detailed Mode)
-        if !fAuthorized {
-            if UserDefaults.standard.bool(forKey: "focusDetailMode") {
-                UserDefaults.standard.set(false, forKey: "focusDetailMode")
+            
+            // Sync Calendar
+            if !cAuthorized {
+                if UserDefaults.standard.bool(forKey: "dateShowCalendarEvents") {
+                    UserDefaults.standard.set(false, forKey: "dateShowCalendarEvents")
+                }
+            }
+            
+            // Sync Full Disk Access (Focus Detailed Mode)
+            if !fAuthorized {
+                if UserDefaults.standard.bool(forKey: "focusDetailMode") {
+                    UserDefaults.standard.set(false, forKey: "focusDetailMode")
+                }
             }
         }
         
@@ -185,6 +213,13 @@ final class PermissionManager: ObservableObject {
     
     func requestFinderAutomationPermission(completion: ((Bool) -> Void)? = nil) {
         PermissionHelper.requestAutomationPermission(for: "com.apple.finder") { [weak self] granted in
+            self?.refresh()
+            completion?(granted)
+        }
+    }
+    
+    func requestCalendarPermission(completion: ((Bool) -> Void)? = nil) {
+        PermissionHelper.requestCalendarPermission { [weak self] granted in
             self?.refresh()
             completion?(granted)
         }

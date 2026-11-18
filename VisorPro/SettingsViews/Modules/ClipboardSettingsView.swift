@@ -298,7 +298,6 @@ struct ClipboardSettingsView: View {
 }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Clipboard")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             permissionManager.refresh()

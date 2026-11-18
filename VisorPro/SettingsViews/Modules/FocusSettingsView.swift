@@ -231,7 +231,6 @@ struct FocusSettingsView: View {
             }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Focus Mode")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
         .onChange(of: focusDetailMode) { _, _ in

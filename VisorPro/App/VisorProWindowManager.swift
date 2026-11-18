@@ -116,7 +116,7 @@ class VisorProWindowManager: ObservableObject {
             } else if overlay.type == .airpodsGroupBattery {
                 let isSys = (style == "system")
                 let settings = MediaKeyManager.shared.airPodsSettings()
-                return (isSys && settings.caseOpenStyle == "iosCard") ? 340 : 260
+                return (isSys && settings.caseOpenStyle == "iosCard") ? 318 : 260
             } else if overlay.type == .trash {
                 return 180
             } else if overlay.type == .theme {
@@ -532,14 +532,74 @@ class VisorProWindowManager: ObservableObject {
     }
     
     /// Detects whether the specified screen is currently running in a full-screen space or displaying full-screen media/apps.
-    /// Uses lightweight presentation options and menu bar bounds without synchronous WindowServer IPC.
-    private func isFullScreen(on screen: NSScreen) -> Bool {
+    func isFullScreen(on screen: NSScreen) -> Bool {
+        // 1. System presentation options (e.g. apps that explicitly set system presentation flags)
         let opts = NSApp.currentSystemPresentationOptions
         if opts.contains(.fullScreen) || opts.contains(.hideMenuBar) || opts.contains(.autoHideMenuBar) {
             return true
         }
         
-        // In a native macOS full-screen Space, the menu bar is hidden by default on that display
+        // 2. Fast Accessibility API check on the frontmost application
+        if let frontApp = NSWorkspace.shared.frontmostApplication,
+           frontApp.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            let pid = frontApp.processIdentifier
+            let appEl = AXUIElementCreateApplication(pid)
+            
+            func isAXFullScreen(_ element: AXUIElement) -> Bool {
+                var isFSRef: CFTypeRef?
+                if AXUIElementCopyAttributeValue(element, "AXFullScreen" as CFString, &isFSRef) == .success,
+                   let isFS = isFSRef as? Bool, isFS {
+                    return true
+                }
+                var subroleRef: CFTypeRef?
+                if AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subroleRef) == .success,
+                   let subrole = subroleRef as? String, subrole == "AXFullScreenWindow" {
+                    return true
+                }
+                return false
+            }
+            
+            var focusedRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(appEl, kAXFocusedWindowAttribute as CFString, &focusedRef) == .success,
+               let focusedWin = focusedRef {
+                if isAXFullScreen(focusedWin as! AXUIElement) {
+                    return true
+                }
+            }
+            
+            var mainRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(appEl, kAXMainWindowAttribute as CFString, &mainRef) == .success,
+               let mainWin = mainRef {
+                if isAXFullScreen(mainWin as! AXUIElement) {
+                    return true
+                }
+            }
+        }
+        
+        // 3. CoreGraphics window list inspection
+        // Robust fallback that works for all apps (video players, games, browsers, QuickTime, YouTube full screen)
+        // by checking if any on-screen normal/floating window covers this display.
+        if let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
+            let screenBounds = screen.frame
+            let minWidth = screenBounds.width - 10.0
+            let minHeight = screenBounds.height - 44.0 // Accounts for MacBook camera notch black bar
+            
+            for win in windowList {
+                guard let layer = win[kCGWindowLayer as String] as? Int, (layer >= 0 && layer <= 3) else { continue }
+                guard let ownerPid = win[kCGWindowOwnerPID as String] as? pid_t else { continue }
+                guard ownerPid != ProcessInfo.processInfo.processIdentifier else { continue }
+                
+                if let boundsDict = win[kCGWindowBounds as String] as? [String: Any],
+                   let bounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary) {
+                    let xDiff = abs(bounds.origin.x - screenBounds.origin.x)
+                    if xDiff < 10.0 && bounds.width >= minWidth && bounds.height >= minHeight {
+                        return true
+                    }
+                }
+            }
+        }
+        
+        // 4. Menu bar height fallback (for auto-hidden menu bar mode)
         let menuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
         if menuBarHeight < 4.0 {
             return true
@@ -550,6 +610,80 @@ class VisorProWindowManager: ObservableObject {
     
     func updateWindows() {
         let active = allActiveOverlays
+        
+        // Sync Menu Bar Icon transformation for System Style overlays
+        if MediaKeyManager.shared.effectiveOverlayStyle == "system" {
+            let activeSymbol: String? = {
+                guard let topOverlay = active.first else { return nil }
+                switch topOverlay.type {
+                case .volume:
+                    return MediaKeyManager.shared.isMuted ? "speaker.slash.fill" : "speaker.wave.3.fill"
+                case .brightness:
+                    return "sun.max.fill"
+                case .keyboardBrightness:
+                    return "keyboard"
+                case .battery:
+                    return "battery.100"
+                case .copy:
+                    let action = OverlayStateRelay.shared.clipboardAction
+                    switch action {
+                    case "cut": return "scissors"
+                    case "paste": return "list.clipboard.fill"
+                    case "cyclePaste": return "arrow.triangle.swap"
+                    default: return "doc.on.clipboard.fill"
+                    }
+                case .capsLock:
+                    return "capslock.fill"
+                case .bluetooth:
+                    if let notif = topOverlay.notification {
+                        let name = notif.deviceName.lowercased()
+                        if name.contains("airpod") || notif.id.hasPrefix("AIRPODS_CONNECTION") {
+                            return "airpodspro"
+                        } else if name.contains("headphone") || name.contains("headset") {
+                            return "headphones"
+                        } else if name.contains("mouse") || name.contains("mysz") {
+                            return "magicmouse"
+                        } else if name.contains("keyboard") || name.contains("klawiatura") {
+                            return "keyboard"
+                        } else if name.contains("trackpad") {
+                            return "magicpad"
+                        }
+                    }
+                    return "headphones"
+                case .wifi:
+                    return "wifi"
+                case .focus:
+                    return "moon.fill"
+                case .airpodsMode, .airpodsGroupBattery, .accessoryBattery, .smartRouting:
+                    return "airpodspro"
+                case .theme:
+                    return "circle.lefthalf.filled"
+                case .trash, .fileDeleted:
+                    return "trash.fill"
+                case .display:
+                    return "display"
+                case .mic:
+                    return "mic.fill"
+                case .camera:
+                    return "camera.fill"
+                case .location:
+                    return "location.fill"
+                case .media:
+                    return "music.note"
+                case .language:
+                    return "character.bubble.fill"
+                case .peripheral:
+                    return "computermouse.fill"
+                case .date:
+                    return "calendar"
+                case .cpu, .ram:
+                    return "cpu"
+                default:
+                    return "bell.fill"
+                }
+            }()
+            MenuBarManager.shared.morphIcon(to: activeSymbol)
+        }
         
         for overlay in active {
             if !TelemetryHelper.isDevelopmentEnvironment, let triggerTime = self.overlayTimestamps[overlay.id] {
@@ -759,7 +893,7 @@ class VisorProWindowManager: ObservableObject {
                 let targetPanelWidth = pillWidth + (pad * 2)
                 let targetHeight: CGFloat = {
                     if isSystemStyle {
-                        if isAirPodsIOSCard { return 240.0 }
+                        if isAirPodsIOSCard { return 282.0 }
                         let isSlider = (overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness)
                         return isSlider ? 64.0 : (overlay.type == .survey ? 180.0 : 52.0)
                     } else if isClassicStyle {
@@ -800,7 +934,8 @@ class VisorProWindowManager: ObservableObject {
                 if isAirPodsIOSCard {
                     x = screen.frame.origin.x + (screen.frame.width / 2)
                 } else if isSystemStyle {
-                    if isCurrentFullScreen {
+                    let centerOnFullScreen = UserDefaults.standard.object(forKey: "centerSystemOverlayOnFullScreen") as? Bool ?? MediaKeyManager.shared.centerSystemOverlayOnFullScreen
+                    if isCurrentFullScreen && centerOnFullScreen {
                         x = screen.frame.origin.x + (screen.frame.width / 2)
                     } else {
                         x = MenuBarIconTracker.shared.getIconCenter(for: overlay.type.rawValue, in: screen, pillWidth: pillWidth)
@@ -822,15 +957,9 @@ class VisorProWindowManager: ObservableObject {
                 if isAirPodsIOSCard {
                     originY = screen.visibleFrame.origin.y + 20.0 - pad
                 } else if isSystemStyle {
-                    let menuBarH = isCurrentFullScreen ? 0.0 : max(24.0, screen.frame.maxY - screen.visibleFrame.maxY)
-                    let pillTop = screen.frame.maxY - menuBarH - (isCurrentFullScreen ? 18.0 : 11.0)
-                    let calculatedY = pillTop - (currentHeight - pad)
-                    if isCurrentFullScreen {
-                        let maxAllowedOriginY = screen.frame.maxY - currentHeight - 12.0
-                        originY = min(calculatedY, maxAllowedOriginY)
-                    } else {
-                        originY = calculatedY
-                    }
+                    let menuBarH = max(24.0, screen.frame.maxY - screen.visibleFrame.maxY)
+                    let pillTop = screen.frame.maxY - menuBarH - 11.0
+                    originY = pillTop - (currentHeight - pad)
                 } else if isClassicStyle {
                     // Apple OS X classic HUD is rigidly positioned: centered horizontally, bottom edge 140 pt from display bottom
                     originY = screen.frame.origin.y + 140.0 - pad
@@ -870,7 +999,7 @@ class VisorProWindowManager: ObservableObject {
                     animatingEntryPanels.insert(windowId)
                     
                     let animType = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "fluid_bounce"
-                    let entryDuration: Double = (animType == "fluid_drop" ? 0.28 : (animType == "system" ? 0.22 : 0.18))
+                    let entryDuration: Double = (animType == "fluid_drop" ? 0.28 : (animType == "flip" ? 0.35 : (animType == "system" ? 0.22 : 0.20)))
                     
                     if isAirPodsIOSCard {
                         let startOrigin = NSPoint(x: originX, y: screen.frame.origin.y - currentHeight)
@@ -878,7 +1007,7 @@ class VisorProWindowManager: ObservableObject {
                         panel.setFrame(NSRect(origin: startOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
                         let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
-                        if isSys && !isCurrentFullScreen {
+                        if isSys {
                             panel.makeKey()
                         }
                         
@@ -899,7 +1028,7 @@ class VisorProWindowManager: ObservableObject {
                         panel.setFrame(NSRect(origin: targetOrigin, size: CGSize(width: currentWidth, height: currentHeight)), display: true)
                         panel.orderFront(nil)
                         let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
-                        if isSys && !isCurrentFullScreen {
+                        if isSys {
                             panel.makeKey()
                         }
                         
@@ -938,17 +1067,9 @@ class VisorProWindowManager: ObservableObject {
                     
                     if let overlayPanel = panel as? VisorProOverlayPanel {
                         let isSys = overlayPanel.isSystemStyle
-                        if isSys && !isCurrentFullScreen {
+                        if isSys {
                             if NSApp.keyWindow !== overlayPanel {
                                 overlayPanel.makeKey()
-                            }
-                        } else {
-                            if NSApp.keyWindow === overlayPanel {
-                                if let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != ProcessInfo.processInfo.processIdentifier {
-                                    front.activate(options: [])
-                                } else {
-                                    NSApp.deactivate()
-                                }
                             }
                         }
                     }
@@ -973,7 +1094,7 @@ class VisorProWindowManager: ObservableObject {
             } else if overlay.type == .airpodsGroupBattery {
                 let isSys = (style == "system")
                 let settings = MediaKeyManager.shared.airPodsSettings()
-                h = (isSys && settings.caseOpenStyle == "iosCard") ? 240 : 52
+                h = (isSys && settings.caseOpenStyle == "iosCard") ? 282 : 52
             } else {
                 h = 52
             }
@@ -1298,37 +1419,31 @@ class VisorProOverlayPanel: NSPanel {
         return (MediaKeyManager.shared.effectiveOverlayStyle == "system")
     }
     
-    private var isFullScreenSpace: Bool {
-        guard let screen = self.screen else { return false }
-        let menuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
-        return menuBarHeight < 4.0
-    }
-    
-    override var canBecomeKey: Bool { return isSystemStyle && !isFullScreenSpace }
+    override var canBecomeKey: Bool { return isSystemStyle }
     override var canBecomeMain: Bool { return false }
     
     override var isKeyWindow: Bool {
-        guard isSystemStyle, !isFullScreenSpace, !isBeingClosed, isVisible, contentView != nil else {
+        guard isSystemStyle, !isBeingClosed, isVisible, contentView != nil else {
             return super.isKeyWindow
         }
         return true
     }
     
     override var isMainWindow: Bool {
-        guard isSystemStyle, !isFullScreenSpace, !isBeingClosed, isVisible, contentView != nil else {
+        guard isSystemStyle, !isBeingClosed, isVisible, contentView != nil else {
             return super.isMainWindow
         }
         return true
     }
     
     override func resignKey() {
-        guard isSystemStyle, !isFullScreenSpace, !isBeingClosed, isVisible, contentView != nil else {
+        guard isSystemStyle, !isBeingClosed, isVisible, contentView != nil else {
             super.resignKey()
             return
         }
         // Seamlessly maintain active key HUD appearance without stealing focus from clicked apps (system style only)
         DispatchQueue.main.async { [weak self] in
-            guard let self = self, self.isSystemStyle, !self.isFullScreenSpace, !self.isBeingClosed, self.isVisible, self.contentView != nil else { return }
+            guard let self = self, self.isSystemStyle, !self.isBeingClosed, self.isVisible, self.contentView != nil else { return }
             self.makeKey()
         }
     }
@@ -1585,12 +1700,13 @@ struct SingleOverlayContainer: View {
             _appearOffset = State(initialValue: 0.0)
             _appearAngle = State(initialValue: 0.0)
             _appearOpacity = State(initialValue: 1.0)
-            _appearCornerRadius = State(initialValue: 36.0)
+            _appearCornerRadius = State(initialValue: 38.0)
             return
         }
         
         let anim = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "fluid_bounce"
-        let isTop = overlay.position.hasPrefix("top")
+        let currentPos = MediaKeyManager.shared.getOverlayPosition(for: "\(overlay.id)OverlayPosition")
+        let isTop = currentPos.hasPrefix("top") || (MediaKeyManager.shared.effectiveOverlayStyle == "system")
         
         switch anim {
         case "system":
@@ -1638,7 +1754,7 @@ struct SingleOverlayContainer: View {
             _appearScaleY = State(initialValue: 1.0)
             _appearBlur = State(initialValue: 0.0)
             _appearOffset = State(initialValue: 0.0)
-            _appearAngle = State(initialValue: isTop ? -75.0 : 75.0)
+            _appearAngle = State(initialValue: -50.0)
             _appearOpacity = State(initialValue: 0.0)
             _appearCornerRadius = State(initialValue: 26.0)
         case "unfold":
@@ -1672,7 +1788,9 @@ struct SingleOverlayContainer: View {
         let currentPos = MediaKeyManager.shared.getOverlayPosition(for: "\(overlay.id)OverlayPosition")
         let isTop = currentPos.hasPrefix("top") || (mediaKeyManager.effectiveOverlayStyle == "system")
         let isBottom = currentPos.hasPrefix("bottom")
-        let anchor: UnitPoint = isTop ? .top : (isBottom ? .bottom : .center)
+        let positionAnchor: UnitPoint = isTop ? .top : (isBottom ? .bottom : .center)
+        let rotationAnchor: UnitPoint = (animType == "flip") ? .top : positionAnchor
+        let scaleAnchor: UnitPoint = (animType == "unfold") ? .top : positionAnchor
         
         let isSlider = (overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness)
         let isSystemStyle = (mediaKeyManager.effectiveOverlayStyle == "system")
@@ -1684,8 +1802,13 @@ struct SingleOverlayContainer: View {
                 .threeFingerClickToDismiss(overlayId: overlay.id)
                 .activeMaterialAppearanceIfAvailable()
                 .environment(\.controlActiveState, .key)
-                .modifier(OptionalRotation3DModifier(angle: appearAngle, anchor: anchor))
-                .scaleEffect(x: appearScaleX, y: appearScaleY, anchor: anchor)
+                .rotation3DEffect(
+                    .degrees(appearAngle),
+                    axis: (x: 1, y: 0, z: 0),
+                    anchor: rotationAnchor,
+                    perspective: 0.08
+                )
+                .scaleEffect(x: appearScaleX, y: appearScaleY, anchor: scaleAnchor)
                 .modifier(OptionalBlurModifier(radius: appearBlur))
                 .offset(y: appearOffset)
                 .opacity(appearOpacity)
@@ -1777,7 +1900,8 @@ struct SingleOverlayContainer: View {
             }
         }
         .onChange(of: stateRelay.closingPanels.contains(overlay.id)) { oldValue, isClosing in
-            let isTop = overlay.position.hasPrefix("top")
+            let currentPos = MediaKeyManager.shared.getOverlayPosition(for: "\(overlay.id)OverlayPosition")
+            let isTop = currentPos.hasPrefix("top") || (mediaKeyManager.effectiveOverlayStyle == "system")
             if isClosing {
                 if animType == "system" {
                     withAnimation(.easeIn(duration: 0.16)) {
@@ -1820,7 +1944,7 @@ struct SingleOverlayContainer: View {
                     }
                 } else if animType == "flip" {
                     withAnimation(.easeIn(duration: 0.22)) {
-                        appearAngle = isTop ? -75.0 : 75.0
+                        appearAngle = -50.0
                         appearBlur = 0.0
                         appearOpacity = 0.0
                     }
@@ -2147,23 +2271,6 @@ private struct OptionalBlurModifier: ViewModifier {
     func body(content: Content) -> some View {
         if radius > 0.05 {
             content.blur(radius: radius)
-        } else {
-            content
-        }
-    }
-}
-
-private struct OptionalRotation3DModifier: ViewModifier {
-    let angle: Double
-    let anchor: UnitPoint
-    func body(content: Content) -> some View {
-        if abs(angle) > 0.01 {
-            content.rotation3DEffect(
-                .degrees(angle),
-                axis: (x: 1, y: 0, z: 0),
-                anchor: anchor,
-                perspective: 0.45
-            )
         } else {
             content
         }

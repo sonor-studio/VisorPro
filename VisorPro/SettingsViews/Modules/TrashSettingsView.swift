@@ -30,7 +30,7 @@ struct TrashSettingsView: View {
                         }
                     }
                     .toggleStyle(.switch)
-                    .background(Color(NSColor.controlBackgroundColor))
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                     .cornerRadius(10)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
@@ -206,6 +206,5 @@ struct TrashSettingsView: View {
             }
             .padding(.vertical, 24)
         }
-        .navigationTitle("Trash")
     }
 }

@@ -189,7 +189,6 @@ struct VolumeSettingsView: View {
             }
             .padding(.vertical, 20)
         }
-        .navigationTitle("Volume")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
         .onAppear {

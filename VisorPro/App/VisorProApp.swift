@@ -273,7 +273,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        settingsWindow.title = "VisorPro"
+        settingsWindow.title = ""
+        settingsWindow.titleVisibility = .hidden
         settingsWindow.titlebarAppearsTransparent = true
         settingsWindow.isOpaque = false
         settingsWindow.backgroundColor = .clear

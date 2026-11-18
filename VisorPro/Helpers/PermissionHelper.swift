@@ -2,6 +2,7 @@ import CoreLocation
 import AppKit
 import CoreBluetooth
 import AVFoundation
+import EventKit
 
 final class BluetoothPermissionDelegate: NSObject, CBCentralManagerDelegate {
     static let shared = BluetoothPermissionDelegate()
@@ -96,6 +97,39 @@ struct PermissionHelper {
         AVCaptureDevice.requestAccess(for: .audio) { granted in
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: Notification.Name("MicrophoneAuthorizationChanged"), object: granted)
+                completion?(granted)
+            }
+        }
+    }
+    
+    // MARK: - Calendar
+    static func hasCalendarPermission() -> Bool {
+        let status = EKEventStore.authorizationStatus(for: .event)
+        if #available(macOS 14.0, *) {
+            return status == .fullAccess
+        } else {
+            return status == .authorized
+        }
+    }
+    
+    static func isCalendarNotDetermined() -> Bool {
+        let status = EKEventStore.authorizationStatus(for: .event)
+        return status == .notDetermined
+    }
+    
+    static func isCalendarDenied() -> Bool {
+        let status = EKEventStore.authorizationStatus(for: .event)
+        if #available(macOS 14.0, *) {
+            return status == .denied || status == .restricted || status == .writeOnly
+        } else {
+            return status == .denied || status == .restricted
+        }
+    }
+    
+    static func requestCalendarPermission(completion: ((Bool) -> Void)? = nil) {
+        CalendarEventManager.shared.requestAccess { granted in
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: Notification.Name("CalendarAuthorizationChanged"), object: granted)
                 completion?(granted)
             }
         }
@@ -197,6 +231,8 @@ struct PermissionHelper {
             urlString += "?Privacy_Automation"
         case "Microphone":
             urlString += "?Privacy_Microphone"
+        case "Calendars", "Calendar":
+            urlString += "?Privacy_Calendars"
         case "FullDisk":
             urlString += "?Privacy_AllFiles"
         default:
