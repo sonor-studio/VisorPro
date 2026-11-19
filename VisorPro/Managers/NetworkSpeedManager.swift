@@ -91,7 +91,6 @@ final class NetworkSpeedManager: NSObject, URLSessionDataDelegate {
             try await measurePing(session: session)
             progress(currentResult)
         } catch {
-            print("SpeedTest: Ping failed. \(error)")
             if retryCount > 0 {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 return try await runSpeedTestLive(progress: progress, retryCount: retryCount - 1)
@@ -104,7 +103,6 @@ final class NetworkSpeedManager: NSObject, URLSessionDataDelegate {
             try await measureDownload(session: session)
             progress(currentResult)
         } catch {
-            print("SpeedTest: Download failed. \(error)")
             if retryCount > 0 {
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
                 return try await runSpeedTestLive(progress: progress, retryCount: retryCount - 1)
@@ -117,8 +115,7 @@ final class NetworkSpeedManager: NSObject, URLSessionDataDelegate {
             try await measureUpload(session: session)
             progress(currentResult)
         } catch {
-            print("SpeedTest: Upload failed. \(error)")
-            // Upload failure might be ignored since DL succeeded, but if you want to retry:
+            // Upload failure can be ignored if download succeeded
         }
         
         return currentResult

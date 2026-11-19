@@ -31,11 +31,12 @@ struct AirPodsGroupBatteryOverlayView: View {
     }
 
     var body: some View {
-        let isSystemStyle = mediaKeyManager.effectiveOverlayStyle == "system"
+        let isSystemStyle = (mediaKeyManager.effectiveOverlayStyle == "system")
+        let isSystemOrClassic = (mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.effectiveOverlayStyle == "classic")
         let settings = mediaKeyManager.airPodsSettings(for: overlayState.airpodsDeviceName)
         let isAutoHide = (settings.caseOpenBehavior != "persistent")
         
-        if isSystemStyle && settings.caseOpenStyle == "iosCard" {
+        if isSystemOrClassic && settings.caseOpenStyle == "iosCard" {
             AirPodsIOSCardOverlayView(
                 isPreview: isPreview,
                 previewLeftBattery: previewLeftBattery,

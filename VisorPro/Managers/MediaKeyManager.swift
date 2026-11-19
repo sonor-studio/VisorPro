@@ -405,7 +405,6 @@ class MediaKeyManager: ObservableObject {
     @AppStorage("overlayStyle") var overlayStyle: String = "default"
     @AppStorage("centerSystemOverlayOnFullScreen") var centerSystemOverlayOnFullScreen: Bool = true
     @AppStorage("systemMenuBarIconTransform") var systemMenuBarIconTransform: Bool = true
-    @AppStorage("systemMenuBarIconHighlight") var systemMenuBarIconHighlight: Bool = true
     
     /// Returns the effective runtime style accounting for macOS version capabilities.
     /// On macOS < 26.0, "system" resolves to "classic" since .glassEffect() requires macOS 26+.
@@ -1102,6 +1101,10 @@ class MediaKeyManager: ObservableObject {
     var clipboardCycleTotal: Int {
         get { OverlayStateRelay.shared.clipboardCycleTotal }
         set { OverlayStateRelay.shared.clipboardCycleTotal = newValue }
+    }
+    var clipboardCyclePressCount: Int {
+        get { OverlayStateRelay.shared.clipboardCyclePressCount }
+        set { OverlayStateRelay.shared.clipboardCyclePressCount = newValue }
     }    
     @Published var clipboardHistory: [ClipboardItem] = {
         if let data = UserDefaults.standard.data(forKey: "clipboardHistoryData"),
@@ -3146,16 +3149,16 @@ class MediaKeyManager: ObservableObject {
                             }
                         }
                         
+                        if !self.canPasteInFrontmostApp() {
+                            return true
+                        }
+                        
                         if self.enableClipboard && self.clipboardCyclePasteEnabled {
                             let modifier = isCustomPaste ? self.pasteShortcut.modifiers : .command
                             let charToCycle = isCustomPaste ? self.pasteShortcut.character.lowercased() : "v"
                             if self.startClipboardCycling(shortcutModifiers: modifier, cycleChar: charToCycle) {
                                 return false // Intercept so target app does not paste immediately!
                             }
-                        }
-                        
-                        if !self.canPasteInFrontmostApp() {
-                            return true
                         }
                         
                         self.pendingClipboardAction = "paste"

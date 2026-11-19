@@ -111,8 +111,8 @@ struct ContentView: View {
         }
         if mediaKeyManager.showAirpodsGroupBatteryIndicator {
             let isAirPodsIOSCard: Bool = {
-                let isSys = (mediaKeyManager.effectiveOverlayStyle == "system")
-                guard isSys else { return false }
+                let isSysOrClassic = (mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.effectiveOverlayStyle == "classic")
+                guard isSysOrClassic else { return false }
                 let settings = mediaKeyManager.airPodsSettings()
                 return settings.caseOpenStyle == "iosCard"
             }()

@@ -328,26 +328,6 @@ struct AccessorySettingsView: View {
                                     
                                     CustomSettingsRow(icon: "airpodspro.chargingcase.wireless.fill", iconColor: .blue, title: "On Case Opened", subtitle: "Show battery overlay when case lid is opened") {
                                         HStack(spacing: 8) {
-                                            if settings.notifyOnCaseOpen {
-                                                Button {
-                                                    AirPodsBatteryManager.shared.prepareForTestTrigger()
-                                                    mediaKeyManager.triggerAirpodsGroupBatteryIndicator(
-                                                        deviceName: deviceName,
-                                                        leftBattery: 100,
-                                                        leftCharging: true,
-                                                        rightBattery: 100,
-                                                        rightCharging: true,
-                                                        caseBattery: 70,
-                                                        caseCharging: false
-                                                    )
-                                                } label: {
-                                                    Image(systemName: "play.circle.fill")
-                                                        .font(.system(size: 15))
-                                                        .foregroundColor(.secondary)
-                                                }
-                                                .buttonStyle(.plain)
-                                                .help("Test case open overlay")
-                                            }
                                             if mediaKeyManager.overlayColorMode == "custom" {
                                                 ColorPickerControl(selectedColor: $settings.colorOnCaseOpen)
                                                     .onChange(of: settings.colorOnCaseOpen) { _, _ in saveSettings() }
@@ -382,16 +362,20 @@ struct AccessorySettingsView: View {
                                             }
                                         }
                                         
-                                        if mediaKeyManager.effectiveOverlayStyle == "system" {
+                                        if mediaKeyManager.effectiveOverlayStyle == "system" || mediaKeyManager.effectiveOverlayStyle == "classic" {
                                             Divider().padding(.leading, 40)
                                             
-                                            CustomSettingsRow(icon: "iphone.gen3", iconColor: .indigo, title: "Case Overlay Style", subtitle: "Choose between standard glass pill or iOS-style bottom card") {
+                                            let isSys = (mediaKeyManager.effectiveOverlayStyle == "system")
+                                            let standardLabel = isSys ? "Glass Pill" : "Classic Overlay"
+                                            let subtitle = isSys ? "Choose between standard glass pill or iOS-style bottom card" : "Choose between classic overlay or iOS-style bottom card"
+                                            
+                                            CustomSettingsRow(icon: "iphone.gen3", iconColor: .indigo, title: "Case Overlay Style", subtitle: subtitle) {
                                                 Picker("", selection: $settings.caseOpenStyle) {
-                                                    Text("Glass Pill").tag("glass")
+                                                    Text(standardLabel).tag("glass")
                                                     Text("iOS Card").tag("iosCard")
                                                 }
                                                 .pickerStyle(.segmented)
-                                                .frame(width: 200)
+                                                .frame(width: 210)
                                                 .onChange(of: settings.caseOpenStyle) { _, _ in saveSettings() }
                                             }
                                         }

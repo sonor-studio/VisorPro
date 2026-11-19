@@ -114,9 +114,9 @@ class VisorProWindowManager: ObservableObject {
             } else if overlay.type == .date {
                 return DateOverlayView.effectiveWidth(style: style)
             } else if overlay.type == .airpodsGroupBattery {
-                let isSys = (style == "system")
+                let isSysOrClassic = (style == "system" || style == "classic")
                 let settings = MediaKeyManager.shared.airPodsSettings()
-                return (isSys && settings.caseOpenStyle == "iosCard") ? 318 : 260
+                return (isSysOrClassic && settings.caseOpenStyle == "iosCard") ? 318 : 260
             } else if overlay.type == .trash {
                 return 180
             } else if overlay.type == .theme {
@@ -438,8 +438,8 @@ class VisorProWindowManager: ObservableObject {
         }
         if relay.showAirpodsGroupBatteryIndicator {
             let isAirPodsIOSCard: Bool = {
-                let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
-                guard isSys else { return false }
+                let isSysOrClassic = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.effectiveOverlayStyle == "classic")
+                guard isSysOrClassic else { return false }
                 let settings = MediaKeyManager.shared.airPodsSettings()
                 return settings.caseOpenStyle == "iosCard"
             }()
@@ -690,11 +690,28 @@ class VisorProWindowManager: ObservableObject {
                 if self.reportedTelemetryTimestamps[overlay.id] != triggerTime {
                     self.reportedTelemetryTimestamps[overlay.id] = triggerTime
                     if let cleanCategoryName = getCategoryForTelemetry(type: overlay.type) {
-                        var params: [String: String] = ["overlay_type": cleanCategoryName]
+                        let currentStyle = MediaKeyManager.shared.overlayStyle
+                        let effectiveStyle = MediaKeyManager.shared.effectiveOverlayStyle
+                        let animType = UserDefaults.standard.string(forKey: "overlayAnimationType") ?? "fluid_bounce"
+                        let enableMinimal = UserDefaults.standard.bool(forKey: "enableMinimalMode")
+                        let sizeMode = (currentStyle == "default" || currentStyle == "capsule") ? (enableMinimal ? "mini" : "full") : "not_applicable"
+                        
+                        var params: [String: String] = [
+                            "overlay_type": cleanCategoryName,
+                            "design_studio_style": currentStyle,
+                            "design_studio_effective_style": effectiveStyle,
+                            "design_studio_animation": animType,
+                            "design_studio_size_mode": sizeMode
+                        ]
                         if overlay.type == .focus {
                             let isDetailed = UserDefaults.standard.bool(forKey: "focusDetailMode")
                             params["focus_detailed_mode"] = isDetailed ? "true" : "false"
                             params["focus_mode_style"] = isDetailed ? "detailed" : "standard"
+                        }
+                        if overlay.type == .airpodsGroupBattery {
+                            let settings = MediaKeyManager.shared.airPodsSettings()
+                            params["airpods_case_overlay_style"] = settings.caseOpenStyle
+                            params["airpods_case_overlay_duration"] = settings.caseOpenBehavior
                         }
                         TelemetryHelper.signal("OverlayDisplayed", parameters: params)
                     }
@@ -763,8 +780,8 @@ class VisorProWindowManager: ObservableObject {
                     
                     let isAirPodsIOSCard: Bool = {
                         guard overlayId == "airpodsGroupBattery" else { return false }
-                        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
-                        guard isSys else { return false }
+                        let isSysOrClassic = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.effectiveOverlayStyle == "classic")
+                        guard isSysOrClassic else { return false }
                         let settings = MediaKeyManager.shared.airPodsSettings()
                         return settings.caseOpenStyle == "iosCard"
                     }()
@@ -882,8 +899,8 @@ class VisorProWindowManager: ObservableObject {
                 
                 let isAirPodsIOSCard: Bool = {
                     guard overlay.type == .airpodsGroupBattery else { return false }
-                    let isSys = isSystemStyle
-                    guard isSys else { return false }
+                    let isSysOrClassic = (isSystemStyle || isClassicStyle)
+                    guard isSysOrClassic else { return false }
                     let settings = MediaKeyManager.shared.airPodsSettings()
                     return settings.caseOpenStyle == "iosCard"
                 }()
@@ -892,8 +909,8 @@ class VisorProWindowManager: ObservableObject {
                 let pad = VisorProWindowManager.panelPadding
                 let targetPanelWidth = pillWidth + (pad * 2)
                 let targetHeight: CGFloat = {
+                    if isAirPodsIOSCard { return 282.0 }
                     if isSystemStyle {
-                        if isAirPodsIOSCard { return 282.0 }
                         let isSlider = (overlay.type == .volume || overlay.type == .brightness || overlay.type == .keyboardBrightness)
                         return isSlider ? 64.0 : (overlay.type == .survey ? 180.0 : 52.0)
                     } else if isClassicStyle {
@@ -1092,9 +1109,9 @@ class VisorProWindowManager: ObservableObject {
                 let question = SurveyLibrary.shared.questions.first(where: { $0.id == questionId }) ?? SurveyLibrary.shared.questions.first
                 h = question?.height ?? 180
             } else if overlay.type == .airpodsGroupBattery {
-                let isSys = (style == "system")
+                let isSysOrClassic = (style == "system" || style == "classic")
                 let settings = MediaKeyManager.shared.airPodsSettings()
-                h = (isSys && settings.caseOpenStyle == "iosCard") ? 282 : 52
+                h = (isSysOrClassic && settings.caseOpenStyle == "iosCard") ? 282 : (style == "system" ? 52 : 140)
             } else {
                 h = 52
             }
@@ -1689,9 +1706,9 @@ struct SingleOverlayContainer: View {
     init(overlay: VisorProWindowManager.ActiveOverlay) {
         self.overlay = overlay
         
-        let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
+        let isSysOrClassic = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.effectiveOverlayStyle == "classic")
         let settings = MediaKeyManager.shared.airPodsSettings()
-        let isCard = (overlay.type == .airpodsGroupBattery && isSys && settings.caseOpenStyle == "iosCard")
+        let isCard = (overlay.type == .airpodsGroupBattery && isSysOrClassic && settings.caseOpenStyle == "iosCard")
         
         if isCard {
             _appearScaleX = State(initialValue: 1.0)
@@ -1816,9 +1833,9 @@ struct SingleOverlayContainer: View {
         .padding(VisorProWindowManager.panelPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: isTop ? .top : (isBottom ? .bottom : .center))
         .onAppear {
-            let isSys = (MediaKeyManager.shared.effectiveOverlayStyle == "system")
+            let isSysOrClassic = (MediaKeyManager.shared.effectiveOverlayStyle == "system" || MediaKeyManager.shared.effectiveOverlayStyle == "classic")
             let settings = MediaKeyManager.shared.airPodsSettings()
-            if overlay.type == .airpodsGroupBattery && isSys && settings.caseOpenStyle == "iosCard" {
+            if overlay.type == .airpodsGroupBattery && isSysOrClassic && settings.caseOpenStyle == "iosCard" {
                 return
             }
             

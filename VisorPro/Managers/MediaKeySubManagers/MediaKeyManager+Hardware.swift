@@ -374,7 +374,11 @@ extension MediaKeyManager {
         for item in menuItems {
             var title: CFTypeRef?
             if AXUIElementCopyAttributeValue(item, kAXTitleAttribute as CFString, &title) != .success { continue }
-            if let titleStr = title as? String, (titleStr == "Edit" || titleStr == "Edycja") {
+            if let titleStr = title as? String {
+                let tLower = titleStr.lowercased()
+                let isEditMenu = tLower == "edit" || tLower == "edycja" || tLower == "édition" || tLower == "edition" || tLower == "bearbeiten" || tLower == "edición" || tLower == "modifica"
+                if !isEditMenu { continue }
+                
                 var children: CFTypeRef?
                 if AXUIElementCopyAttributeValue(item, kAXChildrenAttribute as CFString, &children) != .success { continue }
                 guard let editMenuArr = children as? [AXUIElement], let editMenu = editMenuArr.first else { continue }
@@ -383,31 +387,22 @@ extension MediaKeyManager {
                 if AXUIElementCopyAttributeValue(editMenu, kAXChildrenAttribute as CFString, &editItems) != .success { continue }
                 guard let items = editItems as? [AXUIElement] else { continue }
                 
-                var foundPasteOption = false
-                var anyPasteEnabled = false
-                
                 for subItem in items {
                     var subTitle: CFTypeRef?
                     if AXUIElementCopyAttributeValue(subItem, kAXTitleAttribute as CFString, &subTitle) != .success { continue }
-                    if let subStr = subTitle as? String, (subStr.contains("Paste") || subStr.contains("Wklej")) {
-                        foundPasteOption = true
-                        var enabled: CFTypeRef?
-                        if AXUIElementCopyAttributeValue(subItem, kAXEnabledAttribute as CFString, &enabled) == .success {
-                            if let isEnabled = enabled as? Bool, isEnabled {
-                                anyPasteEnabled = true
-                                break
+                    if let subStr = subTitle as? String {
+                        let sLower = subStr.lowercased()
+                        let isPasteItem = sLower.contains("paste") || sLower.contains("wklej") || sLower.contains("coller") || sLower.contains("einfügen") || sLower.contains("pegar") || sLower.contains("incolla")
+                        if isPasteItem {
+                            var enabled: CFTypeRef?
+                            if AXUIElementCopyAttributeValue(subItem, kAXEnabledAttribute as CFString, &enabled) == .success {
+                                if let isEnabled = enabled as? Bool {
+                                    return isEnabled
+                                }
                             }
-                        } else {
-                            anyPasteEnabled = true // Fallback
-                            break
+                            return true // Fallback
                         }
                     }
-                }
-                
-                if foundPasteOption {
-                    return anyPasteEnabled
-                } else {
-                    return false
                 }
             }
         }

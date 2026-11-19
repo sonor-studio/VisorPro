@@ -179,7 +179,6 @@ class MediaObserver {
             self.helperProcess = proc
             self.outputPipe = pipe
         } catch {
-            NSLog("[MediaObserver] Failed to run osascript helper: %@", error.localizedDescription)
         }
     }
 

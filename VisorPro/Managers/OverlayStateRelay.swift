@@ -129,6 +129,7 @@ class OverlayStateRelay: ObservableObject {
     @Published var isClipboardCycling: Bool = false
     @Published var clipboardCycleIndex: Int = 0
     @Published var clipboardCycleTotal: Int = 0
+    @Published var clipboardCyclePressCount: Int = 0
     
     // MARK: - Caps Lock runtime
     

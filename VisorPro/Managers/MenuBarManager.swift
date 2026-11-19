@@ -122,7 +122,6 @@ final class MenuBarManager: NSObject, NSMenuDelegate, NSMenuItemValidation {
         CATransaction.setCompletionBlock { [weak self, weak button, weak pillView] in
             guard let self = self, let button = button, let pillLayer = pillView?.layer else { return }
             
-            let isHighlightEnabled = UserDefaults.standard.object(forKey: "systemMenuBarIconHighlight") as? Bool ?? true
             let isOverlay = (symbolName != nil)
             
             // Switch image on the native NSStatusBarButton
@@ -130,7 +129,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate, NSMenuItemValidation {
             
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            pillLayer.opacity = (isOverlay && isHighlightEnabled) ? 1.0 : 0.0
+            pillLayer.opacity = isOverlay ? 1.0 : 0.0
             button.layer?.removeAllAnimations()
             pillLayer.removeAllAnimations()
             CATransaction.commit()
@@ -155,7 +154,7 @@ final class MenuBarManager: NSObject, NSMenuDelegate, NSMenuItemValidation {
             button.layer?.add(growAnim, forKey: "growScale")
             button.layer?.add(fadeIn, forKey: "growFade")
             
-            if isOverlay && isHighlightEnabled {
+            if isOverlay {
                 pillLayer.add(growAnim, forKey: "pillGrowScale")
                 pillLayer.add(fadeIn, forKey: "pillGrowFade")
             }
@@ -491,8 +490,8 @@ private final class MenuBarPillView: NSView {
     }
     
     func updatePillColor() {
-        // 10% opacity white (90% transparency)
-        let color = NSColor.white.withAlphaComponent(0.10)
+        // Pure 100% white saturation with higher transparency (13% opacity / 87% transparency)
+        let color = NSColor(white: 1.0, alpha: 0.13)
         self.layer?.backgroundColor = color.cgColor
     }
 }

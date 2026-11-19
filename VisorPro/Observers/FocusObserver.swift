@@ -191,40 +191,66 @@ class FocusObserver {
         }
         
         for (identifier, configData) in configs {
-            if let configDict = configData as? [String: Any],
-               let mode = configDict["mode"] as? [String: Any],
-               let rawName = mode["name"] as? String {
-                let lowerRaw = rawName.lowercased()
-                let lowerId = identifier.lowercased()
-                let isReduceInterruptions = lowerRaw == "_gm" || lowerRaw.contains("reduce") || lowerRaw.contains("interrupt") || lowerRaw.contains("redukuj") || lowerId.contains("reduce") || lowerId.contains("interrupt") || lowerId.contains("_gm")
-                
-                let name: String
-                let symbol: String
-                let colorName: String
-                
-                if isReduceInterruptions {
-                    name = "Reduce Interruptions"
-                    symbol = "apple.intelligence"
-                    colorName = "reduceInterruptionsColor"
-                } else if lowerRaw == "itunes u" || lowerRaw == "itunes" {
-                    name = "Szkoła"
-                    symbol = "graduationcap.fill"
-                    colorName = "systemYellowColor"
-                } else {
-                    name = rawName
-                    let rawSymbol = mode["symbolImageName"] as? String ?? ""
-                    symbol = (rawSymbol.isEmpty || rawSymbol == "_gm" || rawSymbol.contains("gm")) ? (rawSymbol == "_gm" ? "apple.intelligence" : "moon.fill") : rawSymbol
-                    colorName = mode["tintColorName"] as? String ?? "systemIndigoColor"
-                }
-                
-                let config = ModeConfig(name: name, colorName: colorName, symbol: symbol)
-                byId[identifier] = config
-                byName[name.lowercased()] = config
-                if isReduceInterruptions {
-                    byId["com.apple.focus.reduce-interruptions"] = config
-                    byName["_gm"] = config
-                    byName["reduce interruptions"] = config
-                }
+            guard let configDict = configData as? [String: Any] else { continue }
+            let mode = configDict["mode"] as? [String: Any] ?? [:]
+            
+            let rawName = (mode["name"] as? String) ?? (configDict["name"] as? String) ?? (mode["localizedName"] as? String) ?? ""
+            let lowerRaw = rawName.lowercased()
+            let lowerId = identifier.lowercased()
+            let isReduceInterruptions = lowerRaw == "_gm" || lowerRaw.contains("reduce") || lowerRaw.contains("interrupt") || lowerRaw.contains("redukuj") || lowerId.contains("reduce") || lowerId.contains("interrupt") || lowerId.contains("_gm")
+            
+            let name: String
+            let symbol: String
+            let colorName: String
+            
+            if isReduceInterruptions {
+                name = "Reduce Interruptions"
+                symbol = "apple.intelligence"
+                colorName = "reduceInterruptionsColor"
+            } else if lowerRaw == "itunes u" || lowerRaw == "itunes" || lowerId.contains("itunes") {
+                // Apple's legacy internal template identifier for the School / Education Focus mode
+                let isPolish = Locale.current.languageCode == "pl" || Locale.preferredLanguages.first?.hasPrefix("pl") == true
+                name = isPolish ? "Szkoła" : "School"
+                symbol = "graduationcap.fill"
+                colorName = "systemYellowColor"
+            } else {
+                name = rawName.isEmpty ? "Focus" : rawName
+                let rawSymbol = mode["symbolImageName"] as? String ?? ""
+                symbol = (rawSymbol.isEmpty || rawSymbol == "_gm" || rawSymbol.contains("gm")) ? (rawSymbol == "_gm" ? "apple.intelligence" : "moon.fill") : rawSymbol
+                colorName = mode["tintColorName"] as? String ?? "systemIndigoColor"
+            }
+            
+            let config = ModeConfig(name: name, colorName: colorName, symbol: symbol)
+            
+            // Map by all possible identifiers (UUID, domain key, lowercase variants)
+            byId[identifier] = config
+            byId[identifier.lowercased()] = config
+            if let modeId = mode["identifier"] as? String {
+                byId[modeId] = config
+                byId[modeId.lowercased()] = config
+            }
+            if let modeId2 = mode["modeIdentifier"] as? String {
+                byId[modeId2] = config
+                byId[modeId2.lowercased()] = config
+            }
+            if let uuid = configDict["identifier"] as? String {
+                byId[uuid] = config
+                byId[uuid.lowercased()] = config
+            }
+            
+            byName[name.lowercased()] = config
+            if !rawName.isEmpty {
+                byName[rawName.lowercased()] = config
+            }
+            if lowerRaw == "itunes u" || lowerRaw == "itunes" {
+                byName["itunes u"] = config
+                byName["szkoła"] = config
+                byName["school"] = config
+            }
+            if isReduceInterruptions {
+                byId["com.apple.focus.reduce-interruptions"] = config
+                byName["_gm"] = config
+                byName["reduce interruptions"] = config
             }
         }
         
@@ -247,9 +273,9 @@ class FocusObserver {
             return "systemMintColor"
         } else if lower.contains("personal") || lower.contains("osobisty") {
             return "systemPurpleColor"
-        } else if lower.contains("fitness") || lower.contains("trening") || lower.contains("running") {
+        } else if lower.contains("fitness") || lower.contains("trening") || lower.contains("running") || lower.contains("workout") {
             return "systemOrangeColor"
-        } else if lower.contains("szkoła") || lower.contains("school") || lower.contains("study") || lower.contains("nauka") || lower.contains("itunes") {
+        } else if lower.contains("school") || lower.contains("study") || lower.contains("szkoła") || lower.contains("nauka") || lower.contains("itunes") {
             return "systemYellowColor"
         } else if lower.contains("reading") || lower.contains("czytanie") {
             return "systemYellowColor"
@@ -276,9 +302,9 @@ class FocusObserver {
             return "bed.double.fill"
         } else if lower.contains("personal") || lower.contains("osobisty") {
             return "person.fill"
-        } else if lower.contains("fitness") || lower.contains("trening") || lower.contains("running") {
+        } else if lower.contains("fitness") || lower.contains("trening") || lower.contains("running") || lower.contains("workout") {
             return "figure.run"
-        } else if lower.contains("szkoła") || lower.contains("school") || lower.contains("study") || lower.contains("nauka") || lower.contains("itunes") {
+        } else if lower.contains("school") || lower.contains("study") || lower.contains("szkoła") || lower.contains("nauka") || lower.contains("itunes") {
             return "graduationcap.fill"
         } else if lower.contains("reading") || lower.contains("czytanie") {
             return "book.closed.fill"
@@ -650,39 +676,46 @@ class FocusObserver {
                     }
                 }
                 
-                let lowerId = modeIdentifier.lowercased()
+                let cleanModeId = modeIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                // 1. Direct configuration lookup by identifier (exact or lowercased)
+                if let config = modeConfigsCache[cleanModeId] ?? modeConfigsCache[cleanModeId.lowercased()] {
+                    let cName = (config.name.lowercased() == "_gm" || config.name.lowercased().contains("reduce") || config.name.lowercased().contains("interrupt")) ? "Reduce Interruptions" : config.name
+                    let cSymbol = (config.symbol == "_gm" || cName == "Reduce Interruptions") ? "apple.intelligence" : config.symbol
+                    return (true, cName, config.colorName, cSymbol, focusDetails)
+                }
+                
+                // 2. If not found in cache, reload mode configurations from disk
+                loadModeConfigurations()
+                if let config = modeConfigsCache[cleanModeId] ?? modeConfigsCache[cleanModeId.lowercased()] {
+                    let cName = (config.name.lowercased() == "_gm" || config.name.lowercased().contains("reduce") || config.name.lowercased().contains("interrupt")) ? "Reduce Interruptions" : config.name
+                    let cSymbol = (config.symbol == "_gm" || cName == "Reduce Interruptions") ? "apple.intelligence" : config.symbol
+                    return (true, cName, config.colorName, cSymbol, focusDetails)
+                }
+                
+                // 3. Fallback to standard preset domain / keyword heuristics if custom config wasn't mapped
+                let lowerId = cleanModeId.lowercased()
                 if lowerId.contains("reduce") || lowerId.contains("interrupt") || lowerId.contains("_gm") {
                     return (true, "Reduce Interruptions", "reduceInterruptionsColor", "apple.intelligence", focusDetails)
-                } else if lowerId.contains("sleep") || lowerId.contains("bedtime") {
+                } else if lowerId.contains("sleep") || lowerId.contains("bedtime") || lowerId.contains("sen") {
                     return (true, "Sleep", "systemMintColor", "bed.double.fill", focusDetails)
-                } else if lowerId.contains("default") || lowerId.contains("disturb") {
-                    return (true, "Do Not Disturb", "systemIndigoColor", "moon.fill", focusDetails)
-                } else if lowerId.contains("work") {
-                    return (true, "Work", "systemTealColor", "briefcase.fill", focusDetails)
-                } else if lowerId.contains("personal") {
-                    return (true, "Personal", "systemPurpleColor", "person.fill", focusDetails)
-                } else if lowerId.contains("fitness") || lowerId.contains("running") {
+                } else if lowerId.contains("fitness") || lowerId.contains("running") || lowerId.contains("trening") || lowerId.contains("workout") {
                     return (true, "Fitness", "systemOrangeColor", "figure.run", focusDetails)
-                } else if lowerId.contains("driving") {
+                } else if lowerId.contains("itunes") || lowerId.contains("school") || lowerId.contains("szkoła") || lowerId.contains("study") {
+                    let isPolish = Locale.current.languageCode == "pl" || Locale.preferredLanguages.first?.hasPrefix("pl") == true
+                    return (true, isPolish ? "Szkoła" : "School", "systemYellowColor", "graduationcap.fill", focusDetails)
+                } else if lowerId.contains("work") || lowerId.contains("praca") {
+                    return (true, "Work", "systemTealColor", "briefcase.fill", focusDetails)
+                } else if lowerId.contains("personal") || lowerId.contains("osobisty") {
+                    return (true, "Personal", "systemPurpleColor", "person.fill", focusDetails)
+                } else if lowerId.contains("driving") || lowerId.contains("samochód") || lowerId.contains("kierowanie") {
                     return (true, "Driving", "systemIndigoColor", "car.fill", focusDetails)
-                } else if lowerId.contains("reading") {
+                } else if lowerId.contains("reading") || lowerId.contains("czytanie") {
                     return (true, "Reading", "systemYellowColor", "book.closed.fill", focusDetails)
-                } else if lowerId.contains("gaming") {
+                } else if lowerId.contains("gaming") || lowerId.contains("gry") || lowerId.contains("gra") {
                     return (true, "Gaming", "systemPurpleColor", "gamecontroller.fill", focusDetails)
-                }
-                
-                if let config = modeConfigsCache[modeIdentifier] {
-                    let cName = (config.name.lowercased() == "_gm" || config.name.lowercased().contains("reduce") || config.name.lowercased().contains("interrupt")) ? "Reduce Interruptions" : config.name
-                    let cSymbol = (config.symbol == "_gm" || cName == "Reduce Interruptions") ? "apple.intelligence" : config.symbol
-                    return (true, cName, config.colorName, cSymbol, focusDetails)
-                }
-                
-                // If not cached, reload cache once to see if user recently added this mode
-                loadModeConfigurations()
-                if let config = modeConfigsCache[modeIdentifier] {
-                    let cName = (config.name.lowercased() == "_gm" || config.name.lowercased().contains("reduce") || config.name.lowercased().contains("interrupt")) ? "Reduce Interruptions" : config.name
-                    let cSymbol = (config.symbol == "_gm" || cName == "Reduce Interruptions") ? "apple.intelligence" : config.symbol
-                    return (true, cName, config.colorName, cSymbol, focusDetails)
+                } else if lowerId.contains("default") || lowerId.contains("disturb") || lowerId.contains("nie przeszkadzać") {
+                    return (true, "Do Not Disturb", "systemIndigoColor", "moon.fill", focusDetails)
                 }
                 
                 let fallbackName = (self.lastModeName.isEmpty || self.lastModeName.lowercased() == "focus") ? "Do Not Disturb" : self.lastModeName

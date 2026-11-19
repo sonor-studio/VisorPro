@@ -127,6 +127,7 @@ extension MediaKeyManager {
     
     func startClipboardCycling(shortcutModifiers: NSEvent.ModifierFlags, cycleChar: String) -> Bool {
         guard enableClipboard else { return false }
+        guard canPasteInFrontmostApp() else { return false }
         
         var items = self.clipboardHistory
         
@@ -151,6 +152,7 @@ extension MediaKeyManager {
         self.clipboardCycleItems = items
         self.clipboardCycleIndex = 0
         self.clipboardCycleTotal = items.count
+        self.clipboardCyclePressCount = 1
         self.isClipboardCycling = true
         self.activeCycleModifier = shortcutModifiers
         self.activeCycleChar = cycleChar
@@ -184,6 +186,8 @@ extension MediaKeyManager {
     func cycleToNextClipboardItem(backwards: Bool = false) {
         guard isClipboardCycling, !clipboardCycleItems.isEmpty else { return }
         
+        self.clipboardCyclePressCount += 1
+        
         let newIndex: Int
         if backwards {
             newIndex = (clipboardCycleIndex - 1 + clipboardCycleItems.count) % clipboardCycleItems.count
@@ -211,9 +215,21 @@ extension MediaKeyManager {
         guard isClipboardCycling else { return }
         isClipboardCycling = false
         
+        let pressCount = self.clipboardCyclePressCount
+        let finalIndex = self.clipboardCycleIndex
+        self.clipboardCyclePressCount = 0
+        
         guard !clipboardCycleItems.isEmpty, clipboardCycleIndex < clipboardCycleItems.count else {
             cancelClipboardCycling()
             return
+        }
+        
+        // Send telemetry if user cycled at least to the second item (clicked 'v' at least twice or navigated)
+        if pressCount >= 2 || finalIndex > 0 {
+            TelemetryHelper.signal("ClipboardCyclePasted", parameters: [
+                "cycle_press_count": String(pressCount),
+                "selected_index": String(finalIndex)
+            ])
         }
         
         let selectedItem = clipboardCycleItems[clipboardCycleIndex]
@@ -271,6 +287,7 @@ extension MediaKeyManager {
     func cancelClipboardCycling() {
         guard isClipboardCycling else { return }
         isClipboardCycling = false
+        self.clipboardCyclePressCount = 0
         clipboardCycleItems = []
         cancelOverlayHide(for: "copy")
         withAnimation(.easeInOut(duration: 0.15)) {

@@ -21,6 +21,8 @@ class AirPodsBatteryManager: ObservableObject {
     private var lastBatteryUpdateTime: Date = Date.distantPast
     private var validationTimer: Timer?
     private var disconnectWorkItem: DispatchWorkItem?
+    private var cachedPairedAirPodsMacs: Set<String> = []
+    private var lastMacCacheRefresh: Date = Date.distantPast
     
     private init() {
         startMonitoring()
@@ -78,7 +80,7 @@ class AirPodsBatteryManager: ObservableObject {
     func getCustomAirPodsName() -> String {
         for (name, _) in MediaKeyManager.shared.accessorySettings {
             let lower = name.lowercased()
-            if lower.contains("airpod") && !lower.contains("left") && !lower.contains("right") && !lower.contains("case") {
+            if (lower.contains("airpod") || lower.contains("beats")) && !lower.contains("left") && !lower.contains("right") && !lower.contains("case") {
                 return name
             }
         }
@@ -86,13 +88,14 @@ class AirPodsBatteryManager: ObservableObject {
             for device in devices {
                 guard let name = device.name ?? device.nameOrAddress else { continue }
                 let lower = name.lowercased()
-                if lower.contains("airpod") {
+                if lower.contains("airpod") || lower.contains("beats") {
                     return name
                 }
             }
         }
         for (name, icon) in MediaKeyManager.shared.peripheralIcons {
-            if icon.lowercased().contains("airpod") && name != "AirPods" {
+            let iLower = icon.lowercased()
+            if (iLower.contains("airpod") || iLower.contains("beats")) && name != "AirPods" {
                 return name
             }
         }
@@ -106,11 +109,14 @@ class AirPodsBatteryManager: ObservableObject {
             buffer.removeSubrange(..<range.upperBound)
             
             if line.contains("SmartRouting posting device") {
-                lastConnectionLogTime = Date()
+                if isLineForPairedAirPods(line) {
+                    lastConnectionLogTime = Date()
+                }
             }
             
             // Check for in-ear state changes explicitly
             if line.contains("Setting inEarStateUnified") {
+                guard isLineForPairedAirPods(line) else { continue }
                 lastInEarEventTime = Date()
                 if line.contains("-> InEar") {
                     lastConnectionLogTime = Date()
@@ -133,6 +139,7 @@ class AirPodsBatteryManager: ObservableObject {
             
             // Check for explicit lid state transitions
             if line.contains("nearbyLidClosed") {
+                guard isLineForPairedAirPods(line) else { continue }
                 if line.contains("yes -> no") {
                     updateLidState(closed: false)
                 } else if line.contains("no -> yes") {
@@ -142,8 +149,10 @@ class AirPodsBatteryManager: ObservableObject {
             
             // Check for explicit battery transitions
             if line.contains("Batt C") {
+                guard isLineForPairedAirPods(line) else { continue }
                 parseAudioAccessoryBatteryLine(line)
             } else if line.contains("Components") {
+                guard isLineForPairedAirPods(line) else { continue }
                 parseComponentsLine(line)
             }
         }
@@ -161,15 +170,91 @@ class AirPodsBatteryManager: ObservableObject {
             }
         }
         for (name, _) in MediaKeyManager.shared.accessorySettings {
-            if name.lowercased().contains("airpod") {
+            let lower = name.lowercased()
+            if lower.contains("airpod") || lower.contains("beats") {
                 return true
             }
         }
         for (name, icon) in MediaKeyManager.shared.peripheralIcons {
-            if icon.lowercased().contains("airpod") || name.lowercased().contains("airpod") {
+            let nLower = name.lowercased()
+            let iLower = icon.lowercased()
+            if iLower.contains("airpod") || iLower.contains("beats") || nLower.contains("airpod") || nLower.contains("beats") {
                 return true
             }
         }
+        return false
+    }
+
+    func getPairedAirPodsMacAddresses() -> Set<String> {
+        let now = Date()
+        if now.timeIntervalSince(lastMacCacheRefresh) < 5.0 && !cachedPairedAirPodsMacs.isEmpty {
+            return cachedPairedAirPodsMacs
+        }
+        lastMacCacheRefresh = now
+        
+        var addrs = Set<String>()
+        if PermissionHelper.isBluetoothAuthorized(), let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] {
+            for device in devices {
+                let name = (device.name ?? device.nameOrAddress ?? "").lowercased()
+                let isAirPods = name.contains("airpod") || name.contains("beats")
+                var matchesSetting = false
+                for (settingName, _) in MediaKeyManager.shared.accessorySettings {
+                    let sLower = settingName.lowercased()
+                    if (sLower.contains("airpod") || sLower.contains("beats")) && name.contains(sLower) {
+                        matchesSetting = true
+                        break
+                    }
+                }
+                if isAirPods || matchesSetting {
+                    if let addr = device.addressString {
+                        let clean = addr.replacingOccurrences(of: "-", with: ":").lowercased()
+                        addrs.insert(clean)
+                    }
+                }
+            }
+        }
+        cachedPairedAirPodsMacs = addrs
+        return addrs
+    }
+    
+    private func isLineForPairedAirPods(_ line: String) -> Bool {
+        let pairedMacs = getPairedAirPodsMacAddresses()
+        let lowerLine = line.lowercased()
+        
+        // 1. Check if the line contains a MAC address pattern: [xx:xx:xx:xx:xx:xx] or xx-xx-xx-xx-xx-xx
+        let macPattern = "([0-9a-f]{2}[:-]){5}([0-9a-f]{2})"
+        if let regex = try? NSRegularExpression(pattern: macPattern, options: .caseInsensitive),
+           let match = regex.firstMatch(in: lowerLine, range: NSRange(lowerLine.startIndex..., in: lowerLine)) {
+            let foundMac = (lowerLine as NSString).substring(with: match.range).replacingOccurrences(of: "-", with: ":")
+            
+            // If pairedMacs is known, require this MAC to be in pairedMacs
+            if !pairedMacs.isEmpty {
+                return pairedMacs.contains(foundMac)
+            }
+            return false
+        }
+        
+        // 2. If no MAC address was found in the line, check if it contains the device name
+        if PermissionHelper.isBluetoothAuthorized(), let devices = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] {
+            for device in devices {
+                if let name = device.name?.lowercased(), !name.isEmpty, name != "airpods" {
+                    if lowerLine.contains(name) {
+                        return true
+                    }
+                }
+            }
+        }
+        let customName = getCustomAirPodsName().lowercased()
+        if customName != "airpods" && lowerLine.contains(customName) {
+            return true
+        }
+        
+        // 3. Fallback: If no MAC or custom name was in the line,
+        // only accept if line contains "airpod" and user actually has paired AirPods
+        if lowerLine.contains("airpod") {
+            return hasPairedAirPods()
+        }
+        
         return false
     }
 
@@ -185,7 +270,10 @@ class AirPodsBatteryManager: ObservableObject {
                 self.dismissOverlay()
             } else {
                 self.lastLidOpenTime = Date()
-                self.wantsBatteryOverlayFromLidOpen = true
+                // Only request battery overlay from lid open if user isn't currently using AirPods in ear
+                if !self.isAnyInEar {
+                    self.wantsBatteryOverlayFromLidOpen = true
+                }
             }
         }
     }
@@ -246,17 +334,6 @@ class AirPodsBatteryManager: ObservableObject {
         }
     }
     
-    func prepareForTestTrigger() {
-        isLidClosed = false
-        isAnyInEar = false
-        let now = Date()
-        lastOverlayTriggerTime = now
-        lastLidOpenTime = now
-        lastBatteryUpdateTime = now
-        OverlayStateRelay.shared.airpodsDeviceName = self.getCustomAirPodsName()
-        startValidationTimer()
-    }
-    
     func handleOverlayDismissed() {
         stopValidationTimer()
         self.isLidClosed = true
@@ -305,6 +382,7 @@ class AirPodsBatteryManager: ObservableObject {
     
     private func parseAudioAccessoryBatteryLine(_ line: String) {
         guard hasPairedAirPods() else { return }
+        guard isLineForPairedAirPods(line) else { return }
         guard let range = line.range(of: "Batt ") else { return }
         let battStr = String(line[range.upperBound...]).components(separatedBy: ",").first ?? ""
         let parts = battStr.components(separatedBy: ";").map { $0.trimmingCharacters(in: .whitespaces) }
@@ -360,6 +438,7 @@ class AirPodsBatteryManager: ObservableObject {
                     self.triggerOverlay()
                 }
             } else if didChangeValues {
+                // If the overlay is ALREADY visible and the case is still open, update its battery numbers without triggering from scratch
                 if !self.isLidClosed && !self.isAnyInEar && OverlayStateRelay.shared.showAirpodsGroupBatteryIndicator {
                     self.triggerOverlay()
                 }
@@ -393,6 +472,7 @@ class AirPodsBatteryManager: ObservableObject {
     
     private func parseComponentsLine(_ line: String) {
         guard hasPairedAirPods() else { return }
+        guard isLineForPairedAirPods(line) else { return }
         let leftComp = extractComponent(name: "Left", from: line)
         let rightComp = extractComponent(name: "Right", from: line)
         let caseComp = extractComponent(name: "Case", from: line)
@@ -437,6 +517,7 @@ class AirPodsBatteryManager: ObservableObject {
                     self.triggerOverlay()
                 }
             } else if didChangeValues {
+                // If the overlay is ALREADY visible and the case is still open, update its battery numbers without triggering from scratch
                 if !self.isLidClosed && !self.isAnyInEar && OverlayStateRelay.shared.showAirpodsGroupBatteryIndicator {
                     self.triggerOverlay()
                 }
@@ -453,12 +534,15 @@ class AirPodsBatteryManager: ObservableObject {
                     return true
                 }
                 for (settingName, _) in MediaKeyManager.shared.accessorySettings {
-                    if settingName.lowercased().contains("airpod") && name.contains(settingName.lowercased()) {
+                    let sLower = settingName.lowercased()
+                    if (sLower.contains("airpod") || sLower.contains("beats")) && name.contains(sLower) {
                         return true
                     }
                 }
                 for (iconName, icon) in MediaKeyManager.shared.peripheralIcons {
-                    if icon.lowercased().contains("airpod") && name.contains(iconName.lowercased()) {
+                    let iLower = icon.lowercased()
+                    let nLower = iconName.lowercased()
+                    if (iLower.contains("airpod") || iLower.contains("beats")) && name.contains(nLower) {
                         return true
                     }
                 }

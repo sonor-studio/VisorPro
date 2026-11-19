@@ -33,7 +33,6 @@ struct AppearanceEditorView: View {
     @AppStorage("notificationDuration") private var notificationDuration = 3.0
     @AppStorage("centerSystemOverlayOnFullScreen") private var centerSystemOverlayOnFullScreen = true
     @AppStorage("systemMenuBarIconTransform") private var systemMenuBarIconTransform = true
-    @AppStorage("systemMenuBarIconHighlight") private var systemMenuBarIconHighlight = true
     @AppStorage("PremiumLicenseKey") private var savedLicenseKey = ""
     
     @State private var animationTrigger = false
@@ -307,6 +306,10 @@ struct AppearanceEditorView: View {
         return Button {
             mediaKeyManager.overlayStyle = value
             MediaKeyManager.shared.notifyOverlayStateChanged()
+            TelemetryHelper.signal("DesignStudioStyleChanged", parameters: [
+                "style": value,
+                "effective_style": OverlayStyle.effectiveStyle(for: value)
+            ])
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
@@ -325,6 +328,10 @@ struct AppearanceEditorView: View {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                     enableMinimalMode = false
                 }
+                TelemetryHelper.signal("DesignStudioSizeModeChanged", parameters: [
+                    "size_mode": "full",
+                    "style": mediaKeyManager.overlayStyle
+                ])
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "rectangle.inset.filled")
@@ -339,6 +346,10 @@ struct AppearanceEditorView: View {
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                     enableMinimalMode = true
                 }
+                TelemetryHelper.signal("DesignStudioSizeModeChanged", parameters: [
+                    "size_mode": "mini",
+                    "style": mediaKeyManager.overlayStyle
+                ])
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "capsule.fill")
@@ -486,8 +497,12 @@ struct AppearanceEditorView: View {
                 .labelsHidden()
                 .pickerStyle(MenuPickerStyle())
                 .frame(width: 100)
-                .onChange(of: overlayAnimationType) { _, _ in
+                .onChange(of: overlayAnimationType) { _, newValue in
                     triggerPreviewAnimation()
+                    TelemetryHelper.signal("DesignStudioAnimationChanged", parameters: [
+                        "animation_type": newValue,
+                        "style": mediaKeyManager.overlayStyle
+                    ])
                 }
             }
             .fixedSize(horizontal: true, vertical: false)
@@ -752,7 +767,7 @@ struct AppearanceEditorView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Change Menu Bar Icon")
                                 .font(.system(size: 13, weight: .medium))
-                            Text("Change the menu bar icon to reflect the active system overlay.")
+                            Text("Change the menu bar icon and display an accent highlight to reflect the active system overlay.")
                                 .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
@@ -766,24 +781,6 @@ struct AppearanceEditorView: View {
                                     MenuBarManager.shared.morphIcon(to: nil)
                                 }
                             }
-                    }
-                    
-                    if systemMenuBarIconTransform {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Active Icon Highlight")
-                                    .font(.system(size: 12, weight: .regular))
-                                Text("Display a native translucent capsule highlight behind the active icon.")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.leading, 8)
-                            Spacer(minLength: 20)
-                            Toggle("", isOn: $systemMenuBarIconHighlight)
-                                .labelsHidden()
-                                .toggleStyle(.switch)
-                                .controlSize(.mini)
-                        }
                     }
                 }
             }

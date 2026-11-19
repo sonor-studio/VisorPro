@@ -389,23 +389,19 @@ extension MediaKeyManager {
             }
             
             var rawModeName = self.focusModeName
-            if let bestName = candidateNames.first(where: {
-                let l = $0.lowercased()
-                return l != "itunes u" && l != "itunes" && l != "bedtime" && l != "running" && l != "_gm"
-            }) {
-                rawModeName = bestName
-            } else if let fallbackCandidate = candidateNames.first {
-                let l = fallbackCandidate.lowercased()
+            if let bestName = candidateNames.first {
+                let l = bestName.lowercased()
                 if l == "_gm" {
                     rawModeName = "Reduce Interruptions"
-                } else if l == "itunes u" || l == "itunes" {
-                    rawModeName = "Szkoła"
                 } else if l == "bedtime" {
                     rawModeName = "Sleep"
                 } else if l == "running" {
                     rawModeName = "Fitness"
+                } else if l == "itunes u" || l == "itunes" {
+                    let isPolish = Locale.current.languageCode == "pl" || Locale.preferredLanguages.first?.hasPrefix("pl") == true
+                    rawModeName = isPolish ? "Szkoła" : "School"
                 } else {
-                    rawModeName = fallbackCandidate
+                    rawModeName = bestName
                 }
             }
             

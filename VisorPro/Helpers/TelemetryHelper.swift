@@ -62,6 +62,30 @@ final class TelemetryHelper {
         let focusDetailMode = defaults.bool(forKey: "focusDetailMode")
         let focusModeStyle = enableFocus ? (focusDetailMode ? "detailed" : "standard") : "disabled"
         
+        let overlayStyle = defaults.string(forKey: "overlayStyle") ?? "default"
+        let effectiveOverlayStyle = OverlayStyle.effectiveStyle(for: overlayStyle)
+        let overlayAnimationType = defaults.string(forKey: "overlayAnimationType") ?? "fluid_bounce"
+        let enableMinimalMode = defaults.bool(forKey: "enableMinimalMode")
+        let overlaySizeMode = (overlayStyle == "default" || overlayStyle == "capsule") ? (enableMinimalMode ? "mini" : "full") : "not_applicable"
+        
+        // Additional Design Studio preferences
+        let bouncyExpansion = defaults.object(forKey: "enableBouncyExpansion") as? Bool ?? true ? "true" : "false"
+        let swipeToDismiss = defaults.object(forKey: "enableSwipeToDismiss") as? Bool ?? true ? "true" : "false"
+        let reverseSwipe = defaults.bool(forKey: "reverseSwipeDirection") ? "true" : "false"
+        let threeFingerClick = defaults.object(forKey: "enableThreeFingerClickToDismiss") as? Bool ?? true ? "true" : "false"
+        let closeButton = defaults.object(forKey: "enableCloseButton") as? Bool ?? true ? "true" : "false"
+        let closeButtonRight = defaults.bool(forKey: "closeButtonOnRight") ? "true" : "false"
+        
+        // Clipboard History & Cycle Paste
+        let clipboardEnableHistory = defaults.object(forKey: "clipboardEnableHistory") as? Bool ?? true
+        let clipboardCyclePasteEnabled = defaults.object(forKey: "clipboardCyclePasteEnabled") as? Bool ?? true
+        let cyclePasteActive = clipboardEnableHistory && clipboardCyclePasteEnabled
+        
+        // AirPods settings
+        let airPodsSettings = MediaKeyManager.shared.airPodsSettings()
+        let airPodsCaseStyle = airPodsSettings.caseOpenStyle // "iosCard" or "glass"
+        let airPodsCaseBehavior = airPodsSettings.caseOpenBehavior // "autoHide" or "persistent"
+        
         TelemetryDeck.signal("appLaunched", parameters: [
             "is_premium": isPremium,
             "display_target": displayTarget,
@@ -75,7 +99,22 @@ final class TelemetryHelper {
             "overlay_color_mode": overlayColorMode,
             "focus_enabled": enableFocus ? "true" : "false",
             "focus_detailed_mode": enableFocus ? (focusDetailMode ? "true" : "false") : "disabled",
-            "focus_mode_style": focusModeStyle
+            "focus_mode_style": focusModeStyle,
+            "design_studio_style": overlayStyle,
+            "design_studio_effective_style": effectiveOverlayStyle,
+            "design_studio_animation": overlayAnimationType,
+            "design_studio_size_mode": overlaySizeMode,
+            "design_studio_bouncy_expansion": bouncyExpansion,
+            "design_studio_swipe_to_dismiss": swipeToDismiss,
+            "design_studio_reverse_swipe": reverseSwipe,
+            "design_studio_three_finger_click": threeFingerClick,
+            "design_studio_close_button": closeButton,
+            "design_studio_close_button_right": closeButtonRight,
+            "clipboard_enable_history": clipboardEnableHistory ? "true" : "false",
+            "clipboard_cycle_paste_enabled": clipboardCyclePasteEnabled ? "true" : "false",
+            "clipboard_cycle_paste_active": cyclePasteActive ? "true" : "false",
+            "airpods_case_overlay_style": airPodsCaseStyle,
+            "airpods_case_overlay_duration": airPodsCaseBehavior
         ])
     }
     

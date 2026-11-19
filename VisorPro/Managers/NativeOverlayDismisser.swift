@@ -228,9 +228,16 @@ final class NativeOverlayDismisser {
                              lowerAllText.contains("do not disturb") || lowerAllText.contains("nie przeszkadzać") ||
                              lowerAllText.contains("sleep") || lowerAllText.contains("sen") || lowerAllText.contains("bedtime") ||
                              lowerAllText.contains("work") || lowerAllText.contains("praca") ||
-                             lowerAllText.contains("personal") || lowerAllText.contains("osobisty")
+                             lowerAllText.contains("personal") || lowerAllText.contains("osobisty") ||
+                             lowerAllText.contains("fitness") || lowerAllText.contains("trening") || lowerAllText.contains("running") || lowerAllText.contains("workout") ||
+                             lowerAllText.contains("szkoła") || lowerAllText.contains("school") || lowerAllText.contains("study") || lowerAllText.contains("nauka") || lowerAllText.contains("itunes") ||
+                             lowerAllText.contains("reading") || lowerAllText.contains("czytanie") ||
+                             lowerAllText.contains("gaming") || lowerAllText.contains("gry") || lowerAllText.contains("gra") ||
+                             lowerAllText.contains("driving") || lowerAllText.contains("samochód") || lowerAllText.contains("kierowanie")
         let hasFocusSymbol = nestedIdentifiers.contains(where: {
-            $0.contains("moon") || $0.contains("bed.double") || $0.contains("briefcase") || $0.contains("person.fill") || $0.contains("apple.intelligence")
+            $0.contains("moon") || $0.contains("bed.double") || $0.contains("briefcase") || $0.contains("person.fill") ||
+            $0.contains("apple.intelligence") || $0.contains("figure.") || $0.contains("graduationcap") ||
+            $0.contains("book") || $0.contains("gamecontroller") || $0.contains("car.")
         })
         let isStructurallyFocus = nestedIdentifiers.contains("focus-system-banner") || identifier == "focus-system-banner" || identifier == "focus" || identifier == "donotdisturb" || nestedIdentifiers.contains(where: { $0.contains("focusmode") }) || nestedIdentifiers.contains("_gm") || isFocusKeyword || hasFocusSymbol
         
@@ -382,62 +389,9 @@ final class NativeOverlayDismisser {
             }
         }
         
-        // Native banner dismissal is disabled/commented out because macOS (especially Sequoia+)
+        // Native banner dismissal is disabled because macOS (especially Sequoia+)
         // does not allow reliable off-screen repositioning and doing so interrupts interactive
-        // system controls (such as the volume slider gesture from headphones, causing volume changes to freeze).
-        /*
-        if shouldIntercept {
-            print("NativeOverlayDismisser: ⚠️ INTERCEPTING BANNER. Trying hover-and-click method...")
-            
-            // Do NOT move off-screen immediately! If we move it to -5000,-5000, the frame.midX becomes -5000,
-            // which causes the mouse click to hit the top-left of the screen (Safari URL bar).
-            
-            var frameRef: CFTypeRef?
-            if AXUIElementCopyAttributeValue(element, "AXFrame" as CFString, &frameRef) == .success {
-                var frame = CGRect.zero
-                if AXValueGetValue(frameRef as! AXValue, .cgRect, &frame) {
-                    let centerPoint = CGPoint(x: frame.midX, y: frame.midY)
-                    print("NativeOverlayDismisser: Banner frame is \(frame). Center is \(centerPoint).")
-                    
-                    if frame.width < 50 || frame.height < 50 {
-                        print("NativeOverlayDismisser: Ignoring small dummy window.")
-                    } else {
-                        // macOS Sequoia Architecture Limitation:
-                        // 1. AXPosition cannot move it (SwiftUI forces it back at 60Hz).
-                        // 2. AXCloseButton does not exist in the Accessibility Tree (it's purely a visual CoreAnimation layer).
-                        // 3. postToPid(ESC) and app.hide() are ignored by ControlCenter LSUIElements.
-                        // 4. Gestures (ScrollWheel/Swipe) are not supported by this specific banner type.
-                        // 5. Physical cursor warp to hover & click causes unacceptable visual glitches.
-                        // 
-                        // Conclusion: There is no programmatic way to silently dismiss this banner.
-                        // The user MUST disable "Allow Notifications" for Focus mode in macOS System Settings.
-                        print("NativeOverlayDismisser: Cannot programmatically dismiss Sequoia Focus banner. Please disable in System Settings.")
-                    }
-                }
-            } else {
-                print("NativeOverlayDismisser: Failed to get AXFrame for banner!")
-            }
-            
-            // Move off-screen in the background ONLY after a small delay so we don't break the hover click
-            DispatchQueue.global(qos: .userInteractive).async {
-                Thread.sleep(forTimeInterval: 0.3)
-                print("NativeOverlayDismisser: Starting off-screen loop fallback...")
-                let endTime = Date().addingTimeInterval(2.5)
-                while Date() < endTime {
-                    var roleRef: CFTypeRef?
-                    if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef) != .success {
-                        print("NativeOverlayDismisser: Banner died.")
-                        break
-                    }
-                    var pt = CGPoint(x: -5000, y: -5000)
-                    if let pv = AXValueCreate(.cgPoint, &pt) {
-                        AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, pv)
-                    }
-                    Thread.sleep(forTimeInterval: 0.02)
-                }
-            }
-        }
-        */
+        // system controls (such as the volume slider gesture from headphones).
     }
     
     func clickUndoSmartRouting(targetName: String = "") {

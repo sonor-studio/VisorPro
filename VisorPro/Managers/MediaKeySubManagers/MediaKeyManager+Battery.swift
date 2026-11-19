@@ -241,10 +241,10 @@ extension MediaKeyManager {
     func dismissAirpodsGroupBatteryIndicator() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            AirPodsBatteryManager.shared.handleOverlayDismissed()
             if self.showAirpodsGroupBatteryIndicator {
                 self.cancelOverlayHide(for: "airpodsGroupBattery")
                 self.showAirpodsGroupBatteryIndicator = false
-                AirPodsBatteryManager.shared.handleOverlayDismissed()
                 self.notifyOverlayStateChanged()
             }
         }
